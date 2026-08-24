@@ -18,6 +18,7 @@
 
 /* Needs to be compiles as Objective C++ on OS X */
 
+#include "C4File.h"
 #include <C4Group.h>
 
 #include <C4Components.h>
@@ -42,6 +43,7 @@
 #include <StdSha1.h>
 #include <fcntl.h>
 
+#include <array>
 #include <cstring>
 #include <print>
 
@@ -438,23 +440,26 @@ bool C4Group_GetFileCRC(const char *szFilename, uint32_t *pCRC32)
 		fTemporary = true;
 	}
 	// open file
-	CStdFile File;
-	if (!File.Open(szPath))
+	C4File file{szPath, "rb"};
+	if (!file)
 		return false;
 	// calculcate CRC
 	uint32_t iCRC32 = 0;
 	for (;;)
 	{
 		// read a chunk of data
-		uint8_t szData[CStdFileBufSize]; size_t iSize = 0;
-		if (!File.Read(szData, CStdFileBufSize, &iSize))
-			if (!iSize)
-				break;
+		std::array<std::uint8_t, CStdFileBufSize> data;
+		const auto result = file.Read(data.data(), data.size());
+		if (!result || !*result)
+		{
+			break;
+		}
+
 		// update CRC
-		iCRC32 = crc32(iCRC32, szData, checked_cast<unsigned int>(iSize));
+		iCRC32 = crc32(iCRC32, data.data(), checked_cast<unsigned int>(data.size()));
 	}
 	// close file
-	File.Close();
+	file.Close();
 	// okay
 	*pCRC32 = iCRC32;
 
@@ -494,23 +499,25 @@ bool C4Group_GetFileSHA1(const char *szFilename, uint8_t *pSHA1)
 		fTemporary = true;
 	}
 	// open file
-	CStdFile File;
-	if (!File.Open(szPath))
+	C4File file{szPath, "rb"};
+	if (!file)
 		return false;
 	// calculcate CRC
 	StdSha1 sha1;
 	for (;;)
 	{
 		// read a chunk of data
-		uint8_t szData[CStdFileBufSize]; size_t iSize = 0;
-		if (!File.Read(szData, CStdFileBufSize, &iSize))
-			if (!iSize)
-				break;
+		std::array<std::uint8_t, CStdFileBufSize> data;
+		const auto result = file.Read(data.data(), data.size());
+		if (!result)
+		{
+			break;
+		}
 		// update CRC
-		sha1.Update(szData, iSize);
+		sha1.Update(data.data(), *result);
 	}
 	// close file
-	File.Close();
+	file.Close();
 
 	if (fTemporary)
 	{
@@ -675,8 +682,8 @@ bool C4Group::Open(const char *szGroupName, bool fCreate, const OpenFlags openFl
 	// If requested, try creating a new group file
 	if (fCreate)
 	{
-		CStdFile temp;
-		if (temp.Create(szGroupNameN, false))
+		C4File temp{szGroupNameN, "wb"};
+		if (temp)
 		{
 			// Temporary file has been created
 			temp.Close();
@@ -2512,45 +2519,10 @@ bool C4Group::CalcCRC32(C4GroupEntry *pEntry)
 	return true;
 }
 
-bool C4Group::OpenChild(const char *strEntry)
-{
-	// hack: The seach-handle would be closed twice otherwise
-	FolderSearch.Reset();
-	// Create a memory copy of ourselves
-	C4Group *pOurselves = new C4Group;
-	*pOurselves = *this;
-
-	// Open a child from the memory copy
-	C4Group hChild;
-	if (!hChild.OpenAsChild(pOurselves, strEntry, false))
-	{
-		// Silently delete our memory copy
-		pOurselves->Default(); delete pOurselves;
-		return false;
-	}
-
-	// hack: The seach-handle would be closed twice otherwise
-	FolderSearch.Reset();
-	hChild.FolderSearch.Reset();
-
-	// We now become our own child
-	*this = hChild;
-
-	// Make ourselves exclusive (until we hit our memory copy parent)
-	for (C4Group *pGroup = this; pGroup != pOurselves; pGroup = pGroup->Mother)
-		pGroup->ExclusiveChild = true;
-
-	// Reset the temporary child variable so it doesn't delete anything
-	hChild.Default();
-
-	// Yeehaw
-	return true;
-}
-
-bool C4Group::OpenMother()
+C4Group *C4Group::GrabMother()
 {
 	// This only works if we are an exclusive child
-	if (!Mother || !ExclusiveChild) return false;
+	if (!Mother || !ExclusiveChild) return nullptr;
 
 	// Store a pointer to our mother
 	C4Group *pMother = Mother;
@@ -2559,18 +2531,7 @@ bool C4Group::OpenMother()
 	ExclusiveChild = false;
 	Clear();
 
-	// hack: The seach-handle would be closed twice otherwise
-	pMother->FolderSearch.Reset();
-	FolderSearch.Reset();
-	// We now become our own mother (whoa!)
-	*this = *pMother;
-
-	// Now silently delete our former mother
-	pMother->Default();
-	delete pMother;
-
-	// Yeehaw
-	return true;
+	return pMother;
 }
 
 #ifndef NDEBUG

@@ -158,19 +158,28 @@ bool C4TableGraph::DumpToFile(const StdStrBuf &rszFilename, bool fAppend) const
 	// nothing to write?
 	if (!fWrapped && !iBackLogPos) return false;
 	// try append if desired; create if unsuccessful
-	CStdFile out;
-	if (fAppend) if (!out.Append(rszFilename.getData())) fAppend = false;
+	C4File out;
+	if (fAppend)
+	{
+		if (!out.Open(rszFilename.getData(), "a"))
+		{
+			fAppend = false;
+		}
+	}
 	if (!fAppend)
 	{
-		if (!out.Create(rszFilename.getData())) return false;
+		if (!out.Open(rszFilename.getData(), "w")) return false;
 		// print header
-		out.WriteString("t\tv\r\n");
+		if (!out.WriteString("t\tv\r\n")) return false;
 	}
 	// write out current timeframe
 	int iEndTime = GetEndTime();
 	for (int iWriteTime = GetStartTime(); iWriteTime < iEndTime; ++iWriteTime)
 	{
-		out.WriteString(std::format("{}\t{}\r\n", iWriteTime, GetValue(iWriteTime)).c_str());
+		if (!out.WriteString("{}\t{}\r\n", iWriteTime, GetValue(iWriteTime)))
+		{
+			return false;
+		}
 	}
 	return true;
 }

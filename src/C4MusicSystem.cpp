@@ -390,14 +390,12 @@ void C4MusicSystem::LoadDir(const char *const path)
 void C4MusicSystem::LoadMoreMusic()
 {
 	// Read MoreMusic.txt file or cancel if not present
-	CStdFile MoreMusicFile;
-	std::uint8_t *fileContentsTmp; size_t size;
-	if (!MoreMusicFile.Load(Config.AtExePath(C4CFN_MoreMusic), &fileContentsTmp, &size)) return;
-	std::unique_ptr<std::uint8_t[]> fileContents(fileContentsTmp);
+	const auto result = C4File::LoadContentsAsString(Config.AtExePath(C4CFN_MoreMusic));
+	if (!result) return;
 
 	// read contents
-	const char *rest = reinterpret_cast<const char *>(fileContents.get());
-	const auto end = rest + size;
+	const char *rest = reinterpret_cast<const char *>(result->c_str());
+	const auto end = rest + result->size();
 
 	while (rest != end)
 	{

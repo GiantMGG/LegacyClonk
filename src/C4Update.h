@@ -19,6 +19,7 @@
 #pragma once
 
 #include "C4Constants.h"
+#include "C4File.h"
 #include "C4Group.h"
 #include "StdOSVersion.h"
 
@@ -72,13 +73,19 @@ protected:
 
 	bool MkUp(C4Group *pGrp1, C4Group *pGrp2, C4GroupEx *pUpGr, bool &includeInUpdate);
 
-	CStdFile Log;
+	C4File Log;
 
 	template<typename... Args>
 	void WriteLog(const std::format_string<Args...> fmt, Args &&... args)
 	{
-		const std::string output{std::format(fmt, std::forward<Args>(args)...)};
-		Log.Write(output.c_str(), output.size());
+		if constexpr (sizeof...(Args) > 0)
+		{
+			Log.WriteStringLine(fmt, std::forward<Args>(args)...);
+		}
+		else
+		{
+			Log.WriteStringLine(fmt.get());
+		}
 		Log.Flush();
 	}
 };

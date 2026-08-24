@@ -332,16 +332,4 @@ size_t UncompressedFileSize(const char *szFilename)
 	}
 }
 
-size_t CStdFile::AccessedEntrySize()
-{
-	if (hFile)
-	{
-		long pos = std::ftell(hFile);
-		std::fseek(hFile, 0, SEEK_END);
-		long r = std::ftell(hFile);
-		std::fseek(hFile, pos, SEEK_SET);
-		return static_cast<size_t>(r);
-	}
-	assert(!readCompressedFile);
-	return 0;
-}
+
