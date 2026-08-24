@@ -3,7 +3,7 @@
  *
  * Copyright (c) 2001-2009, RedWolf Design GmbH, http://www.clonk.de/
  * Copyright (c) 2010-2016, The OpenClonk Team and contributors
- * Copyright (c) 2019-2021, The LegacyClonk Team and contributors
+ * Copyright (c) 2019-2024, The LegacyClonk Team and contributors
  *
  * Distributed under the terms of the ISC license; see accompanying file
  * "COPYING" for details.
@@ -15,7 +15,6 @@
  * for the above references.
  */
 
-#include "C4Include.h"
 #ifndef _WIN32
 #include <arpa/inet.h>
 #include <ifaddrs.h>
@@ -494,12 +493,7 @@ void C4Network2Address::CompileFunc(StdCompiler *const comp)
 		addr.Clear();
 	}
 
-	// Write protocol
-	const StdEnumEntry<C4Network2IOProtocol> Protocols[]{
-		{ "UDP",   P_UDP },
-		{ "TCP",   P_TCP }
-	};
-	comp->Value(mkEnumAdaptT<std::uint8_t>(protocol, Protocols));
+	comp->Value(mkEnumAdapt(protocol));
 	comp->Separator(StdCompiler::SEP_PART2); // ':'
 
 	comp->Value(mkDefaultAdapt(addr, C4Network2EndpointAddress{}));

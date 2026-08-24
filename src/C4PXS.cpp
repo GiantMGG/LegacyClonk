@@ -16,7 +16,6 @@
 
 /* Pixel Sprite system for tiny bits of moving material */
 
-#include <C4Include.h>
 #include <C4PXS.h>
 
 #include <C4Physics.h>
@@ -98,6 +97,7 @@ void C4PXS::Execute()
 		inmat = GBackMat(inX, inY);
 		C4MaterialReaction *pReact = Game.Material.GetReactionUnsafe(Mat, inmat);
 		if (pReact)
+		{
 			if ((*pReact->pFunc)(pReact, iX, iY, inX, inY, xdir, ydir, Mat, inmat, meePXSMove, &fStopMovement))
 			{
 				// destructive contact
@@ -114,6 +114,7 @@ void C4PXS::Execute()
 				}
 				// there was a reaction func, but it didn't do anything - continue movement
 			}
+		}
 		iX = inX; iY = inY;
 	} while (iX != iToX || iY != iToY);
 
@@ -214,7 +215,9 @@ void C4PXSSystem::Execute()
 	// Execute all chunks
 	Count = 0;
 	for (unsigned int cchunk = 0; cchunk < PXSMaxChunk; cchunk++)
+	{
 		if (Chunk[cchunk])
+		{
 			// empty chunk?
 			if (!iChunkPXS[cchunk])
 			{
@@ -231,6 +234,8 @@ void C4PXSSystem::Execute()
 						Count++;
 					}
 			}
+		}
+	}
 }
 
 void C4PXSSystem::Draw(C4FacetEx &cgo)

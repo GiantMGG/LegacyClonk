@@ -3,7 +3,7 @@
  *
  * Copyright (c) RedWolf Design
  * Copyright (c) 2001, Sven2
- * Copyright (c) 2017-2021, The LegacyClonk Team and contributors
+ * Copyright (c) 2017-2024, The LegacyClonk Team and contributors
  *
  * Distributed under the terms of the ISC license; see accompanying file
  * "COPYING" for details.
@@ -17,7 +17,6 @@
 
 // engine font loading
 
-#include <C4Include.h>
 #include <C4Fonts.h>
 
 #include <C4Config.h>
@@ -106,7 +105,7 @@ void C4FontLoader::Clear()
 	FontDefs.clear();
 	// delete loaded vector fonts
 	C4VectorFont *pVecFont, *pNextVecFont = pVectorFonts;
-	while (pVecFont = pNextVecFont)
+	while ((pVecFont = pNextVecFont))
 	{
 		pNextVecFont = pVecFont->pNext;
 		delete pVecFont;
@@ -252,7 +251,7 @@ bool C4FontLoader::InitFont(CStdFont &rFont, const char *szFontName, FontType eT
 			{
 				// reloading
 				rFont.Clear();
-				Log(C4ResStrTableKey::IDS_PRC_UPDATEFONT, +FontFaceName, iIndent, 0);
+				Log(C4ResStrTableKey::IDS_PRC_UPDATEFONT, FontFaceName, iIndent, 0);
 			}
 			C4Surface sfc;
 			if (!sfc.Load(*pGrp, FontFaceName))
@@ -301,7 +300,7 @@ bool C4FontLoader::InitFont(CStdFont &rFont, const char *szFontName, FontType eT
 			{
 				// reloading
 				rFont.Clear();
-				Log(C4ResStrTableKey::IDS_PRC_UPDATEFONT, +FontFaceName, iDefFontSize, dwDefWeight);
+				Log(C4ResStrTableKey::IDS_PRC_UPDATEFONT, FontFaceName, iDefFontSize, dwDefWeight);
 			}
 			// init with given font name
 			try
@@ -324,13 +323,13 @@ bool C4FontLoader::InitFont(CStdFont &rFont, const char *szFontName, FontType eT
 					{
 						AddVectorFont(pFont);
 						if (!InitFont(rFont, pFont, iDefFontSize, dwDefWeight, fDoShadow))
-							throw std::runtime_error(std::format("Error initializing font {}", +FontFaceName));
+							throw std::runtime_error(std::format("Error initializing font {}", FontFaceName));
 					}
 					else
 					{
 						delete pFont;
 						// no match for font face found
-						throw std::runtime_error(std::format("Font face {} undefined", +FontFaceName));
+						throw std::runtime_error(std::format("Font face {} undefined", FontFaceName));
 					}
 				}
 			}

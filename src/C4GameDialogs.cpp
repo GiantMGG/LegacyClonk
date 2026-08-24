@@ -3,7 +3,7 @@
  *
  * Copyright (c) RedWolf Design
  * Copyright (c) 2005, Sven2
- * Copyright (c) 2017-2021, The LegacyClonk Team and contributors
+ * Copyright (c) 2017-2024, The LegacyClonk Team and contributors
  *
  * Distributed under the terms of the ISC license; see accompanying file
  * "COPYING" for details.
@@ -18,7 +18,6 @@
 // main game dialogs (abort game dlg, observer dlg)
 
 #include "C4GuiResource.h"
-#include <C4Include.h>
 #include <C4GameDialogs.h>
 
 #include <C4Viewport.h>

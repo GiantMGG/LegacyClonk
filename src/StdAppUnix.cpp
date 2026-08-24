@@ -3,7 +3,7 @@
  *
  * Copyright (c) RedWolf Design
  * Copyright (c) 2005, Günther
- * Copyright (c) 2017-2023, The LegacyClonk Team and contributors
+ * Copyright (c) 2017-2026, The LegacyClonk Team and contributors
  *
  * Distributed under the terms of the ISC license; see accompanying file
  * "COPYING" for details.
@@ -24,6 +24,7 @@
 
 #include <poll.h>
 #include <sys/time.h>
+#include <unistd.h>
 
 #ifdef USE_X11
 #include <string_view>
@@ -595,7 +596,7 @@ bool CStdApp::ReadStdInCommand()
 			CmdBuf.Clear();
 		}
 	}
-	else if (std::isprint(c))
+	else if (C4Strings::IsPrint(c))
 	{
 		CmdBuf.AppendChar(c);
 	}

@@ -3,7 +3,7 @@
  *
  * Copyright (c) RedWolf Design
  * Copyright (c) 2001, Sven2
- * Copyright (c) 2017-2021, The LegacyClonk Team and contributors
+ * Copyright (c) 2017-2024, The LegacyClonk Team and contributors
  *
  * Distributed under the terms of the ISC license; see accompanying file
  * "COPYING" for details.
@@ -17,7 +17,6 @@
 
 // scenario record functionality
 
-#include <C4Include.h>
 #include <C4Record.h>
 
 #include <C4Console.h>
@@ -142,7 +141,7 @@ bool C4Record::Start(bool fInitial)
 			Index++;
 
 	// compose record filename
-	sFilename.Copy(std::format("{}" DirSep "{:03}-{}.c4s", sDemoFolder.getData(), Index, +sScenName).c_str());
+	sFilename.Copy(std::format("{}" DirSep "{:03}-{}.c4s", sDemoFolder.getData(), Index, sScenName).c_str());
 
 	// log
 	std::string log{LoadResStr(C4ResStrTableKey::IDS_PRC_RECORDINGTO, sFilename.getData())};
@@ -636,7 +635,7 @@ StdBuf C4Playback::ReWriteBinary()
 	for (chunks_t::const_iterator i = chunks.begin(); !fFinished && i != chunks.end(); i++)
 	{
 		// Check frame difference
-		if (i->Frame - iFrame < 0 || i->Frame - iFrame > 0xff)
+		if (iFrame > i->Frame || i->Frame - iFrame > 0xff)
 			logger->error("Invalid frame difference between chunks (0-255 allowed)! Data will be invalid!");
 		// Pack data
 		StdBuf Chunk;
@@ -880,7 +879,7 @@ void C4Playback::Clear()
 	fLoadSequential = false;
 #ifdef DEBUGREC
 	C4IDPacket *pkt;
-	while (pkt = DebugRec.firstPkt()) DebugRec.Delete(pkt);
+	while ((pkt = DebugRec.firstPkt())) DebugRec.Delete(pkt);
 #ifdef DEBUGREC_EXTFILE
 	DbgRecFile.Close();
 #endif
@@ -988,7 +987,7 @@ void C4Playback::Check(C4RecordChunkType eType, const uint8_t *pData, int iSize)
 #else
 	// check debug rec in list
 	C4IDPacket *pkt;
-	if (pkt = DebugRec.firstPkt())
+	if ((pkt = DebugRec.firstPkt()))
 	{
 		// copy from list
 		PktInReplay = *static_cast<C4PktDebugRec *>(pkt->getPkt());

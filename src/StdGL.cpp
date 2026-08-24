@@ -3,7 +3,7 @@
  *
  * Copyright (c) RedWolf Design
  * Copyright (c) 2001, Sven2
- * Copyright (c) 2017-2022, The LegacyClonk Team and contributors
+ * Copyright (c) 2017-2024, The LegacyClonk Team and contributors
  *
  * Distributed under the terms of the ISC license; see accompanying file
  * "COPYING" for details.
@@ -30,10 +30,8 @@
 #ifndef USE_CONSOLE
 
 #include <array>
-
-#include <stdio.h>
-#include <math.h>
-#include <limits.h>
+#include <cstdio>
+#include <cmath>
 
 void CStdGLShader::Compile()
 {
@@ -399,7 +397,7 @@ bool CStdGL::UpdateClipper()
 	glLineWidth(scale);
 	glPointSize(scale);
 	// set it
-	glViewport(static_cast<int32_t>(floorf(iX * scale)), static_cast<int32_t>(floorf((RenderTarget->Hgt - iY - iHgt) * scale)), static_cast<int32_t>(ceilf(iWdt * scale)), static_cast<int32_t>(ceilf(iHgt * scale)));
+	glViewport(static_cast<int32_t>(std::floor(iX * scale)), static_cast<int32_t>(std::floor((RenderTarget->Hgt - iY - iHgt) * scale)), static_cast<int32_t>(std::ceil(iWdt * scale)), static_cast<int32_t>(std::ceil(iHgt * scale)));
 	glMatrixMode(GL_PROJECTION);
 	glLoadIdentity();
 	gluOrtho2D(

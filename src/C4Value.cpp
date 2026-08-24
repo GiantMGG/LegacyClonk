@@ -2,7 +2,7 @@
  * LegacyClonk
  *
  * Copyright (c) RedWolf Design
- * Copyright (c) 2017-2022, The LegacyClonk Team and contributors
+ * Copyright (c) 2017-2025, The LegacyClonk Team and contributors
  *
  * Distributed under the terms of the ISC license; see accompanying file
  * "COPYING" for details.
@@ -14,14 +14,13 @@
  * for the above references.
  */
 
-#include <C4Include.h>
 #include <C4Value.h>
 #include <C4Aul.h>
 #include <C4StringTable.h>
 #include <C4ValueList.h>
 #include <C4ValueHash.h>
 
-#include <cinttypes>
+#include <bit>
 #include <functional>
 #include <format>
 #include <string_view>
@@ -769,6 +768,7 @@ void C4Value::CompileFunc(StdCompiler *pComp)
 	case C4V_C4Object:
 		if (!fCompiler)
 			iTmp = Game.Objects.ObjectNumber(getObj());
+		[[fallthrough]];
 	case C4V_C4ObjectEnum:
 		if (!fCompiler) if (Type == C4V_C4ObjectEnum)
 			iTmp = Data.Int;
@@ -926,18 +926,16 @@ namespace
 	{
 		if constexpr (sizeof(std::size_t) == 4)
 		{
-#define rotateLeft32(x, r) (x << r) | (x >> (32 - r))
 			constexpr std::size_t c1 = 0xcc9e2d51;
 			constexpr std::size_t c2 = 0x1b873593;
 
 			nextHash *= c1;
-			nextHash = rotateLeft32(nextHash, 15);
+			nextHash = std::rotl(nextHash, 15);
 			nextHash *= c2;
 
 			hash ^= nextHash;
-			hash = rotateLeft32(hash, 13);
+			hash = std::rotl(hash, 13);
 			hash = hash * 5 + 0xe6546b64;
-#undef rotateLeft32
 		}
 		else if constexpr (sizeof(std::size_t) == 8)
 		{

@@ -2,7 +2,7 @@
  * LegacyClonk
  *
  * Copyright (c) RedWolf Design
- * Copyright (c) 2017-2022, The LegacyClonk Team and contributors
+ * Copyright (c) 2017-2024, The LegacyClonk Team and contributors
  *
  * Distributed under the terms of the ISC license; see accompanying file
  * "COPYING" for details.
@@ -17,12 +17,11 @@
 #include "C4Thread.h"
 #include "StdScheduler.h"
 
+#include <cassert>
+#include <cerrno>
+#include <cstdio>
 #include <cstring>
 
-#include <stdio.h>
-
-#include <assert.h>
-#include <errno.h>
 #include <fcntl.h>
 
 #ifdef _WIN32
@@ -30,9 +29,8 @@
 #include <process.h>
 #include <mmsystem.h>
 
-#endif
+#else
 
-#ifndef _WIN32
 #include <ranges>
 #include <unordered_map>
 
@@ -171,7 +169,7 @@ bool StdScheduler::Execute(int iTimeout)
 	}
 	else if (cnt < 0)
 	{
-		printf("StdScheduler::Execute: poll failed %s\n", strerror(errno));
+		std::printf("StdScheduler::Execute: poll failed %s\n", strerror(errno));
 	}
 
 #endif

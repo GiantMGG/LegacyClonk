@@ -2,7 +2,7 @@
  * LegacyClonk
  *
  * Copyright (c) 1998-2000, Matthes Bender (RedWolf Design)
- * Copyright (c) 2017-2022, The LegacyClonk Team and contributors
+ * Copyright (c) 2017-2024, The LegacyClonk Team and contributors
  *
  * Distributed under the terms of the ISC license; see accompanying file
  * "COPYING" for details.
@@ -16,7 +16,6 @@
 
 /* Handles script file components (calls, inheritance, function maps) */
 
-#include <C4Include.h>
 #include <C4ScriptHost.h>
 
 #include <C4Console.h>
@@ -56,7 +55,7 @@ bool C4ScriptHost::Load(const char *szName, C4Group &hGroup, const char *szFilen
 	if (pStringTable && fLoadTable)
 		pStringTable->LoadEx("StringTbl", hGroup, C4CFN_ScriptStringTbl, szLanguage);
 	// set name
-	ScriptName = std::format("{}" DirSep "{}", hGroup.GetFullName().getData(), +Filename);
+	ScriptName = std::format("{}" DirSep "{}", hGroup.GetFullName().getData(), Filename);
 	// preparse script
 	MakeScript();
 	// Success
@@ -124,7 +123,16 @@ C4Value C4ScriptHost::FunctionCall(C4Object *pCaller, const char *szFunction, C4
 	// get needed access
 	C4AulAccess Acc = AA_PRIVATE;
 	if (pObj && (pObj != pCaller) && !fPrivateCall)
-		if (pCaller) Acc = AA_PUBLIC; else Acc = AA_PROTECTED;
+	{
+		if (pCaller)
+		{
+			Acc = AA_PUBLIC;
+		}
+		else
+		{
+			Acc = AA_PROTECTED;
+		}
+	}
 	// get function
 	C4AulScriptFunc *pFn;
 	if (!(pFn = GetSFunc(szFunction, Acc))) return C4VNull;
@@ -194,10 +202,10 @@ void C4DefScriptHost::AfterLink()
 		for (int32_t cnt = 0; cnt < Def->ActNum; cnt++)
 		{
 			C4ActionDef *pad = &Def->ActMap[cnt];
-			FormatWithNull(WhereStr, "Action {}: StartCall", +pad->Name); pad->StartCall = GetSFuncWarn(pad->SStartCall, CallAccess, WhereStr);
-			FormatWithNull(WhereStr, "Action {}: PhaseCall", +pad->Name); pad->PhaseCall = GetSFuncWarn(pad->SPhaseCall, CallAccess, WhereStr);
-			FormatWithNull(WhereStr, "Action {}: EndCall",   +pad->Name); pad->EndCall   = GetSFuncWarn(pad->SEndCall,   CallAccess, WhereStr);
-			FormatWithNull(WhereStr, "Action {}: AbortCall", +pad->Name); pad->AbortCall = GetSFuncWarn(pad->SAbortCall, CallAccess, WhereStr);
+			FormatWithNull(WhereStr, "Action {}: StartCall", pad->Name); pad->StartCall = GetSFuncWarn(pad->SStartCall, CallAccess, WhereStr);
+			FormatWithNull(WhereStr, "Action {}: PhaseCall", pad->Name); pad->PhaseCall = GetSFuncWarn(pad->SPhaseCall, CallAccess, WhereStr);
+			FormatWithNull(WhereStr, "Action {}: EndCall",   pad->Name); pad->EndCall   = GetSFuncWarn(pad->SEndCall,   CallAccess, WhereStr);
+			FormatWithNull(WhereStr, "Action {}: AbortCall", pad->Name); pad->AbortCall = GetSFuncWarn(pad->SAbortCall, CallAccess, WhereStr);
 		}
 		Def->TimerCall = GetSFuncWarn(Def->STimerCall, CallAccess, "TimerCall");
 	}
@@ -235,7 +243,7 @@ C4Value C4GameScriptHost::GRBroadcast(const char *szFunction, const C4AulParSet 
 {
 	// call objects first - scenario script might overwrite hostility, etc...
 	C4Object *pObj;
-	for (C4ObjectLink *clnk = Game.Objects.ObjectsInt().First; clnk; clnk = clnk->Next) if (pObj = clnk->Obj)
+	for (C4ObjectLink *clnk = Game.Objects.ObjectsInt().First; clnk; clnk = clnk->Next) if ((pObj = clnk->Obj))
 		if (pObj->Category & (C4D_Goal | C4D_Rule | C4D_Environment))
 			if (pObj->Status)
 			{

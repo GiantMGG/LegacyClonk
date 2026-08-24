@@ -3,7 +3,7 @@
  *
  * Copyright (c) RedWolf Design
  * Copyright (c) 2001, Sven2
- * Copyright (c) 2017-2022, The LegacyClonk Team and contributors
+ * Copyright (c) 2017-2024, The LegacyClonk Team and contributors
  *
  * Distributed under the terms of the ISC license; see accompanying file
  * "COPYING" for details.
@@ -17,7 +17,6 @@
 
 // the ingame-lobby
 
-#include <C4Include.h>
 #include <C4GameLobby.h>
 #include "C4GameControl.h"
 
@@ -75,15 +74,15 @@ ScenDesc::ScenDesc(const C4Rect &rcBounds, bool fActive) : C4GUI::Window(), fDes
 void ScenDesc::Update()
 {
 	// scenario present?
-	C4Network2Res *pRes = Game.Parameters.Scenario.getNetRes();
-	if (!pRes) return; // something's wrong
+	const C4Network2Res::Ref res{Game.Parameters.Scenario.getNetRes()};
+	if (!res) return; // something's wrong
 	CStdFont &rTitleFont = C4GUI::GetRes()->CaptionFont;
 	CStdFont &rTextFont = C4GUI::GetRes()->TextFont;
 	pDescBox->ClearText(false);
-	if (pRes->isComplete())
+	if (res->isComplete())
 	{
 		C4Group ScenarioFile;
-		if (!ScenarioFile.Open(pRes->getFile()))
+		if (!ScenarioFile.Open(res->getFile()))
 		{
 			pDescBox->AddTextLine("scenario file load error", &rTextFont, C4GUI_MessageFontClr, false, true);
 		}
@@ -110,7 +109,7 @@ void ScenDesc::Update()
 	}
 	else
 	{
-		pDescBox->AddTextLine(LoadResStr(C4ResStrTableKey::IDS_MSG_SCENARIODESC_LOADING, static_cast<int>(pRes->getPresentPercent())).c_str(),
+		pDescBox->AddTextLine(LoadResStr(C4ResStrTableKey::IDS_MSG_SCENARIODESC_LOADING, static_cast<int>(res->getPresentPercent())).c_str(),
 			&rTextFont, C4GUI_MessageFontClr, false, true);
 	}
 	pDescBox->UpdateHeight();
@@ -516,7 +515,7 @@ C4GUI::InputResult MainDlg::OnChatInput(C4GUI::Edit *pEdt, bool fPasting, bool f
 			if (SEqualNoCase(Command, "/joinplr"))
 			{
 				// compose path from given filename
-				const std::string plrPath{std::format("{}{}", +Config.General.PlayerPath, szPar)};
+				const std::string plrPath{std::format("{}{}", Config.General.PlayerPath, szPar)};
 				// player join - check filename
 				if (!ItemExists(plrPath.c_str()))
 				{
@@ -538,7 +537,7 @@ C4GUI::InputResult MainDlg::OnChatInput(C4GUI::Edit *pEdt, bool fPasting, bool f
 					StdStrBuf sPlrName;
 					sPlrName.Copy(szPar, iSepPos);
 					szPar += iSepPos + 1; int32_t id = 0;
-					while (pNfo = Game.PlayerInfos.GetNextPlayerInfoByID(id))
+					while ((pNfo = Game.PlayerInfos.GetNextPlayerInfoByID(id)))
 					{
 						id = pNfo->GetID();
 						if (WildcardMatch(sPlrName.getData(), pNfo->GetName())) break;
@@ -1108,7 +1107,7 @@ void LobbyError(const char *szErrorMsg)
 
 /* Countdown */
 
-Countdown::Countdown(int32_t iStartTimer) : iStartTimer(iStartTimer), pSec1Timer(nullptr)
+Countdown::Countdown(int32_t iStartTimer) : pSec1Timer(nullptr), iStartTimer(iStartTimer)
 {
 	// only on network hosts
 	assert(Game.Network.isHost());

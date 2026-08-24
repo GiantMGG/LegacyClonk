@@ -3,7 +3,7 @@
  *
  * Copyright (c) RedWolf Design
  * Copyright (c) 2001, Sven2
- * Copyright (c) 2017-2020, The LegacyClonk Team and contributors
+ * Copyright (c) 2017-2026, The LegacyClonk Team and contributors
  *
  * Distributed under the terms of the ISC license; see accompanying file
  * "COPYING" for details.
@@ -18,13 +18,16 @@
 // generic user interface
 // eye candy
 
-#include <C4Include.h>
 #include <C4Gui.h>
 #include <C4FullScreen.h>
 #include <C4LoaderScreen.h>
 #include "C4GuiResource.h"
 #include "C4OpenURL.h"
 #include <C4Application.h>
+
+#include <cassert>
+#include <compare>
+#include <utility>
 
 namespace C4GUI
 {
@@ -50,7 +53,7 @@ void Label::DrawElement(C4FacetEx &cgo)
 }
 
 Label::Label(std::string_view lblText, int32_t iX0, int32_t iTop, int32_t iAlign, uint32_t dwFClr, CStdFont *pFont, bool fMakeReadableOnBlack, bool fMarkup)
-	: Element(), dwFgClr(dwFClr), x0(iX0), iAlign(iAlign), pFont(pFont), cHotkey(0), pClickFocusControl(nullptr), fAutosize(true), fMarkup(fMarkup)
+	: Element(), dwFgClr(dwFClr), x0(iX0), iAlign(iAlign), pFont(pFont), cHotkey(0), fAutosize(true), fMarkup(fMarkup), pClickFocusControl(nullptr)
 {
 	// make color readable
 	if (fMakeReadableOnBlack) MakeColorReadableOnBlack(dwFgClr);
@@ -63,7 +66,7 @@ Label::Label(std::string_view lblText, int32_t iX0, int32_t iTop, int32_t iAlign
 }
 
 Label::Label(std::string_view lblText, const C4Rect &rcBounds, int32_t iAlign, uint32_t dwFClr, CStdFont *pFont, bool fMakeReadableOnBlack, bool fAutosize, bool fMarkup)
-	: Element(), dwFgClr(dwFClr), iAlign(iAlign), pFont(pFont), cHotkey(0), pClickFocusControl(nullptr), fAutosize(fAutosize), fMarkup(fMarkup)
+	: Element(), dwFgClr(dwFClr), iAlign(iAlign), pFont(pFont), cHotkey(0), fAutosize(fAutosize), fMarkup(fMarkup), pClickFocusControl(nullptr)
 {
 	// make color readable
 	if (fMakeReadableOnBlack) MakeColorReadableOnBlack(dwFgClr);
@@ -246,7 +249,7 @@ void MultilineLabel::DrawElement(C4FacetEx &cgo)
 	int32_t iIndex = 0; const char *szLine;
 	int32_t iY = rcBounds.y + cgo.TargetY;
 	CStdFont *pLineFont; uint32_t dwLineClr; bool fNewParagraph;
-	while (szLine = Lines.GetLine(iIndex, &pLineFont, &dwLineClr, &fNewParagraph))
+	while ((szLine = Lines.GetLine(iIndex, &pLineFont, &dwLineClr, &fNewParagraph)))
 	{
 		int32_t iFontLineHeight = pLineFont->GetLineHeight();
 		// indents between paragraphs
@@ -274,9 +277,9 @@ void MultilineLabel::UpdateSize()
 void MultilineLabel::UpdateHeight()
 {
 	// size by line count
-	int32_t iIndex = 0; const char *szLine; int32_t iHgt = 0;
+	int32_t iIndex = 0; int32_t iHgt = 0;
 	CStdFont *pLineFont; bool fNewPar;
-	while (szLine = Lines.GetLine(iIndex, &pLineFont, nullptr, &fNewPar))
+	while (Lines.GetLine(iIndex, &pLineFont, nullptr, &fNewPar))
 	{
 		int32_t iFontLineHeight = pLineFont->GetLineHeight();
 		// indents between separate messages
@@ -393,7 +396,7 @@ bool Picture::EnsureOwnSurface()
 
 void Picture::SetAnimated(bool fEnabled, int iDelay)
 {
-	if (fAnimate = fEnabled)
+	if ((fAnimate = fEnabled))
 	{
 		// starts cycling through all phases of the specified facet
 		iAnimationPhase = iPhaseTime = 0;
@@ -401,26 +404,158 @@ void Picture::SetAnimated(bool fEnabled, int iDelay)
 	}
 }
 
+OverlayFrameSpec::OverlayFrameSpec(const C4Facet &texture, const std::int32_t horizontalFrameSize, const std::int32_t verticalFrameSize) noexcept
+{
+	const C4Facet top{texture.Surface, texture.X, texture.Y, texture.Wdt, verticalFrameSize};
+	const C4Facet bottom{texture.Surface, texture.X, texture.Y + texture.Hgt - verticalFrameSize, texture.Wdt, verticalFrameSize};
+
+	const auto verticalTileY = texture.Y + verticalFrameSize;
+	const auto verticalTileHgt = texture.Hgt - 2 * verticalFrameSize;
+	LeftTile = {texture.Surface, texture.X, verticalTileY, horizontalFrameSize, verticalTileHgt};
+	RightTile = {texture.Surface, texture.X + texture.Wdt - horizontalFrameSize, verticalTileY, horizontalFrameSize, verticalTileHgt};
+	Top.SetHorizontal(top, horizontalFrameSize);
+	Bottom.SetHorizontal(bottom, horizontalFrameSize);
+}
+
 // OverlayPicture
 
-OverlayPicture::OverlayPicture(const C4Rect &rcBounds, bool fAspect, const C4Facet &rOverlayImage, int iBorderSize)
+OverlayPicture::OverlayPicture(const C4Rect &rcBounds, bool fAspect, const OverlayFrameSpec &rOverlayImage, int iBorderSize)
 	: Picture(rcBounds, fAspect), iBorderSize(iBorderSize), OverlayImage(rOverlayImage) {}
 
 void OverlayPicture::DrawElement(C4FacetEx &cgo)
 {
+	const auto targetWidth = rcBounds.Wdt;
+	const auto targetHeight = rcBounds.Hgt;
+
+	const auto innerTargetWidth = targetWidth - 2 * iBorderSize;
+	const auto innerTargetHeight = targetHeight - 2 * iBorderSize;
+
+	std::int32_t drawWidth{targetWidth};
+	std::int32_t drawHeight{targetHeight};
+
+	C4FacetEx overlayCgo = cgo;
+
+	//    w1 : h1 <=> w2 : h2
+	// => w1 * h2 <=> w2 * h1
+	const auto aspectRatioRelation = Facet.Wdt * innerTargetHeight <=> innerTargetWidth * Facet.Hgt;
+	if (!fAspect || std::is_eq(aspectRatioRelation))
+	{
+		// draw outer image
+		overlayCgo.X = rcBounds.x;
+		overlayCgo.Y = rcBounds.y;
+		overlayCgo.Wdt = rcBounds.Wdt;
+		overlayCgo.Hgt = rcBounds.Hgt;
+	}
+	else if (std::is_gt(aspectRatioRelation)) // Scale height
+	{
+		drawHeight = Facet.Hgt * innerTargetWidth / Facet.Wdt + 2 * iBorderSize;
+		const auto drawOffsetY = (targetHeight - drawHeight) / 2;
+
+		overlayCgo.X = rcBounds.x;
+		overlayCgo.Y = rcBounds.y + drawOffsetY;
+		overlayCgo.Wdt = rcBounds.Wdt;
+		overlayCgo.Hgt = drawHeight;
+	}
+	else if (std::is_lt(aspectRatioRelation)) // Scale width
+	{
+		drawWidth = Facet.Wdt * innerTargetHeight / Facet.Hgt + 2 * iBorderSize;
+		const auto drawOffsetX = (targetWidth - drawWidth) / 2;
+
+		overlayCgo.X = rcBounds.x + drawOffsetX;
+		overlayCgo.Y = rcBounds.y;
+		overlayCgo.Wdt = drawWidth;
+		overlayCgo.Hgt = rcBounds.Hgt;
+	}
+	else
+	{
+		assert(!"Aspect ratio comparison logic failed");
+	}
+
+	const auto minUnscaledOverlayWdt = OverlayImage.Top.fctBegin.Wdt + OverlayImage.Top.fctEnd.Wdt;
+	const auto minUnscaledOverlayHgt = OverlayImage.Top.fctBegin.Hgt + OverlayImage.Bottom.fctBegin.Hgt;
+	const auto [overlayScaleNumerator, overlayScaleDenominator] = [minUnscaledOverlayWdt, minUnscaledOverlayHgt, &overlayCgo]
+	{
+		const auto hgtScaleDenominator = std::max(minUnscaledOverlayHgt, overlayCgo.Hgt);
+		const auto wdtScaleDenominator = std::max(minUnscaledOverlayWdt, overlayCgo.Wdt);
+
+		//    w1 : h1 <=> w2 : h2
+		// => w1 * h2 <=> w2 * h1
+		if (wdtScaleDenominator * overlayCgo.Hgt < hgtScaleDenominator * overlayCgo.Wdt)
+		{
+			return std::pair{overlayCgo.Hgt, hgtScaleDenominator};
+		}
+		else
+		{
+			return std::pair{overlayCgo.Wdt, wdtScaleDenominator};
+		}
+	}();
+	const auto scaleOverlay = [overlayScaleNumerator, overlayScaleDenominator](std::int32_t value, bool ceil = false)
+	{
+		return (value * overlayScaleNumerator + ceil * (overlayScaleDenominator - 1)) / overlayScaleDenominator;
+	};
+
+	const auto scaledBorderSize = scaleOverlay(iBorderSize, true);
+
 	// draw inner image
-	C4Facet cgo2 = cgo;
-	cgo2.X = rcBounds.x + cgo.TargetX + iBorderSize * rcBounds.Wdt / std::max<int>(OverlayImage.Wdt, 1);
-	cgo2.Y = rcBounds.y + cgo.TargetY + iBorderSize * rcBounds.Hgt / std::max<int>(OverlayImage.Hgt, 1);
-	cgo2.Wdt = rcBounds.Wdt - 2 * iBorderSize * rcBounds.Wdt / std::max<int>(OverlayImage.Wdt, 1);
-	cgo2.Hgt = rcBounds.Hgt - 2 * iBorderSize * rcBounds.Hgt / std::max<int>(OverlayImage.Hgt, 1);
-	Facet.Draw(cgo2, fAspect);
-	// draw outer image
-	cgo2.X = rcBounds.x + cgo.TargetX;
-	cgo2.Y = rcBounds.y + cgo.TargetY;
-	cgo2.Wdt = rcBounds.Wdt;
-	cgo2.Hgt = rcBounds.Hgt;
-	OverlayImage.Draw(cgo2, fAspect);
+	C4Facet innerCgo{cgo};
+	innerCgo.X = overlayCgo.X + cgo.TargetX + scaledBorderSize;
+	innerCgo.Y = overlayCgo.Y + cgo.TargetY + scaledBorderSize;
+	innerCgo.Wdt = overlayCgo.Wdt - 2 * scaledBorderSize;
+	innerCgo.Hgt = overlayCgo.Hgt - 2 * scaledBorderSize;
+	Facet.Draw(innerCgo, true);
+
+
+	if (!fAspect || std::is_eq(aspectRatioRelation))
+	{
+		// draw outer image
+		overlayCgo.X = rcBounds.x;
+		overlayCgo.Y = rcBounds.y;
+		overlayCgo.Wdt = rcBounds.Wdt;
+		overlayCgo.Hgt = rcBounds.Hgt;
+	}
+	else if (std::is_gt(aspectRatioRelation))	 // Scale height
+	{
+		drawHeight = innerCgo.Wdt * Facet.Hgt / Facet.Wdt + 2 * scaledBorderSize;
+		const auto drawOffsetY = (targetHeight - drawHeight) / 2;
+
+		overlayCgo.X = rcBounds.x;
+		overlayCgo.Y = rcBounds.y + drawOffsetY;
+		overlayCgo.Wdt = rcBounds.Wdt;
+		overlayCgo.Hgt = drawHeight;
+	}
+	else if (std::is_lt(aspectRatioRelation)) //  Scale width
+	{
+		drawWidth = innerCgo.Hgt * Facet.Wdt / Facet.Hgt + 2 * scaledBorderSize;
+		const auto drawOffsetX = (targetWidth - drawWidth) / 2;
+
+		overlayCgo.X = rcBounds.x + drawOffsetX;
+		overlayCgo.Y = rcBounds.y;
+		overlayCgo.Wdt = drawWidth;
+		overlayCgo.Hgt = rcBounds.Hgt;
+	}
+
+	C4FacetEx topBarCgo{overlayCgo};
+	topBarCgo.Hgt = scaleOverlay(OverlayImage.Top.fctBegin.Hgt);
+
+	C4FacetEx bottomBarCgo{overlayCgo};
+	bottomBarCgo.Hgt = scaleOverlay(OverlayImage.Bottom.fctBegin.Hgt);
+	bottomBarCgo.Y += overlayCgo.Hgt - bottomBarCgo.Hgt;
+
+	C4FacetEx leftBarCgo{overlayCgo};
+	leftBarCgo.Wdt = scaleOverlay(OverlayImage.LeftTile.Wdt);
+	leftBarCgo.Y += topBarCgo.Hgt;
+	leftBarCgo.Hgt = overlayCgo.Hgt - topBarCgo.Hgt - bottomBarCgo.Hgt;
+
+	C4FacetEx rightBarCgo{overlayCgo};
+	rightBarCgo.Wdt = scaleOverlay(OverlayImage.RightTile.Wdt);
+	rightBarCgo.X += overlayCgo.Wdt - rightBarCgo.Wdt;
+	rightBarCgo.Y += topBarCgo.Hgt;
+	rightBarCgo.Hgt = overlayCgo.Hgt - topBarCgo.Hgt - bottomBarCgo.Hgt;
+
+	OverlayImage.Top.Draw(topBarCgo);
+	OverlayImage.Bottom.Draw(bottomBarCgo);
+	OverlayImage.LeftTile.DrawVTile(leftBarCgo);
+	OverlayImage.RightTile.DrawVTile(rightBarCgo);
 }
 
 // Icon
@@ -451,8 +586,8 @@ C4FacetEx Icon::GetIconFacet(Icons icoIconIndex)
 
 // TextWindow
 
-TextWindow::TextWindow(const C4Rect &rtBounds, size_t iPicWdt, size_t iPicHgt, size_t iPicPadding, size_t iMaxLines, size_t iMaxTextLen, const char *szIndentChars, bool fAutoGrow, const C4Facet *pOverlayPic, int iOverlayBorder, bool fMarkup)
-	: Control(rtBounds), fDrawBackground(true), fDrawFrame(true), iPicPadding(iPicPadding), pLogBuffer(nullptr)
+TextWindow::TextWindow(const C4Rect &rtBounds, const std::int32_t iPicWdt, const std::int32_t iPicHgt, const std::int32_t iPicPadding, const size_t iMaxLines, const size_t iMaxTextLen, const char *const szIndentChars, const bool fAutoGrow, const OverlayFrameSpec *pOverlayPic, const int iOverlayBorder, const bool fMarkup, const bool keepPictureAspectRatio)
+	: Control(rtBounds), pLogBuffer(nullptr), fDrawBackground(true), fDrawFrame(true), iPicPadding(iPicPadding), iPicWdt(iPicWdt), iPicHgt(iPicHgt), keepPictureAspectRatio(keepPictureAspectRatio)
 {
 	// calc client rect
 	UpdateOwnPos();
@@ -469,16 +604,14 @@ TextWindow::TextWindow(const C4Rect &rtBounds, size_t iPicWdt, size_t iPicHgt, s
 	C4Rect rcContentSize = pClientWindow->GetClientRect();
 	if (iPicWdt && iPicHgt)
 	{
-		C4Rect rcImage;
-		rcImage.x = std::max<int32_t>(rcContentSize.GetMiddleX() - iPicWdt / 2, 0);
-		rcImage.y = 0;
-		rcImage.Wdt = std::min<size_t>(iPicWdt, rcContentSize.Wdt);
-		rcImage.Hgt = iPicHgt * rcImage.Wdt / iPicWdt;
+		const auto imageWidth = rcContentSize.Wdt;
+		const auto imageHeight = keepPictureAspectRatio ? iPicHgt : iPicHgt * imageWidth / iPicWdt;
+		const C4Rect rcImage{0, 0, imageWidth, imageHeight};
 		rcContentSize.y += rcImage.Hgt + iPicPadding;
 		if (pOverlayPic)
-			pTitlePicture = new OverlayPicture(rcImage, false, *pOverlayPic, iOverlayBorder);
+			pTitlePicture = new OverlayPicture(rcImage, keepPictureAspectRatio, *pOverlayPic, iOverlayBorder);
 		else
-			pTitlePicture = new Picture(rcImage, false);
+			pTitlePicture = new Picture(rcImage, keepPictureAspectRatio);
 		pClientWindow->AddElement(pTitlePicture);
 	}
 	else pTitlePicture = nullptr;
@@ -497,6 +630,26 @@ void TextWindow::UpdateSize()
 	rcChildBounds.y = pTitlePicture ? pTitlePicture->GetBounds().Hgt + iPicPadding : 0;
 	rcChildBounds.Wdt = pClientWindow->GetClientRect().Wdt;
 	pLogBuffer->SetBounds(rcChildBounds);
+
+	C4Rect rcContentSize = pClientWindow->GetClientRect();
+	if (pTitlePicture != nullptr)
+	{
+		C4Rect rcImage;
+		rcImage.x = 0;
+		rcImage.y = 0;
+		rcImage.Wdt = rcContentSize.Wdt;
+
+		if (keepPictureAspectRatio)
+		{
+			rcImage.Hgt = iPicHgt;
+		}
+		else
+		{
+			rcImage.Hgt = iPicHgt * rcImage.Wdt / iPicWdt;
+		}
+		rcContentSize.y += rcImage.Hgt + iPicPadding;
+		pTitlePicture->SetBounds(rcImage);
+	}
 }
 
 void TextWindow::DrawElement(C4FacetEx &cgo)

@@ -3,7 +3,7 @@
  *
  * Copyright (c) RedWolf Design
  * Copyright (c) 2018, The OpenClonk Team and contributors
- * Copyright (c) 2017-2020, The LegacyClonk Team and contributors
+ * Copyright (c) 2017-2024, The LegacyClonk Team and contributors
  *
  * Distributed under the terms of the ISC license; see accompanying file
  * "COPYING" for details.
@@ -14,8 +14,6 @@
  * To redistribute this file separately, substitute the full license texts
  * for the above references.
  */
-
-#include "C4Include.h"
 
 #include "C4Game.h"
 #include "C4Network2Res.h"
@@ -186,7 +184,8 @@ void C4IDPacket::Default()
 
 void C4IDPacket::Clear()
 {
-	if (fOwnPkt) delete pPkt; pPkt = nullptr;
+	if (fOwnPkt) delete pPkt;
+	pPkt = nullptr;
 	eID = PID_None;
 }
 
@@ -203,7 +202,8 @@ void C4IDPacket::CompileFunc(StdCompiler *pComp)
 			pComp->excCorrupt("C4IDPacket: Data value needed! Packet data missing!"); return;
 		}
 		// Delete old packet
-		if (fOwnPkt) delete pPkt; pPkt = nullptr;
+		if (fOwnPkt) delete pPkt;
+		pPkt = nullptr;
 		if (eID == PID_None) return;
 		// Search unpacking function
 		for (const C4PktHandlingData *pPData = PktHandlingData; pPData->ID != PID_None; pPData++)

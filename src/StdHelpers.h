@@ -1,7 +1,7 @@
 /*
  * LegacyClonk
  *
- * Copyright (c) 2020-2021, The LegacyClonk Team and contributors
+ * Copyright (c) 2020-2023, The LegacyClonk Team and contributors
  *
  * Distributed under the terms of the ISC license; see accompanying file
  * "COPYING" for details.
@@ -55,6 +55,12 @@ To checked_cast(From from)
 	return static_cast<To>(from);
 }
 
+template<std::integral T>
+constexpr T RoundedDivision(T numerator, T denominator) noexcept
+{
+	return (numerator + denominator / 2) / denominator;
+}
+
 template<typename... T>
 class StdOverloadedCallable : public T...
 {
@@ -91,3 +97,33 @@ struct C4SingleArgumentFunctionFunctor
 
 template <auto free>
 using C4DeleterFunctionUniquePtr = std::unique_ptr<std::remove_pointer_t<detail::FunctionSingleArgument<free>>, C4SingleArgumentFunctionFunctor<free>>;
+
+template<typename Enum> requires std::is_enum_v<Enum>
+struct C4BitfieldOperators : std::false_type {};
+
+template<typename Enum>
+concept C4BitfieldOperatorsEnabled = C4BitfieldOperators<Enum>::value;
+
+template<C4BitfieldOperatorsEnabled T>
+constexpr T operator|(const T lhs, const T rhs) noexcept
+{
+	return static_cast<T>(std::to_underlying(lhs) | std::to_underlying(rhs));
+}
+
+template<C4BitfieldOperatorsEnabled T>
+constexpr T operator&(const T lhs, const T rhs) noexcept
+{
+	return static_cast<T>(std::to_underlying(lhs) & std::to_underlying(rhs));
+}
+
+template<C4BitfieldOperatorsEnabled T>
+constexpr T& operator|=(T& lhs, const T rhs) noexcept
+{
+	return lhs = (lhs | rhs);
+}
+
+template<C4BitfieldOperatorsEnabled T>
+constexpr T& operator&=(T& lhs, const T rhs) noexcept
+{
+	return lhs = (lhs & rhs);
+}

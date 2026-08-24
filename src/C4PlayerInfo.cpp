@@ -3,7 +3,7 @@
  *
  * Copyright (c) RedWolf Design
  * Copyright (c) 2004, Sven2
- * Copyright (c) 2017-2022, The LegacyClonk Team and contributors
+ * Copyright (c) 2017-2024, The LegacyClonk Team and contributors
  *
  * Distributed under the terms of the ISC license; see accompanying file
  * "COPYING" for details.
@@ -18,7 +18,6 @@
 // permanent player information management
 // see header for some additional information
 
-#include <C4Include.h>
 #include <C4PlayerInfo.h>
 
 #include <C4Game.h>
@@ -181,35 +180,11 @@ void C4PlayerInfo::CompileFunc(StdCompiler *pComp)
 	pComp->Value(mkNamingAdapt(sForcedName, "ForcedName", ""));
 	pComp->Value(mkNamingAdapt(szFilename,  "Filename",   ""));
 
-	// Flags
-	const StdBitfieldEntry<uint16_t> Entries[] =
-	{
-		{ "Joined",             PIF_Joined },
-		{ "Removed",            PIF_Removed },
-		{ "HasResource",        PIF_HasRes },
-		{ "JoinIssued",         PIF_JoinIssued },
-		{ "SavegameJoin",       PIF_JoinedForSavegameOnly },
-		{ "Disconnected",       PIF_Disconnected },
-		{ "VotedOut",           PIF_VotedOut },
-		{ "Won",                PIF_Won },
-		{ "AttributesFixed",    PIF_AttributesFixed },
-		{ "NoScenarioInit",     PIF_NoScenarioInit },
-		{ "NoEliminationCheck", PIF_NoEliminationCheck },
-		{ "Invisible",          PIF_Invisible },
-		{ nullptr, 0 },
-	};
-	uint16_t dwSyncFlags = dwFlags & PIF_SyncFlags; // do not store local flags!
-	pComp->Value(mkNamingAdapt(mkBitfieldAdapt(dwSyncFlags, Entries), "Flags", 0u));
+	std::underlying_type_t<Flags> dwSyncFlags = dwFlags & PIF_SyncFlags; // do not store local flags!
+	pComp->Value(mkNamingAdapt(mkBitfieldAdapt<Flags>(dwSyncFlags), "Flags", 0u));
 	if (pComp->isCompiler()) dwFlags = dwSyncFlags;
 	pComp->Value(mkNamingAdapt(iID, "ID", 0));
-
-	// type
-	StdEnumEntry<C4PlayerType> PlayerTypes[] =
-	{
-		{ "User",   C4PT_User },
-		{ "Script", C4PT_Script },
-	};
-	pComp->Value(mkNamingAdapt(mkEnumAdaptT<uint8_t>(eType, PlayerTypes), "Type", C4PT_User));
+	pComp->Value(mkNamingAdapt(mkEnumAdapt(eType), "Type", C4PT_User));
 
 	// safety: Do not allow invisible regular players
 	if (pComp->isCompiler())
@@ -339,7 +314,7 @@ bool C4PlayerInfo::LoadBigIcon(C4FacetExSurface &fctTarget)
 	C4Group Plr;
 	C4Network2Res *pRes = nullptr;
 	bool fIncompleteRes = false;
-	if (pRes = GetRes())
+	if ((pRes = GetRes()))
 		if (!pRes->isComplete())
 			fIncompleteRes = true;
 	size_t iBigIconSize = 0;
@@ -355,7 +330,7 @@ bool C4PlayerInfo::LoadBigIcon(C4FacetExSurface &fctTarget)
 // *** C4ClientPlayerInfos
 
 C4ClientPlayerInfos::C4ClientPlayerInfos(const char *szJoinFilenames, bool fAdd, C4PlayerInfo *pAddInfo)
-	: iPlayerCount(0), iClientID(-1), iPlayerCapacity(0), ppPlayers(nullptr), dwFlags(0)
+	: iPlayerCount(0), iPlayerCapacity(0), ppPlayers(nullptr), iClientID(-1), dwFlags(0)
 {
 	// init for local client?
 	if (szJoinFilenames || pAddInfo)
@@ -372,7 +347,7 @@ C4ClientPlayerInfos::C4ClientPlayerInfos(const char *szJoinFilenames, bool fAdd,
 			// set initial flag for first-time join packet
 			dwFlags |= CIF_Initial;
 		// join all players in list
-		if (iPlayerCapacity = (szJoinFilenames ? SModuleCount(szJoinFilenames) : 0) + !!pAddInfo)
+		if ((iPlayerCapacity = (szJoinFilenames ? SModuleCount(szJoinFilenames) : 0) + !!pAddInfo))
 		{
 			ppPlayers = new C4PlayerInfo *[iPlayerCapacity];
 			if (szJoinFilenames)
@@ -400,7 +375,7 @@ C4ClientPlayerInfos::C4ClientPlayerInfos(const C4ClientPlayerInfos &rCopy)
 {
 	// copy fields
 	iClientID = rCopy.iClientID;
-	if (iPlayerCount = rCopy.iPlayerCount)
+	if ((iPlayerCount = rCopy.iPlayerCount))
 	{
 		// copy player infos
 		ppPlayers = new C4PlayerInfo *[iPlayerCapacity = rCopy.iPlayerCapacity];
@@ -423,7 +398,7 @@ C4ClientPlayerInfos &C4ClientPlayerInfos::operator=(const C4ClientPlayerInfos &r
 	Clear();
 	// copy fields
 	iClientID = rCopy.iClientID;
-	if (iPlayerCount = rCopy.iPlayerCount)
+	if ((iPlayerCount = rCopy.iPlayerCount))
 	{
 		// copy player infos
 		ppPlayers = new C4PlayerInfo *[iPlayerCapacity = rCopy.iPlayerCapacity];
@@ -571,7 +546,7 @@ C4PlayerInfo *C4ClientPlayerInfos::GetPlayerInfoByRes(int32_t idResID) const
 	C4Network2Res *pRes;
 	while (i--)
 	{
-		if (pRes = (*ppCurrPlrInfo)->GetRes())
+		if ((pRes = (*ppCurrPlrInfo)->GetRes()))
 			if (pRes->getResID() == idResID)
 				// only if the player is actually using the ressource
 				if ((*ppCurrPlrInfo)->IsUsingPlayerFile())
@@ -604,16 +579,7 @@ void C4ClientPlayerInfos::CompileFunc(StdCompiler *pComp)
 	if (fCompiler) Clear();
 	pComp->Value(mkNamingAdapt(iClientID, "ID", C4ClientIDUnknown));
 
-	// Flags
-	StdBitfieldEntry<uint32_t> Entries[] =
-	{
-		{ "AddPlayers", CIF_AddPlayers },
-		{ "Updated",    CIF_Updated },
-		{ "Initial",    CIF_Initial },
-
-		{ nullptr, 0 }
-	};
-	pComp->Value(mkNamingAdapt(mkBitfieldAdapt(dwFlags, Entries), "Flags", 0u));
+	pComp->Value(mkNamingAdapt(mkBitfieldAdapt<Flags>(dwFlags), "Flags", 0u));
 
 	pComp->Value(mkNamingCountAdapt<int32_t>(iPlayerCount, "Player"));
 	if (iPlayerCount < 0 || iPlayerCount > C4MaxPlayer)
@@ -737,13 +703,13 @@ void C4PlayerInfoList::UpdatePlayerAttributes(C4ClientPlayerInfos *pForInfo, boo
 	assert(pForInfo);
 	// update colors of all players of this packet
 	C4PlayerInfo *pInfo, *pInfo2; int32_t i = 0;
-	while (pInfo = pForInfo->GetPlayerInfo(i++))
+	while ((pInfo = pForInfo->GetPlayerInfo(i++)))
 		if (!pInfo->HasJoined())
 		{
 			// assign savegame colors
 			int32_t idSavegameID; bool fHasForcedColor = false; uint32_t dwForceClr;
-			if (idSavegameID = pInfo->GetAssociatedSavegamePlayerID())
-				if (pInfo2 = Game.RestorePlayerInfos.GetPlayerInfoByID(idSavegameID))
+			if ((idSavegameID = pInfo->GetAssociatedSavegamePlayerID()))
+				if ((pInfo2 = Game.RestorePlayerInfos.GetPlayerInfoByID(idSavegameID)))
 				{
 					dwForceClr = pInfo2->GetColor();
 					fHasForcedColor = true;
@@ -773,7 +739,7 @@ void C4PlayerInfoList::UpdatePlayerAttributes()
 	// update attributes of all packets
 	int32_t iIdx = 0;
 	C4ClientPlayerInfos *pForInfo;
-	while (pForInfo = GetIndexedInfo(iIdx++)) UpdatePlayerAttributes(pForInfo, false);
+	while ((pForInfo = GetIndexedInfo(iIdx++))) UpdatePlayerAttributes(pForInfo, false);
 	// now resole all conflicts
 	ResolvePlayerAttributeConflicts(nullptr);
 }
@@ -782,7 +748,7 @@ bool C4PlayerInfoList::AssignPlayerIDs(C4ClientPlayerInfos *pNewClientInfo)
 {
 	// assign player IDs to those player infos without
 	C4PlayerInfo *pPlrInfo; int32_t i = 0, iJoinsGranted = 0;
-	while (pPlrInfo = pNewClientInfo->GetPlayerInfo(i++))
+	while ((pPlrInfo = pNewClientInfo->GetPlayerInfo(i++)))
 		if (!pPlrInfo->GetID())
 		{
 			// are there still any player slots free?
@@ -812,7 +778,7 @@ void C4PlayerInfoList::AssignTeams(C4ClientPlayerInfos *pNewClientInfo, bool fBy
 	if (!Game.Teams.IsMultiTeams()) return;
 	// assign any unset teams (host/standalone only - fByHost determines whether the packet came from the host)
 	C4PlayerInfo *pPlrInfo; int32_t i = 0;
-	while (pPlrInfo = pNewClientInfo->GetPlayerInfo(i++))
+	while ((pPlrInfo = pNewClientInfo->GetPlayerInfo(i++)))
 		Game.Teams.RecheckPlayerInfoTeams(*pPlrInfo, fByHost);
 }
 
@@ -820,10 +786,10 @@ void C4PlayerInfoList::RecheckAutoGeneratedTeams()
 {
 	// ensure all teams specified in the list exist
 	C4ClientPlayerInfos *pPlrInfos; int32_t j = 0;
-	while (pPlrInfos = GetIndexedInfo(j++))
+	while ((pPlrInfos = GetIndexedInfo(j++)))
 	{
 		C4PlayerInfo *pPlrInfo; int32_t i = 0;
-		while (pPlrInfo = pPlrInfos->GetPlayerInfo(i++))
+		while ((pPlrInfo = pPlrInfos->GetPlayerInfo(i++)))
 		{
 			int32_t idTeam = pPlrInfo->GetTeam();
 			if (idTeam) Game.Teams.GetGenerateTeamByID(idTeam);
@@ -848,7 +814,7 @@ C4ClientPlayerInfos *C4PlayerInfoList::AddInfo(C4ClientPlayerInfos *pNewClientIn
 	}
 	// ensure all teams specified in the list exist (this should be done for savegame teams as well)
 	C4PlayerInfo *pInfo; int32_t i = 0;
-	while (pInfo = pNewClientInfo->GetPlayerInfo(i++))
+	while ((pInfo = pNewClientInfo->GetPlayerInfo(i++)))
 	{
 		int32_t idTeam = pInfo->GetTeam();
 		if (idTeam) Game.Teams.GetGenerateTeamByID(idTeam);
@@ -986,7 +952,7 @@ C4PlayerInfo *C4PlayerInfoList::GetPlayerInfoByIndex(int32_t index) const
 	for (int32_t i = 0; i < iClientCount; ++i)
 	{
 		int32_t j = 0; C4PlayerInfo *pInfo;
-		while (pInfo = ppClients[i]->GetPlayerInfo(j++))
+		while ((pInfo = ppClients[i]->GetPlayerInfo(j++)))
 			if (index-- <= 0)
 				return pInfo;
 	}
@@ -1002,7 +968,7 @@ C4PlayerInfo *C4PlayerInfoList::GetPlayerInfoByID(int32_t id) const
 	for (int32_t i = 0; i < iClientCount; ++i)
 	{
 		int32_t j = 0; C4PlayerInfo *pInfo;
-		while (pInfo = ppClients[i]->GetPlayerInfo(j++))
+		while ((pInfo = ppClients[i]->GetPlayerInfo(j++)))
 			if (pInfo->GetID() == id) return pInfo;
 	}
 	// nothing found
@@ -1016,7 +982,7 @@ C4ClientPlayerInfos *C4PlayerInfoList::GetClientInfoByPlayerID(int32_t id) const
 	for (int32_t i = 0; i < iClientCount; ++i)
 	{
 		int32_t j = 0; C4PlayerInfo *pInfo;
-		while (pInfo = ppClients[i]->GetPlayerInfo(j++))
+		while ((pInfo = ppClients[i]->GetPlayerInfo(j++)))
 			if (pInfo->GetID() == id) return ppClients[i];
 	}
 	// nothing found
@@ -1031,7 +997,7 @@ C4PlayerInfo *C4PlayerInfoList::GetPlayerInfoByID(int32_t id, int32_t *pidClient
 	for (int32_t i = 0; i < iClientCount; ++i)
 	{
 		int32_t j = 0; C4PlayerInfo *pInfo;
-		while (pInfo = ppClients[i]->GetPlayerInfo(j++))
+		while ((pInfo = ppClients[i]->GetPlayerInfo(j++)))
 			if (pInfo->GetID() == id)
 			{
 				*pidClient = ppClients[i]->GetClientID();
@@ -1050,7 +1016,7 @@ C4PlayerInfo *C4PlayerInfoList::GetPlayerInfoBySavegameID(int32_t id) const
 	for (int32_t i = 0; i < iClientCount; ++i)
 	{
 		int32_t j = 0; C4PlayerInfo *pInfo;
-		while (pInfo = ppClients[i]->GetPlayerInfo(j++))
+		while ((pInfo = ppClients[i]->GetPlayerInfo(j++)))
 			if (pInfo->GetAssociatedSavegamePlayerID() == id) return pInfo;
 	}
 	// nothing found
@@ -1064,7 +1030,7 @@ C4PlayerInfo *C4PlayerInfoList::GetNextPlayerInfoByID(int32_t id) const
 	for (int32_t i = 0; i < iClientCount; ++i)
 	{
 		int32_t j = 0; C4PlayerInfo *pInfo;
-		while (pInfo = ppClients[i]->GetPlayerInfo(j++))
+		while ((pInfo = ppClients[i]->GetPlayerInfo(j++)))
 			if (pInfo->GetID() > id)
 				if (!pSmallest || pSmallest->GetID() > pInfo->GetID())
 					pSmallest = pInfo;
@@ -1079,7 +1045,7 @@ C4PlayerInfo *C4PlayerInfoList::GetActivePlayerInfoByName(const char *szName)
 	for (int32_t i = 0; i < iClientCount; ++i)
 	{
 		int32_t j = 0; C4PlayerInfo *pInfo;
-		while (pInfo = ppClients[i]->GetPlayerInfo(j++))
+		while ((pInfo = ppClients[i]->GetPlayerInfo(j++)))
 			if (!pInfo->IsRemoved())
 				if (SEqualNoCase(szName, pInfo->GetName()))
 					return pInfo;
@@ -1097,14 +1063,15 @@ C4PlayerInfo *C4PlayerInfoList::FindSavegameResumePlayerInfo(const C4PlayerInfo 
 		for (int32_t i = 0; i < iClientCount; ++i)
 		{
 			int32_t j = 0; C4PlayerInfo *pInfo;
-			while (pInfo = ppClients[i]->GetPlayerInfo(j++))
+			while ((pInfo = ppClients[i]->GetPlayerInfo(j++)))
 				if (!Game.PlayerInfos.GetPlayerInfoByID(pInfo->GetID()) && !Game.PlayerInfos.GetPlayerInfoBySavegameID(pInfo->GetID())) // only unassigned player infos
 					switch (iMatchLvl)
 					{
 					case PML_PlrFileName: // file name and player name must match
 						if (!pMatchInfo->GetFilename() || !pInfo->GetFilename()) break;
 						if (!SEqualNoCase(GetFilename(pMatchInfo->GetFilename()), GetFilename(pInfo->GetFilename()))) break;
-						// nobreak: Check player name as well
+						// Check player name as well
+						[[fallthrough]];
 					case PML_PlrName: // match player name
 						if (SEqualNoCase(pMatchInfo->GetName(), pInfo->GetName()))
 							return pInfo;
@@ -1126,10 +1093,10 @@ C4PlayerInfo *C4PlayerInfoList::FindUnassociatedRestoreInfo(const C4PlayerInfoLi
 {
 	// search given list for a player that's not associated locally
 	C4ClientPlayerInfos *pRestoreClient; int32_t iClient = 0;
-	while (pRestoreClient = rRestoreInfoList.GetIndexedInfo(iClient++))
+	while ((pRestoreClient = rRestoreInfoList.GetIndexedInfo(iClient++)))
 	{
 		C4PlayerInfo *pRestoreInfo; int32_t iInfo = 0;
-		while (pRestoreInfo = pRestoreClient->GetPlayerInfo(iInfo++))
+		while ((pRestoreInfo = pRestoreClient->GetPlayerInfo(iInfo++)))
 			if (pRestoreInfo->IsJoined())
 				// match association either by savegame ID (before C4Game::InitPlayers) or real ID (after C4Game::InitPlayers)
 				if (!GetPlayerInfoBySavegameID(pRestoreInfo->GetID()) && !GetPlayerInfoByID(pRestoreInfo->GetID()))
@@ -1146,11 +1113,11 @@ bool C4PlayerInfoList::HasSameTeamPlayers(int32_t iClient1, int32_t iClient2) co
 	const C4ClientPlayerInfos *pCnfo2 = GetInfoByClientID(iClient2);
 	if (!pCnfo1 || !pCnfo2) return false;
 	int32_t i = 0, j; const C4PlayerInfo *pNfo1, *pNfo2;
-	while (pNfo1 = pCnfo1->GetPlayerInfo(i++))
+	while ((pNfo1 = pCnfo1->GetPlayerInfo(i++)))
 	{
 		if (!pNfo1->IsUsingTeam()) continue;
 		j = 0;
-		while (pNfo2 = pCnfo2->GetPlayerInfo(j++))
+		while ((pNfo2 = pCnfo2->GetPlayerInfo(j++)))
 		{
 			if (!pNfo2->IsUsingTeam()) continue;
 			if (pNfo2->GetTeam() == pNfo1->GetTeam())
@@ -1213,7 +1180,7 @@ bool C4PlayerInfoList::LoadFromGameText(const char *pSource)
 	// hacking some data out of the game text. Luckily, the format is different nowadays.
 	const char *szPos;
 	char szLinebuf[30 + _MAX_PATH + 1];
-	if (szPos = SSearch(pSource, "[PlayerFiles]"))
+	if ((szPos = SSearch(pSource, "[PlayerFiles]")))
 		while (true)
 		{
 			szPos = SAdvanceSpace(szPos);
@@ -1299,7 +1266,7 @@ bool C4PlayerInfoList::LocalJoinUnjoinedPlayersInQueue()
 	pkLocal = *ppkLocal;
 	// check all players
 	int32_t i = 0; C4PlayerInfo *pInfo;
-	while (pInfo = pkLocal->GetPlayerInfo(i++))
+	while ((pInfo = pkLocal->GetPlayerInfo(i++)))
 		// not yet joined?
 		if (!pInfo->HasJoinIssued())
 		{
@@ -1332,12 +1299,12 @@ void C4PlayerInfoList::CreateRestoreInfosForJoinedScriptPlayers(C4PlayerInfoList
 	{
 		C4ClientPlayerInfos *pkInfo = rSavegamePlayers.GetIndexedInfo(i);
 		int32_t j = 0; C4PlayerInfo *pInfo;
-		while (pInfo = pkInfo->GetPlayerInfo(j++))
+		while ((pInfo = pkInfo->GetPlayerInfo(j++)))
 			if (pInfo->GetType() == C4PT_Script)
 			{
 				// safety
 				C4PlayerInfo *pRejoinInfo;
-				if (pRejoinInfo = GetPlayerInfoBySavegameID(pInfo->GetID()))
+				if ((pRejoinInfo = GetPlayerInfoBySavegameID(pInfo->GetID())))
 				{
 					LogNTr(spdlog::level::warn, "User player {} takes over script player {}!", pRejoinInfo->GetName(), pInfo->GetName());
 					continue;
@@ -1376,9 +1343,9 @@ bool C4PlayerInfoList::RestoreSavegameInfos(C4PlayerInfoList &rSavegamePlayers)
 				{
 					C4ClientPlayerInfos *pkInfo = GetIndexedInfo(i);
 					int32_t j = 0, id; C4PlayerInfo *pInfo, *pSavegameInfo;
-					while (pInfo = pkInfo->GetPlayerInfo(j++))
+					while ((pInfo = pkInfo->GetPlayerInfo(j++)))
 						if (!(id = pInfo->GetAssociatedSavegamePlayerID()))
-							if (pSavegameInfo = rSavegamePlayers.FindSavegameResumePlayerInfo(pInfo, static_cast<MatchingLevel>(eMatchingLevel), static_cast<MatchingLevel>(eMatchingLevel)))
+							if ((pSavegameInfo = rSavegamePlayers.FindSavegameResumePlayerInfo(pInfo, static_cast<MatchingLevel>(eMatchingLevel), static_cast<MatchingLevel>(eMatchingLevel))))
 							{
 								pInfo->SetAssociatedSavegamePlayer(pSavegameInfo->GetID());
 								if (eMatchingLevel > PML_PlrName)
@@ -1397,10 +1364,10 @@ bool C4PlayerInfoList::RestoreSavegameInfos(C4PlayerInfoList &rSavegamePlayers)
 		{
 			C4ClientPlayerInfos *pkInfo = GetIndexedInfo(i);
 			int32_t j = 0, id; C4PlayerInfo *pInfo, *pSavegameInfo;
-			while (pInfo = pkInfo->GetPlayerInfo(j++))
-				if (id = pInfo->GetAssociatedSavegamePlayerID())
+			while ((pInfo = pkInfo->GetPlayerInfo(j++)))
+				if ((id = pInfo->GetAssociatedSavegamePlayerID()))
 				{
-					if (pSavegameInfo = rSavegamePlayers.GetPlayerInfoByID(id))
+					if ((pSavegameInfo = rSavegamePlayers.GetPlayerInfoByID(id)))
 					{
 						// pInfo continues for pSavegameInfo
 						pInfo->SetSavegameResume(pSavegameInfo);
@@ -1454,7 +1421,7 @@ bool C4PlayerInfoList::RecreatePlayerFiles()
 	{
 		C4ClientPlayerInfos *pkInfo = ppClients[i];
 		int32_t j = 0; C4PlayerInfo *pInfo;
-		while (pInfo = pkInfo->GetPlayerInfo(j++))
+		while ((pInfo = pkInfo->GetPlayerInfo(j++)))
 			if (pInfo->IsJoined())
 			{
 				// all players in replays and runtime joins; script players even in savegames need to be restored from the scenario goup
@@ -1560,7 +1527,7 @@ bool C4PlayerInfoList::RecreatePlayers()
 			}
 		// rejoin all joined players of that client
 		int32_t j = 0; C4PlayerInfo *pInfo;
-		while (pInfo = pkInfo->GetPlayerInfo(j++))
+		while ((pInfo = pkInfo->GetPlayerInfo(j++)))
 			if (pInfo->IsJoined())
 			{
 				// get filename to join from
@@ -1612,10 +1579,10 @@ bool C4PlayerInfoList::RemoveUnassociatedPlayers(C4PlayerInfoList &rSavegamePlay
 	// check all joined infos
 	C4ClientPlayerInfos *pClient; int iClient = 0;
 	bool fSuccess = true;
-	while (pClient = rSavegamePlayers.GetIndexedInfo(iClient++))
+	while ((pClient = rSavegamePlayers.GetIndexedInfo(iClient++)))
 	{
 		C4PlayerInfo *pInfo; int iInfo = 0;
-		while (pInfo = pClient->GetPlayerInfo(iInfo++))
+		while ((pInfo = pClient->GetPlayerInfo(iInfo++)))
 		{
 			// remove players that were in the game but are not associated
 			if (pInfo->IsJoined() && !GetPlayerInfoBySavegameID(pInfo->GetID()))
@@ -1639,11 +1606,11 @@ bool C4PlayerInfoList::SetAsRestoreInfos(C4PlayerInfoList &rFromPlayers, bool fS
 	*this = rFromPlayers;
 	// then remove everything that's no longer joined and update the rest
 	C4ClientPlayerInfos *pClient; int iClient = 0;
-	while (pClient = GetIndexedInfo(iClient++))
+	while ((pClient = GetIndexedInfo(iClient++)))
 	{
 		// update all players for this client
 		C4PlayerInfo *pInfo; int iInfo = 0;
-		while (pInfo = pClient->GetPlayerInfo(iInfo++))
+		while ((pInfo = pClient->GetPlayerInfo(iInfo++)))
 		{
 			bool fKeepInfo = false;
 			// remove players that are not in the game
@@ -1717,10 +1684,10 @@ bool C4PlayerInfoList::SetAsRestoreInfos(C4PlayerInfoList &rFromPlayers, bool fS
 void C4PlayerInfoList::ResetLeagueProjectedGain(bool fSetUpdated)
 {
 	C4ClientPlayerInfos *pClient; int iClient = 0;
-	while (pClient = GetIndexedInfo(iClient++))
+	while ((pClient = GetIndexedInfo(iClient++)))
 	{
 		C4PlayerInfo *pInfo; int iInfo = 0;
-		while (pInfo = pClient->GetPlayerInfo(iInfo++))
+		while ((pInfo = pClient->GetPlayerInfo(iInfo++)))
 			if (pInfo->IsLeagueProjectedGainValid())
 			{
 				pInfo->ResetLeagueProjectedGain();
@@ -1769,7 +1736,7 @@ int32_t C4PlayerInfoList::GetStartupCount()
 	for (int32_t i = 0; i < iClientCount; ++i)
 	{
 		int32_t j = 0; C4PlayerInfo *pInfo;
-		while (pInfo = ppClients[i]->GetPlayerInfo(j++))
+		while ((pInfo = ppClients[i]->GetPlayerInfo(j++)))
 			if (!pInfo->IsRemoved()) ++iCnt;
 	}
 	return iCnt;
@@ -1788,7 +1755,7 @@ void C4PlayerInfoList::FixIDCounter()
 	for (int32_t i = 0; i < iClientCount; ++i)
 	{
 		int32_t j = 0; C4PlayerInfo *pInfo;
-		while (pInfo = ppClients[i]->GetPlayerInfo(j++))
+		while ((pInfo = ppClients[i]->GetPlayerInfo(j++)))
 		{
 			iLastPlayerID = std::max<int32_t>(pInfo->GetID(), iLastPlayerID);
 		}

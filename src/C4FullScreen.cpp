@@ -2,7 +2,7 @@
  * LegacyClonk
  *
  * Copyright (c) 1998-2000, Matthes Bender (RedWolf Design)
- * Copyright (c) 2017-2021, The LegacyClonk Team and contributors
+ * Copyright (c) 2017-2024, The LegacyClonk Team and contributors
  *
  * Distributed under the terms of the ISC license; see accompanying file
  * "COPYING" for details.
@@ -16,7 +16,6 @@
 
 /* Main class to execute the game fullscreen mode */
 
-#include <C4Include.h>
 #include <C4FullScreen.h>
 
 #include <C4Application.h>
@@ -511,7 +510,7 @@ bool C4FullScreen::ViewportCheck()
 		iPlrNum = NO_OWNER;
 		// Film mode: create viewport for first player (instead of no-owner)
 		if (fFilm)
-			if (pPlr = Game.Players.First)
+			if ((pPlr = Game.Players.First))
 				iPlrNum = pPlr->Number;
 		// Create viewport
 		Game.CreateViewport(iPlrNum, iPlrNum == NO_OWNER);

@@ -3,7 +3,7 @@
  *
  * Copyright (c) RedWolf Design
  * Copyright (c) 2005, Sven2
- * Copyright (c) 2017-2020, The LegacyClonk Team and contributors
+ * Copyright (c) 2017-2024, The LegacyClonk Team and contributors
  *
  * Distributed under the terms of the ISC license; see accompanying file
  * "COPYING" for details.
@@ -18,7 +18,6 @@
 // Startup screen for non-parameterized engine start (stub)
 
 #include "C4GuiResource.h"
-#include <C4Include.h>
 #include <C4StartupMainDlg.h>
 #include <C4UpdateDlg.h>
 #include <C4Version.h>
@@ -134,8 +133,8 @@ C4GUI::ContextMenu *C4StartupMainDlg::OnPlayerSelContextAdd(C4GUI::Element *pBtn
 {
 	C4GUI::ContextMenu *pCtx = new C4GUI::ContextMenu();
 	const char *szFn;
-	const std::string searchPath{std::format("{}{}", +Config.General.ExePath, +Config.General.PlayerPath)};
-	for (DirectoryIterator i(searchPath.c_str()); szFn = *i; i++)
+	const std::string searchPath{std::format("{}{}", Config.General.ExePath, Config.General.PlayerPath)};
+	for (DirectoryIterator i(searchPath.c_str()); (szFn = *i); i++)
 	{
 		szFn = Config.AtExeRelativePath(szFn);
 		if (*GetFilename(szFn) == '.') continue;
@@ -283,8 +282,8 @@ void C4StartupMainDlg::OnShown()
 	// first thing that's needed is a new player, if there's none - independent of first start
 	bool fHasPlayer = false;
 	const char *szFn;
-	const std::string searchPath{std::format("{}{}", +Config.General.ExePath, +Config.General.PlayerPath)};
-	for (DirectoryIterator i(searchPath.c_str()); szFn = *i; i++)
+	const std::string searchPath{std::format("{}{}", Config.General.ExePath, Config.General.PlayerPath)};
+	for (DirectoryIterator i(searchPath.c_str()); (szFn = *i); i++)
 	{
 		szFn = Config.AtExeRelativePath(szFn);
 		if (*GetFilename(szFn) == '.') continue; // ignore ".", ".." and private files (".*")

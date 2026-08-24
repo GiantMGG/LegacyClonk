@@ -3,7 +3,7 @@
  *
  * Copyright (c) RedWolf Design
  * Copyright (c) 2005, Sven2
- * Copyright (c) 2017-2020, The LegacyClonk Team and contributors
+ * Copyright (c) 2017-2026, The LegacyClonk Team and contributors
  *
  * Distributed under the terms of the ISC license; see accompanying file
  * "COPYING" for details.
@@ -20,7 +20,6 @@
 
 #include "C4GuiEdit.h"
 #include "C4GuiListBox.h"
-#include <C4Include.h>
 #include <C4StartupPlrSelDlg.h>
 
 #include <C4StartupMainDlg.h>
@@ -74,7 +73,7 @@ static bool GetPortrait(char **ppBytes, size_t *ipSize)
 // C4StartupPlrSelDlg::ListItem
 
 C4StartupPlrSelDlg::ListItem::ListItem(C4StartupPlrSelDlg *pForDlg, C4GUI::ListBox *pForListBox, C4GUI::Element *pInsertBeforeElement, bool fActivated)
-	: Control(C4Rect(0, 0, 0, 0)), pCheck(nullptr), pIcon(nullptr), pNameLabel(nullptr), pPlrSelDlg(pForDlg)
+	: Control(C4Rect(0, 0, 0, 0)), pCheck(nullptr), pNameLabel(nullptr), pPlrSelDlg(pForDlg), pIcon(nullptr)
 {
 	CStdFont &rUseFont = C4Startup::Get()->Graphics.BookFont;
 	// calc height
@@ -205,7 +204,7 @@ bool C4StartupPlrSelDlg::ListItem::CheckNameHotkey(const char *c)
 	// FIXME: Unicode
 	if (!pNameLabel) return false;
 	const char *szName = pNameLabel->GetText();
-	return szName && (toupper(*szName) == toupper(c[0]));
+	return szName && (C4Strings::ToUpper(*szName) == C4Strings::ToUpper(c[0]));
 }
 
 // C4StartupPlrSelDlg::PlayerListItem
@@ -468,7 +467,7 @@ void C4StartupPlrSelDlg::CrewListItem::SetSelectionInfo(C4GUI::TextWindow *pSele
 {
 	// write info text for player
 	pSelectionInfo->ClearText(false);
-	pSelectionInfo->AddTextLine(std::format("{} {}", Core.sRankName.getData(), +Core.Name).c_str(), &C4Startup::Get()->Graphics.BookFontCapt, ClrPlayerItem, false, false);
+	pSelectionInfo->AddTextLine(std::format("{} {}", Core.sRankName.getData(), Core.Name).c_str(), &C4Startup::Get()->Graphics.BookFontCapt, ClrPlayerItem, false, false);
 	std::string promo;
 	int32_t iNextRankExp; StdStrBuf sNextRankName;
 	if (Core.GetNextRankInfo(Game.Rank, &iNextRankExp, &sNextRankName))
@@ -682,7 +681,7 @@ void C4StartupPlrSelDlg::UpdatePlayerList()
 	// refill pPlrListBox with players in player folder or crew
 	// clear old items
 	C4GUI::Element *pEl;
-	while (pEl = pPlrListBox->GetFirst()) delete pEl;
+	while ((pEl = pPlrListBox->GetFirst())) delete pEl;
 	// update command buttons
 	UpdateBottomButtons();
 	// create new
@@ -693,9 +692,9 @@ void C4StartupPlrSelDlg::UpdatePlayerList()
 		SetTitle(LoadResStrNoAmp(C4ResStrTableKey::IDS_DLG_PLAYERSELECTION).c_str());
 		// player mode: insert all players
 		const char *szFn;
-		const std::string searchPath{std::format("{}{}", +Config.General.ExePath, +Config.General.PlayerPath)};
+		const std::string searchPath{std::format("{}{}", Config.General.ExePath, Config.General.PlayerPath)};
 		PlayerListItem *pFirstActivatedPlrItem = nullptr, *pFirstDeactivatedPlrItem = nullptr, *pPlrItem = nullptr;
-		for (DirectoryIterator i(searchPath.c_str()); szFn = *i; i++)
+		for (DirectoryIterator i(searchPath.c_str()); (szFn = *i); i++)
 		{
 			szFn = Config.AtExeRelativePath(szFn);
 			if (*GetFilename(szFn) == '.') continue; // ignore ".", ".." and private files (".*")
@@ -731,7 +730,7 @@ void C4StartupPlrSelDlg::UpdatePlayerList()
 
 	case PSDM_Crew:
 	{
-		SetTitle(std::format("{} {}", LoadResStrNoAmp(C4ResStrTableKey::IDS_CTL_CREW).c_str(), +CurrPlayer.Core.PrefName).c_str());
+		SetTitle(std::format("{} {}", LoadResStrNoAmp(C4ResStrTableKey::IDS_CTL_CREW).c_str(), CurrPlayer.Core.PrefName).c_str());
 		// crew mode: Insert complete crew of player (2do: sort)
 		bool fSucc; char szFn[_MAX_PATH + 1];
 		for (fSucc = CurrPlayer.Grp.FindEntry(C4CFN_ObjectInfoFiles, szFn); fSucc; fSucc = CurrPlayer.Grp.FindNextEntry(C4CFN_ObjectInfoFiles, szFn, nullptr, nullptr, true))
@@ -938,7 +937,7 @@ void C4StartupPlrSelDlg::SetCrewMode(PlayerListItem *pSel)
 	if (!CurrPlayer.Grp.Open(pSel->GetFilename().getData())) return;
 	if (!CurrPlayer.Grp.FindEntry(C4CFN_ObjectInfoFiles))
 	{
-		const std::string crew{std::format("{} {}", LoadResStrNoAmp(C4ResStrTableKey::IDS_CTL_CREW), +CurrPlayer.Core.PrefName)};
+		const std::string crew{std::format("{} {}", LoadResStrNoAmp(C4ResStrTableKey::IDS_CTL_CREW), CurrPlayer.Core.PrefName)};
 		// player has no crew!
 		GetScreen()->ShowMessage(LoadResStr(C4ResStrTableKey::IDS_ERR_PLRNOCREW,
 			CurrPlayer.Core.PrefName).c_str(),
@@ -1091,7 +1090,7 @@ void C4StartupPlrSelDlg::ResortCrew()
 // Player property dlg
 
 C4StartupPlrPropertiesDlg::C4StartupPlrPropertiesDlg(C4StartupPlrSelDlg::PlayerListItem *pForPlayer, C4StartupPlrSelDlg *pParentDlg)
-	: Dialog(C4Startup::Get()->Graphics.fctPlrPropBG.Wdt, C4Startup::Get()->Graphics.fctPlrPropBG.Hgt, "", false), pForPlayer(pForPlayer), pMainDlg(pParentDlg),
+	: Dialog(C4Startup::Get()->Graphics.fctPlrPropBG.Wdt, C4Startup::Get()->Graphics.fctPlrPropBG.Hgt, "", false), pMainDlg(pParentDlg), pForPlayer(pForPlayer),
 	fClearPicture(false), fClearBigIcon(false)
 {
 	if (pForPlayer)

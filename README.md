@@ -19,12 +19,13 @@ Essential dependencies:
 - CMake
 - Fairly modern C++ compiler
 	- Windows: **Latest MSVC**
-	- Linux: **g++ ≥ 15.1** or **clang++ ≥ 20.1**
-	- macOS: **open source clang++ ≥ 20.1** - e.g. `brew install llvm@20 ninja`
+	- Linux: **g++ ≥ 15.1** or **clang++ ≥ 22.1**
+	- macOS: **open source clang++ ≥ 22.1** - e.g. `brew install llvm@22 ninja`
 - Make or Ninja
 
 Extract the [latest pre-built dependencies](https://github.com/legacyclonk/deps/releases/latest) for your platform into a folder called `deps`.
 Make sure that besides the `CMakeLists.txt` of LegacyClonk there are folders `deps/include`, `deps/lib`, etc. as extracted from the binary package.
+Then run `deps/fix_paths.sh` (use Git Bash on Windows).
 
 
 ### Configuring and compiling the engine
@@ -47,7 +48,9 @@ cmake --build build
 #### macOS
 Configure with CMake
 ```bash
-cmake . -B build -DCMAKE_TOOLCHAIN_FILE=$PWD/autobuild/clang_mac.cmake
+export LLVM_PREFIX="$(brew --prefix llvm@22)"
+export NINJA_PREFIX="$(brew --prefix ninja)"
+cmake . -B build -DCMAKE_TOOLCHAIN_FILE=$PWD/autobuild/platforms/clang_mac.cmake
 ```
 
 Compile with CMake

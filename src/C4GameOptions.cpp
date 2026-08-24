@@ -3,7 +3,7 @@
  *
  * Copyright (c) RedWolf Design
  * Copyright (c) 2005, Sven2
- * Copyright (c) 2017-2021, The LegacyClonk Team and contributors
+ * Copyright (c) 2017-2024, The LegacyClonk Team and contributors
  *
  * Distributed under the terms of the ISC license; see accompanying file
  * "COPYING" for details.
@@ -19,7 +19,6 @@
 
 #include "C4GuiComboBox.h"
 #include "C4GuiResource.h"
-#include "C4Include.h"
 #include "C4GameOptions.h"
 #include "C4Game.h"
 
@@ -256,6 +255,41 @@ void C4GameOptionsList::OptionRandomTeamCount::Update()
 	pDropdownList->SetText(count > 1 ? std::to_string(count).c_str() : LoadResStr(C4ResStrTableKey::IDS_MSG_TEAMCOUNT_AUTO));
 }
 
+// C4GameOptionsList::OptionVote
+
+C4GameOptionsList::OptionVote::OptionVote(C4GameOptionsList *const forDlg)
+	: OptionDropdown{forDlg, LoadResStr(C4ResStrTableKey::IDS_MSG_VOTE), !Game.Network.isHost() || Game.Parameters.isLeague()}
+{
+	SetToolTip(LoadResStr(C4ResStrTableKey::IDS_MSG_VOTE_DESC));
+}
+
+void C4GameOptionsList::OptionVote::DoDropdownFill(C4GUI::ComboBox_FillCB *const filler)
+{
+	filler->AddEntry(LoadResStr(C4ResStrTableKey::IDS_MSG_VOTE_DISABLED), 0, LoadResStr(C4ResStrTableKey::IDS_MSG_VOTE_DISABLED_DESC));
+	filler->AddEntry(LoadResStr(C4ResStrTableKey::IDS_MSG_VOTE_ENABLED), 1, LoadResStr(C4ResStrTableKey::IDS_MSG_VOTE_ENABLED_DESC));
+}
+
+void C4GameOptionsList::OptionVote::DoDropdownSelChange(int32_t newSelection)
+{
+	Game.Control.DoInput(CID_Set, new C4ControlSet(C4CVT_Vote, !!newSelection), CDT_Sync);
+}
+
+void C4GameOptionsList::OptionVote::Update()
+{
+	pDropdownList->SetReadOnly(Game.Parameters.isLeague());
+
+	if (Game.Parameters.Vote)
+	{
+		pDropdownList->SetText(LoadResStr(C4ResStrTableKey::IDS_MSG_VOTE_ENABLED));
+		pDropdownList->SetToolTip(LoadResStr(C4ResStrTableKey::IDS_MSG_VOTE_ENABLED_DESC));
+	}
+	else
+	{
+		pDropdownList->SetText(LoadResStr(C4ResStrTableKey::IDS_MSG_VOTE_DISABLED));
+		pDropdownList->SetToolTip(LoadResStr(C4ResStrTableKey::IDS_MSG_VOTE_DISABLED_DESC));
+	}
+}
+
 // C4GameOptionsList
 
 C4GameOptionsList::C4GameOptionsList(const C4Rect &rcBounds, bool fActive, bool fRuntime)
@@ -271,7 +305,12 @@ void C4GameOptionsList::InitOptions()
 	// creates option selection components
 	new OptionControlMode(this);
 	new OptionControlRate(this);
-	if (Game.Network.isHost()) new OptionRuntimeJoin(this);
+	if (Game.Network.isHost())
+	{
+		new OptionRuntimeJoin(this);
+		new OptionVote(this);
+	}
+
 	if (!IsRuntime())
 	{
 		if (Game.Teams.HasTeamDistOptions()) new OptionTeamDist(this);

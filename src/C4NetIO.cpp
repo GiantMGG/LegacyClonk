@@ -3,7 +3,7 @@
  *
  * Copyright (c) RedWolf Design
  * Copyright (c) 2013-2018, The OpenClonk Team and contributors
- * Copyright (c) 2017-2022, The LegacyClonk Team and contributors
+ * Copyright (c) 2017-2024, The LegacyClonk Team and contributors
  *
  * Distributed under the terms of the ISC license; see accompanying file
  * "COPYING" for details.
@@ -22,8 +22,9 @@
 #include "C4Network2Address.h"
 #include "Standard.h"
 
-#include <assert.h>
-#include <errno.h>
+#include <cassert>
+#include <cerrno>
+
 #include <fcntl.h>
 #include <format>
 #include <sys/stat.h>
@@ -36,6 +37,7 @@
 
 #else
 
+#include <unistd.h>
 #include <sys/ioctl.h>
 #include <netinet/in.h>
 #include <netinet/tcp.h>
@@ -195,7 +197,7 @@ void ReleaseWinSock()
 
 const char *GetSocketErrorMsg(int iError)
 {
-	return strerror(iError);
+	return std::strerror(iError);
 }
 
 const char *GetSocketErrorMsg()
@@ -449,13 +451,13 @@ void C4NetIOPacket::Clear()
 // construction / destruction
 
 C4NetIOTCP::C4NetIOTCP()
-	: pPeerList(nullptr), fInit(false),
-	pConnectWaits(nullptr),
+	: pPeerList(nullptr), pConnectWaits(nullptr),
+	PeerListCSec(this),
+	fInit(false),
+	iListenPort(~0), lsock(INVALID_SOCKET),
 #ifdef _WIN32
 	Event(nullptr),
 #endif
-	PeerListCSec(this),
-	iListenPort(~0), lsock(INVALID_SOCKET),
 	pCB(nullptr) {}
 
 C4NetIOTCP::~C4NetIOTCP()
@@ -575,9 +577,6 @@ bool C4NetIOTCP::Execute(int iMaxTime) // (mt-safe)
 
 	std::vector<pollfd> fds;
 	GetFDs(fds);
-
-	// build timeout value
-	timeval to = { iMaxTime / 1000, (iMaxTime % 1000) * 1000 };
 
 	// wait for something to happen
 	int ret = StdSync::Poll(fds, iMaxTime);
@@ -1327,8 +1326,8 @@ const unsigned int C4NetIOTCP::Peer::iMinIBufSize = 8192; // (bytes)
 C4NetIOTCP::Peer::Peer(const C4NetIO::addr_t &naddr, SOCKET nsock, C4NetIOTCP *pnParent)
 	: pParent(pnParent),
 	addr(naddr), sock(nsock),
-	Next(nullptr), iIBufUsage(0), iIRate(0), iORate(0),
-	fOpen(true), fDoBroadcast(false) {}
+	iIBufUsage(0), iIRate(0), iORate(0), fOpen(true),
+	fDoBroadcast(false), Next(nullptr) {}
 
 C4NetIOTCP::Peer::~Peer()
 {
@@ -1728,6 +1727,7 @@ bool C4NetIOSimpleUDP::Execute(int iMaxTime)
 		int iMsgSize = ::recvfrom(sock, Pkt.getMPtr<char>(), iMaxMsgSize, 0, &SrcAddr, &iSrcAddrLen);
 		// error?
 		if (iMsgSize == SOCKET_ERROR)
+		{
 			if (HaveConnResetError())
 			{
 				// this is actually some kind of notification: an ICMP msg (unreachable)
@@ -1741,6 +1741,7 @@ bool C4NetIOSimpleUDP::Execute(int iMaxTime)
 				SetError("could not receive data from socket", true);
 				return false;
 			}
+		}
 		// invalid address?
 		if ((iSrcAddrLen != sizeof(sockaddr_in) && iSrcAddrLen != sizeof(sockaddr_in6)) || SrcAddr.GetFamily() == addr_t::UnknownFamily)
 		{
@@ -2042,15 +2043,15 @@ struct C4NetIOUDP::TestPacket : public PacketHdr
 // construction / destruction
 
 C4NetIOUDP::C4NetIOUDP()
-	: fInit(false), fMultiCast(false), iPort(~0),
+	: PeerListCSec(this), fInit(false), fMultiCast(false),
+	iPort(~0),
 	pPeerList(nullptr),
-	iNextCheck(0),
-	iOPacketCounter(0),
+	fSavePacket(false),
 	fDelayedLoopbackTest(false),
-	iBroadcastRate(0),
-	PeerListCSec(this),
+	iNextCheck(0),
 	OPackets(iMaxOPacketBacklog),
-	fSavePacket(false) {}
+	iOPacketCounter(0),
+	iBroadcastRate(0) {}
 
 C4NetIOUDP::~C4NetIOUDP()
 {
@@ -2641,9 +2642,9 @@ size_t C4NetIOUDP::Packet::FragmentSize(nr_t iFNr) const
 
 C4NetIOUDP::PacketList::PacketList(unsigned int inMaxPacketCnt)
 	: pFront(nullptr),
-	iMaxPacketCnt(inMaxPacketCnt),
+	pBack(nullptr),
 	iPacketCnt(0),
-	pBack(nullptr) {}
+	iMaxPacketCnt(inMaxPacketCnt) {}
 
 C4NetIOUDP::PacketList::~PacketList()
 {
@@ -2756,10 +2757,10 @@ C4NetIOUDP::Peer::Peer(const addr_t &naddr, C4NetIOUDP *pnParent)
 	: pParent(pnParent), addr(naddr),
 	eStatus(CS_None),
 	fMultiCast(false), fDoBroadcast(false),
-	iOPacketCounter(0),
-	iIPacketCounter(0), iRIPacketCounter(0),
-	iIMCPacketCounter(0), iRIMCPacketCounter(0),
 	OPackets(iMaxOPacketBacklog),
+	iOPacketCounter(0), iIPacketCounter(0),
+	iRIPacketCounter(0), iIMCPacketCounter(0),
+	iRIMCPacketCounter(0),
 	iMCAckPacketCounter(0),
 	iNextReCheck(0),
 	iIRate(0), iORate(0), iLoss(0)
@@ -2886,7 +2887,7 @@ void C4NetIOUDP::Peer::OnRecv(const C4NetIOPacket &rPacket) // (mt-safe)
 		}
 		// set packet counter
 		if (fBroadcasted)
-			iRIMCPacketCounter = iRIMCPacketCounter = pPkt->Nr;
+			iRIMCPacketCounter = iIMCPacketCounter = pPkt->Nr;
 		else
 			iRIPacketCounter = iIPacketCounter = pPkt->Nr;
 		// clear incoming packets
@@ -2950,7 +2951,8 @@ void C4NetIOUDP::Peer::OnRecv(const C4NetIOPacket &rPacket) // (mt-safe)
 				fMultiCast = true; DoConn(true);
 				break;
 			}
-			// fallthru
+			[[fallthrough]];
+
 		case ConnOKPacket::MCM_NoMC:
 			// Connection is established (no multicast support)
 			fMultiCast = false; OnConn();
@@ -3177,7 +3179,7 @@ void C4NetIOUDP::Peer::CheckCompleteIPackets()
 
 	// check for complete incoming packets
 	Packet *pPkt;
-	while (pPkt = IPackets.GetFirstPacketComplete())
+	while ((pPkt = IPackets.GetFirstPacketComplete()))
 	{
 		// missing packet?
 		if (pPkt->GetNr() != iIPacketCounter) break;
@@ -3191,7 +3193,7 @@ void C4NetIOUDP::Peer::CheckCompleteIPackets()
 		IPackets.DeletePacket(pPkt);
 		assert(!IPackets.GetPacketFrgm(iNr));
 	}
-	while (pPkt = IMCPackets.GetFirstPacketComplete())
+	while ((pPkt = IMCPackets.GetFirstPacketComplete()))
 	{
 		// missing packet?
 		if (pPkt->GetNr() != iIMCPacketCounter) break;

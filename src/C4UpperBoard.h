@@ -2,7 +2,7 @@
  * LegacyClonk
  *
  * Copyright (c) RedWolf Design
- * Copyright (c) 2017-2019, The LegacyClonk Team and contributors
+ * Copyright (c) 2017-2022, The LegacyClonk Team and contributors
  *
  * Distributed under the terms of the ISC license; see accompanying file
  * "COPYING" for details.
@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include <C4EnumInfo.h>
 #include <C4Facet.h>
 
 class C4UpperBoard
@@ -23,7 +24,7 @@ class C4UpperBoard
 	friend class C4GraphicsSystem;
 
 public:
-	enum DisplayMode : int32_t
+	enum DisplayMode
 	{
 		Hide = 0,
 		Full = 1,
@@ -49,4 +50,18 @@ protected:
 	char cTimeString2[64];
 	int TextWidth;
 	int TextYPosition;
+};
+
+template<>
+struct C4EnumInfo<C4UpperBoard::DisplayMode>
+{
+	using E = C4UpperBoard::DisplayMode;
+	static inline constexpr auto data = mkEnumInfo<C4UpperBoard::DisplayMode>("",
+		{
+			{E::Hide, "Hide"},
+			{E::Full, "Full"},
+			{E::Small, "Small"},
+			{E::Mini, "Mini"}
+		}
+	);
 };

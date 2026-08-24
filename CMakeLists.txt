@@ -1,6 +1,6 @@
 # LegacyClonk
 #
-# Copyright (c) 2017-2022, The LegacyClonk Team and contributors
+# Copyright (c) 2017-2025, The LegacyClonk Team and contributors
 #
 # Distributed under the terms of the ISC license; see accompanying file
 # "COPYING" for details.
@@ -29,13 +29,30 @@ if (APPLE)
 	set(LANGUAGE_OBJCXX OBJCXX)
 endif ()
 
-# Target Windows 7
-if (WIN32)
-	set(CMAKE_SYSTEM_VERSION 6.1)
-	add_compile_definitions(NTDDI_VERSION=NTDDI_WIN7 _WIN32_WINNT=_WIN32_WINNT_WIN7)
+project("LegacyClonk" LANGUAGES CXX ${LANGUAGE_OBJCXX})
+
+set(CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
+
+
+include(GetArchitecture)
+
+if (TARGET_ARCHITECTURE_KNOWN)
+	message(STATUS "Determined target architecture: ${TARGET_ARCHITECTURE}")
+else ()
+	message(FATAL_ERROR "Could not determine target architecture")
 endif ()
 
-project("LegacyClonk" LANGUAGES CXX ${LANGUAGE_OBJCXX})
+if (WIN32)
+	if (TARGET_ARCHITECTURE STREQUAL "aarch64")
+		# Target Windows 11
+		set(CMAKE_SYSTEM_VERSION 10.0.22000)
+		add_compile_definitions(NTDDI_VERSION=NTDDI_WIN11_GE _WIN32_WINNT=_WIN32_WINNT_WIN10)
+	else ()
+		# Target Windows 7
+		set(CMAKE_SYSTEM_VERSION 6.1)
+		add_compile_definitions(NTDDI_VERSION=NTDDI_WIN7 _WIN32_WINNT=_WIN32_WINNT_WIN7)
+	endif ()
+endif ()
 
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -45,7 +62,6 @@ if (APPLE)
 	set(CMAKE_OBJCXX_STANDARD_REQUIRED ${CMAKE_CXX_STANDARD_REQUIRED})
 endif ()
 
-set(CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 
 include(CheckCXXSymbolExists)
 include(CheckIncludeFileCXX)
@@ -136,10 +152,40 @@ if (WIN32)
 	endif ()
 endif ()
 
-# Disable some Visual C++ warnings
 if (MSVC)
 	# "multiple copy constructors specified"
 	add_compile_options(/wd4521)
+elseif (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+	add_compile_options(-Wall -Wextra)
+
+	add_compile_options(
+		-Werror=cast-function-type
+		-Werror=dangling-else
+		-Werror=ignored-qualifiers
+		-Werror=implicit-fallthrough
+		-Werror=misleading-indentation
+		-Werror=suggest-override
+		-Werror=parentheses
+		-Werror=reorder
+		-Werror=type-limits
+	)
+	add_compile_options(-Wno-overloaded-virtual -Wno-unused-parameter -Wno-missing-field-initializers)
+elseif (CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+	add_compile_options(-Wall -Wextra)
+
+	add_compile_options(
+		-Werror=cast-function-type-mismatch
+		-Werror=dangling-else
+		-Werror=ignored-qualifiers
+		-Werror=implicit-fallthrough
+		-Werror=inconsistent-missing-override
+		-Werror=misleading-indentation
+		-Werror=parentheses
+		-Werror=reorder
+		-Werror=type-limits
+	)
+
+	add_compile_options(-Wno-overloaded-virtual -Wno-unused-parameter -Wno-missing-designated-field-initializers -Wno-missing-field-initializers)
 endif ()
 
 # Incompatible with CF_ENUM
@@ -323,14 +369,26 @@ endif ()
 # Set C4_OS macro
 if (APPLE)
 	set(C4_OS "mac")
-elseif (UNIX AND CMAKE_SIZEOF_VOID_P EQUAL 4)
-	set(C4_OS "linux")
-elseif (UNIX AND CMAKE_SIZEOF_VOID_P EQUAL 8)
-	set(C4_OS "linux64")
-elseif (WIN32 AND CMAKE_SIZEOF_VOID_P EQUAL 4)
-	set(C4_OS "win32")
-elseif (WIN32 AND CMAKE_SIZEOF_VOID_P EQUAL 8)
-	set(C4_OS "win64")
+elseif (UNIX)
+	if(TARGET_ARCHITECTURE STREQUAL "x86")
+		set(C4_OS "linux")
+	elseif (TARGET_ARCHITECTURE STREQUAL "x86_64")
+		set(C4_OS "linux64")
+	elseif (TARGET_ARCHITECTURE STREQUAL "aarch64")
+		set(C4_OS "linux-arm64")
+	else ()
+		message(FATAL_ERROR "Unhandled architecture: ${TARGET_ARCHITECTURE}")
+	endif ()
+elseif (WIN32)
+	if(TARGET_ARCHITECTURE STREQUAL "x86")
+		set(C4_OS "win32")
+	elseif (TARGET_ARCHITECTURE STREQUAL "x86_64")
+		set(C4_OS "win64")
+	elseif (TARGET_ARCHITECTURE STREQUAL "aarch64")
+		set(C4_OS "win-arm64")
+	else ()
+		message(FATAL_ERROR "Unhandled architecture: ${TARGET_ARCHITECTURE}")
+	endif ()
 else ()
 	message(FATAL_ERROR "Unknown platform")
 endif ()
@@ -494,10 +552,12 @@ if (WIN32)
 	target_include_directories(clonk PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/generated/cppwinrt")
 
 	if (USE_WINDOWS_RUNTIME)
-		if ("${CMAKE_SIZEOF_VOID_P}" STREQUAL "8")
+		if ("${TARGET_ARCHITECTURE}" STREQUAL "x86_64")
 			target_link_options(clonk PRIVATE "/alternatename:WINRT_IMPL_GetSystemTimePreciseAsFileTime=Clonk_GetSystemTimePreciseAsFileTime")
-		else ()
+		elseif ("${TARGET_ARCHITECTURE}" STREQUAL "x86")
 			target_link_options(clonk PRIVATE "/alternatename:_WINRT_IMPL_GetSystemTimePreciseAsFileTime@4=_Clonk_GetSystemTimePreciseAsFileTime@4")
+		elseif ("${TARGET_ARCHITECTURE}" STREQUAL "aarch64")
+			# Not needed, because too old Windows versions don’t support ARM
 		endif ()
 	endif ()
 endif ()
@@ -587,23 +647,27 @@ foreach (MACRO_TARGET ${MACRO_TARGETS})
 	endif ()
 endforeach ()
 
-if (APPLE AND NOT USE_CONSOLE)
-	set(BUNDLE_RESOURCES
-		src/res/lc.icns
-		src/res/C4U.icns
-		src/res/C4P.icns
-		src/res/C4S.icns
-		src/res/C4F.icns
-		src/res/C4G.icns
-		src/res/C4D.icns
-	)
-
-	set_target_properties(clonk PROPERTIES RESOURCE "${BUNDLE_RESOURCES}")
-	set_target_properties(clonk PROPERTIES MACOSX_BUNDLE_INFO_PLIST "${CMAKE_CURRENT_SOURCE_DIR}/src/res/Info.plist")
-	set_target_properties(clonk PROPERTIES INSTALL_RPATH "@loader_path/../Frameworks")
-
-	install(TARGETS clonk BUNDLE DESTINATION . RESOURCE DESTINATION ./clonk.app/Contents/Resources/)
+if (APPLE)
 	install(TARGETS c4group RUNTIME DESTINATION .)
+	if (NOT USE_CONSOLE)
+		set(BUNDLE_RESOURCES
+			src/res/lc.icns
+			src/res/C4U.icns
+			src/res/C4P.icns
+			src/res/C4S.icns
+			src/res/C4F.icns
+			src/res/C4G.icns
+			src/res/C4D.icns
+		)
+
+		set_target_properties(clonk PROPERTIES RESOURCE "${BUNDLE_RESOURCES}")
+		set_target_properties(clonk PROPERTIES MACOSX_BUNDLE_INFO_PLIST "${CMAKE_CURRENT_SOURCE_DIR}/src/res/Info.plist")
+		set_target_properties(clonk PROPERTIES INSTALL_RPATH "@loader_path/../Frameworks")
+
+		install(TARGETS clonk BUNDLE DESTINATION . RESOURCE DESTINATION ./clonk.app/Contents/Resources/)
+	else ()
+		install(TARGETS clonk RUNTIME DESTINATION .)
+	endif ()
 endif ()
 
 # Precompile headers

@@ -2,7 +2,7 @@
  * LegacyClonk
  *
  * Copyright (c) RedWolf Design
- * Copyright (c) 2017-2022, The LegacyClonk Team and contributors
+ * Copyright (c) 2017-2025, The LegacyClonk Team and contributors
  *
  * Distributed under the terms of the ISC license; see accompanying file
  * "COPYING" for details.
@@ -14,7 +14,6 @@
  * for the above references.
  */
 
-#include <C4Include.h>
 #include "C4Update.h"
 #include "C4Version.h"
 #include "C4Config.h"
@@ -57,7 +56,7 @@ bool C4Group_ApplyUpdate(C4Group &hGroup)
 			{
 			// Bad version - checks against version of the applying executable (major version must match, minor version must be equal or higher)
 			case C4UpdatePackage::CheckResult::BadVersion:
-				std::println(stderr, "This update {} can only be applied using version {}.{}.{}.{} or higher.", +Upd.Name, Upd.RequireVersion[0], Upd.RequireVersion[1], Upd.RequireVersion[2], Upd.RequireVersion[3]);
+				std::println(stderr, "This update {} can only be applied using version {}.{}.{}.{} or higher.", Upd.Name, Upd.RequireVersion[0], Upd.RequireVersion[1], Upd.RequireVersion[2], Upd.RequireVersion[3]);
 				return false;
 			// Bad OS version
 			case C4UpdatePackage::CheckResult::BadOSVersion:
@@ -65,19 +64,19 @@ bool C4Group_ApplyUpdate(C4Group &hGroup)
 				return false;
 			// Target not found: keep going
 			case C4UpdatePackage::CheckResult::NoSource:
-				std::println(stderr, "Target {} for update {} not found. Ignoring.", +Upd.DestPath, +Upd.Name);
+				std::println(stderr, "Target {} for update {} not found. Ignoring.", Upd.DestPath, Upd.Name);
 				return true;
 			// Target mismatch: abort updating
 			case C4UpdatePackage::CheckResult::BadSource:
-				std::println(stderr, "Target {} incorrect version for update {}. Ignoring.", +Upd.DestPath, +Upd.Name);
+				std::println(stderr, "Target {} incorrect version for update {}. Ignoring.", Upd.DestPath, Upd.Name);
 				return true;
 			// Target already updated: keep going
 			case C4UpdatePackage::CheckResult::AlreadyUpdated:
-				std::println(stderr, "Target {} already up-to-date at {}.", +Upd.DestPath, +Upd.Name);
+				std::println(stderr, "Target {} already up-to-date at {}.", Upd.DestPath, Upd.Name);
 				return true;
 			// Ok to perform update
 			case C4UpdatePackage::CheckResult::Ok:
-				std::print("Updating {} to {}... ", +Upd.DestPath, +Upd.Name);
+				std::print("Updating {} to {}... ", Upd.DestPath, Upd.Name);
 				// Make sure the user sees the message while the work is in progress
 				fflush(stdout);
 				// Execute update
@@ -119,7 +118,7 @@ bool C4Group_ApplyUpdate(C4Group &hGroup)
 			for (int i = 0; SGetModule(strList.getData(), i, strEntry); i++)
 				if (C4Group_IsGroup(strEntry))
 				{
-					std::println("Exploding: {}", +strEntry);
+					std::println("Exploding: {}", strEntry);
 					if (!C4Group_ExplodeDirectory(strEntry))
 						return false;
 				}
@@ -301,11 +300,12 @@ bool C4UpdatePackage::Execute(C4Group *pGroup)
 	C4GroupEx TargetGrp;
 	char strTarget[_MAX_PATH]; SCopy(DestPath, strTarget, _MAX_PATH);
 	char *p = strTarget, *lp = strTarget;
-	while (p = strchr(p + 1, '\\'))
+	while ((p = strchr(p + 1, '\\')))
 	{
 		*p = 0;
 		if (!*(p + 1)) break;
 		if (!SEqual(lp, ".."))
+		{
 			if (TargetGrp.Open(strTarget))
 			{
 				// packed?
@@ -327,6 +327,7 @@ bool C4UpdatePackage::Execute(C4Group *pGroup)
 				// create dir
 				MakeDirectory(strTarget, nullptr);
 			}
+		}
 		*p = '\\'; lp = p + 1;
 	}
 
@@ -596,7 +597,7 @@ bool C4UpdatePackage::DoGrpUpdate(C4Group *pUpdateData, C4GroupEx *pGrpTo)
 		while (pGrpTo->FindNextEntry("*", strItemName))
 		{
 			bool fGotIt = false;
-			for (int i = 0; fGotIt = SCopySegment(pData, i, strItemName2, '|', _MAX_FNAME); i++)
+			for (int i = 0; (fGotIt = SCopySegment(pData, i, strItemName2, '|', _MAX_FNAME)); i++)
 			{
 				// remove separator
 				char *pSep = strchr(strItemName2, '=');

@@ -3,7 +3,7 @@
  *
  * Copyright (c) RedWolf Design
  * Copyright (c) 2001, Sven2
- * Copyright (c) 2017-2020, The LegacyClonk Team and contributors
+ * Copyright (c) 2017-2024, The LegacyClonk Team and contributors
  *
  * Distributed under the terms of the ISC license; see accompanying file
  * "COPYING" for details.
@@ -19,6 +19,7 @@
 
 #pragma once
 
+#include <C4EnumInfo.h>
 #include <C4Network2Reference.h>
 #include <C4Gui.h>
 
@@ -29,7 +30,7 @@
 // maximum league count a game can run in
 const int32_t C4NetMaxLeagues = 10;
 
-enum C4LeagueAction
+enum C4LeagueAction : std::uint8_t
 {
 	C4LA_None,             // no action
 
@@ -42,6 +43,24 @@ enum C4LeagueAction
 	C4LA_PlrAuth,          // [client] Player authentication request
 
 	C4LA_ReportDisconnect, // [both]   Sent by host and client when a client is disconnected irregularly
+};
+
+template<>
+struct C4EnumInfo<C4LeagueAction>
+{
+	static inline constexpr auto data = mkEnumInfo<C4LeagueAction>("C4LA_",
+		{
+			{ C4LA_Start,        "Start"  },
+			{ C4LA_Update,       "Update" },
+			{ C4LA_End,          "End" },
+			{ C4LA_PlrAuthCheck, "Join" },
+
+			{ C4LA_RefQuery, "" },
+			{ C4LA_PlrAuth,  "Auth" },
+
+			{ C4LA_ReportDisconnect, "ReportDisconnect" }
+		}
+	);
 };
 
 class C4LeagueRequestHead
@@ -77,7 +96,7 @@ private:
 	C4LeagueDisconnectReason eReason;
 
 public:
-	C4LeagueReportDisconnectHead(const char *szCSID, C4LeagueDisconnectReason eReason) : eReason(eReason), C4LeagueRequestHead(C4LA_ReportDisconnect, szCSID, nullptr) {}
+	C4LeagueReportDisconnectHead(const char *szCSID, C4LeagueDisconnectReason eReason) : C4LeagueRequestHead(C4LA_ReportDisconnect, szCSID, nullptr), eReason(eReason) {}
 
 public:
 	void CompileFunc(StdCompiler *pComp);
@@ -209,7 +228,7 @@ private:
 	C4LeagueFBIDList FBIDList;
 
 public:
-	C4LeagueClient() : CSID(), eCurrAction(C4LA_None), C4Network2RefClient() {}
+	C4LeagueClient() : C4Network2RefClient(), CSID(), eCurrAction(C4LA_None) {}
 	const char *getCSID() const { return CSID.getData(); }
 	C4LeagueAction getCurrentAction() const { return eCurrAction; }
 	void ResetCurrentAction() { eCurrAction = C4LA_None; }
