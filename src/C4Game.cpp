@@ -25,6 +25,7 @@
 #include <C4GameSave.h>
 #include <C4Record.h>
 #include <C4Application.h>
+#include <C4HudBars.h>
 #include <C4Object.h>
 #include <C4ObjectInfo.h>
 #include <C4Random.h>
@@ -622,6 +623,7 @@ void C4Game::Clear()
 	CloseScenario();
 	GroupSet.Clear();
 	KeyboardInput.Clear();
+	HudBars.Clear();
 
 	if (Application.MusicSystem)
 	{
@@ -2437,6 +2439,12 @@ bool C4Game::InitGame(C4Group &hGroup, C4ScenarioSection *section, bool fLoadSky
 				return false;
 			}
 
+			// Load default HUD bars
+			if (!HudBars.LoadDefaultBars())
+			{
+				return false;
+			}
+
 			SetInitProgress(10);
 		}
 
@@ -2524,9 +2532,6 @@ bool C4Game::InitGame(C4Group &hGroup, C4ScenarioSection *section, bool fLoadSky
 			if (!Objects.FindInternal(C4Id("GOAL")))
 				CreateObject(C4Id("GOAL"), nullptr);
 	SetInitProgress(96);
-
-	// close any gfx groups, because they are no longer needed (after sky is initialized)
-	GraphicsResource.CloseFiles();
 
 	if (!section)
 	{

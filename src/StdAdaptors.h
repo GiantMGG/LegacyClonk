@@ -859,7 +859,7 @@ public:
 		{
 			for (const auto infoVal : info.scopedValues(C4EnumValueScope::Serialization))
 			{
-				if (infoVal.value == val)
+				if (static_cast<Underlying>(infoVal.value) == static_cast<Underlying>(val))
 				{
 					if (prefixMode == C4EnumAdaptPrefixMode::Force)
 					{
@@ -896,7 +896,7 @@ public:
 						|| ((prefixMode & C4EnumAdaptPrefixMode::Force) != C4EnumAdaptPrefixMode{} &&
 							nameView.starts_with(info.prefix) && nameView.substr(info.prefix.size()) == infoVal.name))
 					{
-						val = infoVal.value;
+						val = static_cast<T>(infoVal.value);
 						return;
 					}
 				}
@@ -969,8 +969,8 @@ public:
 			for (const auto infoVal : info.scopedValues(C4EnumValueScope::Serialization))
 			{
 				tmp = static_cast<Underlying>(infoVal.value);
-				// don’t write the zero-value if other bits are set
-				if (val != 0 && tmp == 0)
+			// don’t write the zero-value if other bits are set
+			if (static_cast<Underlying>(val) != Underlying{0} && tmp == 0)
 				{
 					continue;
 				}

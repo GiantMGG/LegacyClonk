@@ -23,6 +23,7 @@
 #include <C4Version.h>
 
 #include <C4Application.h>
+#include <C4HudBars.h>
 #include <C4Object.h>
 #include <C4ObjectInfo.h>
 #include <C4ObjectCom.h>
@@ -1842,6 +1843,53 @@ static bool FnSetMenuTextProgress(C4AulContext *cthr, C4ValueInt iNewProgress, C
 {
 	if (!pMenuObj || !pMenuObj->Menu) return false;
 	return pMenuObj->Menu->SetTextProgress(iNewProgress, false);
+}
+
+// Custom Energy Bars
+
+static bool FnDefineHudBars(C4AulContext *const cthr, C4ValueHash *const graphics, C4ValueArray *const bars)
+{
+	const auto obj = cthr->Obj;
+	if (!obj) return false;
+
+	try
+	{
+		return obj->DefineHudBars(graphics, bars);
+	}
+	catch (const C4HudBarException &e)
+	{
+		throw C4AulExecError{cthr->Obj, std::format("DefineHudBars: {}", e.what())};
+	}
+}
+
+static void FnSetHudBarValue(C4AulContext *const cthr, C4String *const name, const C4ValueInt newValue, const C4ValueInt newMax)
+{
+	const auto obj = cthr->Obj;
+	if (!obj) return;
+
+	try
+	{
+		obj->HudBars->SetValue(FnStringPar(name), newValue, newMax);
+	}
+	catch (const C4HudBarException &e)
+	{
+		throw C4AulExecError{cthr->Obj, std::format("SetHudBarValue: {}", e.what())};
+	}
+}
+
+static void FnSetHudBarVisibility(C4AulContext *const cthr, C4String *const name, const bool visible)
+{
+	const auto obj = cthr->Obj;
+	if (!obj) return;
+
+	try
+	{
+		obj->HudBars->SetVisibility(FnStringPar(name), visible);
+	}
+	catch (const C4HudBarException &e)
+	{
+		throw C4AulExecError{cthr->Obj, std::format("SetHudBarVisibility: {}", e.what())};
+	}
 }
 
 // Check / Status
@@ -6450,6 +6498,15 @@ static constexpr C4ScriptConstDef C4ScriptConstMap[] =
 	{ "C4MN_Add_ForceCount",  C4V_Int, C4MN_Add_ForceCount },
 	{ "C4MN_Add_ForceNoDesc", C4V_Int, C4MN_Add_ForceNoDesc },
 
+	{ "EBP_None",        C4V_Int, static_cast<C4ValueInt>(C4HudBarDef::Physical::None) },
+	{ "EBP_Energy",      C4V_Int, static_cast<C4ValueInt>(C4HudBarDef::Physical::Energy) },
+	{ "EBP_Magic",       C4V_Int, static_cast<C4ValueInt>(C4HudBarDef::Physical::Magic) },
+	{ "EBP_Breath",      C4V_Int, static_cast<C4ValueInt>(C4HudBarDef::Physical::Breath) },
+	{ "EBH_Never",       C4V_Int, static_cast<C4ValueInt>(C4HudBarDef::Hide::Never) },
+	{ "EBH_Empty",       C4V_Int, static_cast<C4ValueInt>(C4HudBarDef::Hide::Empty) },
+	{ "EBH_Full",        C4V_Int, static_cast<C4ValueInt>(C4HudBarDef::Hide::Full) },
+	{ "EBH_AsDef",       C4V_Int, static_cast<C4ValueInt>(C4HudBarDef::Hide::AsDef) },
+
 	{ "FX_OK",                  C4V_Int, C4Fx_OK }, // generic standard behaviour for all effect callbacks
 	{ "FX_Effect_Deny",         C4V_Int, C4Fx_Effect_Deny }, // delete effect
 	{ "FX_Effect_Annul",        C4V_Int, C4Fx_Effect_Annul }, // delete effect, because it has annulled a countereffect
@@ -6950,6 +7007,9 @@ void InitFunctionMap(C4AulScriptEngine *pEngine)
 	AddFunc(pEngine, "SelectMenuItem",                  FnSelectMenuItem);
 	AddFunc(pEngine, "SetMenuDecoration",               FnSetMenuDecoration);
 	AddFunc(pEngine, "SetMenuTextProgress",             FnSetMenuTextProgress);
+	AddFunc(pEngine, "DefineHudBars",                   FnDefineHudBars);
+	AddFunc(pEngine, "SetHudBarValue",                  FnSetHudBarValue);
+	AddFunc(pEngine, "SetHudBarVisibility",             FnSetHudBarVisibility);
 	AddFunc(pEngine, "SetSeason",                       FnSetSeason);
 	AddFunc(pEngine, "GetSeason",                       FnGetSeason);
 	AddFunc(pEngine, "SetClimate",                      FnSetClimate);

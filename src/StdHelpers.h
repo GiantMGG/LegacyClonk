@@ -137,6 +137,31 @@ constexpr std::size_t hashCombine(std::size_t hash, std::size_t nextHash)
 	return hash;
 }
 
+template<typename... Args>
+constexpr void HashCombineArguments(std::size_t &hash, Args &&...args)
+{
+	(..., (hash = hashCombine(hash, std::hash<std::decay_t<Args>>{}(args))));
+}
+
+template<typename... Args>
+constexpr std::size_t HashArguments(Args &&...args)
+{
+	std::size_t result{0};
+	(..., (result = hashCombine(result, std::hash<std::decay_t<Args>>{}(args))));
+	return result;
+}
+
+struct C4TransparentHash
+{
+	using is_transparent = void;
+
+	template<typename T>
+	std::size_t operator()(const T &t) const noexcept(noexcept(std::hash<T>{}(t)))
+	{
+		return std::hash<T>{}(t);
+	}
+};
+
 template<typename Enum> requires std::is_enum_v<Enum>
 struct C4BitfieldOperators : std::false_type {};
 
