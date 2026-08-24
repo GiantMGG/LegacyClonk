@@ -18,6 +18,8 @@
 
 #include <C4Random.h>
 
+C4Random C4Random::Default{0};
+
 // Random3
 
 const int FRndRes = 500;

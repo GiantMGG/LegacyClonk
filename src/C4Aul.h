@@ -24,6 +24,7 @@
 #pragma once
 
 #include <C4AulScriptStrict.h>
+#include "C4ForwardDeclarations.h"
 #include <C4ValueList.h>
 #include <C4ValueMap.h>
 #include <C4Id.h>
@@ -34,6 +35,7 @@
 
 #include <cstdint>
 #include <list>
+#include <map>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -141,6 +143,8 @@ enum C4AulBCCType
 	AB_LOCALN_V,
 	AB_GLOBALN_R,    // a named global
 	AB_GLOBALN_V,
+	AB_SECTIONLOCALN_R, // a named section-local
+	AB_SECTIONLOCALN_V,
 	AB_VAR_R,        // Var statement
 	AB_VAR_V,
 	AB_PAR_R,        // Par statement
@@ -256,9 +260,11 @@ struct C4AulContext
 {
 	C4Object *Obj;
 	C4Def *Def;
+	C4Section *Section;
 	struct C4AulScriptContext *Caller;
 
 	bool CalledWithStrictNil() const noexcept;
+	C4Section &GetSection() const noexcept;
 };
 
 // execution context
@@ -309,7 +315,7 @@ public:
 	virtual const C4V_Type *GetParType() { return nullptr; }
 	virtual C4V_Type GetRetType() { return C4V_Any; }
 	virtual C4Value Exec(C4AulContext *pCallerCtx, const C4Value pPars[], bool fPassErrors = false) { return C4Value(); } // execute func (script call)
-	virtual C4Value Exec(C4Object *pObj = nullptr, const C4AulParSet &pPars = C4AulParSet{}, bool fPassErrors = false, bool nonStrict3WarnConversionOnly = false, bool convertNilToIntBool = true); // execute func (engine call)
+	virtual C4Value Exec(C4Section &section, C4Object *pObj = nullptr, const C4AulParSet &pPars = C4AulParSet{}, bool fPassErrors = false, bool nonStrict3WarnConversionOnly = false, bool convertNilToIntBool = true); // execute func (engine call)
 	virtual void UnLink() { OverloadedBy = NextSNFunc = nullptr; }
 
 	C4AulFunc *GetLocalSFunc(const char *szIdtf); // find script function in own scope
@@ -361,7 +367,7 @@ public:
 	virtual const C4V_Type *GetParType() override { return ParType; }
 	virtual C4V_Type GetRetType() override { return bReturnRef ? C4V_pC4Value : C4V_Any; }
 	virtual C4Value Exec(C4AulContext *pCallerCtx, const C4Value pPars[], bool fPassErrors = false) override; // execute func (script call, should not happen)
-	virtual C4Value Exec(C4Object *pObj = nullptr, const C4AulParSet &pPars = C4AulParSet{}, bool fPassErrors = false, bool nonStrict3WarnConversionOnly = false, bool convertNilToIntBool = true) override; // execute func (engine call)
+	virtual C4Value Exec(C4Section &section, C4Object *pObj = nullptr, const C4AulParSet &pPars = C4AulParSet{}, bool fPassErrors = false, bool nonStrict3WarnConversionOnly = false, bool convertNilToIntBool = true) override; // execute func (engine call)
 
 	void CopyBody(C4AulScriptFunc &FromFunc); // copy script/code, etc from given func
 
@@ -456,7 +462,7 @@ public:
 	virtual bool Delete() { return true; } // allow deletion on pure class
 
 protected:
-	struct Append
+	struct AppendOrInclude
 	{
 		const C4ID id;
 		const bool nowarn;
@@ -474,8 +480,8 @@ protected:
 	bool Preparsing; // set while preparse
 	bool Resolving; // set while include-resolving, to catch circular includes
 
-	std::list<C4ID> Includes; // include list
-	std::list<Append> Appends; // append list
+	std::list<AppendOrInclude> Includes; // include list
+	std::list<AppendOrInclude> Appends; // append list
 
 	// internal function used to find overloaded functions
 	C4AulFunc *GetOverloadedFunc(C4AulFunc *ByFunc);
@@ -520,7 +526,7 @@ public:
 	C4AulAccess GetAllowedAccess(C4AulFunc *func, C4AulScript *caller);
 
 public:
-	C4Value DirectExec(C4Object *pObj, const char *szScript, const char *szContext, bool fPassErrors = false, C4AulScriptStrict Strict = C4AulScriptStrict::MAXSTRICT); // directly parse uncompiled script (WARG! CYCLES!)
+	C4Value DirectExec(C4Section &section, C4Object *pObj, const char *szScript, const char *szContext, bool fPassErrors = false, C4AulScriptStrict Strict = C4AulScriptStrict::MAXSTRICT); // directly parse uncompiled script (WARG! CYCLES!)
 	void ResetProfilerTimes(); // zero all profiler times of owned functions
 	void CollectProfilerTimes(class C4AulProfiler &rProfiler);
 
@@ -550,6 +556,8 @@ public:
 	C4ValueList Global;
 	C4ValueMapNames GlobalNamedNames;
 	C4ValueMapData GlobalNamed;
+	C4ValueMapNames SectionLocalNamedNames;
+	std::map<std::uint32_t, std::unique_ptr<C4ValueMapData>> SectionLocalNamed;
 
 	C4StringTable Strings;
 
@@ -588,6 +596,9 @@ public:
 
 	void RegisterGlobalConstant(const char *szName, const C4Value &rValue); // creates a new constants or overwrites an old one
 	bool GetGlobalConstant(const char *szName, C4Value *pTargetValue); // check if a constant exists; assign value to pTargetValue if not nullptr
+	void RegisterSection(C4Section &section);
+	void UnregisterSection(C4Section &section);
+	C4ValueMapData *GetSectionLocalNamed(std::uint32_t sectionNumber);
 
 	bool DenumerateVariablePointers();
 	void UnLink(); // called when a script is being reloaded (clears string table)

@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include "C4ForwardDeclarations.h"
 #include <memory>
 
 #include "C4Id.h"
@@ -46,6 +47,7 @@ enum C4FindObjectCondID
 	C4FO_Controller = 51,
 	C4FO_Func = 60,
 	C4FO_Layer = 70,
+	C4FO_Section = 80,
 };
 
 // Sort map - using same values as C4FindObjectCondID!
@@ -97,13 +99,12 @@ public:
 
 	static std::unique_ptr<C4FindObject> CreateByValue(const C4Value &Data, std::vector<std::unique_ptr<C4SortObject>> *sorts = nullptr); // createFindObject or SortObject - if sorts==nullptr, SortObject is not allowed
 
-	int32_t Count(const C4ObjectList &Objs); // Counts objects for which the condition is true
-	C4Object *Find(const C4ObjectList &Objs);   // Returns first object for which the condition is true
-	C4ValueArray *FindMany(const C4ObjectList &Objs); // Returns all objects for which the condition is true
+	C4Object *Find(std::vector<C4ObjectLink *> objectLinks, C4ObjectLink *extraLink);   // Returns first object for which the condition is true
+	C4ValueArray *FindMany(std::span<C4Section *> sections, C4ObjectList *extraList); // Returns all objects for which the condition is true
 
-	int32_t Count(const C4ObjectList &Objs, const C4LSectors &Sct); // Counts objects for which the condition is true
-	C4Object *Find(const C4ObjectList &Objs, const C4LSectors &Sct); // Returns first object for which the condition is true
-	C4ValueArray *FindMany(const C4ObjectList &Objs, const C4LSectors &Sct); // Returns all objects for which the condition is true
+	int32_t CountWithSectors(std::span<C4Section *> sections, C4ObjectList *extraList); // Counts objects for which the condition is true
+	C4Object *FindWithSectors(std::span<C4Section *> sections, C4ObjectList *extraList); // Returns first object for which the condition is true
+	C4ValueArray *FindManyWithSectors(std::span<C4Section *> sections, C4ObjectList *extraList); // Returns all objects for which the condition is true
 
 	void SetSort(std::unique_ptr<C4SortObject> pToSort);
 
@@ -408,6 +409,19 @@ private:
 protected:
 	virtual bool Check(C4Object *pObj) override;
 	virtual bool IsImpossible() override;
+};
+
+class C4FindObjectSection : public C4FindObject
+{
+public:
+	C4FindObjectSection(std::uint32_t sectionNumber);
+
+protected:
+	bool Check(C4Object *obj) override;
+	bool IsImpossible() override;
+
+private:
+	C4Section *section;
 };
 
 class C4SortObjectByValue : public C4SortObject

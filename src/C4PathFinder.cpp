@@ -123,7 +123,7 @@ bool C4PathFinderRay::Execute()
 			else
 			{
 				// Find exit point
-				if (!UseZone->GetEntryPoint(X2, Y2, TargetX, TargetY))
+				if (!UseZone->GetEntryPoint(*pPathFinder->Landscape, X2, Y2, TargetX, TargetY))
 				{
 					Status = C4PF_Ray_Failure; break;
 				}
@@ -153,7 +153,7 @@ bool C4PathFinderRay::Execute()
 		{
 			// Zone entry point adjust (if not already in zone)
 			if (!pZone->At(X, Y))
-				pZone->GetEntryPoint(X2, Y2, X2, Y2);
+				pZone->GetEntryPoint(*pPathFinder->Landscape, X2, Y2, X2, Y2);
 			// Add use-zone ray
 			if (!pPathFinder->AddRay(X2, Y2, TargetX, TargetY, Depth + 1, Direction, this, pZone))
 			{
@@ -200,7 +200,7 @@ bool C4PathFinderRay::Execute()
 					if (!pZone->Used)
 					{
 						// Add use-zone ray (with zone entry point adjust)
-						iX = X2; iY = Y2; if (pZone->GetEntryPoint(iX, iY, X2, Y2))
+						iX = X2; iY = Y2; if (pZone->GetEntryPoint(*pPathFinder->Landscape, iX, iY, X2, Y2))
 							if (!pPathFinder->AddRay(iX, iY, TargetX, TargetY, Depth + 1, Direction, this, pZone))
 							{
 								Status = C4PF_Ray_Failure; break;
@@ -400,7 +400,7 @@ void C4PathFinderRay::SetCompletePath()
 
 bool C4PathFinderRay::PointFree(int32_t iX, int32_t iY)
 {
-	return pPathFinder->PointFree(iX, iY);
+	return pPathFinder->PointFree(*pPathFinder->Landscape, iX, iY);
 }
 
 bool C4PathFinderRay::CrawlTargetFree(int32_t iX, int32_t iY, int32_t iAttach, int32_t iDirection)
@@ -523,6 +523,7 @@ C4PathFinder::~C4PathFinder()
 
 void C4PathFinder::Default()
 {
+	Landscape = nullptr;
 	PointFree = nullptr;
 	SetWaypoint = nullptr;
 	FirstRay = nullptr;
@@ -540,9 +541,10 @@ void C4PathFinder::Clear()
 	FirstRay = nullptr;
 }
 
-void C4PathFinder::Init(bool(*fnPointFree)(int32_t, int32_t), C4TransferZones *pTransferZones)
+void C4PathFinder::Init(C4Landscape &landscape, bool(*fnPointFree)(C4Landscape &, int32_t, int32_t), C4TransferZones *pTransferZones)
 {
 	// Set data
+	Landscape = &landscape;
 	PointFree = fnPointFree;
 	TransferZones = pTransferZones;
 }
@@ -608,7 +610,7 @@ bool C4PathFinder::Find(int32_t iFromX, int32_t iFromY, int32_t iToX, int32_t iT
 	WaypointParameter = iWaypointParameter;
 
 	// Start & target coordinates must be free
-	if (!PointFree(iFromX, iFromY) || !PointFree(iToX, iToY)) return false;
+	if (!PointFree(*Landscape, iFromX, iFromY) || !PointFree(*Landscape, iToX, iToY)) return false;
 
 	// Add the first two rays
 	if (!AddRay(iFromX, iFromY, iToX, iToY, 0, C4PF_Direction_Left, nullptr)) return false;

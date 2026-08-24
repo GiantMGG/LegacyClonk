@@ -20,6 +20,7 @@
 
 #include "C4ForwardDeclarations.h"
 #include <C4NameList.h>
+#include "C4Random.h"
 #include <C4IDList.h>
 
 #include <string>
@@ -35,7 +36,7 @@ public:
 public:
 	void Default();
 	void Set(int32_t std = 0, int32_t rnd = 0, int32_t min = 0, int32_t max = 100);
-	int32_t Evaluate();
+	int32_t Evaluate(C4Random &random);
 	void CompileFunc(StdCompiler *pComp);
 };
 
@@ -246,7 +247,7 @@ public:
 
 public:
 	void Default();
-	void GetMapSize(int32_t &rWdt, int32_t &rHgt, int32_t iPlayerNum);
+	void GetMapSize(int32_t &rWdt, int32_t &rHgt, int32_t iPlayerNum, C4Random &random);
 	void CompileFunc(StdCompiler *pComp, bool shadeMaterialsDefault = true, bool enableTextureOverlaysDefault = true);
 };
 
@@ -324,33 +325,4 @@ public:
 
 protected:
 	bool Compile(const char *szSource, bool fLoadSection = false);
-};
-
-class C4ScenarioSection;
-
-extern const char *C4ScenSect_Main;
-
-// ref to one scenario section
-class C4ScenarioSection
-{
-public:
-	C4ScenarioSection(char *szName);
-	~C4ScenarioSection();
-
-public:
-	bool fModified; // if set, the file is temp and contains runtime landscape and/or object data
-
-	C4ScenarioSection *pNext; // next member of linked list
-
-public:
-	bool ScenarioLoad(char *szFilename); // called when scenario is loaded: extract to temp store
-	C4Group *GetGroupfile(C4Group &rGrp); // get group at section file (returns temp group, scenario subgroup or scenario group itself)
-	bool EnsureTempStore(bool fExtractLandscape, bool fExtractObjects); // make sure that a temp file is created, and nothing is modified within the main scenario file
-	const char *GetName() const;
-	const char *GetTempFilename() const;
-
-private:
-	std::string Name; // section name
-	std::string TempFilename; // filename of data file if in temp dir
-	std::string Filename; // filename of section in scenario file
 };

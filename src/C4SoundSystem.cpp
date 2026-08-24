@@ -29,43 +29,43 @@
 #include <utility>
 #include <vector>
 
-bool IsSoundPlaying(const char *const name, const C4Object *const obj)
+bool IsSoundPlaying(const char *const name, const C4SoundSystem::TargetVariant target)
 {
-	return Application.SoundSystem->FindInst(name, obj).has_value();
+	return Application.SoundSystem->FindInst(name, target).has_value();
 }
 
-void SoundLevel(const char *const name, C4Object *const obj, const std::int32_t level)
+void SoundLevel(const char *const name, const C4SoundSystem::TargetVariant target, const std::int32_t level)
 {
 	// Sound level zero? Stop
-	if (level <= 0) { StopSoundEffect(name, obj); return; }
+	if (level <= 0) { StopSoundEffect(name, target); return; }
 	// Set volume of existing instance or create new instance
-	const auto it = Application.SoundSystem->FindInst(name, obj);
+	const auto it = Application.SoundSystem->FindInst(name, target);
 	if (it)
 	{
 		(**it).volume = level;
 	}
 	else
 	{
-		StartSoundEffect(name, true, level, obj);
+		StartSoundEffect(name, true, level, target);
 	}
 }
 
 bool StartSoundEffect(const char *const name, const bool loop, const std::int32_t volume,
-	C4Object *const obj, const std::int32_t falloffDistance)
+	const C4SoundSystem::TargetVariant target, const std::int32_t falloffDistance)
 {
-	return Application.SoundSystem->NewInstance(name, loop, volume, 0, obj, falloffDistance) != nullptr;
+	return Application.SoundSystem->NewInstance(name, loop, volume, 0, target, falloffDistance) != nullptr;
 }
 
-void StartSoundEffectAt(const char *const name, const std::int32_t x, const std::int32_t y)
+void StartSoundEffectAt(const char *const name, C4Section &section, const std::int32_t x, const std::int32_t y)
 {
 	std::int32_t volume, pan;
-	Application.SoundSystem->GetVolumeByPos(x, y, volume, pan);
-	Application.SoundSystem->NewInstance(name, false, volume, pan, nullptr, 0);
+	Application.SoundSystem->GetVolumeByPos(section, x, y, volume, pan);
+	Application.SoundSystem->NewInstance(name, false, volume, pan, C4SoundSystem::Position{&section, x, y}, 0);
 }
 
-void StopSoundEffect(const char *const name, const C4Object *const obj)
+void StopSoundEffect(const char *const name, const C4SoundSystem::TargetVariant target)
 {
-	if (const auto it = Application.SoundSystem->FindInst(name, obj))
+	if (const auto it = Application.SoundSystem->FindInst(name, target))
 	{
 		(**it).sample.instances.erase(*it);
 	}
@@ -91,6 +91,23 @@ void C4SoundSystem::ClearPointers(const C4Object *const obj)
 	{
 		sample.instances.remove_if(
 			[&](auto &inst) { return obj == inst.GetObj() && !inst.DetachObj(); });
+	}
+}
+
+void C4SoundSystem::ClearSectionPointers(C4Section &section)
+{
+	for (auto &sample : samples)
+	{
+		sample.instances.remove_if(
+			[&section](auto &inst)
+		{
+			return std::visit(StdOverloadedCallable{
+								  [&section](C4Object *const obj) { return obj && obj->Section == &section; },
+								  [&section](const Position &position) { return position.Section == &section; },
+								  [&section](C4Section *const other) { return other == &section; },
+								  [](GlobalSoundMarker) { return false; }
+							  }, inst.target);
+		});
 	}
 }
 
@@ -155,8 +172,8 @@ bool C4SoundSystem::Instance::DetachObj()
 	if (loop) return false;
 	// Otherwise: set volume by last position
 	const auto detachedObj = GetObj();
-	obj.emplace<const ObjPos>(*detachedObj);
-	GetVolumeByPos(detachedObj->x, detachedObj->y, volume, pan);
+	target.emplace<Position>(detachedObj->Section, detachedObj->x, detachedObj->y);
+	GetVolumeByPos(*detachedObj->Section, detachedObj->x, detachedObj->y, volume, pan);
 
 	// Do not stop instance
 	return true;
@@ -192,12 +209,16 @@ bool C4SoundSystem::Instance::Execute(const bool justStarted)
 	{
 		std::int32_t audibility = obj->GetAudibility();
 		// apply custom falloff distance
-		if (falloffDistance != 0)
+		if (falloffDistance != 0 && Game.GraphicsSystem.IsSectionAudible(*obj->Section))
 		{
 			audibility = std::clamp<int32_t>(100 + (audibility - 100) * AudibilityRadius / falloffDistance, 0, 100);
 		}
 		vol *= audibility / 100.0f;
 		pan += obj->GetAudiblePan() / 100.0f;
+	}
+	else if (C4Section *const *const section{std::get_if<C4Section *>(&target)}; section && !Game.GraphicsSystem.IsSectionAudible(**section))
+	{
+		vol = 0.0f;
 	}
 
 	// Sound off? Release channel to make it available for other instances.
@@ -236,7 +257,7 @@ bool C4SoundSystem::Instance::Execute(const bool justStarted)
 
 C4Object *C4SoundSystem::Instance::GetObj() const
 {
-	const auto ptr = std::get_if<C4Object *>(&obj);
+	const auto ptr = std::get_if<C4Object *>(&target);
 	return ptr ? *ptr : nullptr;
 }
 
@@ -251,10 +272,10 @@ std::uint32_t C4SoundSystem::Instance::GetPlaybackPosition() const
 bool C4SoundSystem::Instance::IsNear(const C4Object &obj2) const
 {
 	// Attached to object?
-	if (const auto objAsObject = std::get_if<C4Object *>(&obj); objAsObject && *objAsObject)
+	if (const auto targetAsObject = std::get_if<C4Object *>(&target); targetAsObject && *targetAsObject)
 	{
-		const auto x = (**objAsObject).x;
-		const auto y = (**objAsObject).y;
+		const auto x = (**targetAsObject).x;
+		const auto y = (**targetAsObject).y;
 		return (x - obj2.x) * (x - obj2.x) + (y - obj2.y) * (y - obj2.y) <=
 		NearSoundRadius * NearSoundRadius;
 	}
@@ -266,7 +287,7 @@ bool C4SoundSystem::Instance::IsNear(const C4Object &obj2) const
 	return false;
 }
 
-auto C4SoundSystem::FindInst(const char *wildcard, const C4Object *const obj) ->
+auto C4SoundSystem::FindInst(const char *wildcard, const TargetVariant target) ->
 	std::optional<decltype(Sample::instances)::iterator>
 {
 	const auto wildcardStr = PrepareFilename(wildcard);
@@ -278,7 +299,7 @@ auto C4SoundSystem::FindInst(const char *wildcard, const C4Object *const obj) ->
 		if (!WildcardMatch(wildcard, sample.name.c_str())) continue;
 		// Try to find an instance that is bound to obj
 		auto it = std::find_if(sample.instances.begin(), sample.instances.end(),
-			[&](const auto &inst) { return inst.GetObj() == obj; });
+			[&](const auto &inst) { return inst.target == target; });
 		if (it != sample.instances.end()) return it;
 	}
 
@@ -291,14 +312,14 @@ bool &C4SoundSystem::GetCfgSoundEnabled()
 	return Game.IsRunning ? Config.Sound.RXSound : Config.Sound.FESamples;
 }
 
-void C4SoundSystem::GetVolumeByPos(std::int32_t x, std::int32_t y,
+void C4SoundSystem::GetVolumeByPos(C4Section &section, std::int32_t x, std::int32_t y,
 	std::int32_t &volume, std::int32_t &pan)
 {
-	volume = Game.GraphicsSystem.GetAudibility(x, y, &pan);
+	volume = Game.GraphicsSystem.GetAudibility(section, x, y, &pan);
 }
 
 auto C4SoundSystem::NewInstance(const char *filename, const bool loop,
-	const std::int32_t volume, const std::int32_t pan, C4Object *const obj,
+	const std::int32_t volume, const std::int32_t pan, const TargetVariant target,
 	const std::int32_t falloffDistance) -> Instance *
 {
 	if (!Application.AudioSystem) return nullptr;
@@ -339,15 +360,13 @@ auto C4SoundSystem::NewInstance(const char *filename, const bool loop,
 	if (!loop && sample->instances.size() >= MaxSoundInstances) return nullptr;
 
 	// Already playing near?
-	const auto nearIt = obj ?
-		std::find_if(sample->instances.cbegin(), sample->instances.cend(),
-			[&](const auto &inst) { return inst.IsNear(*obj); }) :
-		std::find_if(sample->instances.cbegin(), sample->instances.cend(),
-			[](const auto &inst) { return !inst.GetObj(); });
+	const auto nearIt = std::holds_alternative<C4Object *>(target)
+						? std::find_if(sample->instances.cbegin(), sample->instances.cend(), [&](const auto &inst) { return inst.IsNear(*std::get<C4Object *>(target)); })
+						: std::find_if(sample->instances.cbegin(), sample->instances.cend(), [&](const auto &inst) { return inst.target == target; });
 	if (nearIt != sample->instances.cend()) return nullptr;
 
 	// Create instance
-	auto &inst = sample->instances.emplace_back(*sample, loop, volume, obj, falloffDistance);
+	auto &inst = sample->instances.emplace_back(*sample, loop, volume, target, falloffDistance);
 	if (!inst.Execute(true))
 	{
 		sample->instances.pop_back();

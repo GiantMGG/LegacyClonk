@@ -89,14 +89,14 @@ C4ParticleDef::C4ParticleDef() :
 	// zero fields
 	Gfx.Default();
 	// link into list
-	if (!ParticleSystem.pDef0)
+	if (!Game.Particles.pDef0)
 	{
 		pPrev = nullptr;
-		ParticleSystem.pDef0 = this;
+		Game.Particles.pDef0 = this;
 	}
 	else
-		(pPrev = ParticleSystem.pDefL)->pNext = this;
-	ParticleSystem.pDefL = this;
+		(pPrev = Game.Particles.pDefL)->pNext = this;
+	Game.Particles.pDefL = this;
 	pNext = nullptr;
 }
 
@@ -105,8 +105,8 @@ C4ParticleDef::~C4ParticleDef()
 	// clear
 	Clear();
 	// unlink from list
-	if (pPrev) pPrev->pNext = pNext; else ParticleSystem.pDef0 = pNext;
-	if (pNext) pNext->pPrev = pPrev; else ParticleSystem.pDefL = pPrev;
+	if (pPrev) pPrev->pNext = pNext; else Game.Particles.pDef0 = pNext;
+	if (pNext) pNext->pPrev = pPrev; else Game.Particles.pDefL = pPrev;
 }
 
 void C4ParticleDef::Clear()
@@ -154,29 +154,29 @@ bool C4ParticleDef::Load(C4Group &rGrp)
 		// calc aspect
 		Aspect = static_cast<float>(Gfx.Wdt) / Gfx.Hgt;
 		// get proc pointers
-		if (!(InitProc = ParticleSystem.GetProc(InitFn.getData())))
+		if (!(InitProc = Game.Particles.GetProc(InitFn.getData())))
 		{
 			DebugLog(spdlog::level::err, "init proc for particle '{}' not found: '{}'", Name.getData(), InitFn.getData());
 			return false;
 		}
-		if (!(ExecProc = ParticleSystem.GetProc(ExecFn.getData())))
+		if (!(ExecProc = Game.Particles.GetProc(ExecFn.getData())))
 		{
 			DebugLog(spdlog::level::err, "exec proc for particle '{}' not found: '{}'", Name.getData(), ExecFn.getData());
 			return false;
 		}
-		if (CollisionFn && CollisionFn[0]) if (!(CollisionProc = ParticleSystem.GetProc(CollisionFn.getData())))
+		if (CollisionFn && CollisionFn[0]) if (!(CollisionProc = Game.Particles.GetProc(CollisionFn.getData())))
 		{
 			DebugLog(spdlog::level::err, "collision proc for particle '{}' not found: '{}'", Name.getData(), CollisionFn.getData());
 			return false;
 		}
-		if (!(DrawProc = ParticleSystem.GetDrawProc(DrawFn.getData())))
+		if (!(DrawProc = Game.Particles.GetDrawProc(DrawFn.getData())))
 		{
 			DebugLog(spdlog::level::err, "draw proc for particle '{}' not found: '{}'", Name.getData(), DrawFn.getData());
 			return false;
 		}
 		// particle overloading
 		C4ParticleDef *pDefOverload;
-		if ((pDefOverload = ParticleSystem.GetDef(Name.getData(), this)))
+		if ((pDefOverload = Game.Particles.GetDef(Name.getData(), this)))
 		{
 			if (Config.Graphics.VerboseObjectLoading >= 1)
 			{
@@ -246,7 +246,7 @@ void C4ParticleChunk::Clear()
 	Data[0].pPrev = Data[C4Px_BufSize - 1].pNext = nullptr;
 }
 
-void C4ParticleList::Exec(C4Object *pObj)
+void C4ParticleList::Exec(C4Section &section, C4Object *pObj)
 {
 	// execute all particles
 	C4Particle *pPrtNext = pFirst, *pPrt;
@@ -255,11 +255,11 @@ void C4ParticleList::Exec(C4Object *pObj)
 		// get next now, because destruction could corrupt the list
 		pPrtNext = pPrt->pNext;
 		// execute it
-		if (!pPrt->pDef->ExecProc(pPrt, pObj))
+		if (!pPrt->pDef->ExecProc(pPrt, section, pObj))
 		{
 			// sorry, life is over for you :P
 			--pPrt->pDef->Count;
-			pPrt->MoveList(*this, Game.Particles.FreeParticles);
+			pPrt->MoveList(*this, section.Particles.FreeParticles);
 		}
 	}
 	// done
@@ -273,7 +273,7 @@ void C4ParticleList::Draw(C4FacetEx &cgo, C4Object *pObj)
 	// done
 }
 
-void C4ParticleList::Clear()
+void C4ParticleList::Clear(C4ParticleList &freeParticles)
 {
 	// remove all particles
 	C4Particle *pPrtNext = pFirst, *pPrt;
@@ -283,11 +283,11 @@ void C4ParticleList::Clear()
 		pPrtNext = pPrt->pNext;
 		// sorry, life is over for you :P
 		--pPrt->pDef->Count;
-		pPrt->MoveList(*this, Game.Particles.FreeParticles);
+		pPrt->MoveList(*this, freeParticles);
 	}
 }
 
-int32_t C4ParticleList::Remove(C4ParticleDef *pOfDef)
+int32_t C4ParticleList::Remove(C4ParticleList &freeParticles, C4ParticleDef *pOfDef)
 {
 	int32_t iNumRemoved = 0;
 	// check all particles for def
@@ -301,28 +301,80 @@ int32_t C4ParticleList::Remove(C4ParticleDef *pOfDef)
 		{
 			// sorry, life is over for you :P
 			--pPrt->pDef->Count;
-			pPrt->MoveList(*this, Game.Particles.FreeParticles);
+			pPrt->MoveList(*this, freeParticles);
 		}
 	}
 	// done
 	return iNumRemoved;
 }
 
-C4ParticleSystem::C4ParticleSystem()
+C4LoadedParticleList::~C4LoadedParticleList()
 {
-	// zero fields
-	pDef0 = pDefL = nullptr;
-	pSmoke = nullptr;
-	pBlast = nullptr;
-	pFSpark = nullptr;
-	pFire1 = nullptr;
-	pFire2 = nullptr;
+	Clear();
+}
+
+void C4LoadedParticleList::Clear()
+{
+	// clear defs
+	while (pDef0) delete pDef0;
+	// clear system particles
+	pSmoke = pBlast = pFSpark = pFire1 = pFire2 = nullptr;
+	// done
+}
+
+C4ParticleProc C4LoadedParticleList::GetProc(const char *szName)
+{
+	// seek in map
+	for (int32_t i = 0; C4ParticleProcMap[i].Name[0]; ++i)
+		if (SEqual(C4ParticleProcMap[i].Name, szName))
+			return C4ParticleProcMap[i].Proc;
+	// nothing found...
+	return nullptr;
+}
+
+C4ParticleDrawProc C4LoadedParticleList::GetDrawProc(const char *szName)
+{
+	// seek in map
+	for (int32_t i = 0; C4ParticleDrawProcMap[i].Name[0]; ++i)
+		if (SEqual(C4ParticleDrawProcMap[i].Name, szName))
+			return C4ParticleDrawProcMap[i].Proc;
+	// nothing found...
+	return nullptr;
+}
+
+C4ParticleDef *C4LoadedParticleList::GetDef(const char *szName, C4ParticleDef *pExclude)
+{
+	// seek list
+	for (C4ParticleDef *pDef = pDef0; pDef; pDef = pDef->pNext)
+		if (pDef != pExclude && pDef->Name == szName)
+			return pDef;
+	// nothing found
+	return nullptr;
+}
+
+void C4LoadedParticleList::SetDefParticles()
+{
+	// get smoke
+	pSmoke = GetDef("Smoke");
+	// get blast
+	pBlast = GetDef("Blast");
+	pFSpark = GetDef("FSpark");
+	// get fire, if fire particles are desired
+	if (Config.Graphics.FireParticles)
+	{
+		pFire1 = GetDef("Fire");
+		pFire2 = GetDef("Fire2");
+	}
+	else
+		pFire1 = pFire2 = nullptr;
+	// if fire is drawn w/o background fct: unload fire face if both fire particles are assigned
+	// but this is not done here
 }
 
 C4ParticleSystem::~C4ParticleSystem()
 {
 	// clean up
-	Clear();
+	ClearParticles();
 }
 
 C4ParticleChunk *C4ParticleSystem::AddChunk()
@@ -339,13 +391,18 @@ C4ParticleChunk *C4ParticleSystem::AddChunk()
 	return pNewChnk;
 }
 
+C4ParticleSystem::C4ParticleSystem(C4Section &section)
+	: section{section}
+{
+
+}
 void C4ParticleSystem::ClearParticles()
 {
 	// clear particle lists
 	C4ObjectLink *pLnk;
-	for (pLnk = Game.Objects.First; pLnk; pLnk = pLnk->Next)
+	for (pLnk = section.Objects.First; pLnk; pLnk = pLnk->Next)
 		pLnk->Obj->FrontParticles.pFirst = pLnk->Obj->BackParticles.pFirst = nullptr;
-	for (pLnk = Game.Objects.InactiveObjects.First; pLnk; pLnk = pLnk->Next)
+	for (pLnk = section.Objects.InactiveObjects.First; pLnk; pLnk = pLnk->Next)
 		pLnk->Obj->FrontParticles.pFirst = pLnk->Obj->BackParticles.pFirst = nullptr;
 	GlobalParticles.pFirst = nullptr;
 	// reset chunks
@@ -359,19 +416,10 @@ void C4ParticleSystem::ClearParticles()
 	Chunk.Clear();
 	FreeParticles.pFirst = Chunk.Data;
 	// adjust counts
-	for (C4ParticleDef *pDef = pDef0; pDef; pDef = pDef->pNext)
+	// FIXME
+	/*for (C4ParticleDef *pDef = pDef0; pDef; pDef = pDef->pNext)
 		pDef->Count = 0;
-}
-
-void C4ParticleSystem::Clear()
-{
-	// clear particles first
-	ClearParticles();
-	// clear defs
-	while (pDef0) delete pDef0;
-	// clear system particles
-	pSmoke = pBlast = pFSpark = pFire1 = pFire2 = nullptr;
-	// done
+	*/
 }
 
 C4Particle *C4ParticleSystem::Create(C4ParticleDef *pOfDef,
@@ -406,13 +454,13 @@ C4Particle *C4ParticleSystem::Create(C4ParticleDef *pOfDef,
 		pPrt->y -= pObj->y;
 	}
 	// call initialization
-	if (!pOfDef->InitProc(pPrt, pObj))
+	if (!pOfDef->InitProc(pPrt, section, pObj))
 		// failed :(
 		return nullptr;
 	// count particle
 	++pOfDef->Count;
 	// more to desired list
-	pPrt->MoveList(Game.Particles.FreeParticles, *pPxList);
+	pPrt->MoveList(FreeParticles, *pPxList);
 	// return newly created particle
 	return pPrt;
 }
@@ -439,55 +487,6 @@ bool C4ParticleSystem::Cast(C4ParticleDef *pOfDef, int32_t iAmount,
 			b0 + (SafeRandom(db1) << 24) + (SafeRandom(db2) << 16) + (SafeRandom(db3) << 8) + SafeRandom(db4), pPxList, pObj);
 	// success
 	return true;
-}
-
-C4ParticleProc C4ParticleSystem::GetProc(const char *szName)
-{
-	// seek in map
-	for (int32_t i = 0; C4ParticleProcMap[i].Name[0]; ++i)
-		if (SEqual(C4ParticleProcMap[i].Name, szName))
-			return C4ParticleProcMap[i].Proc;
-	// nothing found...
-	return nullptr;
-}
-
-C4ParticleDrawProc C4ParticleSystem::GetDrawProc(const char *szName)
-{
-	// seek in map
-	for (int32_t i = 0; C4ParticleDrawProcMap[i].Name[0]; ++i)
-		if (SEqual(C4ParticleDrawProcMap[i].Name, szName))
-			return C4ParticleDrawProcMap[i].Proc;
-	// nothing found...
-	return nullptr;
-}
-
-C4ParticleDef *C4ParticleSystem::GetDef(const char *szName, C4ParticleDef *pExclude)
-{
-	// seek list
-	for (C4ParticleDef *pDef = pDef0; pDef; pDef = pDef->pNext)
-		if (pDef != pExclude && pDef->Name == szName)
-			return pDef;
-	// nothing found
-	return nullptr;
-}
-
-void C4ParticleSystem::SetDefParticles()
-{
-	// get smoke
-	pSmoke = GetDef("Smoke");
-	// get blast
-	pBlast = GetDef("Blast");
-	pFSpark = GetDef("FSpark");
-	// get fire, if fire particles are desired
-	if (Config.Graphics.FireParticles)
-	{
-		pFire1 = GetDef("Fire");
-		pFire2 = GetDef("Fire2");
-	}
-	else
-		pFire1 = pFire2 = nullptr;
-	// if fire is drawn w/o background fct: unload fire face if both fire particles are assigned
-	// but this is not done here
 }
 
 int32_t C4ParticleSystem::Push(C4ParticleDef *pOfDef, float dxdir, float dydir)
@@ -517,7 +516,7 @@ int32_t C4ParticleSystem::Push(C4ParticleDef *pOfDef, float dxdir, float dydir)
 	return iNumPushed;
 }
 
-bool fxSmokeInit(C4Particle *pPrt, C4Object *pTarget)
+bool fxSmokeInit(C4Particle *pPrt, C4Section &section, C4Object *pTarget)
 {
 	// init lifetime
 	pPrt->life = pPrt->pDef->MinLifetime;
@@ -533,7 +532,7 @@ bool fxSmokeInit(C4Particle *pPrt, C4Object *pTarget)
 	return true;
 }
 
-bool fxSmokeExec(C4Particle *pPrt, C4Object *pTarget)
+bool fxSmokeExec(C4Particle *pPrt, C4Section &section, C4Object *pTarget)
 {
 	// lifetime
 	if (!--pPrt->life) return false;
@@ -555,15 +554,15 @@ bool fxSmokeExec(C4Particle *pPrt, C4Object *pTarget)
 	// wind to float
 	if (!(pPrt->b % 12) || fBuilding)
 	{
-		pPrt->xdir = 0.025f * Game.Weather.GetWind(int32_t(pPrt->x), int32_t(pPrt->y));
+		pPrt->xdir = 0.025f * section.Weather.GetWind(int32_t(pPrt->x), int32_t(pPrt->y));
 		if (pPrt->xdir < -2.0f) pPrt->xdir = -2.0f; else if (pPrt->xdir > 2.0f) pPrt->xdir = 2.0f;
 		pPrt->xdir += 0.1f * SafeRandom(41) - 2.0f;
 	}
 	// float
-	if (GBackSolid(int32_t(pPrt->x), int32_t(pPrt->y - pPrt->a)))
+	if (section.Landscape.GBackSolid(int32_t(pPrt->x), int32_t(pPrt->y - pPrt->a)))
 	{
 		// if stuck, decay; otherwise, move down
-		if (!GBackSolid(int32_t(pPrt->x), int32_t(pPrt->y))) pPrt->y += 0.4f; else pPrt->a -= 2;
+		if (!section.Landscape.GBackSolid(int32_t(pPrt->x), int32_t(pPrt->y))) pPrt->y += 0.4f; else pPrt->a -= 2;
 	}
 	else
 		--pPrt->y;
@@ -596,7 +595,7 @@ void fxSmokeDraw(C4Particle *pPrt, C4FacetEx &cgo, C4Object *pTarget)
 	Application.DDraw->DeactivateBlitModulation();
 }
 
-bool fxStdInit(C4Particle *pPrt, C4Object *pTarget)
+bool fxStdInit(C4Particle *pPrt, C4Section &section, C4Object *pTarget)
 {
 	if (pPrt->pDef->Delay)
 		// delay given: lifetime starts at zero
@@ -610,7 +609,7 @@ bool fxStdInit(C4Particle *pPrt, C4Object *pTarget)
 	return true;
 }
 
-bool fxStdExec(C4Particle *pPrt, C4Object *pTarget)
+bool fxStdExec(C4Particle *pPrt, C4Section &section, C4Object *pTarget)
 {
 	float dx = pPrt->x, dy = pPrt->y;
 	float dxdir = pPrt->xdir, dydir = pPrt->ydir;
@@ -626,11 +625,11 @@ bool fxStdExec(C4Particle *pPrt, C4Object *pTarget)
 	// move
 	if (pPrt->xdir || pPrt->ydir)
 	{
-		if (pPrt->pDef->VertexCount && GBackSolid(int32_t(dx + pPrt->xdir), int32_t(dy + pPrt->ydir + pPrt->pDef->VertexY * pPrt->a / 100.0f)))
+		if (pPrt->pDef->VertexCount && section.Landscape.GBackSolid(int32_t(dx + pPrt->xdir), int32_t(dy + pPrt->ydir + pPrt->pDef->VertexY * pPrt->a / 100.0f)))
 		{
 			// collision
 			if (pPrt->pDef->CollisionProc)
-				if (!pPrt->pDef->CollisionProc(pPrt, pTarget)) return false;
+				if (!pPrt->pDef->CollisionProc(pPrt, section, pTarget)) return false;
 		}
 		else if (pPrt->pDef->RByV != 2)
 		{
@@ -643,12 +642,12 @@ bool fxStdExec(C4Particle *pPrt, C4Object *pTarget)
 		}
 	}
 	// apply gravity
-	if (pPrt->pDef->GravityAcc) pPrt->ydir += fixtof(GravAccel * pPrt->pDef->GravityAcc) / 100.0f;
+	if (pPrt->pDef->GravityAcc) pPrt->ydir += fixtof(section.Landscape.Gravity * pPrt->pDef->GravityAcc) / 100.0f;
 	// apply WindDrift
-	if (pPrt->pDef->WindDrift && !GBackSolid(int32_t(dx), int32_t(dy)))
+	if (pPrt->pDef->WindDrift && !section.Landscape.GBackSolid(int32_t(dx), int32_t(dy)))
 	{
 		// Air speed: Wind plus some random
-		int32_t iWind = GBackWind(int32_t(dx), int32_t(dy));
+		int32_t iWind = section.GBackWind(int32_t(dx), int32_t(dy));
 		float txdir = iWind / 15.0f;
 		float tydir = 0;
 
@@ -701,12 +700,12 @@ bool fxStdExec(C4Particle *pPrt, C4Object *pTarget)
 	}
 	// outside landscape range?
 	bool kp;
-	if (dxdir > 0) kp =       (dx - pPrt->a < GBackWdt); else kp =       (dx + pPrt->a > 0);
-	if (dydir > 0) kp = kp && (dy - pPrt->a < GBackHgt); else kp = kp && (dy + pPrt->a > pPrt->pDef->YOff);
+	if (dxdir > 0) kp =       (dx - pPrt->a < section.Landscape.Width); else kp =       (dx + pPrt->a > 0);
+	if (dydir > 0) kp = kp && (dy - pPrt->a < section.Landscape.Height); else kp = kp && (dy + pPrt->a > pPrt->pDef->YOff);
 	return kp;
 }
 
-bool fxBounce(C4Particle *pPrt, C4Object *pTarget)
+bool fxBounce(C4Particle *pPrt, C4Section &section, C4Object *pTarget)
 {
 	// reverse xdir/ydir
 	pPrt->xdir = -pPrt->xdir;
@@ -714,21 +713,21 @@ bool fxBounce(C4Particle *pPrt, C4Object *pTarget)
 	return true;
 }
 
-bool fxBounceY(C4Particle *pPrt, C4Object *pTarget)
+bool fxBounceY(C4Particle *pPrt, C4Section &section, C4Object *pTarget)
 {
 	// reverse ydir only
 	pPrt->ydir = -pPrt->ydir;
 	return true;
 }
 
-bool fxStop(C4Particle *pPrt, C4Object *pTarget)
+bool fxStop(C4Particle *pPrt, C4Section &section, C4Object *pTarget)
 {
 	// zero xdir/ydir
 	pPrt->xdir = pPrt->ydir = 0;
 	return true;
 }
 
-bool fxDie(C4Particle *pPrt, C4Object *pTarget)
+bool fxDie(C4Particle *pPrt, C4Section &section, C4Object *pTarget)
 {
 	// DIEEEEEE
 	return false;

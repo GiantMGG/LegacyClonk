@@ -349,7 +349,7 @@ void MainDlg::SetCountdownState(CountdownState eToState, int32_t iTimer)
 	// changing away from countdown?
 	if (eCountdownState == CDS_Countdown)
 	{
-		StopSoundEffect("Elevator", nullptr);
+		StopSoundEffect("Elevator", C4SoundSystem::GlobalSound);
 		if (eToState != CDS_Start) StartSoundEffect("Pshshsh");
 	}
 	// change to game start?
@@ -454,7 +454,7 @@ void MainDlg::Start(int32_t iCountdownTime)
 	if (!Game.Parameters.CheckLeagueRulesStart(true))
 		return;
 	// network savegame resumes: Warn if not all players have been associated
-	if (Game.C4S.Head.SaveGame)
+	if (Game.GameC4S.Head.SaveGame)
 		if (Game.PlayerInfos.FindUnassociatedRestoreInfo(Game.RestorePlayerInfos))
 		{
 			StdStrBuf sMsg; sMsg.Ref(LoadResStr(C4ResStrTableKey::IDS_MSG_NOTALLSAVEGAMEPLAYERSHAVE));
@@ -1161,7 +1161,7 @@ void Countdown::OnSec1Timer()
 	if (!iStartTimer)
 	{
 		// Dedicated server: if there are not enough players for this game, abort and quit the application
-		if (!Game.Network.GetLobby() && (Game.PlayerInfos.GetPlayerCount() < Game.C4S.GetMinPlayer()))
+		if (!Game.Network.GetLobby() && (Game.PlayerInfos.GetPlayerCount() < Game.GameC4S.GetMinPlayer()))
 		{
 			Log(C4ResStrTableKey::IDS_MSG_NOTENOUGHPLAYERSFORTHISRO); // it would also be nice to send this message to all clients...
 			Application.Quit();

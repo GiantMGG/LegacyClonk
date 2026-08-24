@@ -120,7 +120,7 @@ private:
 	class C4Surface *sfcPattern32;
 	class CSurface8 *sfcPattern8;
 	// Faster access
-	uint32_t *CachedPattern; int Wdt; int Hgt;
+	std::shared_ptr<std::uint32_t[]> CachedPattern; int Wdt; int Hgt;
 	// pattern zoom factor; 0 means no zoom
 	int Zoom;
 	// pattern is to be applied monochromatic
@@ -131,8 +131,6 @@ private:
 	uint32_t *pAlpha;
 
 public:
-	CPattern(const CPattern &);
-	CPattern &operator=(const CPattern &);
 	bool PatternClr(int iX, int iY, uint8_t &byClr, uint32_t &dwClr, CStdPalette &rPal) const; // apply pattern to color
 	bool Set(class C4Surface *sfcSource, int iZoom = 0, bool fMonochrome = false); // set and enable pattern
 	bool Set(class CSurface8 *sfcSource, int iZoom = 0, bool fMonochrome = false); // set and enable pattern
@@ -141,6 +139,10 @@ public:
 	void Clear(); // clear pattern
 	CPattern();
 	~CPattern() { Clear(); }
+	CPattern(const CPattern &);
+	CPattern &operator=(const CPattern &);
+	CPattern(CPattern &&) = default;
+	CPattern &operator=(CPattern &&) = default;
 };
 
 // blit position on screen

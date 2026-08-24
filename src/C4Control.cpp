@@ -285,6 +285,12 @@ void C4ControlScript::Execute(const std::shared_ptr<spdlog::logger> &) const
 		}
 	}
 
+	C4Section *const section{Game.GetSectionByNumber(sectionNumber)};
+	if (!section)
+	{
+		return;
+	}
+
 	const char *szScript = Script.getData();
 	// execute
 	C4Object *pObj = nullptr;
@@ -293,12 +299,12 @@ void C4ControlScript::Execute(const std::shared_ptr<spdlog::logger> &) const
 		pScript = &Game.Script;
 	else if (iTargetObj == SCOPE_Global)
 		pScript = &Game.ScriptEngine;
-	else if ((pObj = Game.Objects.SafeObjectPointer(iTargetObj)))
+	else if ((pObj = Game.SafeObjectPointer(iTargetObj)))
 		pScript = &(pObj->Def->Script);
 	else
 		// default: Fallback to global context
 		pScript = &Game.ScriptEngine;
-	C4Value rVal(pScript->DirectExec(pObj, szScript, "console script", false, Strict));
+	C4Value rVal(pScript->DirectExec(*section, pObj, szScript, "console script", false, Strict));
 	// show messages
 	// print script
 	if (pObj)
@@ -322,6 +328,7 @@ void C4ControlScript::Execute(const std::shared_ptr<spdlog::logger> &) const
 
 void C4ControlScript::CompileFunc(StdCompiler *pComp)
 {
+	pComp->Value(mkNamingAdapt(mkIntPackAdapt(sectionNumber) , "Section", 0));
 	pComp->Value(mkNamingAdapt(iTargetObj, "TargetObj", -1));
 	pComp->Value(mkNamingAdapt(Strict,     "Strict",    C4AulScriptStrict::MAXSTRICT));
 
@@ -357,7 +364,7 @@ void C4ControlPlayerSelect::Execute(const std::shared_ptr<spdlog::logger> &) con
 	C4ObjectList SelectObjs;
 	int32_t iControlChecksum = 0;
 	for (int32_t i = 0; i < iObjCnt; i++)
-		if ((pObj = Game.Objects.SafeObjectPointer(pObjNrs[i])))
+		if ((pObj = Game.SafeObjectPointer(pObjNrs[i])))
 		{
 			iControlChecksum += pObj->Number * (iControlChecksum + 4787821);
 			// user defined object selection: callback to object
@@ -415,7 +422,7 @@ void C4ControlPlayerControl::CompileFunc(StdCompiler *pComp)
 C4ControlPlayerCommand::C4ControlPlayerCommand(int32_t iPlr, int32_t iCmd, int32_t iX, int32_t iY,
 	C4Object *pTarget, C4Object *pTarget2, int32_t iData, int32_t iAddMode)
 	: iPlr(iPlr), iCmd(iCmd), iX(iX), iY(iY),
-	iTarget(Game.Objects.ObjectNumber(pTarget)), iTarget2(Game.Objects.ObjectNumber(pTarget2)),
+	iTarget(Game.ObjectNumber(pTarget)), iTarget2(Game.ObjectNumber(pTarget2)),
 	iData(iData), iAddMode(iAddMode) {}
 
 void C4ControlPlayerCommand::Execute(const std::shared_ptr<spdlog::logger> &) const
@@ -425,9 +432,9 @@ void C4ControlPlayerCommand::Execute(const std::shared_ptr<spdlog::logger> &) co
 	{
 		pPlr->CountControl(C4Player::PCID_Command, iCmd + iX + iY + iTarget + iTarget2);
 		pPlr->ObjectCommand(iCmd,
-			Game.Objects.ObjectPointer(iTarget),
+			Game.ObjectPointer(iTarget),
 			iX, iY,
-			Game.Objects.ObjectPointer(iTarget2),
+			Game.ObjectPointer(iTarget2),
 			iData,
 			iAddMode);
 	}
@@ -456,13 +463,22 @@ void C4ControlSyncCheck::Set()
 	Frame = Game.FrameCounter;
 	ControlTick = Game.Control.ControlTick;
 	Random3 = FRndPtr3;
-	RandomCount = ::RandomCount;
+	RandomCount = ::C4Random::Default.GetRandomCount();
 	AllCrewPosX = GetAllCrewPosX();
-	PXSCount = Game.PXS.Count;
-	MassMoverIndex = Game.MassMover.CreatePtr;
-	ObjectCount = Game.Objects.ObjectCount();
 	ObjectEnumerationIndex = Game.ObjectEnumerationIndex;
-	SectShapeSum = Game.Objects.Sectors.getShapeSum();
+
+	PXSCount = 0;
+	MassMoverIndex = 0;
+	ObjectCount = 0;
+	SectShapeSum = 0;
+
+	for (const auto &section : Game.GetActiveSections())
+	{
+		PXSCount += section->PXS.Count;
+		MassMoverIndex += section->MassMover.CreatePtr;
+		ObjectCount += section->Objects.ObjectCount();
+		SectShapeSum += section->Objects.Sectors.getShapeSum();
+	}
 }
 
 int32_t C4ControlSyncCheck::GetAllCrewPosX()
@@ -872,9 +888,9 @@ void C4ControlJoinPlayer::CompileFunc(StdCompiler *pComp)
 
 // *** C4ControlEMMoveObject
 
-C4ControlEMMoveObject::C4ControlEMMoveObject(C4ControlEMObjectAction eAction, int32_t tx, int32_t ty, C4Object *pTargetObj,
+C4ControlEMMoveObject::C4ControlEMMoveObject(C4ControlEMObjectAction eAction,  int32_t tx, int32_t ty, const std::uint32_t sectionNumber, C4Object *pTargetObj,
 	int32_t iObjectNum, int32_t *pObjects, const char *szScript, const C4AulScriptStrict strict)
-	: eAction(eAction), tx(tx), ty(ty), iTargetObj(Game.Objects.ObjectNumber(pTargetObj)),
+	: eAction(eAction), tx(tx), ty(ty), sectionNumber{sectionNumber}, iTargetObj(Game.ObjectNumber(pTargetObj)),
 	iObjectNum(iObjectNum), Strict{strict}, pObjects(pObjects), Script(szScript, true) {}
 
 C4ControlEMMoveObject::~C4ControlEMMoveObject()
@@ -897,7 +913,7 @@ void C4ControlEMMoveObject::Execute(const std::shared_ptr<spdlog::logger> &logge
 		// move all given objects
 		C4Object *pObj;
 		for (int i = 0; i < iObjectNum; ++i)
-			if ((pObj = Game.Objects.SafeObjectPointer(pObjects[i]))) if (pObj->Status)
+			if ((pObj = Game.SafeObjectPointer(pObjects[i]))) if (pObj->Status)
 			{
 				pObj->ForcePosition(pObj->x + tx, pObj->y + ty);
 				pObj->xdir = pObj->ydir = 0;
@@ -909,10 +925,10 @@ void C4ControlEMMoveObject::Execute(const std::shared_ptr<spdlog::logger> &logge
 	{
 		if (!pObjects) break;
 		// enter all given objects into target
-		C4Object *pObj, *pTarget = Game.Objects.SafeObjectPointer(iTargetObj);
+		C4Object *pObj, *pTarget = Game.SafeObjectPointer(iTargetObj);
 		if (pTarget)
 			for (int i = 0; i < iObjectNum; ++i)
-				if ((pObj = Game.Objects.SafeObjectPointer(pObjects[i])))
+				if ((pObj = Game.SafeObjectPointer(pObjects[i])))
 					pObj->Enter(pTarget);
 	}
 	break;
@@ -924,9 +940,9 @@ void C4ControlEMMoveObject::Execute(const std::shared_ptr<spdlog::logger> &logge
 		// perform duplication
 		C4Object *pObj;
 		for (int i = 0; i < iObjectNum; ++i)
-			if ((pObj = Game.Objects.SafeObjectPointer(pObjects[i])))
+			if ((pObj = Game.SafeObjectPointer(pObjects[i])))
 			{
-				pObj = Game.CreateObject(pObj->id, pObj, pObj->Owner, pObj->x, pObj->y);
+				pObj = pObj->Section->CreateObject(pObj->id, pObj, pObj->Owner, pObj->x, pObj->y);
 				if (pObj && fLocalCall) Console.EditCursor.GetSelection().Add(pObj, C4ObjectList::stNone);
 			}
 		// update status
@@ -941,7 +957,7 @@ void C4ControlEMMoveObject::Execute(const std::shared_ptr<spdlog::logger> &logge
 	{
 		if (!pObjects) return;
 		// execute script ...
-		C4ControlScript ScriptCtrl(Script.getData(), C4ControlScript::SCOPE_Global, Strict);
+		C4ControlScript ScriptCtrl(sectionNumber, Script.getData(), C4ControlScript::SCOPE_Global, Strict);
 		ScriptCtrl.SetByClient(iByClient);
 		// ... for each object in selection
 		for (int i = 0; i < iObjectNum; ++i)
@@ -957,7 +973,7 @@ void C4ControlEMMoveObject::Execute(const std::shared_ptr<spdlog::logger> &logge
 		// remove all objects
 		C4Object *pObj;
 		for (int i = 0; i < iObjectNum; ++i)
-			if ((pObj = Game.Objects.SafeObjectPointer(pObjects[i])))
+			if ((pObj = Game.SafeObjectPointer(pObjects[i])))
 				pObj->AssignRemoval();
 	}
 	break; // Here was fallthrough. Seemed wrong. ck.
@@ -967,7 +983,7 @@ void C4ControlEMMoveObject::Execute(const std::shared_ptr<spdlog::logger> &logge
 		// exit all objects
 		C4Object *pObj;
 		for (int i = 0; i < iObjectNum; ++i)
-			if ((pObj = Game.Objects.SafeObjectPointer(pObjects[i])))
+			if ((pObj = Game.SafeObjectPointer(pObjects[i])))
 				pObj->Exit(pObj->x, pObj->y, pObj->r);
 	}
 	break; // Same. ck.
@@ -982,6 +998,7 @@ void C4ControlEMMoveObject::CompileFunc(StdCompiler *pComp)
 	pComp->Value(mkNamingAdapt(mkIntAdaptT<uint8_t>(eAction),      "Action"));
 	pComp->Value(mkNamingAdapt(tx,                                 "tx",         0));
 	pComp->Value(mkNamingAdapt(ty,                                 "ty",         0));
+	pComp->Value(mkNamingAdapt(mkIntPackAdapt(sectionNumber),       "Section",    0));
 	pComp->Value(mkNamingAdapt(iTargetObj,                         "TargetObj", -1));
 	pComp->Value(mkNamingAdapt(mkIntPackAdapt(iObjectNum),         "ObjectNum",  0));
 	pComp->Value(mkNamingAdapt(Strict,                             "Strict",     C4AulScriptStrict::MAXSTRICT));
@@ -1003,15 +1020,22 @@ void C4ControlEMMoveObject::CompileFunc(StdCompiler *pComp)
 
 C4ControlEMDrawTool::C4ControlEMDrawTool(C4ControlEMDrawAction eAction, int32_t iMode,
 	int32_t iX, int32_t iY, int32_t iX2, int32_t iY2, int32_t iGrade,
-	bool fIFT, const char *szMaterial, const char *szTexture)
+	bool fIFT, const std::uint32_t sectionNumber, const char *szMaterial, const char *szTexture)
 	: eAction(eAction), iMode(iMode), iX(iX), iY(iY), iX2(iX2), iY2(iY2), iGrade(iGrade),
-	fIFT(fIFT), Material(szMaterial, true), Texture(szTexture, true) {}
+	fIFT(fIFT), sectionNumber{sectionNumber}, Material(szMaterial, true), Texture(szTexture, true) {}
 
 void C4ControlEMDrawTool::Execute(const std::shared_ptr<spdlog::logger> &) const
 {
 	// Ignore in league mode
 	if (Game.Parameters.isLeague())
 		return;
+
+	C4Section *section{Game.GetSectionByNumber(sectionNumber)};
+	if (!section)
+	{
+		return;
+	}
+
 	// set new mode
 	if (eAction == EMDT_SetMode)
 	{
@@ -1019,8 +1043,8 @@ void C4ControlEMDrawTool::Execute(const std::shared_ptr<spdlog::logger> &) const
 		return;
 	}
 	// check current mode
-	assert(Game.Landscape.Mode == iMode);
-	if (Game.Landscape.Mode != iMode) return;
+	assert(section->Landscape.Mode == iMode);
+	if (section->Landscape.Mode != iMode) return;
 	// assert validity of parameters
 	if (!Material.getSize()) return;
 	const char *szMaterial = Material.getData(),
@@ -1030,26 +1054,26 @@ void C4ControlEMDrawTool::Execute(const std::shared_ptr<spdlog::logger> &) const
 	{
 	case EMDT_Brush: // brush tool
 		if (!Texture.getSize()) break;
-		Game.Landscape.DrawBrush(iX, iY, iGrade, szMaterial, szTexture, fIFT);
+		section->Landscape.DrawBrush(iX, iY, iGrade, szMaterial, szTexture, fIFT);
 		break;
 	case EMDT_Line: // line tool
 		if (!Texture.getSize()) break;
-		Game.Landscape.DrawLine(iX, iY, iX2, iY2, iGrade, szMaterial, szTexture, fIFT);
+		section->Landscape.DrawLine(iX, iY, iX2, iY2, iGrade, szMaterial, szTexture, fIFT);
 		break;
 	case EMDT_Rect: // rect tool
 		if (!Texture.getSize()) break;
-		Game.Landscape.DrawBox(iX, iY, iX2, iY2, iGrade, szMaterial, szTexture, fIFT);
+		section->Landscape.DrawBox(iX, iY, iX2, iY2, iGrade, szMaterial, szTexture, fIFT);
 		break;
 	case EMDT_Fill: // fill tool
 	{
-		int iMat = Game.Material.Get(szMaterial);
-		if (!MatValid(iMat)) return;
+		int iMat = section->Material.Get(szMaterial);
+		if (!section->MatValid(iMat)) return;
 		for (int cnt = 0; cnt < iGrade; cnt++)
 		{
 			// force argument evaluation order
 			const auto r2 = iY + Random(iGrade) - iGrade / 2;
 			const auto r1 = iX + Random(iGrade) - iGrade / 2;
-			Game.Landscape.InsertMaterial(iMat, r1, r2);
+			section->Landscape.InsertMaterial(iMat, r1, r2);
 		}
 	}
 	break;
@@ -1071,6 +1095,7 @@ void C4ControlEMDrawTool::CompileFunc(StdCompiler *pComp)
 	pComp->Value(mkNamingAdapt(iY2,                           "Y2",       0));
 	pComp->Value(mkNamingAdapt(mkIntPackAdapt(iGrade),        "Grade",    0));
 	pComp->Value(mkNamingAdapt(fIFT,                          "IFT",      false));
+	pComp->Value(mkNamingAdapt(sectionNumber,                  "Section",  0));
 	pComp->Value(mkNamingAdapt(Material,                      "Material", ""));
 	pComp->Value(mkNamingAdapt(Texture,                       "Texture",  ""));
 	C4ControlPacket::CompileFunc(pComp);
@@ -1151,7 +1176,7 @@ void C4ControlMessage::Execute(const std::shared_ptr<spdlog::logger> &) const
 		C4Object *pViewObject = pPlr->ViewTarget;
 		if (!pViewObject) pViewObject = pPlr->Cursor;
 		if (!pViewObject) break;
-		if (Game.C4S.Head.Film == C4SFilm_Cinematic)
+		if (Game.GameC4S.Head.Film == C4SFilm_Cinematic)
 		{
 			const std::string message{std::format("<{}> {}", pPlr->Cursor ? pPlr->Cursor->GetName() : pPlr->GetName(), szMessage)};
 			uint32_t dwClr = pPlr->Cursor ? pPlr->Cursor->Color : pPlr->ColorDw;
@@ -1229,9 +1254,9 @@ void C4ControlMessage::Execute(const std::shared_ptr<spdlog::logger> &) const
 		if (auto *client = Game.Clients.getClientByID(iByClient); client && client->TryAllowSound())
 		{
 			if (client->isMuted()
-				|| StartSoundEffect(szMessage, false, 100, nullptr)
-				|| StartSoundEffect((szMessage + std::string{".ogg"}).c_str(), false, 100, nullptr)
-				|| StartSoundEffect((szMessage + std::string{".mp3"}).c_str(), false, 100, nullptr))
+				|| StartSoundEffect(szMessage, false, 100, C4SoundSystem::GlobalSound)
+				|| StartSoundEffect((szMessage + std::string{".ogg"}).c_str(), false, 100, C4SoundSystem::GlobalSound)
+				|| StartSoundEffect((szMessage + std::string{".mp3"}).c_str(), false, 100, C4SoundSystem::GlobalSound))
 			{
 				if (pLobby) pLobby->OnClientSound(Game.Clients.getClientByID(iByClient));
 			}
@@ -1547,12 +1572,12 @@ void C4ControlEMDropDef::CompileFunc(StdCompiler *pComp)
 
 bool C4ControlEMDropDef::Allowed() const
 {
-	return !Game.Parameters.isLeague() && C4Id2Def(id);
+	return !Game.Parameters.isLeague() && Game.Defs.ID2Def(id);
 }
 
 std::string C4ControlEMDropDef::FormatScript() const
 {
-	const auto def = C4Id2Def(id);
+	const auto def = Game.Defs.ID2Def(id);
 	if (def->Category & C4D_Structure)
 		return std::format("CreateConstruction({},{},{},-1,{},true)", C4IdText(id), x, y, FullCon);
 	else
@@ -1563,6 +1588,12 @@ void C4ControlInternalScriptBase::Execute(const std::shared_ptr<spdlog::logger> 
 {
 	if (!Allowed()) return;
 
+	C4Section *const section{Game.GetSectionByNumber(sectionNumber)};
+	if (!section)
+	{
+		return;
+	}
+
 	const auto scope = Scope();
 	// execute
 	C4Object *pObj = nullptr;
@@ -1571,12 +1602,18 @@ void C4ControlInternalScriptBase::Execute(const std::shared_ptr<spdlog::logger> 
 		pScript = &Game.Script;
 	else if (scope == C4ControlScript::SCOPE_Global)
 		pScript = &Game.ScriptEngine;
-	else if ((pObj = Game.Objects.SafeObjectPointer(scope)))
+	else if ((pObj = Game.SafeObjectPointer(scope)))
 		pScript = &pObj->Def->Script;
 	else
 		// default: Fallback to global context
 		pScript = &Game.ScriptEngine;
-	pScript->DirectExec(pObj, FormatScript().c_str(), "internal script");
+	pScript->DirectExec(*section, pObj, FormatScript().c_str(), "internal script");
+}
+
+void C4ControlInternalScriptBase::CompileFunc(StdCompiler *const comp)
+{
+	comp->Value(mkNamingAdapt(mkIntPackAdapt(sectionNumber), "Section", -1));
+	C4ControlPacket::CompileFunc(comp);
 }
 
 void C4ControlInternalPlayerScriptBase::CompileFunc(StdCompiler *pComp)
@@ -1727,4 +1764,28 @@ void C4ControlScript::CheckStrictness(const C4AulScriptStrict strict, StdCompile
 	{
 		comp.excCorrupt("Invalid strictness: {}", std::to_underlying(strict));
 	}
+}
+
+void C4ControlSectionLoaded::Execute(const std::shared_ptr<spdlog::logger> &) const
+{
+	Game.OnSectionLoaded(sectionNumber, iByClient, success);
+}
+
+void C4ControlSectionLoaded::CompileFunc(StdCompiler *const comp)
+{
+	comp->Value(mkNamingAdapt(mkIntPackAdapt(sectionNumber), "Section",     0));
+	comp->Value(mkNamingAdapt(success,                       "Success", false));
+	C4ControlPacket::CompileFunc(comp);
+}
+
+void C4ControlSectionLoadFinished::Execute(const std::shared_ptr<spdlog::logger> &) const
+{
+	Game.OnSectionLoadFinished(sectionNumber, success);
+}
+
+void C4ControlSectionLoadFinished::CompileFunc(StdCompiler *const comp)
+{
+	comp->Value(mkNamingAdapt(mkIntPackAdapt(sectionNumber), "Section",     0));
+	comp->Value(mkNamingAdapt(success,                       "Success", false));
+	C4ControlPacket::CompileFunc(comp);
 }
