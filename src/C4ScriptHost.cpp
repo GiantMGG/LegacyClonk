@@ -240,7 +240,7 @@ bool C4GameScriptHost::Execute()
 	if (Go && !Tick10)
 	{
 		FormatWithNull(buffer, PSF_Script, Counter++);
-		return static_cast<bool>(Call(*Game.GetActiveSections().front(), buffer)); // FIXME
+		return static_cast<bool>(Call(*Game.GetActiveSections().front(), buffer)); // game script runs in the first active section
 	}
 	return false;
 }
@@ -261,7 +261,7 @@ C4Value C4GameScriptHost::GRBroadcast(const char *szFunction, const C4AulParSet 
 				}
 	}
 	// scenario script call
-	return Call(*Game.GetActiveSections().front(), szFunction, pPars, fPassError, convertNilToIntBool); // FIXME
+	return Call(*Game.GetActiveSections().front(), szFunction, pPars, fPassError, convertNilToIntBool); // game script runs in the first active section
 }
 
 void C4GameScriptHost::CompileFunc(StdCompiler *pComp)

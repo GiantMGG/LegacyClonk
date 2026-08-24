@@ -1639,7 +1639,7 @@ C4Value C4AulFunc::Exec(C4Section &section, C4Object *pObj, const C4AulParSet &p
 	C4AulContext ctx;
 	ctx.Obj = pObj;
 	ctx.Def = pObj ? pObj->Def : nullptr;
-	ctx.Section = &section; // FIXME: pobj->Section?
+	ctx.Section = &section; // use the explicitly passed section, not pObj->Section, so callers control execution context
 	ctx.Caller = nullptr;
 
 	const auto sFunc = SFunc();

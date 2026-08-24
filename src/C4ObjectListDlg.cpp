@@ -58,7 +58,7 @@ static void
 c4_list_init(GTypeInstance *c4_list, void *)
 {
 	auto &list = *reinterpret_cast<C4List *>(c4_list);
-	list.data = &Game.GetActiveSections().front()->Objects; // FIXME
+	list.data = &Game.GetActiveSections().front()->Objects; // dialog shows objects from the first active section
 
 	list.stamp = g_random_int(); /* Random int to check whether iters belong to this model */
 }

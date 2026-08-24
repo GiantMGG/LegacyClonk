@@ -2402,7 +2402,7 @@ bool C4Game::InitGameFinal()
 	}
 
 	// Script constructor call
-	if (!GameC4S.Head.SaveGame) Script.Call(*Sections.front(), PSF_Initialize); // FIXME
+	if (!GameC4S.Head.SaveGame) Script.Call(*Sections.front(), PSF_Initialize); // scenario script initializes in the first section
 
 	std::int32_t newObjectCount{0};
 	for (const auto &section : GetNotDeletedSections())
@@ -3290,7 +3290,7 @@ C4Player *C4Game::JoinPlayer(const char *szFilename, int32_t iAtClient, const ch
 	assert(pInfo);
 	C4Player *pPlr;
 	// Join
-	if (!(pPlr = Players.Join(szFilename, true, iAtClient, szAtClientName, pInfo, *Sections.front()))) return nullptr; // FIXME
+	if (!(pPlr = Players.Join(szFilename, true, iAtClient, szAtClientName, pInfo, *Sections.front()))) return nullptr; // players join the first section
 	// Player final init
 	pPlr->FinalInit(true);
 	// Create player viewport
@@ -3911,7 +3911,8 @@ C4Game::SectionGLCtx::SectionGLCtx(CStdGLCtx *const context)
 {
 	if (!context)
 	{
-		throw std::runtime_error{"TODO"};
+		LogNTr(spdlog::level::err, "SectionGLCtx: null OpenGL context provided");
+		throw std::runtime_error{"SectionGLCtx: null OpenGL context"};
 	}
 
 	context->Deselect();
