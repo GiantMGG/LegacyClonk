@@ -186,7 +186,7 @@ void C4Network2ResDlg::Update()
 	// check through own resources and current res list
 	ListItem *pItem = static_cast<ListItem *>(pClientWindow->GetFirst()), *pNext;
 	C4Network2Res::Ref res; int iResID = -1;
-	while (res = Game.Network.ResList.getRefNextRes(++iResID))
+	while ((res = Game.Network.ResList.getRefNextRes(++iResID)))
 	{
 		iResID = res->getResID();
 		// resource checking: deleted ressource(s) present?

@@ -184,7 +184,7 @@ int StdStrBuf::ReplaceChar(char cOld, char cNew, size_t iStartSearch)
 	if (!cOld) return 0;
 	if (!cNew) cNew = '_';
 	int cnt = 0;
-	while (szPos = std::strchr(szPos, cOld))
+	while ((szPos = std::strchr(szPos, cOld)))
 	{
 		*szPos++ = cNew;
 		++cnt;

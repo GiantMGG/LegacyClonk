@@ -411,7 +411,7 @@ bool C4FindObjectNot::Check(C4Object *obj)
 // *** C4FindObjectAnd
 
 C4FindObjectAnd::C4FindObjectAnd(std::vector<std::unique_ptr<C4FindObject>> conds)
-	: conds(std::move(conds)), fHasBounds(false), fUseShapes(false)
+	: conds(std::move(conds)), fUseShapes(false), fHasBounds(false)
 {
 	// Filter ensured entries
 	std::erase_if(conds, [](const std::unique_ptr<C4FindObject> &cond) { return cond->IsEnsured(); });

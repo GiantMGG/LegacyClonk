@@ -5664,6 +5664,17 @@ static constexpr C4ScriptConstDef C4ScriptConstMap[] =
 	{ "C4PVM_Scrolling", C4V_Int, C4PVM_Scrolling },
 };
 
+template <typename Enum, std::size_t N = C4EnumInfo<Enum>::data.values.size()>
+static void AddEnum(const C4EnumInfoData<Enum, N> &info = C4EnumInfo<Enum>::data)
+{
+	static_assert(sizeof(Enum) <= sizeof(C4ValueInt), "The Enum type is too big for C4Script ints");
+	std::string prefix{info.prefix};
+	for (const auto infoVal : info.scopedValues(C4EnumValueScope::Script))
+	{
+		Game.ScriptEngine.RegisterGlobalConstant((prefix + std::string{infoVal.scriptName}).c_str(), C4VInt(static_cast<C4ValueInt>(infoVal.value)));
+	}
+}
+
 void InitFunctionMap(C4AulScriptEngine *pEngine)
 {
 	// add all def constants (all Int)
