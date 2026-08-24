@@ -18,7 +18,9 @@
 
 #pragma once
 
+#include "C4EnumInfo.h"
 #include "C4ForwardDeclarations.h"
+
 #include <StdSha1.h>
 #include <StdSync.h>
 
@@ -38,7 +40,7 @@ const int32_t C4NetResDiscoverTimeout = 10, // (s)
 
 const int32_t C4NetResIDAnonymous = -2;
 
-enum C4Network2ResType
+enum C4Network2ResType : std::uint8_t
 {
 	NRT_Null = 0,
 	NRT_Scenario,
@@ -47,6 +49,21 @@ enum C4Network2ResType
 	NRT_Definitions,
 	NRT_System,
 	NRT_Material,
+};
+
+template<>
+struct C4EnumInfo<C4Network2ResType>
+{
+	static inline constexpr auto data = mkEnumInfo<C4Network2ResType>("NRT_",
+		{
+			{ NRT_Scenario,    "Scenario" },
+			{ NRT_Dynamic,     "Dynamic" },
+			{ NRT_Player,      "Player" },
+			{ NRT_Definitions, "Definitions" },
+			{ NRT_System,      "System" },
+			{ NRT_Material,    "Material" }
+		}
+	);
 };
 
 // damn circular dependencies
