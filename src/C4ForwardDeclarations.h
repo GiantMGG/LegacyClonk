@@ -1,7 +1,7 @@
 /*
  * LegacyClonk
  *
- * Copyright (c) 2022, The LegacyClonk Team and contributors
+ * Copyright (c) 2022-2024, The LegacyClonk Team and contributors
  *
  * Distributed under the terms of the ISC license; see accompanying file
  * "COPYING" for details.
@@ -15,6 +15,7 @@
 
 #pragma once
 
+class C4AudioSystem;
 class C4AulFunc;
 class C4Def;
 class C4DefList;

@@ -2,7 +2,7 @@
  * LegacyClonk
  *
  * Copyright (c) RedWolf Design
- * Copyright (c) 2017-2022, The LegacyClonk Team and contributors
+ * Copyright (c) 2017-2024, The LegacyClonk Team and contributors
  *
  * Distributed under the terms of the ISC license; see accompanying file
  * "COPYING" for details.
@@ -17,12 +17,11 @@
 #include "C4Thread.h"
 #include "StdScheduler.h"
 
+#include <cassert>
+#include <cerrno>
+#include <cstdio>
 #include <cstring>
 
-#include <stdio.h>
-
-#include <assert.h>
-#include <errno.h>
 #include <fcntl.h>
 
 #ifdef _WIN32
@@ -30,9 +29,8 @@
 #include <process.h>
 #include <mmsystem.h>
 
-#endif
+#else
 
-#ifndef _WIN32
 #include <ranges>
 #include <unordered_map>
 
@@ -73,7 +71,7 @@ bool StdScheduler::Execute(int iTimeout)
 	{
 		if (const int procTimeout{proc->GetTimeout()}; procTimeout >= 0)
 		{
-			if (iTimeout == -1 || iTimeout > procTimeout)
+			if (iTimeout == StdSync::Infinite || iTimeout > procTimeout)
 			{
 				iTimeout = procTimeout;
 			}
@@ -120,16 +118,25 @@ bool StdScheduler::Execute(int iTimeout)
 
 #else
 	fds.resize(1);
-	std::unordered_map<StdSchedulerProc *, std::span<pollfd>> fdMap;
+
+	struct FdRange
+	{
+		std::size_t Offset;
+		std::size_t Size;
+	};
+
+	std::unordered_map<StdSchedulerProc *, FdRange> fdMap;
 
 	for (auto *const proc : procs)
 	{
 		const std::size_t oldSize{fds.size()};
 		proc->GetFDs(fds);
 
+		assert(fds.size() >= oldSize);
+
 		if (fds.size() != oldSize)
 		{
-			fdMap.emplace(proc, std::span{fds}.subspan(oldSize));
+			fdMap.emplace(std::piecewise_construct, std::forward_as_tuple(proc), std::forward_as_tuple(oldSize, fds.size() - oldSize));
 		}
 	}
 
@@ -146,9 +153,11 @@ bool StdScheduler::Execute(int iTimeout)
 			unblocker.Reset();
 		}
 
-		for (const auto &[proc, span] : fdMap)
+		const std::span<pollfd> fdSpan{fds};
+
+		for (const auto &[proc, range] : fdMap)
 		{
-			if (std::ranges::any_of(span, std::identity{}, &pollfd::revents))
+			if (std::ranges::any_of(fdSpan.subspan(range.Offset, range.Size), std::identity{}, &pollfd::revents))
 			{
 				if (!proc->Execute(0))
 				{
@@ -160,7 +169,7 @@ bool StdScheduler::Execute(int iTimeout)
 	}
 	else if (cnt < 0)
 	{
-		printf("StdScheduler::Execute: poll failed %s\n", strerror(errno));
+		std::printf("StdScheduler::Execute: poll failed %s\n", strerror(errno));
 	}
 
 #endif

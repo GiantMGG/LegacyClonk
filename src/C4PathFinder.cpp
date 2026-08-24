@@ -41,7 +41,6 @@
    move-to's on crawl-zone-entries).
 */
 
-#include <C4Include.h>
 #include <C4PathFinder.h>
 
 #include <C4FacetEx.h>
@@ -197,7 +196,7 @@ bool C4PathFinderRay::Execute()
 		// Check unused zone intersection
 		if (pPathFinder->TransferZonesEnabled)
 			if (pPathFinder->TransferZones)
-				if (pZone = pPathFinder->TransferZones->Find(X2, Y2))
+				if ((pZone = pPathFinder->TransferZones->Find(X2, Y2)))
 					if (!pZone->Used)
 					{
 						// Add use-zone ray (with zone entry point adjust)
@@ -308,7 +307,7 @@ bool C4PathFinderRay::PathFree(int32_t &rX, int32_t &rY, int32_t iToX, int32_t i
 			if (ppZone)
 				if (pPathFinder->TransferZonesEnabled)
 					if (pPathFinder->TransferZones)
-						if (*ppZone = pPathFinder->TransferZones->Find(rX, rY))
+						if ((*ppZone = pPathFinder->TransferZones->Find(rX, rY)))
 							return false;
 			// Advance
 			if (d >= 0) { x += xincr; d += aincr; }
@@ -330,7 +329,7 @@ bool C4PathFinderRay::PathFree(int32_t &rX, int32_t &rY, int32_t iToX, int32_t i
 			if (ppZone)
 				if (pPathFinder->TransferZonesEnabled)
 					if (pPathFinder->TransferZones)
-						if (*ppZone = pPathFinder->TransferZones->Find(rX, rY))
+						if ((*ppZone = pPathFinder->TransferZones->Find(rX, rY)))
 							return false;
 			// Advance
 			if (d >= 0) { y += yincr; d += aincr; }

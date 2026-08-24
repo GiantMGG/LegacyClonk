@@ -3,7 +3,7 @@
  *
  * Copyright (c) RedWolf Design
  * Copyright (c) 2005, Sven2
- * Copyright (c) 2017-2021, The LegacyClonk Team and contributors
+ * Copyright (c) 2017-2024, The LegacyClonk Team and contributors
  *
  * Distributed under the terms of the ISC license; see accompanying file
  * "COPYING" for details.
@@ -19,7 +19,6 @@
 
 #include "C4GuiEdit.h"
 #include "C4GuiResource.h"
-#include <C4Include.h>
 #include <C4MessageInput.h>
 
 #include <C4Game.h>
@@ -51,7 +50,7 @@ bool IsSmallInputQuery(const char *szInputQuery)
 
 C4ChatInputDialog::C4ChatInputDialog(bool fObjInput, C4Object *pScriptTarget, bool fUppercase, Mode mode, int32_t iPlr, const StdStrBuf &rsInputQuery)
 	: C4GUI::InputDialog(fObjInput ? rsInputQuery.getData() : LoadResStrNoAmp(C4ResStrTableKey::IDS_CTL_CHAT).c_str(), nullptr, C4GUI::Ico_None, nullptr, !fObjInput || IsSmallInputQuery(rsInputQuery.getData())),
-	fObjInput(fObjInput), fUppercase(fUppercase), pTarget(pScriptTarget), BackIndex(-1), iPlr(iPlr), fProcessed(false)
+	fObjInput(fObjInput), fUppercase(fUppercase), pTarget(pScriptTarget), iPlr(iPlr), BackIndex(-1), fProcessed(false)
 {
 	// singleton-var
 	pInstance = this;
@@ -573,8 +572,8 @@ bool C4MessageInput::ProcessCommand(const char *szCommand)
 				Log(C4ResStrTableKey::IDS_MSG_CMD_NOCLIENT, pCmdPar);
 				return false;
 			}
-			// league: Kick needs voting
-			if (Game.Parameters.isLeague() && Game.Players.GetAtClient(pClient->getID()))
+			// votes: Kick needs voting
+			if (Game.Network.IsVotingEnabled() && Game.Players.GetAtClient(pClient->getID()))
 				Game.Network.Vote(VT_Kick, true, pClient->getID());
 			else
 				// add control
@@ -772,14 +771,7 @@ void C4MessageBoardCommand::CompileFunc(StdCompiler *pComp)
 {
 	pComp->Value(script);
 	pComp->Separator(StdCompiler::SEP_SEP);
-
-	constexpr StdEnumEntry<Restriction> restrictions[] =
-	{
-		{"Escaped", C4MSGCMDR_Escaped},
-		{"Plain", C4MSGCMDR_Plain},
-		{"Identifier", C4MSGCMDR_Identifier}
-	};
-	pComp->Value(mkEnumAdaptT<int>(restriction, restrictions));
+	pComp->Value(mkEnumAdapt(restriction));
 }
 
 bool C4MessageBoardCommand::operator==(const C4MessageBoardCommand &other) const

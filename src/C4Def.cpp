@@ -2,7 +2,7 @@
  * LegacyClonk
  *
  * Copyright (c) 1998-2000, Matthes Bender (RedWolf Design)
- * Copyright (c) 2017-2022, The LegacyClonk Team and contributors
+ * Copyright (c) 2017-2024, The LegacyClonk Team and contributors
  *
  * Distributed under the terms of the ISC license; see accompanying file
  * "COPYING" for details.
@@ -16,7 +16,6 @@
 
 /* Object definition */
 
-#include <C4Include.h>
 #include <C4Def.h>
 #include <C4Version.h>
 #include <C4GameVersion.h>
@@ -32,6 +31,7 @@
 #include "C4Network2Res.h"
 
 #include <algorithm>
+#include <ranges>
 
 // Default Action Procedures
 
@@ -73,22 +73,7 @@ void C4ActionDef::CompileFunc(StdCompiler *pComp)
 	pComp->Value(mkNamingAdapt(Directions,              "Directions", 1));
 	pComp->Value(mkNamingAdapt(FlipDir,                 "FlipDir",    0));
 	pComp->Value(mkNamingAdapt(Length,                  "Length",     1));
-
-	StdBitfieldEntry<int32_t> CNATs[] =
-	{
-		{ "CNAT_None",        CNAT_None },
-		{ "CNAT_Left",        CNAT_Left },
-		{ "CNAT_Right",       CNAT_Right },
-		{ "CNAT_Top",         CNAT_Top },
-		{ "CNAT_Bottom",      CNAT_Bottom },
-		{ "CNAT_Center",      CNAT_Center },
-		{ "CNAT_MultiAttach", CNAT_MultiAttach },
-		{ "CNAT_NoCollision", CNAT_NoCollision },
-
-		{ nullptr, 0 }
-	};
-
-	pComp->Value(mkNamingAdapt(mkBitfieldAdapt(Attach, CNATs),
+	pComp->Value(mkNamingAdapt(mkBitfieldAdapt(Attach, C4EnumAdaptPrefixMode::Force, CNAT_EnumInfo),
 		"Attach", 0));
 
 	pComp->Value(mkNamingAdapt(Delay,                    "Delay",              0));
@@ -254,44 +239,7 @@ void C4DefCore::CompileFunc(StdCompiler *pComp)
 	pComp->Value(mkNamingAdapt(mkArrayAdapt(rC4XVer, 0),      "Version"));
 	pComp->Value(mkNamingAdapt(toC4CStrBuf(Name),             "Name",       "Undefined"));
 	pComp->Value(mkNamingAdapt(mkParAdapt(RequireDef, false), "RequireDef", C4IDList()));
-
-	const StdBitfieldEntry<int32_t> Categories[] =
-	{
-		{ "C4D_StaticBack", C4D_StaticBack },
-		{ "C4D_Structure",  C4D_Structure },
-		{ "C4D_Vehicle",    C4D_Vehicle },
-		{ "C4D_Living",     C4D_Living },
-		{ "C4D_Object",     C4D_Object },
-
-		{ "C4D_Goal",             C4D_Goal },
-		{ "C4D_Environment",      C4D_Environment },
-		{ "C4D_SelectBuilding",   C4D_SelectBuilding },
-		{ "C4D_SelectVehicle",    C4D_SelectVehicle },
-		{ "C4D_SelectMaterial",   C4D_SelectMaterial },
-		{ "C4D_SelectKnowledge",  C4D_SelectKnowledge },
-		{ "C4D_SelectHomebase",   C4D_SelectHomebase },
-		{ "C4D_SelectAnimal",     C4D_SelectAnimal },
-		{ "C4D_SelectNest",       C4D_SelectNest },
-		{ "C4D_SelectInEarth",    C4D_SelectInEarth },
-		{ "C4D_SelectVegetation", C4D_SelectVegetation },
-
-		{ "C4D_TradeLiving", C4D_TradeLiving },
-		{ "C4D_Magic",       C4D_Magic },
-		{ "C4D_CrewMember",  C4D_CrewMember },
-
-		{ "C4D_Rule", C4D_Rule },
-
-		{ "C4D_Background",  C4D_Background },
-		{ "C4D_Parallax",    C4D_Parallax },
-		{ "C4D_MouseSelect", C4D_MouseSelect },
-		{ "C4D_Foreground",  C4D_Foreground },
-		{ "C4D_MouseIgnore", C4D_MouseIgnore },
-		{ "C4D_IgnoreFoW",   C4D_IgnoreFoW },
-
-		{ nullptr, 0 }
-	};
-
-	pComp->Value(mkNamingAdapt(mkBitfieldAdapt<int32_t>(Category, Categories),
+	pComp->Value(mkNamingAdapt(mkBitfieldAdapt(Category, C4EnumAdaptPrefixMode::Force, C4D_Category_EnumInfo),
 		"Category", 0));
 
 	pComp->Value(mkNamingAdapt(MaxUserSelect,           "MaxUserSelect",     0));
@@ -316,38 +264,9 @@ void C4DefCore::CompileFunc(StdCompiler *pComp)
 	pComp->Value(mkNamingAdapt(mkC4IDAdapt(BurnTurnTo), "BurnTo",            C4ID_None));
 	pComp->Value(mkNamingAdapt(CanBeBase,               "Base",              0));
 
-	const StdBitfieldEntry<int32_t> LineTypes[] =
-	{
-		{ "C4D_LinePower",     C4D_Line_Power },
-		{ "C4D_LineSource",    C4D_Line_Source },
-		{ "C4D_LineDrain",     C4D_Line_Drain },
-		{ "C4D_LineLightning", C4D_Line_Lightning },
-		{ "C4D_LineVolcano",   C4D_Line_Volcano },
-		{ "C4D_LineRope",      C4D_Line_Rope },
-		{ "C4D_LineColored",   C4D_Line_Colored },
-		{ "C4D_LineVertex",    C4D_Line_Vertex },
+	pComp->Value(mkNamingAdapt(mkEnumAdapt(Line, C4EnumAdaptPrefixMode::Force, C4D_Line_EnumInfo), "Line", 0));
 
-		{ nullptr, 0 }
-	};
-
-	pComp->Value(mkNamingAdapt(mkBitfieldAdapt(Line, LineTypes), "Line", 0));
-
-	const StdBitfieldEntry<int32_t> LineConnectTypes[] =
-	{
-		{ "C4D_PowerInput",     C4D_Power_Input },
-		{ "C4D_PowerOutput",    C4D_Power_Output },
-		{ "C4D_LiquidInput",    C4D_Liquid_Input },
-		{ "C4D_LiquidOutput",   C4D_Liquid_Output },
-		{ "C4D_PowerGenerator", C4D_Power_Generator },
-		{ "C4D_PowerConsumer",  C4D_Power_Consumer },
-		{ "C4D_LiquidPump",     C4D_Liquid_Pump },
-		{ "C4D_ConnectRope",    C4D_Connect_Rope },
-		{ "C4D_EnergyHolder",   C4D_EnergyHolder },
-
-		{ nullptr, 0 }
-	};
-
-	pComp->Value(mkNamingAdapt(mkBitfieldAdapt(LineConnect, LineConnectTypes),
+	pComp->Value(mkNamingAdapt(mkBitfieldAdapt(LineConnect, C4EnumAdaptPrefixMode::Force, C4D_LineConnect_EnumInfo),
 		"LineConnect", 0));
 
 	pComp->Value(mkNamingAdapt(LineIntersect,            "LineIntersect",  0));
@@ -361,15 +280,7 @@ void C4DefCore::CompileFunc(StdCompiler *pComp)
 	pComp->Value(mkNamingAdapt(mkC4IDAdapt(BuildTurnTo), "ConstructTo",    0));
 	pComp->Value(mkNamingAdapt(Grab,                     "Grab",           0));
 
-	const StdBitfieldEntry<int32_t> GrabPutGetTypes[] =
-	{
-		{ "C4D_GrabGet", C4D_Grab_Get },
-		{ "C4D_GrabPut", C4D_Grab_Put },
-
-		{ nullptr, 0 }
-	};
-
-	pComp->Value(mkNamingAdapt(mkBitfieldAdapt(GrabPutGet, GrabPutGetTypes),
+	pComp->Value(mkNamingAdapt(mkBitfieldAdapt(GrabPutGet, C4EnumAdaptPrefixMode::Force, C4D_Grab_EnumInfo),
 		"GrabPutGet", 0));
 
 	pComp->Value(mkNamingAdapt(Carryable,                 "Collectible",        0));
@@ -415,43 +326,12 @@ void C4DefCore::CompileFunc(StdCompiler *pComp)
 	pComp->Value(mkNamingAdapt(NoTransferZones,           "NoTransferZones",    0));
 	pComp->Value(mkNamingAdapt(AutoContextMenu,           "AutoContextMenu",    0));
 	pComp->Value(mkNamingAdapt(NeededGfxMode,             "NeededGfxMode",      0));
-
-	const StdBitfieldEntry<int32_t> AllowPictureStackModes[] =
-	{
-		{ "APS_Color",    APS_Color },
-		{ "APS_Graphics", APS_Graphics },
-		{ "APS_Name",     APS_Name },
-		{ "APS_Overlay",  APS_Overlay },
-		{ nullptr,        0 }
-	};
-
-	pComp->Value(mkNamingAdapt(mkBitfieldAdapt<int32_t>(AllowPictureStack, AllowPictureStackModes),
+	pComp->Value(mkNamingAdapt(mkBitfieldAdapt<C4AllowPictureStack>(AllowPictureStack, C4EnumAdaptPrefixMode::Force),
 		"AllowPictureStack", 0));
 
-	const StdBitfieldEntry<int32_t> HideBarValues[] =
-	{
-		{ "Energy", HB_Energy },
-		{ "MagicEnergy", HB_MagicEnergy },
-		{ "Breath", HB_Breath },
-		{ "All", HB_All },
-		{ nullptr, 0 }
-	};
+	pComp->Value(mkNamingAdapt(mkBitfieldAdapt<C4DefCore::HideBar>(HideHUDBars), "HideHUDBars", 0));
 
-	pComp->Value(mkNamingAdapt(mkBitfieldAdapt<int32_t>(HideHUDBars, HideBarValues), "HideHUDBars", 0));
-
-	const StdBitfieldEntry<int32_t> HideHUDValues[] =
-	{
-		{ "Portrait", HH_Portrait },
-		{ "Captain", HH_Captain },
-		{ "Name", HH_Name },
-		{ "Rank", HH_Rank },
-		{ "RankImage", HH_RankImage },
-		{ "Inventory", HH_Inventory },
-		{ "All", HH_All },
-		{ nullptr, 0 }
-	};
-
-	pComp->Value(mkNamingAdapt(mkBitfieldAdapt<int32_t>(HideHUDElements, HideHUDValues), "HideHUDElements", 0));
+	pComp->Value(mkNamingAdapt(mkBitfieldAdapt<C4DefCore::HideHud>(HideHUDElements), "HideHUDElements", 0));
 
 	pComp->Value(mkNamingAdapt(Scale, "Scale", 100));
 	pComp->Value(mkNamingAdapt(BaseAutoSell, "BaseAutoSell", id == C4ID_Gold)); // do not brick third-party GOLD objects which don't have that flag
@@ -504,9 +384,28 @@ void C4Def::Clear()
 
 	Script.Clear();
 	StringTable.Clear();
-	if (fClonkNamesOwned)  delete pClonkNames;  pClonkNames  = nullptr;
-	if (fRankNamesOwned)   delete pRankNames;   pRankNames   = nullptr;
-	if (fRankSymbolsOwned) delete pRankSymbols; pRankSymbols = nullptr;
+
+	if (fClonkNamesOwned)
+	{
+		delete pClonkNames;
+	}
+
+	pClonkNames = nullptr;
+
+	if (fRankNamesOwned)
+	{
+		delete pRankNames;
+	}
+
+	pRankNames = nullptr;
+
+	if (fRankSymbolsOwned)
+	{
+		delete pRankSymbols;
+	}
+
+	pRankSymbols = nullptr;
+
 	delete pFairCrewPhysical; pFairCrewPhysical = nullptr;
 	fClonkNamesOwned = fRankNamesOwned = fRankSymbolsOwned = false;
 
@@ -851,7 +750,7 @@ int32_t C4Def::GetValue(C4Object *pInBase, int32_t iBuyPlayer)
 	if (pInBase)
 	{
 		C4AulFunc *pFn;
-		if (pFn = pInBase->Def->Script.GetSFunc(PSF_CalcBuyValue, AA_PROTECTED))
+		if ((pFn = pInBase->Def->Script.GetSFunc(PSF_CalcBuyValue, AA_PROTECTED)))
 			iValue = pFn->Exec(pInBase, {C4VID(id), C4VInt(iValue)}).getInt();
 	}
 	return iValue;
@@ -926,14 +825,9 @@ int32_t C4DefList::Load(C4Group &hGroup, uint32_t dwLoadWhat,
 
 	auto def = std::make_unique<C4Def>();
 	// Load primary definition
-	if (def->Load(hGroup, dwLoadWhat, szLanguage, pSoundSystem) && Add(def.get(), fOverload))
+	if (def->Load(hGroup, dwLoadWhat, szLanguage, pSoundSystem) && Add(std::move(def), fOverload))
 	{
 		iResult++; fPrimaryDef = true;
-		def.release();
-	}
-	else
-	{
-		def.reset();
 	}
 
 	// Load sub definitions
@@ -996,46 +890,13 @@ int32_t C4DefList::Load(const char *szSearch,
 
 	// Segments
 	char szSegment[_MAX_PATH + 1]; int32_t iGroupCount;
-	if (iGroupCount = SCharCount(';', szSearch))
+	if ((iGroupCount = SCharCount(';', szSearch)))
 	{
 		++iGroupCount; int32_t iPrg = iMaxProgress - iMinProgress;
 		for (int32_t cseg = 0; SCopySegment(szSearch, cseg, szSegment, ';', _MAX_PATH); cseg++)
 			iResult += Load(szSegment, dwLoadWhat, szLanguage, pSoundSystem, fOverload,
 				iMinProgress + iPrg * cseg / iGroupCount, iMinProgress + iPrg * (cseg + 1) / iGroupCount);
 		return iResult;
-	}
-
-	// Wildcard items
-	if (SCharCount('*', szSearch))
-	{
-#ifdef _WIN32
-		struct _finddata_t fdt; intptr_t fdthnd;
-		if ((fdthnd = _findfirst(szSearch, &fdt)) < 0) return false;
-		do
-		{
-			iResult += Load(fdt.name, dwLoadWhat, szLanguage, pSoundSystem, fOverload);
-		} while (_findnext(fdthnd, &fdt) == 0);
-		_findclose(fdthnd);
-		// progress
-		if (iMinProgress != iMaxProgress) Game.SetInitProgress(float(iMaxProgress));
-#else
-		fputs("FIXME: C4DefList::Load\n", stderr);
-#endif
-		return iResult;
-	}
-
-	// File specified with creation (currently not used)
-	char szCreation[25 + 1];
-	int32_t iCreation = 0;
-	if (SCopyEnclosed(szSearch, '(', ')', szCreation, 25))
-	{
-		// Scan creation
-		SClearFrontBack(szCreation);
-		sscanf(szCreation, "%i", &iCreation);
-		// Extract filename
-		SCopyUntil(szSearch, szSegment, '(', _MAX_PATH);
-		SClearFrontBack(szSegment);
-		szSearch = szSegment;
 	}
 
 	// Load from specified file
@@ -1056,12 +917,12 @@ int32_t C4DefList::Load(const char *szSearch,
 	return iResult;
 }
 
-bool C4DefList::Add(C4Def *pDef, bool fOverload)
+bool C4DefList::Add(std::unique_ptr<C4Def> def, bool fOverload)
 {
-	if (!pDef) return false;
+	if (!def) return false;
 
 	// Check old def to overload
-	const auto old = FindDefByID(pDef->id);
+	auto old = FindDefByID(def->id);
 	const auto hasOld = (old != Defs.end());
 	if (hasOld && !fOverload) return false;
 
@@ -1069,23 +930,23 @@ bool C4DefList::Add(C4Def *pDef, bool fOverload)
 	if (Config.Graphics.VerboseObjectLoading >= 1)
 		if (hasOld)
 		{
-			Log(C4ResStrTableKey::IDS_PRC_DEFOVERLOAD, pDef->GetName(), C4IdText((*old)->id));
+			Log(C4ResStrTableKey::IDS_PRC_DEFOVERLOAD, def->GetName(), C4IdText((*old)->id));
 			if (Config.Graphics.VerboseObjectLoading >= 2)
 			{
 				LogNTr("      Old def at {}", (*old)->Filename);
-				LogNTr("     Overload by {}", pDef->Filename);
+				LogNTr("     Overload by {}", def->Filename);
 			}
 		}
 
 	if (hasOld)
 	{
 		// Replace old def
-		old->reset(pDef);
+		*old = std::move(def);
 	}
 	else
 	{
 		// Add new def
-		Defs.emplace_back(pDef);
+		Defs.emplace_back(std::move(def));
 	}
 
 	return true;
@@ -1103,10 +964,7 @@ bool C4DefList::Remove(C4ID id)
 
 void C4DefList::Remove(C4Def *def)
 {
-	if (const auto it = std::find_if(Defs.begin(), Defs.end(), [def](const auto &check)
-		{
-			return check.get() == def;
-		}); it != Defs.end())
+	if (const auto it = std::ranges::find(Defs, def, &std::unique_ptr<C4Def>::get); it != Defs.end())
 	{
 		Defs.erase(it);
 	}
@@ -1174,17 +1032,10 @@ C4Def *C4DefList::GetByPath(const char *szPath)
 
 int32_t C4DefList::CheckEngineVersion(int32_t ver1, int32_t ver2, int32_t ver3, int32_t ver4, int32_t ver5)
 {
-	int32_t rcount = 0;
-	Defs.erase(std::remove_if(Defs.begin(), Defs.end(), [ver1, ver2, ver3, ver4, ver5, &rcount](const auto &def)
+	return std::erase_if(Defs, [ver1, ver2, ver3, ver4, ver5](const auto &def)
 	{
-		if (CompareVersion(def->rC4XVer[0], def->rC4XVer[1], def->rC4XVer[2], def->rC4XVer[3], def->rC4XVer[4], ver1, ver2, ver3, ver4, ver5) > 0)
-		{
-			++rcount;
-			return true;
-		}
-		return false;
-	}), Defs.end());
-	return rcount;
+		return CompareVersion(def->rC4XVer[0], def->rC4XVer[1], def->rC4XVer[2], def->rC4XVer[3], def->rC4XVer[4], ver1, ver2, ver3, ver4, ver5) > 0;
+	});
 }
 
 int32_t C4DefList::CheckRequireDef()
@@ -1193,25 +1044,18 @@ int32_t C4DefList::CheckRequireDef()
 	do
 	{
 		rcount2 = rcount;
-		Defs.erase(std::remove_if(Defs.begin(), Defs.end(), [this, &rcount](const auto &def)
+		rcount += std::erase_if(Defs, [this](const auto &def)
 		{
-			for (const auto &it : def->RequireDef)
-			{
-				if (GetIndex(it.id) < 0)
-				{
-					++rcount;
-					return true;
-				}
-			}
-			return false;
-		}), Defs.end());
+			// Don't use FindDefByID here as Defs may contain nullptrs during erasure callbacks
+			return !std::ranges::all_of(def->RequireDef, [this](const auto &it) { return std::ranges::contains(Defs | std::views::filter([](const auto &def) { return def != nullptr; }), it.id, &C4Def::id); });
+		});
 	} while (rcount != rcount2);
 	return rcount;
 }
 
 int32_t C4DefList::ColorizeByMaterial(C4MaterialMap &rMats, uint8_t bGBM)
 {
-	return std::count_if(Defs.begin(), Defs.end(), [bGBM, &rMats](const auto &def)
+	return std::ranges::count_if(Defs, [bGBM, &rMats](const auto &def)
 	{
 		return def->ColorizeByMaterial(rMats, bGBM);
 	});
@@ -1398,34 +1242,26 @@ void C4DefList::SortByID()
 	//  within the same object pack and multiple appendtos with function overloads that depend on their
 	//  order.)
 
-	std::sort(Defs.begin(), Defs.end(), [](const auto &a, const auto &b)
-	{
-		return a->id < b->id;
-	});
+	std::ranges::sort(Defs, std::ranges::less{}, &C4Def::id);
 
 	Sorted = true;
 }
 
 void C4DefList::Synchronize()
 {
-	for (const auto &it : Defs)
-		it->Synchronize();
+	std::ranges::for_each(Defs, &C4Def::Synchronize);
 }
 
 void C4DefList::ResetIncludeDependencies()
 {
-	for (const auto &it : Defs)
-		it->ResetIncludeDependencies();
+	std::ranges::for_each(Defs, &C4Def::ResetIncludeDependencies);
 }
 
 std::vector<std::unique_ptr<C4Def>>::iterator C4DefList::FindDefByID(C4ID id)
 {
 	if (Sorted)
 	{
-		const auto it = std::lower_bound(Defs.begin(), Defs.end(), id, [](const auto &def, C4ID id)
-		{
-			return def->id < id;
-		});
+		const auto it = std::ranges::lower_bound(Defs, id, std::ranges::less{}, &C4Def::id);
 		if (it != Defs.end() && (*it)->id != id)
 		{
 			return Defs.end();
@@ -1433,8 +1269,5 @@ std::vector<std::unique_ptr<C4Def>>::iterator C4DefList::FindDefByID(C4ID id)
 		return it;
 	}
 
-	return std::find_if(Defs.begin(), Defs.end(), [id](const auto &def)
-	{
-		return def->id == id;
-	});
+	return std::ranges::find(Defs, id, &C4Def::id);
 }

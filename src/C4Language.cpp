@@ -2,7 +2,7 @@
  * LegacyClonk
  *
  * Copyright (c) 1998-2000, Matthes Bender (RedWolf Design)
- * Copyright (c) 2017-2021, The LegacyClonk Team and contributors
+ * Copyright (c) 2017-2024, The LegacyClonk Team and contributors
  *
  * Distributed under the terms of the ISC license; see accompanying file
  * "COPYING" for details.
@@ -21,27 +21,13 @@
 	- loads and sets a language string table (ResStrTable) based on a specified language sequence
 */
 
-#include <C4Include.h>
 #include <C4Language.h>
 
 #include <C4Components.h>
 #include <C4Log.h>
 #include <C4Config.h>
 #include <C4Game.h>
-
-#if defined(HAVE_ICONV) && !defined(_WIN32)
-
-#define HAVE_ICONV_AND_LANGINFO_H 1
-
-#include <cerrno>
-
-#include <langinfo.h>
-
-iconv_t C4Language::host_to_local = iconv_t(-1);
-iconv_t C4Language::local_to_utf_8 = iconv_t(-1);
-iconv_t C4Language::local_to_host = iconv_t(-1);
-
-#endif
+#include "C4TextEncoding.h"
 
 C4Language Languages;
 
@@ -85,7 +71,7 @@ bool C4Language::Init()
 
 	// Now create a pack group for each language pack (these pack groups are child groups
 	// that browse along each pack to access requested data)
-	for (int iPack = 0; pPack = Packs.GetGroup(iPack); iPack++)
+	for (int iPack = 0; (pPack = Packs.GetGroup(iPack)); iPack++)
 		PackGroups.RegisterGroup(*(new C4Group), true, C4GSPrio_Base, C4GSCnt_Language);
 
 	// Load language infos by scanning string tables (the engine doesn't really need this at the moment)
@@ -105,113 +91,7 @@ void C4Language::Clear()
 	PackDirectory.Close();
 	// Clear infos
 	Infos.clear();
-
-#ifdef HAVE_ICONV
-	if (local_to_host != iconv_t(-1))
-	{
-		if (local_to_host == local_to_utf_8)
-			local_to_utf_8 = iconv_t(-1);
-		iconv_close(local_to_host);
-		local_to_host = iconv_t(-1);
-	}
-	if (host_to_local != iconv_t(-1))
-	{
-		iconv_close(host_to_local);
-		host_to_local = iconv_t(-1);
-	}
-	if (local_to_utf_8 != iconv_t(-1))
-	{
-		iconv_close(local_to_utf_8);
-		local_to_utf_8 = iconv_t(-1);
-	}
-
-#endif
 }
-
-#ifdef HAVE_ICONV
-
-StdStrBuf C4Language::Iconv(const char *string, iconv_t cd)
-{
-	if (cd == iconv_t(-1))
-	{
-		return StdStrBuf(string, true);
-	}
-	StdStrBuf r;
-	size_t inlen = strlen(string);
-	size_t outlen = strlen(string);
-	r.SetLength(inlen);
-	const char *inbuf = string;
-	char *outbuf = r.getMData();
-	while (inlen > 0)
-	{
-		// Hope that iconv does not change the inbuf...
-		if (static_cast<size_t>(-1) == iconv(cd, const_cast<ICONV_CONST char * *>(&inbuf), &inlen, &outbuf, &outlen))
-		{
-			switch (errno)
-			{
-			// There is not sufficient room at *outbuf.
-			case E2BIG:
-			{
-				size_t done = outbuf - r.getMData();
-				r.Grow(inlen * 2);
-				outbuf = r.getMData() + done;
-				outlen += inlen * 2;
-				break;
-			}
-			// An invalid multibyte sequence has been encountered in the input.
-			case EILSEQ:
-				++inbuf;
-				--inlen;
-				break;
-			// An incomplete multibyte sequence has been encountered in the input.
-			case EINVAL:
-			default:
-				if (outlen) r.Shrink(outlen);
-				return r;
-			}
-		}
-	}
-	if (outlen) r.Shrink(outlen);
-	// StdStrBuf has taken care of the terminating zero
-	return r;
-}
-
-StdStrBuf C4Language::IconvSystem(const char *string)
-{
-	return Iconv(string, local_to_host);
-}
-
-StdStrBuf C4Language::IconvClonk(const char *string)
-{
-	return Iconv(string, host_to_local);
-}
-
-StdStrBuf C4Language::IconvUtf8(const char *string)
-{
-	return Iconv(string, local_to_utf_8);
-}
-
-#else
-
-StdStrBuf C4Language::IconvSystem(const char *string)
-{
-	// Just copy through
-	return StdStrBuf(string, true);
-}
-
-StdStrBuf C4Language::IconvClonk(const char *string)
-{
-	// Just copy through
-	return StdStrBuf(string, true);
-}
-
-StdStrBuf C4Language::IconvUtf8(const char *string)
-{
-	// Just copy through
-	return StdStrBuf(string, true);
-}
-
-#endif
 
 // Returns a set of groups at the specified relative path within all open language packs.
 
@@ -251,12 +131,12 @@ C4GroupSet &C4Language::GetPackGroups(const char *strRelativePath)
 		return PackGroups;
 
 	// Process all language packs (and their respective pack groups)
-	C4Group *pPack, *pPackGroup;
-	for (int iPack = 0; (pPack = Packs.GetGroup(iPack)) && (pPackGroup = PackGroups.GetGroup(iPack)); iPack++)
+	C4Group *pPack, *newPackGroup, **pPackGroupPtr;
+	for (int iPack = 0; (pPack = Packs.GetGroup(iPack)) && (pPackGroupPtr = PackGroups.GetGroupPtr(iPack)); iPack++)
 	{
 		// Get current pack group position within pack
 		SCopy(pPack->GetFullName().getData(), strPackPath, _MAX_PATH);
-		GetRelativePath(pPackGroup->GetFullName().getData(), strPackPath, strPackGroupLocation);
+		GetRelativePath((*pPackGroupPtr)->GetFullName().getData(), strPackPath, strPackGroupLocation);
 
 		// Pack group is at correct position within pack: continue with next pack
 		if (SEqualNoCase(strPackGroupLocation, strTargetLocation))
@@ -264,27 +144,41 @@ C4GroupSet &C4Language::GetPackGroups(const char *strRelativePath)
 
 		// Try to backtrack until we can reach the target location as a relative child
 		while (strPackGroupLocation[0]
-			&& !GetRelativePath(strTargetLocation, strPackGroupLocation, strAdvance)
-			&& pPackGroup->OpenMother())
+			&& !GetRelativePath(strTargetLocation, strPackGroupLocation, strAdvance))
 		{
+			newPackGroup = (*pPackGroupPtr)->GrabMother();
+			if (newPackGroup)
+			{
+				delete *pPackGroupPtr; // Pack groups are always owned
+				*pPackGroupPtr = newPackGroup;
+			}
+			else
+			{
+				break;
+			}
+
 			// Update pack group location
-			GetRelativePath(pPackGroup->GetFullName().getData(), strPackPath, strPackGroupLocation);
+			GetRelativePath((*pPackGroupPtr)->GetFullName().getData(), strPackPath, strPackGroupLocation);
 		}
 
 		// We can reach the target location as a relative child
 		if (strPackGroupLocation[0] && GetRelativePath(strTargetLocation, strPackGroupLocation, strAdvance))
 		{
 			// Advance pack group to relative child
-			pPackGroup->OpenChild(strAdvance);
+			auto group = std::make_unique<C4Group>();
+			if (group->OpenAsChild(*pPackGroupPtr, strAdvance, true))
+			{
+				(*pPackGroupPtr) = group.release();
+			}
 		}
 
 		// Cannot reach by advancing: need to close and reopen (rewinding group file)
 		else
 		{
 			// Close pack group (if it is open at all)
-			pPackGroup->Close();
+			(*pPackGroupPtr)->Close();
 			// Reopen pack group to relative position in language pack if possible
-			pPackGroup->OpenAsChild(pPack, strTargetLocation);
+			(*pPackGroupPtr)->OpenAsChild(pPack, strTargetLocation);
 		}
 	}
 
@@ -306,7 +200,7 @@ void C4Language::InitInfos()
 	}
 	// Now look through the registered packs
 	C4Group *pPack;
-	for (int iPack = 0; pPack = Packs.GetGroup(iPack); iPack++)
+	for (int iPack = 0; (pPack = Packs.GetGroup(iPack)); iPack++)
 		// Does it contain a System.c4g child group?
 		if (hGroup.OpenAsChild(pPack, C4CFN_System))
 		{
@@ -397,7 +291,7 @@ bool C4Language::InitStringTable(const char *strCode)
 	}
 	// Now look through the registered packs
 	C4Group *pPack;
-	for (int iPack = 0; pPack = Packs.GetGroup(iPack); iPack++)
+	for (int iPack = 0; (pPack = Packs.GetGroup(iPack)); iPack++)
 		// Does it contain a System.c4g child group?
 		if (hGroup.OpenAsChild(pPack, C4CFN_System))
 		{
@@ -430,25 +324,9 @@ bool C4Language::LoadStringTable(C4Group &hGroup, const char *strCode)
 	SCopy(LoadResStr(C4ResStrTableKey::IDS_LANG_CHARSET), Config.General.LanguageCharset);
 
 #ifdef _WIN32
-	Application.LogSystem.SetConsoleCharset(C4Config::GetCharsetCodePage(Config.General.LanguageCharset));
-#endif
-
-#ifdef HAVE_ICONV_AND_LANGINFO_H
-	const char *const to_set = nl_langinfo(CODESET);
-	if (local_to_host == iconv_t(-1))
-		local_to_host = iconv_open(to_set ? to_set : "ASCII",
-			C4Config::GetCharsetCodeName(Config.General.LanguageCharset));
-	if (host_to_local == iconv_t(-1))
-		host_to_local = iconv_open(C4Config::GetCharsetCodeName(Config.General.LanguageCharset),
-			to_set ? to_set : "ASCII");
-	if (local_to_utf_8 == iconv_t(-1))
-	{
-		if (SEqual(to_set, "UTF-8"))
-			local_to_utf_8 = local_to_host;
-		else
-			local_to_utf_8 = iconv_open("UTF-8",
-				C4Config::GetCharsetCodeName(Config.General.LanguageCharset));
-	}
+	Application.LogSystem.SetConsoleInputCharset(C4Config::GetCharsetCodePage(Config.General.LanguageCharset));
+#else
+	TextEncodingConverter.CreateConverters(C4Config::GetCharsetCodeName(Config.General.LanguageCharset));
 #endif
 	// Success
 	return true;

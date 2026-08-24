@@ -17,7 +17,6 @@
 
 // RTF file parsing functionality
 
-#include "C4Include.h"
 #include "C4RTF.h"
 
 #include <algorithm>
@@ -34,7 +33,7 @@ C4RTFFile::~C4RTFFile()
 void C4RTFFile::ClearState()
 {
 	PropertyState *psNext = pState, *ps;
-	while (ps = psNext)
+	while ((ps = psNext))
 	{
 		psNext = ps->pNext;
 		delete ps;

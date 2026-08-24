@@ -2,7 +2,7 @@
  * LegacyClonk
  *
  * Copyright (c) 1998-2000, Matthes Bender (RedWolf Design)
- * Copyright (c) 2017-2021, The LegacyClonk Team and contributors
+ * Copyright (c) 2017-2024, The LegacyClonk Team and contributors
  *
  * Distributed under the terms of the ISC license; see accompanying file
  * "COPYING" for details.
@@ -36,22 +36,22 @@ const char *GetAName(const char *szNameFile)
 	// always eat the Random-value, so having or not having a Names.txt makes no difference
 	int iName = Random(1000);
 
-	FILE *hNamefile;
-
 	if (!szNameFile) return "Clonk";
-	if (!(hNamefile = fopen(szNameFile, "r"))) return "Clonk";
+
+	C4File nameFile{szNameFile, "r"};
+	if (!nameFile) return "Clonk";
 
 	for (int iCnt = 0; iCnt < iName; iCnt++)
-		AdvanceFileLine(hNamefile);
+		AdvanceFileLine(nameFile.GetHandle());
 	GetANameBuffer[0] = 0; int iLoops = 0;
 	do
 	{
-		if (!ReadFileLine(hNamefile, GetANameBuffer, C4MaxName))
+		if (!ReadFileLine(nameFile.GetHandle(), GetANameBuffer, C4MaxName))
 		{
-			rewind(hNamefile); iLoops++;
+			(void) nameFile.Rewind(); iLoops++;
 		}
 	} while ((iLoops < 2) && (!GetANameBuffer[0] || (GetANameBuffer[0] == '#') || (GetANameBuffer[0] == ' ')));
-	fclose(hNamefile);
+	nameFile.Close();
 	if (iLoops >= 2) return "Clonk";
 	return GetANameBuffer;
 }
@@ -220,7 +220,7 @@ void C4PhysicalInfo::PromotionUpdate(int32_t iRank, bool fUpdateTrainablePhysica
 		Fight  = pTrainDef->Physical.Fight  + (C4MaxPhysical - pTrainDef->Physical.Fight)  * iTrainRank / 20;
 		// do script updates for any physicals as required (this will train stuff like magic)
 		const char *szPhysName; C4PhysicalInfo::Offset PhysOff;
-		for (int32_t iPhysIdx = 0; szPhysName = GetNameByIndex(iPhysIdx, &PhysOff); ++iPhysIdx)
+		for (int32_t iPhysIdx = 0; (szPhysName = GetNameByIndex(iPhysIdx, &PhysOff)); ++iPhysIdx)
 		{
 			C4Value PhysVal(this->*PhysOff, C4V_Int);
 			if (pTrainDef->Script.Call(PSF_GetFairCrewPhysical, {C4VString(szPhysName), C4VInt(iRank), C4VRef(&PhysVal)}))

@@ -2,7 +2,7 @@
  * LegacyClonk
  *
  * Copyright (c) 1998-2000, Matthes Bender (RedWolf Design)
- * Copyright (c) 2017-2020, The LegacyClonk Team and contributors
+ * Copyright (c) 2017-2024, The LegacyClonk Team and contributors
  *
  * Distributed under the terms of the ISC license; see accompanying file
  * "COPYING" for details.
@@ -66,7 +66,7 @@ bool C4Group_IsGroup(const char *szFilename);
 bool C4Group_CopyItem(const char *szSource, const char *szTarget, bool fNoSort = false, bool fResetAttributes = false);
 bool C4Group_MoveItem(const char *szSource, const char *szTarget, bool fNoSort = false);
 bool C4Group_DeleteItem(const char *szItem, bool fRecycle = false);
-bool C4Group_PackDirectoryTo(const char *szFilename, const char *szFilenameTo);
+bool C4Group_PackDirectoryTo(const char *szFilename, const char *szFilenameTo, bool overwriteTarget = false);
 bool C4Group_PackDirectory(const char *szFilename);
 bool C4Group_UnpackDirectory(const char *szFilename);
 bool C4Group_ExplodeDirectory(const char *szFilename);
@@ -145,11 +145,24 @@ const int GRPF_Inactive = 0,
           GRPF_File = 1,
           GRPF_Folder = 2;
 
-class C4Group : public CStdStream
+class C4Group
 {
+public:
+	enum class OpenFlags
+	{
+		None = 0,
+		Overwrite = 1 << 0
+	};
+
 public:
 	C4Group();
 	~C4Group();
+
+	C4Group(const C4Group &) = delete;
+	C4Group &operator=(const C4Group &) = delete;
+
+	C4Group(C4Group &&) = delete;
+	C4Group &operator=(C4Group &&) = delete;
 
 protected:
 	int Status;
@@ -181,12 +194,11 @@ protected:
 	bool NoSort; // If this flag is set, all entries will be marked NoSort in AddEntry
 
 public:
-	bool Open(const char *szGroupName, bool fCreate = false);
+	bool Open(const char *szGroupName, bool fCreate = false, OpenFlags flags = OpenFlags::None);
 	bool Close();
 	bool Save(bool fReOpen);
 	bool OpenAsChild(C4Group *pMother, const char *szEntryName, bool fExclusive = false);
-	bool OpenChild(const char *strEntry);
-	bool OpenMother();
+	C4Group *GrabMother();
 	bool Add(const char *szFiles);
 	bool Add(const char *szFile, const char *szAddAs);
 	bool Add(const char *szName, void *pBuffer, size_t iSize, bool fChild = false, bool fHoldBuffer = false, time_t iTime = 0, bool fExecutable = false);
@@ -223,8 +235,8 @@ public:
 		size_t *iSize = nullptr,
 		bool *fChild = nullptr,
 		bool fStartAtFilename = false);
-	bool Read(void *pBuffer, size_t iSize) override;
-	bool Advance(size_t iOffset) override;
+	bool Read(void *pBuffer, size_t iSize);
+	bool Advance(size_t iOffset);
 	void SetMaker(const char *szMaker);
 	void SetStdOutput(bool fStatus);
 	void MakeOriginal(bool fOriginal);
@@ -236,7 +248,7 @@ public:
 	StdStrBuf GetFullName() const;
 	int EntryCount(const char *szWildCard = nullptr);
 	int EntrySize(const char *szWildCard = nullptr);
-	size_t AccessedEntrySize() override { return iCurrFileSize; } // retrieve size of last accessed entry
+	size_t AccessedEntrySize() { return iCurrFileSize; } // retrieve size of last accessed entry
 	uint32_t EntryTime(const char *szFilename);
 	unsigned int EntryCRC32(const char *szWildCard = nullptr);
 	int32_t GetCreation();
@@ -283,3 +295,13 @@ protected:
 	C4GroupEntry *GetNextFolderEntry();
 	bool CalcCRC32(C4GroupEntry *pEntry);
 };
+
+inline C4Group::OpenFlags operator|(const C4Group::OpenFlags first, const C4Group::OpenFlags second) noexcept
+{
+	return static_cast<C4Group::OpenFlags>(std::to_underlying(first) | std::to_underlying(second));
+}
+
+inline C4Group::OpenFlags operator&(const C4Group::OpenFlags first, const C4Group::OpenFlags second) noexcept
+{
+	return static_cast<C4Group::OpenFlags>(std::to_underlying(first) & std::to_underlying(second));
+}

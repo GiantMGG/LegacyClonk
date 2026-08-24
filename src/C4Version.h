@@ -2,7 +2,7 @@
  * LegacyClonk
  *
  * Copyright (c) RedWolf Design
- * Copyright (c) 2017-2022, The LegacyClonk Team and contributors
+ * Copyright (c) 2017-2025, The LegacyClonk Team and contributors
  *
  * Distributed under the terms of the ISC license; see accompanying file
  * "COPYING" for details.
@@ -27,9 +27,9 @@
 /* These values are now controlled by the file source/version - DO NOT MODIFY DIRECTLY */
 #define C4XVER1 4
 #define C4XVER2 9
-#define C4XVER3 10
-#define C4XVER4 15
-#define C4XVERBUILD 360
+#define C4XVER3 11
+#define C4XVER4 2
+#define C4XVERBUILD 366
 #define C4VERSIONEXTRA ""
 /* These values are now controlled by the file source/version - DO NOT MODIFY DIRECTLY */
 

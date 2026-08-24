@@ -2,7 +2,7 @@
  * LegacyClonk
  *
  * Copyright (c) 1998-2000, Matthes Bender (RedWolf Design)
- * Copyright (c) 2017-2022, The LegacyClonk Team and contributors
+ * Copyright (c) 2017-2024, The LegacyClonk Team and contributors
  *
  * Distributed under the terms of the ISC license; see accompanying file
  * "COPYING" for details.
@@ -25,6 +25,7 @@
 
 #ifdef C4ENGINE
 #include "C4AulScriptStrict.h"
+#include "C4Log.h"
 #include "StdWindow.h"
 #endif
 
@@ -299,6 +300,30 @@ public:
 	void CompileFunc(StdCompiler *comp);
 };
 
+class C4ConfigLogging
+{
+public:
+	spdlog::level::level_enum LogLevelStdout;
+
+	C4LoggerConfig::Config<class C4AudioSystem> AudioSystem;
+	C4LoggerConfig::Config<class C4AulExec> AulExec;
+	C4LoggerConfig::Config<class C4AulProfiler> AulProfiler;
+	C4LoggerConfig::Config<class CStdDDraw> DDraw;
+	C4LoggerConfig::Config<class C4GameControl> GameControl;
+	C4LoggerConfig::Config<class C4Network2> Network;
+	C4LoggerConfig::Config<class C4Network2IO> Network2IO;
+	C4LoggerConfig::Config<class C4Network2HTTPClient> Network2HTTPClient;
+	C4LoggerConfig::Config<class C4Network2UPnP> Network2UPnP;
+	C4LoggerConfig::Config<class C4Playback> Playback;
+	C4LoggerConfig::Config<class CPNGFile> PNGFile;
+
+#ifdef WITH_GLIB
+	C4LoggerConfig::Config<struct _GMainLoop> GLib;
+#endif
+
+	void CompileFunc(StdCompiler *comp);
+};
+
 #endif
 
 class C4Config
@@ -321,6 +346,7 @@ public:
 	C4ConfigStartup   Startup;
 	C4ConfigCooldowns Cooldowns;
 	C4ConfigToasts    Toasts;
+	C4ConfigLogging   Logging;
 #endif
 	bool fConfigLoaded; // true if config has been successfully loaded
 	StdStrBuf ConfigFilename; // set for configs loaded from a nondefault config file

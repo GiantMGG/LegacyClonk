@@ -3,7 +3,7 @@
  *
  * Copyright (c) RedWolf Design
  * Copyright (c) 2013-2018, The OpenClonk Team and contributors
- * Copyright (c) 2017-2022, The LegacyClonk Team and contributors
+ * Copyright (c) 2017-2024, The LegacyClonk Team and contributors
  *
  * Distributed under the terms of the ISC license; see accompanying file
  * "COPYING" for details.
@@ -22,8 +22,9 @@
 #include "C4Network2Address.h"
 #include "Standard.h"
 
-#include <assert.h>
-#include <errno.h>
+#include <cassert>
+#include <cerrno>
+
 #include <fcntl.h>
 #include <format>
 #include <sys/stat.h>
@@ -36,6 +37,7 @@
 
 #else
 
+#include <unistd.h>
 #include <sys/ioctl.h>
 #include <netinet/in.h>
 #include <netinet/tcp.h>
@@ -71,9 +73,6 @@
 #include <cinttypes>
 #include <functional>
 #include <utility>
-
-// constants definition
-const int C4NetIO::TO_INF = -1;
 
 // simulate packet loss (loss probability in percent)
 // #define C4NETIO_SIMULATE_PACKETLOSS 10
@@ -198,7 +197,7 @@ void ReleaseWinSock()
 
 const char *GetSocketErrorMsg(int iError)
 {
-	return strerror(iError);
+	return std::strerror(iError);
 }
 
 const char *GetSocketErrorMsg()
@@ -312,22 +311,15 @@ std::vector<C4Network2HostAddress> C4NetIO::GetLocalAddresses(bool unsorted)
 	bool have_ipv6{false};
 
 #ifdef __linux__
-	struct FopenFile
-	{
-		std::FILE *const f;
-		FopenFile(const char *const name, const char *const mode) : f{std::fopen(name, mode)} {}
-		~FopenFile() { if (f) std::fclose(f); }
-		explicit operator bool() const { return f != nullptr; }
-	};
 	// Get IPv6 addresses on Linux from procfs which allows filtering deprecated privacy addresses.
-	if (FopenFile f{"/proc/net/if_inet6", "r"})
+	if (C4File f{"/proc/net/if_inet6", "r"})
 	{
 		sockaddr_in6 sa6{};
 		sa6.sin6_family = AF_INET6;
 		const auto a6 = sa6.sin6_addr.s6_addr;
 		std::uint8_t if_idx, plen, scope, flags;
-		char devname[20];
-		while (std::fscanf(f.f,
+		char devname[20 + 1];
+		while (std::fscanf(f.GetHandle(),
 			"%2hhx%2hhx%2hhx%2hhx%2hhx%2hhx%2hhx%2hhx%2hhx%2hhx%2hhx%2hhx%2hhx%2hhx%2hhx%2hhx "
 			"%02" SCNx8 " %02" SCNx8 " %02" SCNx8 " %02" SCNx8 " %20s\n",
 			&a6[0], &a6[1], &a6[ 2], &a6[ 3], &a6[ 4], &a6[ 5], &a6[ 6], &a6[ 7],
@@ -459,13 +451,13 @@ void C4NetIOPacket::Clear()
 // construction / destruction
 
 C4NetIOTCP::C4NetIOTCP()
-	: pPeerList(nullptr), fInit(false),
-	pConnectWaits(nullptr),
+	: pPeerList(nullptr), pConnectWaits(nullptr),
+	PeerListCSec(this),
+	fInit(false),
+	iListenPort(~0), lsock(INVALID_SOCKET),
 #ifdef _WIN32
 	Event(nullptr),
 #endif
-	PeerListCSec(this),
-	iListenPort(~0), lsock(INVALID_SOCKET),
 	pCB(nullptr) {}
 
 C4NetIOTCP::~C4NetIOTCP()
@@ -575,7 +567,7 @@ bool C4NetIOTCP::Execute(int iMaxTime) // (mt-safe)
 
 #ifdef _WIN32
 	// wait for something to happen
-	if (WaitForSingleObject(Event, iMaxTime == C4NetIO::TO_INF ? INFINITE : iMaxTime) == WAIT_TIMEOUT)
+	if (WaitForSingleObject(Event, iMaxTime) == WAIT_TIMEOUT)
 		// timeout -> nothing happened
 		return true;
 	WSAResetEvent(Event);
@@ -585,9 +577,6 @@ bool C4NetIOTCP::Execute(int iMaxTime) // (mt-safe)
 
 	std::vector<pollfd> fds;
 	GetFDs(fds);
-
-	// build timeout value
-	timeval to = { iMaxTime / 1000, (iMaxTime % 1000) * 1000 };
 
 	// wait for something to happen
 	int ret = StdSync::Poll(fds, iMaxTime);
@@ -1013,11 +1002,6 @@ void C4NetIOTCP::GetFDs(std::vector<pollfd> &fds)
 
 #endif
 
-int C4NetIOTCP::GetTimeout() // (mt-safe)
-{
-	return TO_INF;
-}
-
 bool C4NetIOTCP::GetStatistic(int *pBroadcastRate) // (mt-safe)
 {
 	// no broadcast
@@ -1342,8 +1326,8 @@ const unsigned int C4NetIOTCP::Peer::iMinIBufSize = 8192; // (bytes)
 C4NetIOTCP::Peer::Peer(const C4NetIO::addr_t &naddr, SOCKET nsock, C4NetIOTCP *pnParent)
 	: pParent(pnParent),
 	addr(naddr), sock(nsock),
-	Next(nullptr), iIBufUsage(0), iIRate(0), iORate(0),
-	fOpen(true), fDoBroadcast(false) {}
+	iIBufUsage(0), iIRate(0), iORate(0), fOpen(true),
+	fDoBroadcast(false), Next(nullptr) {}
 
 C4NetIOTCP::Peer::~Peer()
 {
@@ -1743,6 +1727,7 @@ bool C4NetIOSimpleUDP::Execute(int iMaxTime)
 		int iMsgSize = ::recvfrom(sock, Pkt.getMPtr<char>(), iMaxMsgSize, 0, &SrcAddr, &iSrcAddrLen);
 		// error?
 		if (iMsgSize == SOCKET_ERROR)
+		{
 			if (HaveConnResetError())
 			{
 				// this is actually some kind of notification: an ICMP msg (unreachable)
@@ -1756,6 +1741,7 @@ bool C4NetIOSimpleUDP::Execute(int iMaxTime)
 				SetError("could not receive data from socket", true);
 				return false;
 			}
+		}
 		// invalid address?
 		if ((iSrcAddrLen != sizeof(sockaddr_in) && iSrcAddrLen != sizeof(sockaddr_in6)) || SrcAddr.GetFamily() == addr_t::UnknownFamily)
 		{
@@ -1821,7 +1807,7 @@ HANDLE C4NetIOSimpleUDP::GetEvent() // (mt-safe)
 enum C4NetIOSimpleUDP::WaitResult C4NetIOSimpleUDP::WaitForSocket(int iTimeout)
 {
 	// wait for anything to happen
-	DWORD ret = WaitForSingleObject(hEvent, iTimeout == TO_INF ? INFINITE : iTimeout);
+	DWORD ret = WaitForSingleObject(hEvent, iTimeout);
 	if (ret == WAIT_TIMEOUT)
 		return WR_Timeout;
 	if (ret == WAIT_FAILED)
@@ -1887,11 +1873,6 @@ enum C4NetIOSimpleUDP::WaitResult C4NetIOSimpleUDP::WaitForSocket(int iTimeout)
 }
 
 #endif
-
-int C4NetIOSimpleUDP::GetTimeout()
-{
-	return C4NetIO::TO_INF;
-}
 
 bool C4NetIOSimpleUDP::SetMCLoopback(int fLoopback)
 {
@@ -2062,15 +2043,15 @@ struct C4NetIOUDP::TestPacket : public PacketHdr
 // construction / destruction
 
 C4NetIOUDP::C4NetIOUDP()
-	: fInit(false), fMultiCast(false), iPort(~0),
+	: PeerListCSec(this), fInit(false), fMultiCast(false),
+	iPort(~0),
 	pPeerList(nullptr),
-	iNextCheck(0),
-	iOPacketCounter(0),
+	fSavePacket(false),
 	fDelayedLoopbackTest(false),
-	iBroadcastRate(0),
-	PeerListCSec(this),
+	iNextCheck(0),
 	OPackets(iMaxOPacketBacklog),
-	fSavePacket(false) {}
+	iOPacketCounter(0),
+	iBroadcastRate(0) {}
 
 C4NetIOUDP::~C4NetIOUDP()
 {
@@ -2303,7 +2284,7 @@ bool C4NetIOUDP::Execute(int iMaxTime) // (mt-safe)
 
 	// adjust maximum block time
 	int iMaxBlock = GetTimeout();
-	if (iMaxTime == TO_INF || iMaxTime > iMaxBlock) iMaxTime = iMaxBlock;
+	if (iMaxTime == StdSync::Infinite || iMaxTime > iMaxBlock) iMaxTime = iMaxBlock;
 
 	// execute subclass
 	if (!C4NetIOSimpleUDP::Execute(iMaxBlock))
@@ -2661,9 +2642,9 @@ size_t C4NetIOUDP::Packet::FragmentSize(nr_t iFNr) const
 
 C4NetIOUDP::PacketList::PacketList(unsigned int inMaxPacketCnt)
 	: pFront(nullptr),
-	iMaxPacketCnt(inMaxPacketCnt),
+	pBack(nullptr),
 	iPacketCnt(0),
-	pBack(nullptr) {}
+	iMaxPacketCnt(inMaxPacketCnt) {}
 
 C4NetIOUDP::PacketList::~PacketList()
 {
@@ -2776,10 +2757,10 @@ C4NetIOUDP::Peer::Peer(const addr_t &naddr, C4NetIOUDP *pnParent)
 	: pParent(pnParent), addr(naddr),
 	eStatus(CS_None),
 	fMultiCast(false), fDoBroadcast(false),
-	iOPacketCounter(0),
-	iIPacketCounter(0), iRIPacketCounter(0),
-	iIMCPacketCounter(0), iRIMCPacketCounter(0),
 	OPackets(iMaxOPacketBacklog),
+	iOPacketCounter(0), iIPacketCounter(0),
+	iRIPacketCounter(0), iIMCPacketCounter(0),
+	iRIMCPacketCounter(0),
 	iMCAckPacketCounter(0),
 	iNextReCheck(0),
 	iIRate(0), iORate(0), iLoss(0)
@@ -2906,7 +2887,7 @@ void C4NetIOUDP::Peer::OnRecv(const C4NetIOPacket &rPacket) // (mt-safe)
 		}
 		// set packet counter
 		if (fBroadcasted)
-			iRIMCPacketCounter = iRIMCPacketCounter = pPkt->Nr;
+			iRIMCPacketCounter = iIMCPacketCounter = pPkt->Nr;
 		else
 			iRIPacketCounter = iIPacketCounter = pPkt->Nr;
 		// clear incoming packets
@@ -2970,7 +2951,8 @@ void C4NetIOUDP::Peer::OnRecv(const C4NetIOPacket &rPacket) // (mt-safe)
 				fMultiCast = true; DoConn(true);
 				break;
 			}
-			// fallthru
+			[[fallthrough]];
+
 		case ConnOKPacket::MCM_NoMC:
 			// Connection is established (no multicast support)
 			fMultiCast = false; OnConn();
@@ -3160,7 +3142,7 @@ bool C4NetIOUDP::Peer::SendDirect(C4NetIOPacket &&rPacket) // (mt-safe)
 void C4NetIOUDP::Peer::OnConn()
 {
 	// reset timeout
-	SetTimeout(TO_INF);
+	SetTimeout(StdSync::Infinite);
 	// set status
 	eStatus = CS_Works;
 	// do callback
@@ -3197,7 +3179,7 @@ void C4NetIOUDP::Peer::CheckCompleteIPackets()
 
 	// check for complete incoming packets
 	Packet *pPkt;
-	while (pPkt = IPackets.GetFirstPacketComplete())
+	while ((pPkt = IPackets.GetFirstPacketComplete()))
 	{
 		// missing packet?
 		if (pPkt->GetNr() != iIPacketCounter) break;
@@ -3211,7 +3193,7 @@ void C4NetIOUDP::Peer::CheckCompleteIPackets()
 		IPackets.DeletePacket(pPkt);
 		assert(!IPackets.GetPacketFrgm(iNr));
 	}
-	while (pPkt = IMCPackets.GetFirstPacketComplete())
+	while ((pPkt = IMCPackets.GetFirstPacketComplete()))
 	{
 		// missing packet?
 		if (pPkt->GetNr() != iIMCPacketCounter) break;
@@ -3229,7 +3211,7 @@ void C4NetIOUDP::Peer::CheckCompleteIPackets()
 
 void C4NetIOUDP::Peer::SetTimeout(int iLength, int iRetryCnt) // (mt-safe)
 {
-	if (iLength != TO_INF)
+	if (iLength != StdSync::Infinite)
 		iTimeout = timeGetTime() + iLength;
 	else
 		iTimeout = 0;
@@ -3254,7 +3236,7 @@ void C4NetIOUDP::Peer::OnTimeout()
 		Close("connection timeout");
 	}
 	// reset timeout
-	SetTimeout(TO_INF);
+	SetTimeout(StdSync::Infinite);
 }
 
 // * C4NetIOUDP: implementation
@@ -3563,7 +3545,7 @@ void C4NetIOUDP::DebugLogPkt(bool fOut, const C4NetIOPacket &Pkt)
 		}
 		}
 	}
-	output += " ({} bytes)\n", Pkt.getSize();
+	output += std::format(" ({} bytes)\n", Pkt.getSize());
 	write(hDebugLog, output.c_str(), output.size());
 }
 

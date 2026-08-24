@@ -2,7 +2,7 @@
  * LegacyClonk
  *
  * Copyright (c) 1998-2000, Matthes Bender (RedWolf Design)
- * Copyright (c) 2017-2019, The LegacyClonk Team and contributors
+ * Copyright (c) 2017-2024, The LegacyClonk Team and contributors
  *
  * Distributed under the terms of the ISC license; see accompanying file
  * "COPYING" for details.
@@ -22,10 +22,9 @@
 
 #include <cstdint>
 
-class CStdStream;
 class C4Surface;
 
-C4Surface *GroupReadSurface(CStdStream &hGroup, uint8_t *bpPalette = nullptr);
-CSurface8 *GroupReadSurface8(CStdStream &hGroup);
-C4Surface *GroupReadSurfacePNG(CStdStream &hGroup);
-CSurface8 *GroupReadSurfaceOwnPal8(CStdStream &hGroup);
+C4Surface *GroupReadSurface(C4Group &hGroup, uint8_t *bpPalette = nullptr);
+CSurface8 *GroupReadSurface8(C4Group &hGroup);
+C4Surface *GroupReadSurfacePNG(C4Group &hGroup);
+CSurface8 *GroupReadSurfaceOwnPal8(C4Group &hGroup);

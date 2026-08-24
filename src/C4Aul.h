@@ -3,7 +3,7 @@
  *
  * Copyright (c) RedWolf Design
  * Copyright (c) 2001, Sven2
- * Copyright (c) 2017-2022, The LegacyClonk Team and contributors
+ * Copyright (c) 2017-2024, The LegacyClonk Team and contributors
  *
  * Distributed under the terms of the ISC license; see accompanying file
  * "COPYING" for details.
@@ -29,10 +29,13 @@
 #include <C4Id.h>
 #include "C4Log.h"
 #include <C4Script.h>
+#include <C4Strings.h>
 #include <C4StringTable.h>
 
 #include <cstdint>
 #include <list>
+#include <string>
+#include <string_view>
 #include <vector>
 
 // class predefs
@@ -61,35 +64,35 @@ class C4DefList;
 // generic C4Aul error class
 class C4AulError
 {
-protected:
-	std::string message;
-	bool isWarning{false};
-
 public:
-	C4AulError();
-	C4AulError(const C4AulError &Error) : message{Error.message}, isWarning{Error.isWarning} {}
-	virtual ~C4AulError() {}
-	virtual void show() const; // present error message
+	virtual ~C4AulError() = default;
+	virtual void show() const;
+
+protected:
+	C4AulError(std::string message, bool isWarning = false) : message{std::move(message)}, isWarning{isWarning} {}
+
+	std::string message;
+	bool isWarning;
 };
 
 // parse error
 class C4AulParseError : public C4AulError
 {
-	C4AulParseError(std::string_view message, const char *identifier, bool warn);
+	C4AulParseError(std::string_view message, C4NullableStringView identifier, bool isWarning);
 
 public:
-	C4AulParseError(C4AulScript *pScript, std::string_view msg, const char *pIdtf = nullptr, bool Warn = false);
-	C4AulParseError(class C4AulParseState *state, std::string_view msg, const char *pIdtf = nullptr, bool Warn = false);
+	C4AulParseError(C4AulScript *script, std::string_view message, C4NullableStringView identifier = {}, bool isWarning = false);
+	C4AulParseError(class C4AulParseState *state, std::string_view message, C4NullableStringView identifier = {}, bool isWarning = false);
 };
 
 // execution error
 class C4AulExecError : public C4AulError
 {
-	C4Object *cObj;
+	C4Object *Obj;
 
 public:
-	C4AulExecError(C4Object *pObj, std::string_view error);
-	virtual void show() const override; // present error message
+	C4AulExecError(C4Object *obj, std::string_view message);
+	void show() const override;
 };
 
 // function access
@@ -346,7 +349,7 @@ public:
 	C4AulScript *pOrgScript; // the original script (!= Owner if included or appended)
 
 	C4AulScriptFunc(C4AulScript *pOwner, const char *pName, bool bAtEnd = true) : C4AulFunc(pOwner, pName, bAtEnd),
-		idImage(C4ID_None), iImagePhase(0), Condition(nullptr), ControlMethod(C4AUL_ControlMethod_All), OwnerOverloaded(nullptr),
+		OwnerOverloaded(nullptr), idImage(C4ID_None), iImagePhase(0), Condition(nullptr), ControlMethod(C4AUL_ControlMethod_All),
 		bReturnRef(false), tProfileTime(0)
 	{
 		for (int i = 0; i < C4AUL_MAX_Par; i++) ParType[i] = C4V_Any;
@@ -431,6 +434,15 @@ public:
 	static void StopProfiling();
 };
 
+C4LOGGERCONFIG_NAME_TYPE(C4AulProfiler);
+
+template<>
+struct C4LoggerConfig::Defaults<C4AulProfiler>
+{
+	static constexpr spdlog::level::level_enum GuiLogLevel{spdlog::level::info};
+	static constexpr bool ShowLoggerNameInGui{false};
+};
+
 // script class
 class C4AulScript
 {
@@ -457,10 +469,8 @@ protected:
 	C4AulScript *Owner, *Prev, *Next, *Child0, *ChildL; // tree structure
 
 	StdStrBuf Script; // script
-	C4AulBCC *Code, *CPos; // compiled script (/pos)
+	std::vector<C4AulBCC> Code; // compiled script
 	C4AulScriptState State; // script state
-	int CodeSize; // current number of byte code chunks in Code
-	int CodeBufSize; // size of Code buffer
 	bool Preparsing; // set while preparse
 	bool Resolving; // set while include-resolving, to catch circular includes
 
@@ -488,8 +498,8 @@ protected:
 
 	C4AulScript *FindFirstNonStrictScript(); // find first script that is not #strict
 
-	size_t GetCodePos() const { return CPos - Code; }
-	C4AulBCC *GetCodeByPos(size_t iPos) { return Code + iPos; }
+	size_t GetCodePos() const { return Code.size(); }
+	C4AulBCC *GetCodeByPos(size_t iPos) { return &Code[iPos]; }
 
 public:
 	std::string ScriptName; // script name
@@ -586,4 +596,15 @@ public:
 
 	friend class C4AulFunc;
 	friend class C4AulParseState;
+};
+
+class C4AulExec;
+
+C4LOGGERCONFIG_NAME_TYPE(C4AulExec);
+
+template<>
+struct C4LoggerConfig::Defaults<C4AulExec>
+{
+	static constexpr auto GuiLogLevel = spdlog::level::info;
+	static constexpr bool ShowLoggerNameInGui{false};
 };

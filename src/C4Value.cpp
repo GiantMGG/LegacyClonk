@@ -2,7 +2,7 @@
  * LegacyClonk
  *
  * Copyright (c) RedWolf Design
- * Copyright (c) 2017-2022, The LegacyClonk Team and contributors
+ * Copyright (c) 2017-2025, The LegacyClonk Team and contributors
  *
  * Distributed under the terms of the ISC license; see accompanying file
  * "COPYING" for details.
@@ -14,16 +14,13 @@
  * for the above references.
  */
 
-#include <C4Include.h>
 #include <C4Value.h>
 #include <C4Aul.h>
 #include <C4StringTable.h>
 #include <C4ValueList.h>
 #include <C4ValueHash.h>
+#include <StdHelpers.h>
 
-#include "StdHelpers.h"
-
-#include <cinttypes>
 #include <functional>
 #include <format>
 #include <string_view>
@@ -31,20 +28,6 @@
 #include <C4Game.h>
 #include <C4Object.h>
 #include <C4Log.h>
-
-const C4Value C4VNull{};
-const C4Value C4VTrue{C4VBool(true)};
-const C4Value C4VFalse{C4VBool(false)};
-
-C4Value::~C4Value()
-{
-	// resolve all C4Values referencing this Value
-	while (FirstRef)
-		FirstRef->Set(*this);
-
-	// delete contents
-	DelDataRef(Data, Type, GetNextRef(), GetBaseContainer());
-}
 
 std::optional<StdStrBuf> C4Value::toString() const
 {
@@ -669,18 +652,23 @@ std::string C4Value::GetDataString() const
 	}
 }
 
+C4String *C4Value::MakeC4String(std::string_view value)
+{
+	return new C4String{StdStrBuf{value.data(), value.size()}, &Game.ScriptEngine.Strings};
+}
+
 C4Value C4VString(const char *strString)
 {
 	// safety
 	if (!strString) return C4Value();
-	return C4Value(new C4String(strString, &Game.ScriptEngine.Strings));
+	return C4Value{std::string_view{strString}};
 }
 
 C4Value C4VString(StdStrBuf &&Str)
 {
 	// safety
 	if (Str.isNull()) return C4Value();
-	return C4Value(new C4String(std::forward<StdStrBuf>(Str), &Game.ScriptEngine.Strings));
+	return C4Value{std::string_view{Str.getData(), Str.getLength()}};
 }
 
 void C4Value::DenumeratePointer()
@@ -771,6 +759,7 @@ void C4Value::CompileFunc(StdCompiler *pComp)
 	case C4V_C4Object:
 		if (!fCompiler)
 			iTmp = Game.Objects.ObjectNumber(getObj());
+		[[fallthrough]];
 	case C4V_C4ObjectEnum:
 		if (!fCompiler) if (Type == C4V_C4ObjectEnum)
 			iTmp = Data.Int;
@@ -921,68 +910,66 @@ bool C4Value::operator==(const C4Value &Value2) const
 	return GetData() == Value2.GetData();
 }
 
-std::size_t std::hash<C4Value>::operator()(C4Value value) const
+std::size_t std::hash<C4Value>::operator()(const C4Value &value) const
 {
-	C4Value &ref = value.GetRefVal();
-	std::size_t hash = std::hash<C4V_Type>{}(ref.GetType());
+	static constexpr C4ValueBaseHasher baseHash;
 
-	if (ref.GetType() == C4V_C4ObjectEnum)
-	{
-		hash = std::hash<C4V_Type>{}(C4V_C4Object);
-		HashCombine(hash, std::hash<C4ValueInt>{}(ref._getInt()));
-		return hash;
-	}
-
+	const C4Value &ref = value.GetRefVal();
 	switch (ref.GetType())
 	{
 		case C4V_Any:
-			break;
+			return baseHash.NilHash();
 
-		case C4V_Int: case C4V_C4ID:
-			HashCombine(hash, std::hash<C4ValueInt>{}(ref._getInt()));
-			break;
+		case C4V_Int:
+			return baseHash(ref._getInt());
+
+		case C4V_C4ID:
+			return baseHash(ref._getC4ID());
 
 		case C4V_Bool:
-			HashCombine(hash, std::hash<bool>{}(ref._getBool()));
-			break;
+			return baseHash(ref._getBool());
 
 		case C4V_C4Object:
-			HashCombine(hash, std::hash<int32_t>{}(ref._getObj()->Number));
-			break;
+			return baseHash.ObjectHash(ref._getObj()->Number);
+
+		case C4V_C4ObjectEnum:
+			return baseHash.ObjectHash(ref._getInt());
 
 		case C4V_String:
 		{
 			const auto &str = ref._getStr()->Data;
-			HashCombine(hash, std::hash<std::string_view>{}({str.getData(), str.getLength()}));
-			break;
+			return baseHash(std::string_view{str.getData(), str.getLength()});
 		}
 		case C4V_Array:
 		{
+			std::size_t hash = std::hash<C4V_Type>{}(C4V_Array);
 			const auto &array = *ref._getArray();
 			for (size_t i = 0; i < array.GetSize(); ++i)
 			{
-				HashCombine(hash, (*this)(array.GetItem(i)));
+				hash = hashCombine(hash, (*this)(array.GetItem(i)));
 			}
-			break;
+			return hash;
 		}
 		case C4V_Map:
 		{
+			std::size_t hash = std::hash<C4V_Type>{}(C4V_Map);
 			std::size_t contentHash = 0;
 			auto &map = *ref._getMap();
 			for (const auto &it : map)
 			{
 				std::size_t itemHash = (*this)(it.first);
-				HashCombine(itemHash, (*this)(it.second));
+				itemHash = hashCombine(itemHash, (*this)(it.second));
 
 				// order mustn't matter
 				contentHash ^= itemHash;
 			}
-			HashCombine(hash, contentHash);
-			break;
+			hash = hashCombine(hash, contentHash);
+			return hash;
 		}
-		default:
-			throw std::runtime_error("Invalid value type for hashing C4Value");
+		case C4V_pC4Value:
+			// impossible due to GetRefVal()
+			break;
 	}
 
-	return hash;
+	throw std::runtime_error("Invalid value type for hashing C4Value");
 }

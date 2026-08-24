@@ -3,7 +3,7 @@
  *
  * Copyright (c) RedWolf Design
  * Copyright (c) 2001, Sven2
- * Copyright (c) 2017-2021, The LegacyClonk Team and contributors
+ * Copyright (c) 2017-2024, The LegacyClonk Team and contributors
  *
  * Distributed under the terms of the ISC license; see accompanying file
  * "COPYING" for details.
@@ -131,6 +131,7 @@ private:
 	uint32_t *pAlpha;
 
 public:
+	CPattern(const CPattern &);
 	CPattern &operator=(const CPattern &);
 	bool PatternClr(int iX, int iY, uint8_t &byClr, uint32_t &dwClr, CStdPalette &rPal) const; // apply pattern to color
 	bool Set(class C4Surface *sfcSource, int iZoom = 0, bool fMonochrome = false); // set and enable pattern
@@ -302,7 +303,7 @@ protected:
 
 public:
 	// General
-	bool Init(CStdApp *pApp);
+	bool Init(CStdApp *pApp, C4LogSystem &logSystem);
 	virtual void Clear();
 	virtual void Default();
 	virtual CStdGLCtx *CreateContext(CStdWindow *, CStdApp *) { return nullptr; }
@@ -426,4 +427,6 @@ protected:
 	friend class CPattern;
 };
 
-CStdDDraw *DDrawInit(CStdApp *pApp, int Engine);
+C4LOGGERCONFIG_NAME_TYPE(CStdDDraw);
+
+CStdDDraw *DDrawInit(CStdApp *pApp, C4LogSystem &logSystem, int Engine);

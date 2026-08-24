@@ -2,7 +2,7 @@
  * LegacyClonk
  *
  * Copyright (c) 1998-2000, Matthes Bender (RedWolf Design)
- * Copyright (c) 2017-2021, The LegacyClonk Team and contributors
+ * Copyright (c) 2017-2024, The LegacyClonk Team and contributors
  *
  * Distributed under the terms of the ISC license; see accompanying file
  * "COPYING" for details.
@@ -16,19 +16,18 @@
 
 /* Main class to execute the game fullscreen mode */
 
-#include <C4Include.h>
 #include <C4FullScreen.h>
 
 #include <C4Application.h>
 #include <C4UserMessages.h>
 #include <C4Viewport.h>
-#include <C4Language.h>
 #include <C4Gui.h>
 #include <C4Network2.h>
 #include <C4GameDialogs.h>
 #include <C4GamePadCon.h>
 #include <C4Player.h>
 #include <C4GameOverDlg.h>
+#include "C4TextEncoding.h"
 
 #include <format>
 
@@ -381,10 +380,7 @@ void C4FullScreen::HandleMessage(SDL_Event &e)
 	{
 	case SDL_TEXTINPUT:
 	{
-		if (Game.pGUI)
-		{
-			Game.pGUI->CharIn(e.text.text);
-		}
+		CharIn(e.text.text);
 		break;
 	}
 	case SDL_KEYDOWN:
@@ -459,8 +455,7 @@ void C4FullScreen::CharIn(const char *c)
 {
 	if (Game.pGUI)
 	{
-		StdStrBuf c2; c2.Take(Languages.IconvClonk(c));
-		Game.pGUI->CharIn(c2.getData());
+		Game.pGUI->CharIn(TextEncodingConverter.SystemToClonk(c).c_str());
 	}
 }
 #endif
@@ -515,7 +510,7 @@ bool C4FullScreen::ViewportCheck()
 		iPlrNum = NO_OWNER;
 		// Film mode: create viewport for first player (instead of no-owner)
 		if (fFilm)
-			if (pPlr = Game.Players.First)
+			if ((pPlr = Game.Players.First))
 				iPlrNum = pPlr->Number;
 		// Create viewport
 		Game.CreateViewport(iPlrNum, iPlrNum == NO_OWNER);

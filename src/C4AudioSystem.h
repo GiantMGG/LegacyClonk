@@ -1,7 +1,7 @@
 /*
  * LegacyClonk
  *
- * Copyright (c) 2017-2021, The LegacyClonk Team and contributors
+ * Copyright (c) 2017-2024, The LegacyClonk Team and contributors
  *
  * Distributed under the terms of the ISC license; see accompanying file
  * "COPYING" for details.
@@ -17,6 +17,7 @@
 
 #pragma once
 
+#include "C4Log.h"
 #include "Standard.h"
 
 #include <cstddef>
@@ -101,3 +102,5 @@ public:
 public:
 	static constexpr auto MaxChannels = 1024;
 };
+
+C4LOGGERCONFIG_NAME_TYPE(C4AudioSystem);

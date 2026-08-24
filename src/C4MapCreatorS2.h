@@ -3,7 +3,7 @@
  *
  * Copyright (c) RedWolf Design
  * Copyright (c) 2001, Sven2
- * Copyright (c) 2017-2020, The LegacyClonk Team and contributors
+ * Copyright (c) 2017-2024, The LegacyClonk Team and contributors
  *
  * Distributed under the terms of the ISC license; see accompanying file
  * "COPYING" for details.
@@ -351,7 +351,9 @@ class C4MapCreatorS2 : public C4MCNode
 {
 public:
 	C4MapCreatorS2(C4SLandscape *pLandscape, C4TextureMap *pTexMap, C4MaterialMap *pMatMap, int iPlayerCount);
+	C4MapCreatorS2(C4MapCreatorS2 &rTemplate, C4SLandscape *pLandscape); // construct of template
 	~C4MapCreatorS2();
+
 
 	void Default(); // set default data
 	void Clear(); // clear any data

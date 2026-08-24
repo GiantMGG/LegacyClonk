@@ -3,7 +3,7 @@
  *
  * Copyright (c) RedWolf Design
  * Copyright (c) 2001, Sven2
- * Copyright (c) 2017-2021, The LegacyClonk Team and contributors
+ * Copyright (c) 2017-2024, The LegacyClonk Team and contributors
  *
  * Distributed under the terms of the ISC license; see accompanying file
  * "COPYING" for details.
@@ -23,7 +23,8 @@ class C4Record;
 
 #include "C4Group.h"
 #include "C4Control.h"
-#include "CStdFile.h"
+#include "C4File.h"
+#include "C4Log.h"
 #include "Fixed.h"
 
 #include <list>
@@ -239,9 +240,8 @@ protected:
 
 public:
 	C4PktDebugRec() : eType(RCT_Undefined) {}
-	C4PktDebugRec(const C4PktDebugRec &rCopy) : Data(rCopy.Data), eType(rCopy.eType) {}
 	C4PktDebugRec(C4RecordChunkType eType, const StdBuf &rCpyData)
-		: Data(rCpyData), eType(eType) {}
+		: eType(eType), Data(rCpyData) {}
 
 	C4RecordChunkType getType() const { return eType; }
 	size_t getSize() const { return Data.getSize(); }
@@ -253,7 +253,7 @@ public:
 class C4Record // demo recording
 {
 private:
-	CStdFile CtrlRec; // control file handle
+	C4File CtrlRec; // control file handle
 	StdStrBuf sFilename; // recorded scenario file name
 	C4Group RecordGrp; // record scenario group
 	bool fRecording; // set if recording is active
@@ -297,7 +297,7 @@ private:
 	chunks_t chunks;
 	chunks_t::iterator currChunk;
 	bool Finished; // if set, free playback in next frame
-	CStdFile playbackFile; // if open, try reading additional chunks from this file
+	C4File playbackFile; // if open, try reading additional chunks from this file
 	bool fLoadSequential; // used for debugrecs: Sequential reading of files
 	StdBuf sequentialBuffer; // buffer to manage sequential reads
 	uint32_t iLastSequentialFrame; // frame number of last chunk read
@@ -327,3 +327,5 @@ public:
 #endif
 	static bool StreamToRecord(const char *szStream, StdStrBuf *pRecord);
 };
+
+C4LOGGERCONFIG_NAME_TYPE(C4Playback);

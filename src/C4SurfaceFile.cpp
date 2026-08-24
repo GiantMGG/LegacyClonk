@@ -2,7 +2,7 @@
  * LegacyClonk
  *
  * Copyright (c) 1998-2000, Matthes Bender (RedWolf Design)
- * Copyright (c) 2017-2019, The LegacyClonk Team and contributors
+ * Copyright (c) 2017-2024, The LegacyClonk Team and contributors
  *
  * Distributed under the terms of the ISC license; see accompanying file
  * "COPYING" for details.
@@ -22,7 +22,7 @@
 #include <C4Group.h>
 #include "StdSurface8.h"
 
-C4Surface *GroupReadSurface(CStdStream &hGroup, uint8_t *bpPalette)
+C4Surface *GroupReadSurface(C4Group &hGroup, uint8_t *bpPalette)
 {
 	// create surface
 	C4Surface *pSfc = new C4Surface();
@@ -33,7 +33,7 @@ C4Surface *GroupReadSurface(CStdStream &hGroup, uint8_t *bpPalette)
 	return pSfc;
 }
 
-CSurface8 *GroupReadSurface8(CStdStream &hGroup)
+CSurface8 *GroupReadSurface8(C4Group &hGroup)
 {
 	// create surface
 	CSurface8 *pSfc = new CSurface8();
@@ -44,7 +44,7 @@ CSurface8 *GroupReadSurface8(CStdStream &hGroup)
 	return pSfc;
 }
 
-CSurface8 *GroupReadSurfaceOwnPal8(CStdStream &hGroup)
+CSurface8 *GroupReadSurfaceOwnPal8(C4Group &hGroup)
 {
 	// create surface
 	CSurface8 *pSfc = new CSurface8();
@@ -55,7 +55,7 @@ CSurface8 *GroupReadSurfaceOwnPal8(CStdStream &hGroup)
 	return pSfc;
 }
 
-C4Surface *GroupReadSurfacePNG(CStdStream &hGroup)
+C4Surface *GroupReadSurfacePNG(C4Group &hGroup)
 {
 	// create surface
 	C4Surface *pSfc = new C4Surface();

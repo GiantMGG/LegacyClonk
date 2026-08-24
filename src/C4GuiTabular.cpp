@@ -3,7 +3,7 @@
  *
  * Copyright (c) RedWolf Design
  * Copyright (c) 2001, Sven2
- * Copyright (c) 2017-2020, The LegacyClonk Team and contributors
+ * Copyright (c) 2017-2023, The LegacyClonk Team and contributors
  *
  * Distributed under the terms of the ISC license; see accompanying file
  * "COPYING" for details.
@@ -19,7 +19,6 @@
 // tab control
 
 #include "C4GuiResource.h"
-#include <C4Include.h>
 #include <C4GuiTabular.h>
 #include <C4FacetEx.h>
 #include <C4Game.h>
@@ -168,8 +167,8 @@ bool Tabular::Sheet::IsActiveSheet()
 // Tabular
 
 Tabular::Tabular(const C4Rect &rtBounds, TabPosition eTabPos) : Control(rtBounds), pActiveSheet(nullptr), eTabPos(eTabPos), iMaxTabWidth(0),
-	pfctBack(nullptr), pfctClip(nullptr), pfctIcons(nullptr), pSheetCaptionFont(nullptr), iSheetMargin(4), fDrawSelf(true),
-	iCaptionLengthTotal(0), iCaptionScrollPos(0), fScrollingLeft(false), fScrollingRight(false), fScrollingLeftDown(false), fScrollingRightDown(false)
+	iCaptionLengthTotal(0), iCaptionScrollPos(0), fScrollingLeft(false), fScrollingRight(false), fScrollingLeftDown(false), fScrollingRightDown(false),
+	iSheetMargin(4), fDrawSelf(true), pfctBack(nullptr), pfctClip(nullptr), pfctIcons(nullptr), pSheetCaptionFont(nullptr)
 {
 	// calc client rect
 	UpdateOwnPos();
@@ -233,7 +232,17 @@ bool Tabular::KeySelDown()
 {
 	// keyboard callback: Select next sheet
 	int32_t iNewSel = GetActiveSheetIndex() + 1, iSheetCount = GetSheetCount();
-	if (iNewSel >= iSheetCount) if (!iSheetCount) return false; else iNewSel = 0;
+	if (iNewSel >= iSheetCount)
+	{
+		if (!iSheetCount)
+		{
+			return false;
+		}
+		else
+		{
+			iNewSel = 0;
+		}
+	}
 	SelectSheet(iNewSel, true);
 	return true;
 }
@@ -610,7 +619,7 @@ void Tabular::ClearSheets()
 {
 	// del all sheets
 	Sheet *pSheet;
-	while (pSheet = GetSheet(0)) delete pSheet;
+	while ((pSheet = GetSheet(0))) delete pSheet;
 	SheetsChanged();
 }
 
@@ -630,7 +639,7 @@ int32_t Tabular::GetActiveSheetIndex()
 {
 	int32_t i = -1;
 	Sheet *pSheet;
-	while (pSheet = GetSheet(++i)) if (pSheet == pActiveSheet) return i;
+	while ((pSheet = GetSheet(++i))) if (pSheet == pActiveSheet) return i;
 	return -1;
 }
 

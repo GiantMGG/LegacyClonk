@@ -2,7 +2,7 @@
  * LegacyClonk
  *
  * Copyright (c) 1998-2000, Matthes Bender (RedWolf Design)
- * Copyright (c) 2017-2022, The LegacyClonk Team and contributors
+ * Copyright (c) 2017-2026, The LegacyClonk Team and contributors
  *
  * Distributed under the terms of the ISC license; see accompanying file
  * "COPYING" for details.
@@ -22,16 +22,17 @@
 #include <StdFile.h>
 #include <StdBuf.h>
 
-#include <stdio.h>
+#include <cctype>
+#include <cerrno>
+#include <cstdio>
+#include <cstdlib>
+
 #ifdef _WIN32
 #include <direct.h>
 #endif
 #ifndef _WIN32
 #include <unistd.h>
 #endif
-#include <errno.h>
-#include <stdlib.h>
-#include <ctype.h>
 #include <fcntl.h>
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -89,7 +90,7 @@ int GetTrailingNumber(const char *strString)
 	// Walk back while number
 	while ((cpPos > strString) && Inside(*(cpPos - 1), '0', '9')) cpPos--;
 	// Scan number
-	sscanf(cpPos, "%d", &iNumber);
+	std::sscanf(cpPos, "%d", &iNumber);
 	// Return result
 	return iNumber;
 }
@@ -235,7 +236,7 @@ bool TruncatePath(char *szPath)
 void AppendBackslash(char *szFilename)
 {
 	const auto i = SLen(szFilename);
-	if (i > 0) if ((szFilename[i - 1] == DirectorySeparator)) return;
+	if (i > 0) if (szFilename[i - 1] == DirectorySeparator) return;
 	SAppendChar(DirectorySeparator, szFilename);
 }
 
@@ -244,7 +245,7 @@ void AppendBackslash(char *szFilename)
 void TruncateBackslash(char *szFilename)
 {
 	const auto i = SLen(szFilename);
-	if (i > 0) if ((szFilename[i - 1] == DirectorySeparator)) szFilename[i - 1] = 0;
+	if (i > 0) if (szFilename[i - 1] == DirectorySeparator) szFilename[i - 1] = 0;
 }
 
 // Append extension if no extension.
@@ -351,7 +352,7 @@ bool WildcardMatch(const char *szWildcard, const char *szString)
 		else if (!*pPos)
 			break;
 		// equal or one-character-wildcard? proceed
-		else if (*pWild == '?' || tolower(*pWild) == tolower(*pPos))
+		else if (*pWild == '?' || C4Strings::ToLower(*pWild) == C4Strings::ToLower(*pPos))
 		{
 			pWild++; pPos++;
 		}
@@ -428,7 +429,7 @@ bool EraseFile(const char *szFilename)
 	SetFileAttributesA(szFilename, FILE_ATTRIBUTE_NORMAL);
 #endif
 	// either unlink or remove could be used. Well, stick to ANSI C where possible.
-	if (remove(szFilename))
+	if (std::remove(szFilename))
 	{
 		if (errno == ENOENT)
 		{
@@ -466,7 +467,7 @@ bool CopyFileTo(const char *szSource, const char *szTarget, bool FailIfExists)
 
 bool RenameFile(const char *szFilename, const char *szNewFilename)
 {
-	if (rename(szFilename, szNewFilename) < 0)
+	if (std::rename(szFilename, szNewFilename) < 0)
 	{
 		if (CopyFileTo(szFilename, szNewFilename, false))
 		{
@@ -663,8 +664,8 @@ bool CreateItem(const char *szItemname)
 	EraseItem(szItemname);
 	// Create dummy item
 	FILE *fhnd;
-	if (!(fhnd = fopen(szItemname, "wb"))) return false;
-	fclose(fhnd);
+	if (!(fhnd = std::fopen(szItemname, "wb"))) return false;
+	std::fclose(fhnd);
 	// Success
 	return true;
 }
@@ -890,18 +891,18 @@ int ForEachFile(const char *szDirName, bool(*fnCallback)(const char *))
 bool ReadFileLine(FILE *fhnd, char *tobuf, int maxlen)
 {
 	int cread;
-	char inc;
+	int inc;
 	if (!fhnd || !tobuf) return 0;
 	for (cread = 0; cread < maxlen; cread++)
 	{
-		inc = fgetc(fhnd);
+		inc = std::fgetc(fhnd);
 		if (inc == 0x0D) // Binary text file line feed
 		{
-			fgetc(fhnd); break;
+			std::fgetc(fhnd); break;
 		}
 		if (inc == 0x0A) break; // Text file line feed
 		if (!inc || (inc == EOF)) break; // End of file
-		*tobuf = inc; tobuf++;
+		*tobuf = static_cast<char>(inc); tobuf++;
 	}
 	*tobuf = 0;
 	if (inc == EOF) return 0;
@@ -914,7 +915,7 @@ void AdvanceFileLine(FILE *fhnd)
 	if (!fhnd) return;
 	do
 	{
-		cread = fgetc(fhnd);
-		if (cread == EOF) { rewind(fhnd); loops++; }
+		cread = std::fgetc(fhnd);
+		if (cread == EOF) { std::rewind(fhnd); loops++; }
 	} while ((cread != 0x0A) && (loops < 2));
 }

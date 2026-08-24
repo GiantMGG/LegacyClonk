@@ -2,7 +2,7 @@
  * LegacyClonk
  *
  * Copyright (c) 1998-2000, Matthes Bender (RedWolf Design)
- * Copyright (c) 2017-2022, The LegacyClonk Team and contributors
+ * Copyright (c) 2017-2025, The LegacyClonk Team and contributors
  *
  * Distributed under the terms of the ISC license; see accompanying file
  * "COPYING" for details.
@@ -21,11 +21,17 @@
 #include "C4Version.h"
 #ifdef C4ENGINE
 #include <C4Application.h>
+#include "C4GameControl.h"
 #include <C4Log.h>
+#include <C4EnumInfo.h>
 #include <C4Network2.h>
-#include <C4Language.h>
+#include "C4Network2IO.h"
+#include "C4Network2Reference.h"
+#include "C4Network2UPnP.h"
+#include "C4Record.h"
 #include "C4ResStrTable.h"
 #include <C4UpperBoard.h>
+#include "StdPNG.h"
 #endif
 
 #include <StdFile.h>
@@ -37,6 +43,19 @@
 #endif
 
 #include <format>
+#ifdef C4ENGINE
+// put this here, because X11 includes break C4EnumAdaptPrefixMode due to #define None when it is in StdWindow.h
+
+template<>
+struct C4EnumInfo<DisplayMode>
+{
+	static inline constexpr auto data = mkEnumInfo<DisplayMode>("",
+		{
+			{DisplayMode::Fullscreen, "Fullscreen"},
+			{DisplayMode::Window, "Window"}
+		});
+};
+#endif
 
 bool isGermanSystem()
 {
@@ -113,18 +132,24 @@ void C4ConfigGeneral::CompileFunc(StdCompiler *pComp)
 
 #ifdef C4ENGINE
 
+template<>
+struct C4EnumInfo<C4AulScriptStrict>
+{
+	static inline constexpr auto data = mkEnumInfo<C4AulScriptStrict>("",
+		{
+			{C4AulScriptStrict::NONSTRICT, "NonStrict"},
+			{C4AulScriptStrict::STRICT1, "Strict1"},
+			{C4AulScriptStrict::STRICT2, "Strict2"},
+			{C4AulScriptStrict::STRICT3, "Strict3"},
+			{C4ConfigDeveloper::ConsoleScriptStrictnessWrapper::MaxStrictSentinel, "MaxStrict"}
+		}
+	);
+};
+
+
 void C4ConfigDeveloper::ConsoleScriptStrictnessWrapper::CompileFunc(StdCompiler *const comp)
 {
-	StdEnumEntry<C4AulScriptStrict> ConsoleScriptStrictnessValues[] =
-	{
-		{"NonStrict", C4AulScriptStrict::NONSTRICT},
-		{"Strict1", C4AulScriptStrict::STRICT1},
-		{"Strict2", C4AulScriptStrict::STRICT2},
-		{"Strict3", C4AulScriptStrict::STRICT3},
-		{"MaxStrict", MaxStrictSentinel}
-	};
-
-	comp->Value(mkEnumAdaptT<C4AulScriptStrict>(Strictness, ConsoleScriptStrictnessValues));
+	comp->Value(mkEnumAdapt(Strictness));
 
 	if (comp->isCompiler() && Strictness != MaxStrictSentinel)
 	{
@@ -155,14 +180,7 @@ void C4ConfigGraphics::CompileFunc(StdCompiler *pComp)
 	pComp->Value(mkNamingAdapt(SmokeLevel,           "SmokeLevel",           200,   false, true));
 	pComp->Value(mkNamingAdapt(VerboseObjectLoading, "VerboseObjectLoading", 0,     false, true));
 
-	StdEnumEntry<int32_t> UpperBoardDisplayModes[] =
-	{
-		{"Hide", C4UpperBoard::Hide},
-		{"Full", C4UpperBoard::Full},
-		{"Small", C4UpperBoard::Small},
-		{"Mini", C4UpperBoard::Mini}
-	};
-	pComp->Value(mkNamingAdapt(mkEnumAdaptT<int32_t>(UpperBoard, UpperBoardDisplayModes), "UpperBoard", C4UpperBoard::Full, false, true));
+	pComp->Value(mkNamingAdapt(mkEnumAdapt<C4UpperBoard::DisplayMode>(UpperBoard), "UpperBoard", C4UpperBoard::Full, false, true));
 
 	pComp->Value(mkNamingAdapt(ShowClock,            "ShowClock",            false, false, true));
 	pComp->Value(mkNamingAdapt(ShowCrewNames,        "ShowCrewNames",        true,  false, true));
@@ -189,13 +207,7 @@ void C4ConfigGraphics::CompileFunc(StdCompiler *pComp)
 	pComp->Value(mkNamingAdapt(Shader,               "Shader",               false, false, true));
 	pComp->Value(mkNamingAdapt(AutoFrameSkip,        "AutoFrameSkip",        true,  false, true));
 	pComp->Value(mkNamingAdapt(CacheTexturesInRAM,   "CacheTexturesInRAM",   100));
-
-	StdEnumEntry<DisplayMode> DisplayModes[] =
-	{
-		{"Fullscreen", DisplayMode::Fullscreen},
-		{"Window", DisplayMode::Window}
-	};
-	pComp->Value(mkNamingAdapt(mkEnumAdaptT<int>(UseDisplayMode, DisplayModes), "DisplayMode", DisplayMode::Fullscreen, false, true));
+	pComp->Value(mkNamingAdapt(mkEnumAdapt(UseDisplayMode), "DisplayMode", DisplayMode::Fullscreen, false, true));
 
 #ifdef _WIN32
 	pComp->Value(mkNamingAdapt(Maximized,   "Maximized",   false, false, true));
@@ -398,6 +410,27 @@ void C4ConfigToasts::CompileFunc(StdCompiler *comp)
 {
 	comp->Value(mkNamingAdapt(ReadyCheck, "ReadyCheck", true));
 }
+
+void C4ConfigLogging::CompileFunc(StdCompiler *const comp)
+{
+	comp->Value(mkNamingAdapt(LogLevelStdout, "LogLevelStdout", spdlog::level::info));
+
+	comp->Value(AudioSystem);
+	comp->Value(AulExec);
+	comp->Value(AulProfiler);
+	comp->Value(DDraw);
+	comp->Value(GameControl);
+	comp->Value(Network);
+	comp->Value(Network2IO);
+	comp->Value(Network2HTTPClient);
+	comp->Value(Network2UPnP);
+	comp->Value(Playback);
+	comp->Value(PNGFile);
+
+#ifdef WITH_GLIB
+	comp->Value(GLib);
+#endif
+}
 #endif
 
 C4Config::C4Config()
@@ -585,13 +618,6 @@ bool C4Config::Save()
 	return true;
 }
 
-#if defined(_WIN32) && defined(C4ENGINE)
-namespace C4CrashHandlerWin32
-{
-	void SetUserPath(std::string_view);
-}
-#endif
-
 void C4ConfigGeneral::DeterminePaths(bool forceWorkingDirectory)
 {
 #ifdef _WIN32
@@ -603,11 +629,6 @@ void C4ConfigGeneral::DeterminePaths(bool forceWorkingDirectory)
 	// Temp path
 	GetTempPathA(CFG_MaxString, TempPath);
 	if (TempPath[0]) AppendBackslash(TempPath);
-
-#ifdef C4ENGINE
-	C4CrashHandlerWin32::SetUserPath(UserPath);
-#endif
-
 #elif defined(__linux__)
 #ifdef C4ENGINE
 	GetParentPath(Application.Location, ExePath);
@@ -716,11 +737,13 @@ bool C4ConfigGeneral::CreateSaveFolder(const char *strDirectory, const char *str
 	// Create title component if needed
 	char lang[3]; SCopy(Config.General.Language, lang, 2);
 	const std::string titleFile{std::format("{}" DirSep C4CFN_WriteTitle, strDirectory)};
-	const std::string titleData{std::format("{}:{}", lang, strLanguageTitle)};
-	CStdFile hFile;
+	const std::string titleData{std::format("{}:{}", +lang, strLanguageTitle)};
 	if (!FileExists(titleFile.c_str()))
-		if (!hFile.Create(titleFile.c_str()) || !hFile.WriteString(titleData.c_str()) || !hFile.Close())
+	{
+		C4File file;
+		if (!file.Open(titleFile, "wb") || !file.WriteStringLine(titleData))
 			return false;
+	}
 	// Save folder seems okay
 	return true;
 }
@@ -795,7 +818,7 @@ const char *C4Config::GetSubkeyPath(const char *strSubkey)
 {
 	static char key[1024 + 1];
 #ifdef _WIN32
-	FormatWithNull(key, "Software\\{}\\{}\\{}", C4CFG_Company, C4CFG_Product, strSubkey);
+	FormatWithNull(key, "Software\\{}\\{}\\{}", +C4CFG_Company, +C4CFG_Product, strSubkey);
 #else
 	SCopy(strSubkey, key, 1024);
 #endif
@@ -850,6 +873,7 @@ void C4Config::CompileFunc(StdCompiler *pComp)
 	pComp->Value(mkNamingAdapt(Startup,   "Startup"));
 	pComp->Value(mkNamingAdapt(Cooldowns, "Cooldowns"));
 	pComp->Value(mkNamingAdapt(Toasts,    "Toasts"));
+	pComp->Value(mkNamingAdapt(Logging,   "Logging"));
 #endif
 }
 
@@ -979,6 +1003,11 @@ void C4Config::AdaptToCurrentVersion()
 		migrate(Network.AlternateServerAddress, "league.clonkspot.org:80", C4CFG_FallbackServer);
 		migrate(Network.UpdateServerAddress, "update.clonkspot.org/lc/update", C4CFG_UpdateServer);
 		migrate(Network.PuncherAddress, "clonk.de:11115", C4ConfigNetwork::DefaultPuncherServer);
+
+		// enable shaders
+		Graphics.Shader = true;
+		// reenable gamma
+		Graphics.DisableGamma = false;
 	}
 
 	General.Version = C4XVERBUILD;

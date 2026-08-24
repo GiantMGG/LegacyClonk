@@ -1,7 +1,7 @@
 /*
  * LegacyClonk
  *
- * Copyright (c) 2020-2021, The LegacyClonk Team and contributors
+ * Copyright (c) 2020-2024, The LegacyClonk Team and contributors
  *
  * Distributed under the terms of the ISC license; see accompanying file
  * "COPYING" for details.
@@ -13,9 +13,10 @@
  * for the above references.
  */
 
+#include "C4Application.h"
 #include "C4AudioSystem.h"
-
 #include "C4AudioSystemNone.h"
+#include "C4Config.h"
 #include "C4Log.h"
 
 #ifdef USE_SDL_MIXER
@@ -34,7 +35,7 @@ C4AudioSystem *C4AudioSystem::NewInstance(
 	}
 	catch (const std::runtime_error &e)
 	{
-		CreateLogger("C4AudioSystem")->error(e.what());
+		Application.LogSystem.CreateLogger(Config.Logging.AudioSystem)->error(e.what());
 	}
 #endif
 	return new C4AudioSystemNone{};

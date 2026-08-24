@@ -1,2 +1,0 @@
-src/StdGtkWindow.cpp
-src/StdGtkWindow.h

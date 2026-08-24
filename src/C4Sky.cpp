@@ -16,7 +16,6 @@
 
 /* Small member of the landscape class to handle the sky background */
 
-#include <C4Include.h>
 #include <C4Sky.h>
 
 #include <C4Game.h>
@@ -28,7 +27,8 @@
 static bool SurfaceEnsureSize(C4Surface **ppSfc, int iMinWdt, int iMinHgt)
 {
 	// safety
-	if (!ppSfc) return false; if (!*ppSfc) return false;
+	if (!ppSfc) return false;
+	if (!*ppSfc) return false;
 	// get size
 	int iWdt = (*ppSfc)->Wdt, iHgt = (*ppSfc)->Hgt;
 	int iDstWdt = iWdt, iDstHgt = iHgt;

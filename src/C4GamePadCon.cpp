@@ -2,7 +2,7 @@
  * LegacyClonk
  *
  * Copyright (c) 1998-2000, Matthes Bender (RedWolf Design)
- * Copyright (c) 2017-2020, The LegacyClonk Team and contributors
+ * Copyright (c) 2017-2024, The LegacyClonk Team and contributors
  *
  * Distributed under the terms of the ISC license; see accompanying file
  * "COPYING" for details.
@@ -16,7 +16,6 @@
 
 /* Gamepad control */
 
-#include <C4Include.h>
 #include <C4GamePadCon.h>
 
 #include <C4ObjectCom.h>
@@ -463,7 +462,7 @@ void C4GamePadOpener::SetGamePad(int iGamepad)
 
 // Dedicated server and everything else with neither Win32 nor SDL.
 
-C4GamePadControl::C4GamePadControl() { LogNTr(spdlog::level::warn, "without Gamepad support"); }
+C4GamePadControl::C4GamePadControl() { LogNTr(spdlog::level::warn, "Engine without Gamepad support"); }
 C4GamePadControl::~C4GamePadControl() {}
 void C4GamePadControl::Execute() {}
 int C4GamePadControl::GetGamePadCount() { return 0; }

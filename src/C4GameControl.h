@@ -2,7 +2,7 @@
  * LegacyClonk
  *
  * Copyright (c) RedWolf Design
- * Copyright (c) 2017-2019, The LegacyClonk Team and contributors
+ * Copyright (c) 2017-2024, The LegacyClonk Team and contributors
  *
  * Distributed under the terms of the ISC license; see accompanying file
  * "COPYING" for details.
@@ -20,6 +20,7 @@
 
 #include "C4Control.h"
 #include "C4GameControlNetwork.h"
+#include "C4Log.h"
 #include "C4Network2Client.h"
 #include "C4Record.h"
 
@@ -148,3 +149,5 @@ protected:
 	C4ControlSyncCheck *GetSyncCheck(int32_t iTick);
 	void RemoveOldSyncChecks();
 };
+
+C4LOGGERCONFIG_NAME_TYPE(C4GameControl);

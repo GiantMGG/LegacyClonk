@@ -3,7 +3,7 @@
  *
  * Copyright (c) RedWolf Design
  * Copyright (c) 2001, Sven2
- * Copyright (c) 2017-2022, The LegacyClonk Team and contributors
+ * Copyright (c) 2017-2024, The LegacyClonk Team and contributors
  *
  * Distributed under the terms of the ISC license; see accompanying file
  * "COPYING" for details.
@@ -30,10 +30,8 @@
 #ifndef USE_CONSOLE
 
 #include <array>
-
-#include <stdio.h>
-#include <math.h>
-#include <limits.h>
+#include <cstdio>
+#include <cmath>
 
 void CStdGLShader::Compile()
 {
@@ -399,7 +397,7 @@ bool CStdGL::UpdateClipper()
 	glLineWidth(scale);
 	glPointSize(scale);
 	// set it
-	glViewport(static_cast<int32_t>(floorf(iX * scale)), static_cast<int32_t>(floorf((RenderTarget->Hgt - iY - iHgt) * scale)), static_cast<int32_t>(ceilf(iWdt * scale)), static_cast<int32_t>(ceilf(iHgt * scale)));
+	glViewport(static_cast<int32_t>(std::floor(iX * scale)), static_cast<int32_t>(std::floor((RenderTarget->Hgt - iY - iHgt) * scale)), static_cast<int32_t>(std::ceil(iWdt * scale)), static_cast<int32_t>(std::ceil(iHgt * scale)));
 	glMatrixMode(GL_PROJECTION);
 	glLoadIdentity();
 	gluOrtho2D(
@@ -519,6 +517,11 @@ void CStdGL::PerformBlt(CBltData &rBltData, C4TexRef *const pTex,
 	glShadeModel((fUseClrModMap && fModClr && !Config.Graphics.NoBoxFades) ? GL_SMOOTH : GL_FLAT);
 	glBindTexture(GL_TEXTURE_2D, pTex->texName);
 
+	if (GammaRedTexture)
+	{
+		BindGammaTextures();
+	}
+
 	const auto enableTextureFiltering = (pApp->GetScale() != 1.f || (!fExact && !Config.Graphics.PointFiltering));
 	if (enableTextureFiltering)
 	{
@@ -606,6 +609,12 @@ void CStdGL::BlitLandscape(C4Surface *const sfcSource, C4Surface *const sfcSourc
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
 		glActiveTexture(GL_TEXTURE0);
 	}
+
+	if (GammaRedTexture)
+	{
+		BindGammaTextures();
+	}
+
 	uint32_t dwModMask = 0;
 	if (LandscapeShader)
 	{
@@ -868,6 +877,7 @@ void CStdGL::DrawQuadDw(C4Surface *const sfcTarget, int *const ipVtx,
 	if (DummyShader)
 	{
 		DummyShader.Select();
+		BindGammaTextures();
 	}
 	glBegin(GL_TRIANGLE_STRIP);
 	glColorDw(dwClr1); glVertex2f(ipVtx[0] + blitOffset, ipVtx[1] + blitOffset);
@@ -898,6 +908,7 @@ void CStdGL::DrawLineDw(C4Surface *const sfcTarget,
 	if (DummyShader)
 	{
 		DummyShader.Select();
+		BindGammaTextures();
 	}
 	glBegin(GL_LINES);
 	// global clr modulation map
@@ -937,6 +948,7 @@ void CStdGL::DrawPixInt(C4Surface *const sfcTarget,
 	if (DummyShader)
 	{
 		DummyShader.Select();
+		BindGammaTextures();
 	}
 	glBegin(GL_POINTS);
 	glColorDw(InvertRGBAAlpha(dwClr));
@@ -1334,4 +1346,13 @@ void CStdGL::Default()
 	MainCtx.Clear();
 }
 
+void CStdGL::BindGammaTextures()
+{
+	assert(GammaRedTexture);
+
+	GammaRedTexture.Bind(3);
+	GammaGreenTexture.Bind(4);
+	GammaBlueTexture.Bind(5);
+	glActiveTexture(GL_TEXTURE0);
+}
 #endif

@@ -2,7 +2,7 @@
  * LegacyClonk
  *
  * Copyright (c) 2012-2016, The OpenClonk Team and contributors
- * Copyright (c) 2022, The LegacyClonk Team and contributors
+ * Copyright (c) 2022-2024, The LegacyClonk Team and contributors
  *
  * Distributed under the terms of the ISC license; see accompanying file
  * "COPYING" for details.
@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include "C4Log.h"
 #include "C4Network2IO.h"
 
 #include <memory>
@@ -34,4 +35,12 @@ public:
 
 private:
 	std::unique_ptr<Impl> impl;
+};
+
+C4LOGGERCONFIG_NAME_TYPE(C4Network2UPnP);
+
+template<>
+struct C4LoggerConfig::Defaults<C4Network2UPnP>
+{
+	static constexpr spdlog::level::level_enum GuiLogLevel{spdlog::level::off};
 };

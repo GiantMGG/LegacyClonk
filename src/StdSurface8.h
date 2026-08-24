@@ -3,7 +3,7 @@
  *
  * Copyright (c) RedWolf Design
  * Copyright (c) 2001, Sven2
- * Copyright (c) 2017-2019, The LegacyClonk Team and contributors
+ * Copyright (c) 2017-2024, The LegacyClonk Team and contributors
  *
  * Distributed under the terms of the ISC license; see accompanying file
  * "COPYING" for details.
@@ -19,6 +19,7 @@
 
 #pragma once
 
+#include "C4ForwardDeclarations.h"
 #include <Standard.h>
 #include <StdColors.h>
 
@@ -64,7 +65,7 @@ public:
 	void Clear();
 	void Clip(int iX, int iY, int iX2, int iY2);
 	void NoClip();
-	bool Read(class CStdStream &hGroup, bool fOwnPal);
+	bool Read(C4Group &hGroup, bool fOwnPal);
 	bool Save(const char *szFilename, uint8_t *bpPalette = nullptr);
 	void GetSurfaceSize(int &irX, int &irY); // get surface size
 	void EnforceC0Transparency() { pPal->EnforceC0Transparency(); }

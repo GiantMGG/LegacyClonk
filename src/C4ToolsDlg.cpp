@@ -2,7 +2,7 @@
  * LegacyClonk
  *
  * Copyright (c) 1998-2000, Matthes Bender (RedWolf Design)
- * Copyright (c) 2017-2022, The LegacyClonk Team and contributors
+ * Copyright (c) 2017-2024, The LegacyClonk Team and contributors
  *
  * Distributed under the terms of the ISC license; see accompanying file
  * "COPYING" for details.
@@ -27,12 +27,12 @@
 
 #ifdef _WIN32
 #include "StdRegistry.h"
+#include "StdStringEncodingConverter.h"
 #include "res/engine_resource.h"
 #endif
 
 #ifdef WITH_DEVELOPER_MODE
 
-#include <C4Language.h>
 #include <C4DevmodeDlg.h>
 
 #include <gtk/gtk.h>
@@ -374,7 +374,7 @@ bool C4ToolsDlg::Open()
 		gtk_box_pack_start(GTK_BOX(local_hbox), vbox, TRUE, TRUE, 0); // ???
 		gtk_widget_show_all(hbox);
 
-		C4DevmodeDlg::AddPage(hbox, GTK_WINDOW(Console.window), LoadResStrUtf8(C4ResStrTableKey::IDS_DLG_TOOLS).getData());
+		C4DevmodeDlg::AddPage(hbox, GTK_WINDOW(Console.window), LoadResStrGtk(C4ResStrTableKey::IDS_DLG_TOOLS).c_str());
 
 		handlerDynamic =   g_signal_connect(G_OBJECT(landscape_dynamic), "toggled",       G_CALLBACK(OnButtonModeDynamic), this);
 		handlerStatic =    g_signal_connect(G_OBJECT(landscape_static),  "toggled",       G_CALLBACK(OnButtonModeStatic),  this);
@@ -601,7 +601,7 @@ bool C4ToolsDlg::SetIFT(bool fIFT)
 void C4ToolsDlg::UpdatePreview()
 {
 	// TODO: Set size request for image to read size from image's size request?
-	std::int32_t left{0}, top{0}, previewWidth{64}, previewHeight{64};
+	std::int32_t previewWidth{64}, previewHeight{64};
 
 #ifdef _WIN32
 	if (!hDialog) return;
@@ -609,8 +609,8 @@ void C4ToolsDlg::UpdatePreview()
 	if (!previewHandle) return;
 	RECT clientRect;
 	if (!GetClientRect(previewHandle, &clientRect)) return;
-	left = clientRect.left;
-	top = clientRect.top;
+	const std::int32_t left{clientRect.left};
+	const std::int32_t top{clientRect.top};
 	previewWidth = clientRect.right - clientRect.left;
 	previewHeight = clientRect.bottom - clientRect.top;
 
@@ -659,7 +659,7 @@ void C4ToolsDlg::UpdatePreview()
 				Pattern2 = pTex->getPattern();
 				// get and set extended texture of material
 				C4Material *pMat = pTex->GetMaterial();
-				if (pMat && !(pMat->OverlayType & C4MatOv_None))
+				if (pMat && !(pMat->OverlayType & (C4MatOv_NoConsole | C4MatOv_None)))
 				{
 					Pattern1 = pMat->MatPattern;
 				}
@@ -842,23 +842,23 @@ void C4ToolsDlg::UpdateLandscapeModeCtrls()
 	g_signal_handler_unblock(landscape_static,  handlerStatic);
 	g_signal_handler_unblock(landscape_exact,   handlerExact);
 
-	StdStrBuf title;
+	C4Console::GCharStringWrapper title;
 	switch (iMode)
 	{
 	case C4LSC_Dynamic:
-		title = LoadResStrUtf8(C4ResStrTableKey::IDS_DLG_EXACT);
+		title = LoadResStrGtk(C4ResStrTableKey::IDS_DLG_EXACT);
 		break;
 
 	case C4LSC_Static:
-		title = LoadResStrUtf8(C4ResStrTableKey::IDS_DLG_EXACT);
+		title = LoadResStrGtk(C4ResStrTableKey::IDS_DLG_EXACT);
 		break;
 
 	default:
-		title = LoadResStrUtf8(C4ResStrTableKey::IDS_DLG_EXACT);
+		title = LoadResStrGtk(C4ResStrTableKey::IDS_DLG_EXACT);
 		break;
 	}
 
-	C4DevmodeDlg::SetTitle(hbox, title.getData());
+	C4DevmodeDlg::SetTitle(hbox, title.c_str());
 #endif
 }
 
@@ -972,7 +972,7 @@ void C4ToolsDlg::AssertValidTexture()
 	if (Game.TextureMap.GetIndex(Material, Texture, false)) return;
 	// Find valid material-texture
 	const char *szTexture;
-	for (int32_t iTexture = 0; szTexture = Game.TextureMap.GetTexture(iTexture); iTexture++)
+	for (int32_t iTexture = 0; (szTexture = Game.TextureMap.GetTexture(iTexture)); iTexture++)
 	{
 		if (Game.TextureMap.GetIndex(Material, szTexture, false))
 		{

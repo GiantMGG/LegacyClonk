@@ -2,7 +2,7 @@
  * LegacyClonk
  *
  * Copyright (c) 1998-2000, Matthes Bender (RedWolf Design)
- * Copyright (c) 2017-2021, The LegacyClonk Team and contributors
+ * Copyright (c) 2017-2024, The LegacyClonk Team and contributors
  *
  * Distributed under the terms of the ISC license; see accompanying file
  * "COPYING" for details.
@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include "C4Application.h"
 #include <C4AudioSystem.h>
 #include <C4Config.h>
 #include "C4CurlSystem.h"
@@ -141,6 +142,10 @@ protected:
 	friend class C4Sec1TimerCallbackBase;
 
 	virtual void OnCommand(const char *szCmd) override;
+
+#ifdef WITH_GLIB
+	std::shared_ptr<spdlog::logger> CreateGLibLogger() override;
+#endif
 
 public:
 	virtual void Quit() override;

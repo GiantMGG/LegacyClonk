@@ -2,7 +2,7 @@
  * LegacyClonk
  *
  * Copyright (c) 1998-2000, Matthes Bender (RedWolf Design)
- * Copyright (c) 2017-2022, The LegacyClonk Team and contributors
+ * Copyright (c) 2017-2024, The LegacyClonk Team and contributors
  *
  * Distributed under the terms of the ISC license; see accompanying file
  * "COPYING" for details.
@@ -16,7 +16,6 @@
 
 /* The command stack controls an object's complex and independent behavior */
 
-#include <C4Include.h>
 #include <C4Command.h>
 
 #include <C4Object.h>
@@ -35,23 +34,6 @@ const int32_t JumpAngle = 35, JumpLowAngle = 80, JumpAngleRange = 10, JumpHighAn
 const int32_t FlightAngleRange = 60;
 const int32_t LetGoHangleAngle = 110;
 
-StdEnumAdapt<int32_t>::Entry EnumAdaptCommandEntries[C4CMD_Last - C4CMD_First + 2];
-
-const char *CommandName(int32_t iCommand)
-{
-	static const char *szCommandName[] =
-	{
-		"None", "Follow", "MoveTo", "Enter", "Exit", "Grab", "Build", "Throw", "Chop",
-		"UnGrab", "Jump", "Wait", "Get", "Put", "Drop", "Dig", "Activate", "PushTo",
-		"Construct", "Transfer", "Attack", "Context", "Buy", "Sell", "Acquire",
-		"Energy", "Retry", "Home", "Call", "Take", "Take2"
-	};
-
-	if (!Inside<int32_t>(iCommand, C4CMD_First, C4CMD_Last)) return "None";
-
-	return szCommandName[iCommand];
-}
-
 const char *LoadCommandNameResStr(const std::int32_t command)
 {
 	static constexpr C4ResStrTableKeyFormat<> CommandNameIds[]
@@ -69,19 +51,6 @@ const char *LoadCommandNameResStr(const std::int32_t command)
 
 	return LoadResStr(CommandNameIds[command]);
 }
-
-bool InitEnumAdaptCommandEntries()
-{
-	for (int32_t i = C4CMD_First; i <= C4CMD_Last; i++)
-	{
-		EnumAdaptCommandEntries[i - C4CMD_First].Name = CommandName(i);
-		EnumAdaptCommandEntries[i - C4CMD_First].Val = i;
-	}
-	EnumAdaptCommandEntries[C4CMD_Last - C4CMD_First + 1].Name = nullptr;
-	return true;
-}
-
-const bool InitEnumAdaptCommandEntriesDummy = InitEnumAdaptCommandEntries();
 
 int32_t CommandByName(const char *szCommand)
 {
@@ -107,9 +76,15 @@ void AdjustMoveToTarget(int32_t &rX, int32_t &rY, bool fFreeMove, int32_t iShape
 			if (iY < GBackHgt) rY = iY;
 		}
 		// Vertical shape offset above solid
-		if (GBackSolid(rX, rY + 1) || GBackSolid(rX, rY + 5))
-			if (!GBackSemiSolid(rX, rY - iShapeHgt / 2))
-				rY -= iShapeHgt / 2;
+		for (int32_t offset = 1; offset <= 5; ++offset)
+		{
+			if (GBackSolid(rX, rY + offset))
+			{
+				if (!GBackSemiSolid(rX, rY - iShapeHgt / 2))
+					rY -= iShapeHgt / 2;
+				break;
+			}
+		}
 	}
 }
 
@@ -203,7 +178,7 @@ static bool ObjectAddWaypoint(int32_t iX, int32_t iY, intptr_t iTransferTarget, 
 	if (cObj->Command && (cObj->Command->Command == C4CMD_Transfer)) iUpdate = 0;
 	// Add waypoint
 	assert(cObj->Command);
-	if (!cObj->AddCommand(C4CMD_MoveTo, nullptr, iX, iY, 25, nullptr, false, cObj->Command->Data)) return false;
+	if (!cObj->AddCommand(C4CMD_MoveTo, nullptr, iX, iY, iUpdate, nullptr, false, cObj->Command->Data)) return false;
 
 	return true;
 }
@@ -696,7 +671,10 @@ void C4Command::Grab()
 		{
 			// Grab
 			cObj->Action.ComDir = COMD_Stop;
-			ObjectComGrab(cObj, Target);
+			if (ObjectComGrab(cObj, Target))
+			{
+				Finish(true);
+			}
 		}
 		else
 		{
@@ -849,7 +827,7 @@ void C4Command::Build()
 					C4Object *pOtherBuilder = nullptr;
 					if (!cObj->Contents.Find(C4ID_Linekit))
 					{
-						while (pOtherBuilder = Game.FindObjectByCommand(C4CMD_Build, Target, C4VNull, 0, nullptr, pOtherBuilder))
+						while ((pOtherBuilder = Game.FindObjectByCommand(C4CMD_Build, Target, C4VNull, 0, nullptr, pOtherBuilder)))
 							if (pOtherBuilder->Contents.Find(C4ID_Linekit))
 								break;
 					}
@@ -1151,18 +1129,28 @@ void C4Command::Get()
 		Finish(); return;
 	}
 
-	// Target collected
-	if (Target->Contained == cObj)
+	const auto successOrNext = [this]
+	{
 		// Get-count specified: decrease count and continue with next object
 		if (Tx._getInt() > 1)
 		{
-			Target = nullptr; Tx--; return;
+			Target = nullptr; Tx--; return true;
 		}
-	// We're done
+		// We're done
 		else
 		{
-			cObj->Action.ComDir = COMD_Stop; Finish(true); return;
+			cObj->Action.ComDir = COMD_Stop; Finish(true); return true;
 		}
+		return false;
+	};
+	// Target collected
+	if (Target->Contained == cObj)
+	{
+		if (successOrNext())
+		{
+			return;
+		}
+	}
 
 	// Grabbing other than target container: let go
 	if (cObj->GetProcedure() == DFA_PUSH)
@@ -1211,7 +1199,10 @@ void C4Command::Get()
 		// In same container: grab target
 		if (cObj->Contained == Target->Contained)
 		{
-			GetTryEnter();
+			if (GetTryEnter())
+			{
+				successOrNext();
+			}
 			// Done
 			return;
 		}
@@ -1228,7 +1219,10 @@ void C4Command::Get()
 			// Grabbing target container
 			if ((cObj->GetProcedure() == DFA_PUSH) && (cObj->Action.Target == Target->Contained))
 			{
-				GetTryEnter();
+				if (GetTryEnter())
+				{
+					successOrNext();
+				}
 				// Done
 				return;
 			}
@@ -1263,7 +1257,11 @@ void C4Command::Get()
 			// stop here
 			cObj->Action.ComDir = COMD_Stop;
 			// try getting the object
-			if (GetTryEnter()) return;
+			if (GetTryEnter())
+			{
+				successOrNext();
+				return;
+			}
 		}
 
 		// Target not in range
@@ -1404,18 +1402,28 @@ void C4Command::Put() // Notice: Put command is currently using Ty as an interna
 			Finish(true); return;
 		}
 
-	// Thing is in target
-	if (Target2->Contained == Target)
+	const auto successOrNext = [this]
+	{
 		// Put-count specified: decrease count and continue with next object
 		if (Tx._getInt() > 1)
 		{
-			Target2 = nullptr; Tx--; return;
+			Target2 = nullptr; Tx--; return true;
 		}
-	// We're done
+		// We're done
 		else
 		{
-			Finish(true); return;
+			Finish(true); return true;
 		}
+		return false;
+	};
+	// Thing is in target
+	if (Target2->Contained == Target)
+	{
+		if (successOrNext())
+		{
+			return;
+		}
+	}
 
 	// Thing to put not in contents: get object
 	if (!cObj->Contents.GetLink(Target2))
@@ -1452,7 +1460,13 @@ void C4Command::Put() // Notice: Put command is currently using Ty as an interna
 	{
 		// Try to put
 		if (!ObjectComPut(cObj, Target, Target2))
+		{
 			Finish(); // Putting failed
+		}
+		else
+		{
+			successOrNext();
+		}
 		return;
 	}
 
@@ -1991,7 +2005,7 @@ void C4Command::Buy()
 	// No target (base) object specified: find closest base
 	int32_t cnt; C4Object *pBase;
 	if (!Target)
-		for (cnt = 0; pBase = Game.FindFriendlyBase(cObj->Owner, cnt); cnt++)
+		for (cnt = 0; (pBase = Game.FindFriendlyBase(cObj->Owner, cnt)); cnt++)
 			if (!Target || Distance(cObj->x, cObj->y, pBase->x, pBase->y) < Distance(cObj->x, cObj->y, Target->x, Target->y))
 				Target = pBase;
 	// No target (base) object: fail
@@ -2044,7 +2058,7 @@ void C4Command::Sell()
 	// No target (base) object specified: find closest base
 	int32_t cnt; C4Object *pBase;
 	if (!Target)
-		for (cnt = 0; pBase = Game.FindBase(cObj->Owner, cnt); cnt++)
+		for (cnt = 0; (pBase = Game.FindBase(cObj->Owner, cnt)); cnt++)
 			if (!Target || Distance(cObj->x, cObj->y, pBase->x, pBase->y) < Distance(cObj->x, cObj->y, Target->x, Target->y))
 				Target = pBase;
 	// No target (base) object: fail
@@ -2108,7 +2122,7 @@ void C4Command::Acquire()
 	// Find available material
 	C4Object *pMaterial = nullptr;
 	// Next closest
-	while (pMaterial = Game.FindObject(Data, cObj->x, cObj->y, -1, -1, OCF_Available, nullptr, nullptr, nullptr, nullptr, ANY_OWNER, pMaterial))
+	while ((pMaterial = Game.FindObject(Data, cObj->x, cObj->y, -1, -1, OCF_Available, nullptr, nullptr, nullptr, nullptr, ANY_OWNER, pMaterial)))
 		// Object is not in container to be ignored
 		if (!Target2 || pMaterial->Contained != Target2)
 			// Object is near enough
@@ -2271,7 +2285,7 @@ void C4Command::Energy()
 		cObj->AddCommand(C4CMD_Acquire, nullptr, 0, 0, 50, nullptr, true, C4ID_Linekit); return;
 	}
 	// Find line constructing kit
-	for (int32_t cnt = 0; pKitWithLine = cObj->Contents.GetObject(cnt); cnt++)
+	for (int32_t cnt = 0; (pKitWithLine = cObj->Contents.GetObject(cnt)); cnt++)
 		if ((pKitWithLine->id == C4ID_Linekit) && (pLine = Game.FindObject(C4ID_PowerLine, 0, 0, 0, 0, OCF_All, "Connect", pKitWithLine)))
 			break;
 	// No line constructed yet
@@ -2323,7 +2337,7 @@ void C4Command::Home()
 	// No target (base) object specified: find closest base
 	int32_t cnt; C4Object *pBase;
 	if (!Target)
-		for (cnt = 0; pBase = Game.FindBase(cObj->Owner, cnt); cnt++)
+		for (cnt = 0; (pBase = Game.FindBase(cObj->Owner, cnt)); cnt++)
 			if (!Target || Distance(cObj->x, cObj->y, pBase->x, pBase->y) < Distance(cObj->x, cObj->y, Target->x, Target->y))
 				Target = pBase;
 	// No base: fail
@@ -2384,7 +2398,7 @@ void C4Command::CompileFunc(StdCompiler *pComp)
 	else
 		pComp->NoSeparator();
 	// Command name
-	pComp->Value(mkEnumAdaptT<uint8_t>(Command, EnumAdaptCommandEntries));
+	pComp->Value(mkEnumAdapt(Command, C4EnumAdaptPrefixMode::None, C4CMD_EnumInfo));
 	pComp->Separator(StdCompiler::SEP_SEP);
 	// Target X/Y
 	pComp->Value(Tx); pComp->Separator(StdCompiler::SEP_SEP);

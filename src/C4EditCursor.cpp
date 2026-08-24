@@ -2,7 +2,7 @@
  * LegacyClonk
  *
  * Copyright (c) 1998-2000, Matthes Bender (RedWolf Design)
- * Copyright (c) 2017-2021, The LegacyClonk Team and contributors
+ * Copyright (c) 2017-2024, The LegacyClonk Team and contributors
  *
  * Distributed under the terms of the ISC license; see accompanying file
  * "COPYING" for details.
@@ -25,12 +25,11 @@
 #include <C4Wrappers.h>
 
 #ifdef _WIN32
+#include "StdStringEncodingConverter.h"
 #include "res/engine_resource.h"
 #endif
 
 #ifdef WITH_DEVELOPER_MODE
-#include <C4Language.h>
-
 #include <gtk/gtk.h>
 #endif
 
@@ -48,7 +47,17 @@ void C4EditCursor::Execute()
 {
 	// alt check
 	bool fAltIsDown = Application.IsAltDown();
-	if (fAltIsDown != fAltWasDown) if (fAltWasDown = fAltIsDown) AltDown(); else AltUp();
+	if (fAltIsDown != fAltWasDown)
+	{
+		if ((fAltWasDown = fAltIsDown))
+		{
+			AltDown();
+		}
+		else
+		{
+			AltUp();
+		}
+	}
 	// drawing
 	switch (Mode)
 	{
@@ -86,9 +95,9 @@ bool C4EditCursor::Init()
 #ifdef WITH_DEVELOPER_MODE
 	menuContext = gtk_menu_new();
 
-	itemDelete =       gtk_menu_item_new_with_label(LoadResStrUtf8(C4ResStrTableKey::IDS_MNU_DELETE).getData());
-	itemDuplicate =    gtk_menu_item_new_with_label(LoadResStrUtf8(C4ResStrTableKey::IDS_MNU_DUPLICATE).getData());
-	itemGrabContents = gtk_menu_item_new_with_label(LoadResStrUtf8(C4ResStrTableKey::IDS_MNU_CONTENTS).getData());
+	itemDelete =       gtk_menu_item_new_with_label(LoadResStrGtk(C4ResStrTableKey::IDS_MNU_DELETE).c_str());
+	itemDuplicate =    gtk_menu_item_new_with_label(LoadResStrGtk(C4ResStrTableKey::IDS_MNU_DUPLICATE).c_str());
+	itemGrabContents = gtk_menu_item_new_with_label(LoadResStrGtk(C4ResStrTableKey::IDS_MNU_CONTENTS).c_str());
 	itemProperties =   gtk_menu_item_new_with_label(""); // Set dynamically in DoContextMenu
 
 	gtk_menu_shell_append(GTK_MENU_SHELL(menuContext), itemDelete);
@@ -614,7 +623,14 @@ bool C4EditCursor::DoContextMenu()
 	gtk_widget_set_sensitive(itemProperties,   Mode != C4CNS_ModePlay);
 
 	GtkLabel *label = GTK_LABEL(gtk_bin_get_child(GTK_BIN(itemProperties)));
-	gtk_label_set_text(label, LoadResStrUtf8Choice(Mode == C4CNS_ModeEdit, C4ResStrTableKey::IDS_CNS_PROPERTIES, C4ResStrTableKey::IDS_CNS_TOOLS).getData());
+	if (Mode == C4CNS_ModeEdit)
+	{
+		gtk_label_set_text(label, LoadResStrGtk(C4ResStrTableKey::IDS_CNS_PROPERTIES).c_str());
+	}
+	else
+	{
+		gtk_label_set_text(label, LoadResStrGtk(C4ResStrTableKey::IDS_CNS_TOOLS).c_str());
+	}
 
 	gtk_menu_popup_at_pointer(GTK_MENU(menuContext), nullptr);
 #endif
@@ -688,7 +704,7 @@ void C4EditCursor::ApplyToolPicker()
 	{
 	case C4LSC_Static:
 		// Material-texture from map
-		if (byIndex = Game.Landscape.GetMapIndex(X / Game.Landscape.MapZoom, Y / Game.Landscape.MapZoom))
+		if ((byIndex = Game.Landscape.GetMapIndex(X / Game.Landscape.MapZoom, Y / Game.Landscape.MapZoom)))
 		{
 			const C4TexMapEntry *pTex = Game.TextureMap.GetEntry(byIndex & (IFT - 1));
 			if (pTex)

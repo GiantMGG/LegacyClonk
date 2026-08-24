@@ -2,7 +2,7 @@
  * LegacyClonk
  *
  * Copyright (c) 2001, Matthes Bender(RedWolf Design GmbH)
- * Copyright (c) 2017-2022, The LegacyClonk Team and contributors
+ * Copyright (c) 2017-2024, The LegacyClonk Team and contributors
  *
  * Distributed under the terms of the ISC license; see accompanying file
  * "COPYING" for details.
@@ -45,6 +45,15 @@
 
 #include <fmt/printf.h>
 
+#ifdef _WIN32
+#include "StdRegistry.h"
+
+#include <shellapi.h>
+#include <conio.h>
+
+#define getch _getch
+#else
+
 // from http://cboard.cprogramming.com/archive/index.php/t-27714.html
 #include <stdio.h>
 #include <termios.h>
@@ -61,6 +70,10 @@ int mygetch()
 	tcsetattr(STDIN_FILENO, TCSANOW, &oldt);
 	return ch;
 }
+
+#define getch mygetch
+
+#endif
 
 int globalArgC;
 char **globalArgV;
@@ -89,9 +102,9 @@ bool Log(const std::string_view msg)
 }
 
 template<typename... Args>
-bool LogF(const char *strMessage, Args... args)
+bool Log(const std::format_string<Args...> fmt, Args &&...args)
 {
-	return Log(fmt::sprintf(strMessage, args...));
+	return Log(std::format(fmt, std::forward<Args>(args)...));
 }
 
 bool ProcessGroup(const char *FilenamePar)
@@ -108,7 +121,7 @@ bool ProcessGroup(const char *FilenamePar)
 	size_t len = strlen(szFilename);
 	if (szFilename[len - 1] == DirectorySeparator) szFilename[len - 1] = 0;
 	// Current filename
-	LogF("Group: {}", szFilename);
+	Log("Group: {}", szFilename);
 
 	// Open group file
 	if (hGroup.Open(szFilename, true))
@@ -255,6 +268,7 @@ bool ProcessGroup(const char *FilenamePar)
 						break;
 					// View
 					case 'l':
+					case 'v':
 						hGroup.SetStdOutput(true);
 						if ((iArg + 1 >= argc) || (argv[iArg + 1][0] == '-'))
 						{
@@ -273,7 +287,7 @@ bool ProcessGroup(const char *FilenamePar)
 						break;
 					// Pack
 					case 'p':
-						Log("Packing...");
+						std::println("Packing...");
 						// Close
 						if (!hGroup.Close())
 						{
@@ -292,7 +306,7 @@ bool ProcessGroup(const char *FilenamePar)
 						break;
 					// Unpack
 					case 'u':
-						LogF("Unpacking...");
+						Log("Unpacking...");
 						// Close
 						if (!hGroup.Close())
 						{
@@ -311,7 +325,7 @@ bool ProcessGroup(const char *FilenamePar)
 						break;
 					// Unpack
 					case 'x':
-						Log("Exploding...");
+						std::println("Exploding...");
 						// Close
 						if (!hGroup.Close())
 						{
@@ -349,7 +363,7 @@ bool ProcessGroup(const char *FilenamePar)
 								std::println(stderr, "Closing failed: {}", hGroup.GetError());
 							}
 							// generate
-							else if (!Upd.MakeUpdate(argv[iArg + 1], argv[iArg + 2], szFilename, argv[iArg + 3]))
+							else if (!Upd.MakeUpdate(argv[iArg + 1], argv[iArg + 2], szFilename, argv[iArg + 3], argv[iArg][2] == 'a'))
 							{
 								std::println(stderr, "Update generation failed.");
 							}
@@ -364,7 +378,7 @@ bool ProcessGroup(const char *FilenamePar)
 
 					// Apply an update
 					case 'y':
-						Log("Applying update...");
+						std::println("Applying update...");
 						if (C4Group_ApplyUpdate(hGroup))
 						{
 							if (argv[iArg][2] == 'd') fDeleteGroup = true;
@@ -375,6 +389,43 @@ bool ProcessGroup(const char *FilenamePar)
 #ifdef _DEBUG
 					case 'z':
 						hGroup.PrintInternals();
+						break;
+#endif
+
+#ifdef _WIN32
+					// Wait
+					case 'w':
+						if (iArg + 1 >= argc || argv[iArg + 1][0] == '-')
+						{
+							std::println("Missing argument for wait command");
+						}
+						else
+						{
+							int milliseconds{0};
+							sscanf(argv[iArg + 1], "%d", &milliseconds);
+
+							if (milliseconds > 0)
+							{
+								// Wait for specified time
+								std::println("Waiting..");
+								Sleep(milliseconds);
+							}
+							else
+							{
+								// Wait for specified process to end
+								std::println("Waiting for {} to end", argv[iArg + 1]);
+
+								for (std::size_t i{0}; i < 5 && FindWindowA(nullptr, argv[iArg + 1]); ++i)
+								{
+									Sleep(1000);
+									std::print(".");
+								}
+
+								std::println("");
+							}
+
+							++iArg;
+						}
 						break;
 #endif
 					// Undefined
@@ -402,7 +453,7 @@ bool ProcessGroup(const char *FilenamePar)
 		// Delete group file if desired (i.e. after apply update)
 		if (fDeleteGroup)
 		{
-			LogF("Deleting {}...", GetFilename(szFilename));
+			Log("Deleting {}...", GetFilename(szFilename));
 			EraseItem(szFilename);
 		}
 	}
@@ -422,27 +473,26 @@ int RegisterShellExtensions()
 	char strModule[2048];
 	char strCommand[2048];
 	char strClass[128];
-	GetModuleFileName(nullptr, strModule, 2048);
+	GetModuleFileNameA(nullptr, strModule, 2048);
 	// Groups
-	const char *strClasses =
-		"Clonk4.Definition;Clonk4.Folder;Clonk4.Group;Clonk4.Player;Clonk4.Scenario;Clonk4.Update;Clonk4.Weblink";
+	const char *strClasses = "Clonk4.Definition;Clonk4.Folder;Clonk4.Group;Clonk4.Player;Clonk4.Scenario;Clonk4.Update;Clonk4.Weblink;Clonk4.Object";
 	for (int i = 0; SCopySegment(strClasses, i, strClass); i++)
 	{
 		// Unpack
-		FormatWithNull(strCommand, "\"{}\" \"%1\" \"-u\"", strModule);
+		FormatWithNull(strCommand, "\"{}\" \"%1\" \"-u\"", +strModule);
 		if (!SetRegShell(strClass, "MakeFolder", "C4Group Unpack", strCommand))
 			return 0;
 		// Explode
-		FormatWithNull(strCommand, "\"{}\" \"%1\" \"-x\"", strModule);
+		FormatWithNull(strCommand, "\"{}\" \"%1\" \"-x\"", +strModule);
 		if (!SetRegShell(strClass, "ExplodeFolder", "C4Group Explode", strCommand))
 			return 0;
 	}
 	// Directories
 	const char *strClasses2 = "Directory";
-	for (i = 0; SCopySegment(strClasses2, i, strClass); i++)
+	for (int i = 0; SCopySegment(strClasses2, i, strClass); i++)
 	{
 		// Pack
-		FormatWithNull(strCommand, "\"{}\" \"%1\" \"-p\"", strModule);
+		FormatWithNull(strCommand, "\"{}\" \"%1\" \"-p\"", +strModule);
 		if (!SetRegShell(strClass, "MakeGroupFile", "C4Group Pack", strCommand))
 			return 0;
 	}
@@ -456,24 +506,20 @@ int UnregisterShellExtensions()
 #ifdef _WIN32
 	char strClass[128];
 	// Groups
-	const char *strClasses =
-		"Clonk4.Definition;Clonk4.Folder;Clonk4.Group;Clonk4.Player;Clonk4.Scenario;Clonk4.Update;Clonk4.Weblink";
+	const char *strClasses = "Clonk4.Definition;Clonk4.Folder;Clonk4.Group;Clonk4.Player;Clonk4.Scenario;Clonk4.Update;Clonk4.Weblink";
 	for (int i = 0; SCopySegment(strClasses, i, strClass); i++)
 	{
 		// Unpack
-		if (!RemoveRegShell(strClass, "MakeFolder"))
-			return 0;
+		if (!RemoveRegShell(strClass, "MakeFolder")) return 0;
 		// Explode
-		if (!RemoveRegShell(strClass, "ExplodeFolder"))
-			return 0;
+		if (!RemoveRegShell(strClass, "ExplodeFolder")) return 0;
 	}
 	// Directories
 	const char *strClasses2 = "Directory";
-	for (i = 0; SCopySegment(strClasses2, i, strClass); i++)
+	for (int i = 0; SCopySegment(strClasses2, i, strClass); i++)
 	{
 		// Pack
-		if (!RemoveRegShell(strClass, "MakeGroupFile"))
-			return 0;
+		if (!RemoveRegShell(strClass, "MakeGroupFile")) return 0;
 	}
 	// Done
 #endif
@@ -482,18 +528,28 @@ int UnregisterShellExtensions()
 
 int main(int argc, char *argv[])
 {
+#ifndef _WIN32
 	// Always line buffer mode, even if the output is not sent to a terminal
 	setvbuf(stdout, nullptr, _IOLBF, 0);
+#endif
 	// Scan options
 	int iFirstGroup = 0;
 	for (int i = 1; i < argc; ++i)
 	{
 		// Option encountered
+#ifdef _WIN32
+		if (argv[i][0] == '/' || argv[i][0] == '-')
+#else
 		if (argv[i][0] == '-')
+#endif
 		{
 			switch (argv[i][1])
 			{
 			// Quiet mode
+			case 'q':
+				fQuiet = true;
+				break;
+			// Verbose mode
 			case 'v':
 				fQuiet = false;
 				break;
@@ -531,7 +587,7 @@ int main(int argc, char *argv[])
 		++iFirstCommand;
 
 	// Program info
-	LogF("LegacyClonk C4Group {}", C4VERSION);
+	Log("LegacyClonk C4Group {}", C4VERSION);
 
 	// Load configuration
 	Config.Init();
@@ -542,33 +598,51 @@ int main(int argc, char *argv[])
 	C4Group_SetTempPath(Config.General.TempPath);
 	C4Group_SetSortList(C4CFN_FLS);
 
+	// Display current working directory
+	if (!fQuiet)
+	{
+		std::println("Location: {}", GetWorkingDirectory());
+	}
+
 	// Store command line parameters
 	globalArgC = argc;
 	globalArgV = argv;
 
 	// Register shell
 	if (fRegisterShell)
+	{
 		if (RegisterShellExtensions())
+		{
 			std::println("Shell extensions registered.");
+		}
 		else
+		{
 			std::println("Error registering shell extensions.");
+		}
+	}
 	// Unregister shell
 	if (fUnregisterShell)
+	{
 		if (UnregisterShellExtensions())
+		{
 			std::println("Shell extensions removed.");
+		}
 		else
+		{
 			std::println("Error removing shell extensions.");
+		}
+	}
 
 	// At least one parameter (filename, not option or command): process file(s)
 	if (iFirstGroup)
 	{
 #ifdef _WIN32
 		// Wildcard in filename: use file search
-		if (SCharCount('*', argv[1]))
-			ForEachFile(argv[1], &ProcessGroup);
+		if (SCharCount('*', argv[iFirstGroup]))
+			ForEachFile(argv[iFirstGroup], &ProcessGroup);
 		// Only one file
 		else
-			ProcessGroup(argv[1]);
+			ProcessGroup(argv[iFirstGroup]);
 #else
 		for (int i = iFirstGroup; i < argc && argv[i][0] != '-'; ++i)
 			ProcessGroup(argv[i]);
@@ -580,11 +654,11 @@ int main(int argc, char *argv[])
 		std::println("");
 		std::println("Usage:    c4group [options] group(s) command(s)\n");
 		std::println("Commands: -a[s] Add [as]  -m Move  -e[t] Extract [to]");
-		std::println("          -l List  -d Delete  -r Rename  -s Sort");
+		std::println("          -v View  -l List  -d Delete  -r Rename  -s Sort");
 		std::println("          -p Pack  -u Unpack  -x Explode");
 		std::println("          -k Print maker");
-		std::println("          -g [source] [target] [title] Make update");
-		std::println("          -y Apply update");
+		std::println("          -g[a] [source] [target] [title] Make update [and allow missing target group when applying update]");
+		std::println("          -y[d] Apply update [and delete group file]");
 		std::println("");
 		std::println("Options:  -v Verbose -r Recursive -p Prompt at end");
 		std::println("          -i Register shell -u Unregister shell");
@@ -605,13 +679,22 @@ int main(int argc, char *argv[])
 	if (fPromptAtEnd)
 	{
 		std::println("\nDone. Press any key to continue.");
-		mygetch();
+		getch();
 	}
 
 	// Execute when done
 	if (strExecuteAtEnd[0])
 	{
-		printf("Executing: {}\n", strExecuteAtEnd);
+		std::println("Executing: {}", strExecuteAtEnd);
+
+#ifdef _WIN32
+		STARTUPINFOA startInfo{};
+		startInfo.cb = sizeof(startInfo);
+
+		PROCESS_INFORMATION procInfo;
+
+		CreateProcessA(strExecuteAtEnd, nullptr, nullptr, nullptr, false, 0, nullptr, nullptr, &startInfo, &procInfo);
+#else
 		switch (fork())
 		{
 		// Error
@@ -626,6 +709,7 @@ int main(int argc, char *argv[])
 		default:
 			break;
 		}
+#endif
 	}
 
 	// Done

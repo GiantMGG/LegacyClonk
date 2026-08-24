@@ -2,7 +2,7 @@
  * LegacyClonk
  *
  * Copyright (c) 2016-2017, The OpenClonk Team and contributors
- * Copyright (c) 2019-2020, The LegacyClonk Team and contributors
+ * Copyright (c) 2019-2023, The LegacyClonk Team and contributors
  *
  * Distributed under the terms of the ISC license; see accompanying file
  * "COPYING" for details.
@@ -14,7 +14,6 @@
  * for the above references.
  */
 
-#include "C4Include.h"
 #include "C4PuncherPacket.h"
 
 #include "C4Network2Address.h"

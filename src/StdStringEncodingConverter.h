@@ -1,7 +1,7 @@
 /*
  * LegacyClonk
  *
- * Copyright (c) 2017-2021, The LegacyClonk Team and contributors
+ * Copyright (c) 2017-2024, The LegacyClonk Team and contributors
  *
  * Distributed under the terms of the ISC license; see accompanying file
  * "COPYING" for details.
@@ -19,6 +19,7 @@
 
 #include "C4Windows.h"
 
+#include <span>
 #include <string>
 #include <string_view>
 
@@ -27,6 +28,9 @@ class StdStringEncodingConverter
 public:
 	static std::wstring WinAcpToUtf16(std::string_view multiByte);
 	static std::string Utf16ToWinAcp(std::wstring_view wide);
+
+	static std::size_t MultiByteToWideChar(std::uint32_t codePage, std::span<const char> input, std::span<wchar_t> output);
+	static std::size_t WideCharToMultiByte(std::uint32_t codePage, std::span<const wchar_t> input, std::span<char> output);
 };
 
 #endif

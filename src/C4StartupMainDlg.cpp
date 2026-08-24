@@ -3,7 +3,7 @@
  *
  * Copyright (c) RedWolf Design
  * Copyright (c) 2005, Sven2
- * Copyright (c) 2017-2020, The LegacyClonk Team and contributors
+ * Copyright (c) 2017-2024, The LegacyClonk Team and contributors
  *
  * Distributed under the terms of the ISC license; see accompanying file
  * "COPYING" for details.
@@ -18,7 +18,6 @@
 // Startup screen for non-parameterized engine start (stub)
 
 #include "C4GuiResource.h"
-#include <C4Include.h>
 #include <C4StartupMainDlg.h>
 #include <C4UpdateDlg.h>
 #include <C4Version.h>
@@ -31,7 +30,7 @@
 #include <C4Startup.h>
 #include <C4Game.h>
 #include <C4Log.h>
-#include <C4Language.h>
+#include "C4TextEncoding.h"
 
 #include <format>
 
@@ -135,13 +134,13 @@ C4GUI::ContextMenu *C4StartupMainDlg::OnPlayerSelContextAdd(C4GUI::Element *pBtn
 	C4GUI::ContextMenu *pCtx = new C4GUI::ContextMenu();
 	const char *szFn;
 	const std::string searchPath{std::format("{}{}", Config.General.ExePath, Config.General.PlayerPath)};
-	for (DirectoryIterator i(searchPath.c_str()); szFn = *i; i++)
+	for (DirectoryIterator i(searchPath.c_str()); (szFn = *i); i++)
 	{
 		szFn = Config.AtExeRelativePath(szFn);
 		if (*GetFilename(szFn) == '.') continue;
 		if (!WildcardMatch(C4CFN_PlayerFiles, GetFilename(szFn))) continue;
 		if (!SIsModule(Config.General.Participants, szFn, nullptr, false))
-			pCtx->AddItem(C4Language::IconvClonk(GetFilenameOnly(szFn)).getData(), "Let this player join in next game", C4GUI::Ico_Player,
+			pCtx->AddItem(TextEncodingConverter.SystemToClonk(GetFilenameOnly(szFn)).c_str(), "Let this player join in next game", C4GUI::Ico_Player,
 				new C4GUI::CBMenuHandlerEx<C4StartupMainDlg, StdStrBuf>(this, &C4StartupMainDlg::OnPlayerSelContextAddPlr, StdStrBuf(szFn)), nullptr);
 	}
 	return pCtx;
@@ -194,7 +193,7 @@ void C4StartupMainDlg::UpdateParticipants()
 		for (int i = 0; SCopySegment(Config.General.Participants, i, strPlayer.getMData(), ';', 1024, true); i++)
 		{
 			if (i > 0) strPlayers.Append(", ");
-			strPlayers.Append(C4Language::IconvClonk(GetFilenameOnly(strPlayer.getData())).getData());
+			strPlayers.Append(TextEncodingConverter.SystemToClonk(GetFilenameOnly(strPlayer.getData())).c_str());
 		}
 	pParticipantsLbl->SetText(strPlayers.getData());
 }
@@ -284,7 +283,7 @@ void C4StartupMainDlg::OnShown()
 	bool fHasPlayer = false;
 	const char *szFn;
 	const std::string searchPath{std::format("{}{}", Config.General.ExePath, Config.General.PlayerPath)};
-	for (DirectoryIterator i(searchPath.c_str()); szFn = *i; i++)
+	for (DirectoryIterator i(searchPath.c_str()); (szFn = *i); i++)
 	{
 		szFn = Config.AtExeRelativePath(szFn);
 		if (*GetFilename(szFn) == '.') continue; // ignore ".", ".." and private files (".*")

@@ -3,7 +3,7 @@
  *
  * Copyright (c) RedWolf Design
  * Copyright (c) 2001, Sven2
- * Copyright (c) 2017-2022, The LegacyClonk Team and contributors
+ * Copyright (c) 2017-2024, The LegacyClonk Team and contributors
  *
  * Distributed under the terms of the ISC license; see accompanying file
  * "COPYING" for details.
@@ -18,7 +18,6 @@
 // resource display list box
 
 #include "C4GuiResource.h"
-#include "C4Include.h"
 #include "C4GameLobby.h"
 #include "C4FullScreen.h"
 #include "C4Game.h"
@@ -186,10 +185,10 @@ void C4Network2ResDlg::Update()
 {
 	// check through own resources and current res list
 	ListItem *pItem = static_cast<ListItem *>(pClientWindow->GetFirst()), *pNext;
-	C4Network2Res *pRes; int iResID = -1;
-	while (pRes = Game.Network.ResList.getRefNextRes(++iResID))
+	C4Network2Res::Ref res; int iResID = -1;
+	while ((res = Game.Network.ResList.getRefNextRes(++iResID)))
 	{
-		iResID = pRes->getResID();
+		iResID = res->getResID();
 		// resource checking: deleted ressource(s) present?
 		while (pItem && (pItem->GetResID() < iResID))
 		{
@@ -199,12 +198,12 @@ void C4Network2ResDlg::Update()
 		// same resource present for update?
 		if (pItem && pItem->GetResID() == iResID)
 		{
-			pItem->Update(pRes);
+			pItem->Update(res.get());
 			pItem = static_cast<ListItem *>(pItem->GetNext());
 		}
 		else
 			// not present: insert (or add if pItem=nullptr)
-			InsertElement(new ListItem(this, pRes), pItem);
+			InsertElement(new ListItem(this, res.get()), pItem);
 	}
 
 	// del trailing items

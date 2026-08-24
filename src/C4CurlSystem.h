@@ -1,7 +1,7 @@
 /*
  * LegacyClonk
  *
- * Copyright (c) 2023, The LegacyClonk Team and contributors
+ * Copyright (c) 2023-2024, The LegacyClonk Team and contributors
  *
  * Distributed under the terms of the ISC license; see accompanying file
  * "COPYING" for details.
@@ -24,8 +24,16 @@
 #include <memory>
 #include <variant>
 
+#include <curl/curlver.h>
+
+#if CURL_AT_LEAST_VERSION(8, 11, 0)
+using CURLM = void;
+using CURL = void;
+#else
 using CURLM = struct Curl_multi;
 using CURL = struct Curl_easy;
+#endif
+
 using curl_socket_t = SOCKET;
 using CURLU = struct Curl_URL;
 
@@ -95,6 +103,24 @@ private:
 	public:
 		GlobalInit();
 		~GlobalInit();
+	};
+
+	class MultiHandleWithCallbacks
+	{
+	public:
+		using SocketFunction = int(CURL *, curl_socket_t, int, void *) noexcept;
+		using TimerFunction = int(CURLM *, long, void *) noexcept;
+
+	public:
+		MultiHandleWithCallbacks(MultiHandle multiHandle, C4CurlSystem &system, SocketFunction *socketFunction, TimerFunction *timerFunction);
+		~MultiHandleWithCallbacks();
+
+	public:
+		auto get() const { return multiHandle.get(); }
+		explicit operator bool() const noexcept { return !!multiHandle; }
+
+	private:
+		MultiHandle multiHandle;
 	};
 
 	class Awaiter : public C4Task::CancellableAwaiter<Awaiter>
@@ -171,7 +197,7 @@ private:
 	std::atomic_uint32_t timeout{StdSync::Infinite};
 	[[NO_UNIQUE_ADDRESS]] GlobalInit globalInit;
 
-	MultiHandle multiHandle;
+	MultiHandleWithCallbacks multiHandle;
 
 #ifdef _WIN32
 	CStdEvent event;

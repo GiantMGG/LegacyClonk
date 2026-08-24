@@ -3,7 +3,7 @@
  *
  * Copyright (c) RedWolf Design
  * Copyright (c) 2001, Sven2
- * Copyright (c) 2017-2021, The LegacyClonk Team and contributors
+ * Copyright (c) 2017-2024, The LegacyClonk Team and contributors
  *
  * Distributed under the terms of the ISC license; see accompanying file
  * "COPYING" for details.
@@ -225,10 +225,7 @@ bool CStdGL::SaveDefaultGammaRampToMonitor(CStdWindow *pWindow)
 bool CStdGL::ApplyGammaRampToMonitor(CGammaControl &ramp, bool fForce)
 {
 	if (!MainCtx.hDC || (!Active && !fForce)) return false;
-	if (!SetDeviceGammaRamp(MainCtx.hDC, ramp.red))
-	{
-		logger->error("Error setting gamma ramp: {:02x}", ::GetLastError());
-	}
+	SetDeviceGammaRamp(MainCtx.hDC, ramp.red);
 	return true;
 }
 
@@ -420,7 +417,7 @@ bool CStdGL::SaveDefaultGammaRampToMonitor(CStdWindow *pWindow)
 #include <stdexcept>
 #include <string>
 
-CStdGLCtx::CStdGLCtx() : pWindow{}, cx{}, cy{}, ctx{} {}
+CStdGLCtx::CStdGLCtx() : pWindow{}, ctx{}, cx{}, cy{} {}
 
 void CStdGLCtx::Clear()
 {

@@ -2,7 +2,7 @@
  * LegacyClonk
  *
  * Copyright (c) 1998-2000, Matthes Bender (RedWolf Design)
- * Copyright (c) 2017-2021, The LegacyClonk Team and contributors
+ * Copyright (c) 2017-2024, The LegacyClonk Team and contributors
  *
  * Distributed under the terms of the ISC license; see accompanying file
  * "COPYING" for details.
@@ -21,8 +21,8 @@
 #include <C4Console.h>
 #include <C4GameLobby.h>
 #include <C4LogBuf.h>
+#include "C4TextEncoding.h"
 #include "StdMarkup.h"
-#include <C4Language.h>
 
 #ifdef _WIN32
 #include <share.h>
@@ -100,17 +100,51 @@ public:
 	}
 };
 
+class StrippedTextFormatterFlag : public spdlog::custom_flag_formatter
+{
+public:
+	void format(const spdlog::details::log_msg &msg, const tm &, std::string &dest) override
+	{
+		if (msg.payload.empty())
+		{
+			return;
+		}
+
+		dest.resize_and_overwrite(dest.size() + msg.payload.size(), [&msg, oldSize{dest.size()}](char *const ptr, const std::size_t size)
+		{
+			std::fill_n(ptr + oldSize, size - oldSize, 0xAB);
+			auto copied = msg.payload.copy(ptr + oldSize, msg.payload.size());
+			ptr[oldSize + copied] = '\0';
+
+			CMarkup markup{false};
+			if (markup.StripMarkup(ptr + oldSize))
+			{
+				return std::strlen(ptr);
+			}
+			else
+			{
+				return size;
+			}
+		});
+	}
+
+	std::unique_ptr<custom_flag_formatter> clone() const override
+	{
+		return std::make_unique<StrippedTextFormatterFlag>();
+	}
+};
 }
 
-C4LogSystem::LogSink::LogSink()
+C4LogSystem::LogSink::LogSink(std::unique_ptr<spdlog::formatter> formatter)
+	: base_sink{std::move(formatter)}
 {
 	std::string logFileName{C4CFN_Log};
 	// open
 	int iLog = 2;
 #ifdef _WIN32
-	while (!(file = _fsopen(logFileName.c_str(), "wb", _SH_DENYWR)))
+	while (!(file = C4File{_fsopen(logFileName.c_str(), "wb", _SH_DENYWR)}))
 #else
-	while (!(file = fopen(logFileName.c_str(), "wb")))
+	while (!(file.Open(logFileName, "wb")))
 #endif
 	{
 		if (errno == EACCES)
@@ -132,21 +166,16 @@ C4LogSystem::LogSink::LogSink()
 	}
 }
 
-C4LogSystem::LogSink::~LogSink()
-{
-	std::fclose(file);
-}
-
 void C4LogSystem::LogSink::sink_it_(const spdlog::details::log_msg &msg)
 {
 	std::string formatted;
 	formatter_->format(msg, formatted);
-	std::fwrite(formatted.data(), sizeof(char), formatted.size(), file);
+	(void) file.WriteString(formatted);
 }
 
 void C4LogSystem::LogSink::flush_()
 {
-	std::fflush(file);
+	(void) file.Flush();
 }
 
 C4LogSystem::GuiSink::GuiSink(const spdlog::level::level_enum level, const bool showLoggerNameInGui)
@@ -155,6 +184,7 @@ C4LogSystem::GuiSink::GuiSink(const spdlog::level::level_enum level, const bool 
 
 	auto guiFormatter = std::make_unique<spdlog::pattern_formatter>();
 	guiFormatter->add_flag<LogLevelPrefixFormatterFlag>('*');
+	guiFormatter->add_flag<StrippedTextFormatterFlag>('v');
 
 	if (showLoggerNameInGui)
 	{
@@ -237,20 +267,49 @@ void C4LogSystem::RingbufferSink::sink_it_(const spdlog::details::log_msg &msg)
 	ringbuffer.push_back(spdlog::details::log_msg_buffer{msg});
 }
 
+void C4LogSystem::ClonkToUtf8Sink::log(const spdlog::details::log_msg &msg)
+{
+	const std::string payloadAsUtf8{TextEncodingConverter.ClonkToUtf8<char>(msg.payload)};
+
+	spdlog::details::log_msg utf8Msg{msg};
+	utf8Msg.payload = payloadAsUtf8;
+
+	for (const auto &sink : sinks)
+	{
+		sink->log(utf8Msg);
+	}
+}
+
+void C4LogSystem::ClonkToUtf8Sink::flush()
+{
+	for (const auto &sink : sinks)
+	{
+		sink->flush();
+	}
+}
+
 C4LogSystem::C4LogSystem()
 {
 	spdlog::set_automatic_registration(false);
+
+	defaultPatternFormatter = std::make_unique<spdlog::pattern_formatter>();
+	defaultPatternFormatter->add_flag<LoggerNameIfExistsFormatterFlag>('~');
+	defaultPatternFormatter->add_flag<StrippedTextFormatterFlag>('v');
+	defaultPatternFormatter->set_pattern("[%Y-%m-%d %H:%M:%S.%e] [%^%l%$] %~%v");
 
 	loggerSilentGuiSink = std::make_shared<GuiSink>(spdlog::level::warn, true);
 
 #ifdef _WIN32
 	debugSink = std::make_shared<spdlog::sinks::msvc_sink_mt>();
+	debugSink->set_formatter(defaultPatternFormatter->clone());
+
 	loggerSilent = std::make_shared<spdlog::logger>("", std::initializer_list<spdlog::sink_ptr>{loggerSilentGuiSink, debugSink});
 #else
 	loggerSilent = std::make_shared<spdlog::logger>("", loggerSilentGuiSink);
 #endif
 
 	loggerSilent->set_level(spdlog::level::trace);
+	loggerSilent->flush_on(spdlog::level::trace);
 
 	spdlog::set_default_logger(loggerSilent);
 	spdlog::flush_on(spdlog::level::debug);
@@ -263,85 +322,63 @@ C4LogSystem::C4LogSystem()
 	loggerDebug = std::make_shared<spdlog::logger>("DebugLog");
 #endif
 	loggerDebug->set_level(spdlog::level::trace);
+	loggerDebug->flush_on(spdlog::level::trace);
 
-	ringbufferSink = std::make_shared<RingbufferSink>(100);
+	ringbufferSink = std::make_shared<RingbufferSink>(defaultPatternFormatter->clone(), 100);
 	logger->sinks().emplace_back(ringbufferSink);
 }
 
-void C4LogSystem::OpenLog()
+void C4LogSystem::OpenLog(const bool verbose)
 {
-	stdoutSink = std::static_pointer_cast<spdlog::sinks::sink>(std::make_shared<spdlog::sinks::stdout_color_sink_mt>());
-	stdoutSink->set_level(spdlog::level::info);
+#ifdef _WIN32
+	SetConsoleOutputCP(CP_UTF8);
+#endif
 
-	clonkLogSink = std::make_shared<LogSink>();
-	clonkLogFD = clonkLogSink->GetFD();
+	this->verbose = verbose;
 
-	loggerSilent->sinks().emplace_back(stdoutSink);
-	loggerSilent->sinks().emplace_back(clonkLogSink);
+	if (verbose)
+	{
+		loggerSilentGuiSink->set_level(spdlog::level::trace);
+	}
+
+	{
+		auto stdoutSink = std::make_shared<spdlog::sinks::stdout_color_sink_mt>();
+		stdoutSink->set_formatter(defaultPatternFormatter->clone());
+		stdoutSink->set_level(AdjustLevelIfVerbose(Config.Logging.LogLevelStdout));
+
+		auto clonkLogSink = std::make_shared<LogSink>(defaultPatternFormatter->clone());
+		clonkLogFD = clonkLogSink->GetFD();
+
+		clonkToUtf8Sink = std::make_shared<ClonkToUtf8Sink>(
+							  std::initializer_list<spdlog::sink_ptr>{
+								  std::static_pointer_cast<spdlog::sinks::sink>(std::move(stdoutSink)),
+								  std::static_pointer_cast<spdlog::sinks::sink>(std::move(clonkLogSink))
+							  });
+	}
+
+	loggerSilent->sinks().emplace_back(clonkToUtf8Sink);
 
 	logger = std::make_shared<spdlog::logger>("", loggerSilent->sinks().begin() + 1, loggerSilent->sinks().end());
 	logger->set_level(spdlog::level::trace);
+	logger->flush_on(spdlog::level::trace);
 
-	auto guiSink = std::make_shared<GuiSink>();
-	guiSink->set_pattern("%v");
+	auto guiSink = std::make_shared<GuiSink>(std::make_unique<spdlog::pattern_formatter>("%v"));
 
 	logger->sinks().insert(logger->sinks().begin(), std::move(guiSink));
 
-	loggerDebug->sinks().emplace_back(stdoutSink);
-	loggerDebug->sinks().emplace_back(clonkLogSink);
+	loggerDebug->sinks().emplace_back(clonkToUtf8Sink);
 	loggerDebug->sinks().emplace_back(ringbufferSink);
 
 	loggerDebugGuiSink = std::make_shared<GuiSink>(spdlog::level::off, false);
 	loggerDebug->sinks().insert(loggerDebug->sinks().begin(), loggerDebugGuiSink);
 }
 
-std::shared_ptr<spdlog::logger> C4LogSystem::CreateLogger(std::string name, const C4LogSystemCreateLoggerOptions options)
-{
-	auto newLogger = std::make_shared<spdlog::logger>(std::move(name));
-	newLogger->set_level(spdlog::level::trace);
-
-	if (options.GuiLogLevel == spdlog::level::n_levels && !options.ShowLoggerNameInGui)
-	{
-		newLogger->sinks().emplace_back(loggerSilentGuiSink);
-	}
-	else
-	{
-		const auto level = options.GuiLogLevel != spdlog::level::n_levels ? std::max(options.GuiLogLevel, loggerSilentGuiSink->level()) : loggerSilentGuiSink->level();
-		newLogger->sinks().emplace_back(std::make_shared<GuiSink>(level, options.ShowLoggerNameInGui));
-	}
-
-#ifdef _WIN32
-	newLogger->sinks().emplace_back(debugSink);
-#endif
-
-	newLogger->sinks().emplace_back(stdoutSink);
-	newLogger->sinks().emplace_back(clonkLogSink);
-
-	return newLogger;
-}
-
-std::shared_ptr<spdlog::logger> C4LogSystem::GetOrCreate(std::string name, C4LogSystemCreateLoggerOptions options)
-{
-	const std::lock_guard lock{getOrCreateMutex};
-	if (const auto logger = spdlog::get(name); logger)
-	{
-		return logger;
-	}
-
-	auto logger = CreateLogger(std::move(name), std::move(options));
-	spdlog::register_logger(logger);
-	return logger;
-}
-
 void C4LogSystem::EnableDebugLog(const bool enable)
 {
-	loggerDebugGuiSink->set_level(enable ? spdlog::level::debug : spdlog::level::off);
-}
-
-void C4LogSystem::SetVerbose(const bool verbose)
-{
-	loggerSilentGuiSink->set_level(verbose ? spdlog::level::trace : spdlog::level::warn);
-	stdoutSink->set_level(verbose ? spdlog::level::trace : spdlog::level::info);
+	if (loggerDebugGuiSink)
+	{
+		loggerDebugGuiSink->set_level(enable ? spdlog::level::debug : spdlog::level::off);
+	}
 }
 
 void C4LogSystem::AddFatalError(std::string message)
@@ -386,14 +423,61 @@ void C4LogSystem::ClearRingbuffer()
 
 #ifdef _WIN32
 
-void C4LogSystem::SetConsoleCharset(const std::int32_t charset)
+void C4LogSystem::SetConsoleInputCharset(const std::int32_t charset)
 {
 	SetConsoleCP(charset);
-	SetConsoleOutputCP(charset);
 }
 
 #endif
 
+spdlog::level::level_enum C4LogSystem::AdjustLevelIfVerbose(const spdlog::level::level_enum level) const noexcept
+{
+	return verbose ? spdlog::level::trace : level;
+}
+
+std::shared_ptr<spdlog::logger> C4LogSystem::CreateLogger(std::string name, const C4LoggerConfig::ConfigBase config)
+{
+	auto newLogger = std::make_shared<spdlog::logger>(std::move(name));
+	newLogger->set_level(AdjustLevelIfVerbose(config.LogLevel));
+	newLogger->flush_on(spdlog::level::trace);
+
+	spdlog::level::level_enum guiLogLevel;
+	if (verbose)
+	{
+		guiLogLevel = spdlog::level::trace;
+	}
+	else if (config.GuiLogLevel == spdlog::level::n_levels)
+	{
+		guiLogLevel = loggerSilentGuiSink->level();
+	}
+	else
+	{
+		guiLogLevel = config.GuiLogLevel;
+	}
+
+	newLogger->sinks().emplace_back(std::make_shared<GuiSink>(guiLogLevel, config.ShowLoggerNameInGui));
+
+#ifdef _WIN32
+	newLogger->sinks().emplace_back(debugSink);
+#endif
+
+	newLogger->sinks().emplace_back(clonkToUtf8Sink);
+
+	return newLogger;
+}
+
+std::shared_ptr<spdlog::logger> C4LogSystem::GetOrCreate(std::string name, C4LoggerConfig::ConfigBase config)
+{
+	const std::lock_guard lock{getOrCreateMutex};
+	if (const auto logger = spdlog::get(name); logger)
+	{
+		return logger;
+	}
+
+	auto logger = CreateLogger(std::move(name), std::move(config));
+	spdlog::register_logger(logger);
+	return logger;
+}
 
 void LogNTr(const spdlog::level::level_enum level, const std::string_view message)
 {
@@ -409,11 +493,6 @@ bool DebugLog(const spdlog::level::level_enum level, const std::string_view mess
 {
 	Application.LogSystem.GetLoggerDebug()->log(level, message);
 	return true;
-}
-
-std::shared_ptr<spdlog::logger> CreateLogger(std::string name, C4LogSystemCreateLoggerOptions options)
-{
-	return Application.LogSystem.CreateLogger(std::move(name), std::move(options));
 }
 
 int GetLogFD()

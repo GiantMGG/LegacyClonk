@@ -3,7 +3,7 @@
  *
  * Copyright (c) RedWolf Design
  * Copyright (c) 2008, guenther
- * Copyright (c) 2017-2023, The LegacyClonk Team and contributors
+ * Copyright (c) 2017-2024, The LegacyClonk Team and contributors
  *
  * Distributed under the terms of the ISC license; see accompanying file
  * "COPYING" for details.
@@ -21,6 +21,7 @@
 #include "StdBuf.h"
 #include "StdScheduler.h"
 #include "StdSync.h"
+#include "C4Coroutine.h"
 
 #include <any>
 #include <array>
@@ -32,9 +33,8 @@
 #include "C4WinRT.h"
 #elif defined(__APPLE__)
 #include <CoreServices/CoreServices.h>
-#elif defined(__linux__)
-#include "C4Coroutine.h"
 #endif
+
 
 class C4FileMonitor : public C4InteractiveThread::Callback
 {

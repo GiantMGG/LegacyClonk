@@ -1,0 +1,137 @@
+[groups.'System.c4g']
+parts = [
+    'v360',
+    'v363',
+    'v364',
+    'v365',
+]
+
+[groups.'Graphics.c4g']
+parts = [
+    'v360',
+    'v364',
+]
+
+[groups.content]
+parts = [
+    'https://update.clonkspot.org/lc/lc_49110.zip',
+    'https://github.com/legacyclonk/LegacyClonk/releases/download/v363/content.zip',
+    'https://update.clonkspot.org/lc/lc_49112.zip',
+]
+
+[groups.content.'Fantasy.c4d']
+
+[groups.content.'Fantasy.c4f']
+
+[groups.content.'FarWorlds.c4d']
+
+[groups.content.'FarWorlds.c4f']
+
+[groups.content.'Hazard.c4d']
+
+[groups.content.'Hazard.c4f']
+
+[groups.content.'Knights.c4d']
+
+[groups.content.'Knights.c4f']
+
+[groups.content.'Material.c4g']
+
+[groups.content.'Melees.c4f']
+
+[groups.content.'Missions.c4f']
+
+[groups.content.'Music.c4g']
+
+[groups.content.'Objects.c4d']
+
+[groups.content.'Races.c4f']
+
+[groups.content.'Sound.c4g']
+
+[groups.content.'Tutorial.c4f']
+
+[groups.content.'Western.c4d']
+
+[groups.content.'Western.c4f']
+
+[groups.content.'Worlds.c4f']
+
+[matrix.windows]
+runner = 'windows-latest'
+
+[[matrix.windows.config]]
+arch = 'x86'
+platform-suffix = 'win32'
+itch-manifest = 'win32'
+vs_arch = 'X86'
+
+[[matrix.windows.config]]
+arch = 'x64'
+platform-suffix = 'win64'
+itch-manifest = 'win64'
+vs_arch = 'AMD64'
+include-groups = true
+publish-groups = true
+
+[[matrix.windows.config]]
+name = 'debugrec'
+arch = 'x86'
+platform-suffix = 'win32'
+vs_arch = 'X86'
+debugrec = true
+exclude-release = true
+
+[[matrix.windows.config]]
+runner = 'windows-11-arm'
+arch = 'aarch64'
+platform-suffix = 'win-arm64'
+itch-manifest = 'win-arm64'
+vs_arch = 'ARM64'
+
+[matrix.linux]
+runner = 'ubuntu-22.04'
+
+[[matrix.linux.config]]
+arch = 'x64'
+platform-suffix = 'linux64'
+itch-manifest = 'linux'
+gcc_arch = 'x86_64'
+
+[[matrix.linux.config]]
+name = 'debugrec'
+arch = 'x64'
+platform-suffix = 'linux64'
+gcc_arch = 'x86_64'
+debugrec = true
+exclude-release = true
+
+[[matrix.linux.config]]
+runner = 'ubuntu-22.04-arm'
+arch = 'aarch64'
+platform-suffix = 'linux-arm64'
+itch-manifest = 'linux'
+gcc_arch = 'aarch64'
+
+[matrix.mac]
+runner = 'macos-15-intel'
+
+[[matrix.mac.config]]
+arch = 'x64'
+platform-suffix = 'mac'
+clang_arch = 'x86_64'
+build-only = true
+
+[[matrix.mac.config]]
+runner = 'macos-latest'
+arch = 'aarch64'
+platform-suffix = 'mac-arm64'
+clang_arch = 'arm64'
+build-only = true
+
+[[matrix.mac.config]]
+runner = 'macos-latest'
+arch = 'universal'
+platform-suffix = 'mac'
+itch-manifest = 'mac'
+publish-only = true

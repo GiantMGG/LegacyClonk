@@ -3,7 +3,7 @@
  *
  * Copyright (c) RedWolf Design
  * Copyright (c) 2013-2018, The OpenClonk Team and contributors
- * Copyright (c) 2017-2021, The LegacyClonk Team and contributors
+ * Copyright (c) 2017-2024, The LegacyClonk Team and contributors
  *
  * Distributed under the terms of the ISC license; see accompanying file
  * "COPYING" for details.
@@ -108,7 +108,7 @@ public:
 	bool hasUDP() const { return !!pNetIO_UDP; }
 
 	// initialization
-	bool Init(std::shared_ptr<spdlog::logger> logger, std::uint16_t iPortTCP, std::uint16_t iPortUDP, std::uint16_t iPortDiscovery = 0, std::uint16_t iPortRefServer = 0); // by main thread
+	bool Init(std::uint16_t iPortTCP, std::uint16_t iPortUDP, std::uint16_t iPortDiscovery = 0, std::uint16_t iPortRefServer = 0); // by main thread
 	void Clear(); // by main thread
 	void SetLocalCCore(const C4ClientCore &CCore); // by main thread
 
@@ -163,8 +163,6 @@ protected:
 	virtual bool OnConn(const C4NetIO::addr_t &addr, const C4NetIO::addr_t &AddrConnect, const C4NetIO::addr_t *pOwnAddr, C4NetIO *pNetIO) override;
 	virtual void OnDisconn(const C4NetIO::addr_t &addr, C4NetIO *pNetIO, const char *szReason) override;
 	virtual void OnPacket(const C4NetIOPacket &rPacket, C4NetIO *pNetIO) override;
-	// C4NetIOMan
-	virtual void OnError(const char *strError, C4NetIO *pNetIO);
 	// StdSchedulerProc
 	virtual bool Execute(int iTimeout) override;
 	virtual int GetTimeout() override;
@@ -198,6 +196,14 @@ protected:
 	void CheckTimeout();
 	void GenerateStatistics(int iInterval);
 	void SendConnPackets();
+};
+
+C4LOGGERCONFIG_NAME_TYPE(C4Network2IO);
+
+template<>
+struct C4LoggerConfig::Defaults<C4Network2IO>
+{
+	static constexpr spdlog::level::level_enum GuiLogLevel{spdlog::level::err};
 };
 
 enum C4Network2IOConnStatus
@@ -424,8 +430,8 @@ private:
 	PacketLink *pPackets;
 
 public:
-	const uint32_t getConnID() const { return iConnID; }
-	const uint32_t getPacketCount() const { return iPacketCount; }
+	uint32_t getConnID() const { return iConnID; }
+	uint32_t getPacketCount() const { return iPacketCount; }
 	void SetConnID(uint32_t inConnID) { iConnID = inConnID; }
 
 	const C4NetIOPacket *getPacket(uint32_t iNumber) const;

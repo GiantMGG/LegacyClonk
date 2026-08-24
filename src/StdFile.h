@@ -2,7 +2,7 @@
  * LegacyClonk
  *
  * Copyright (c) 1998-2000, Matthes Bender (RedWolf Design)
- * Copyright (c) 2017-2022, The LegacyClonk Team and contributors
+ * Copyright (c) 2017-2024, The LegacyClonk Team and contributors
  *
  * Distributed under the terms of the ISC license; see accompanying file
  * "COPYING" for details.
@@ -18,10 +18,9 @@
 
 #pragma once
 
+#include <cstdio>
+#include <cstdlib>
 #include <ctime>
-
-#include <stdio.h>
-#include <stdlib.h>
 
 #ifdef _WIN32
 #include <io.h>
@@ -29,7 +28,6 @@
 #define MakeDirectory CreateDirectoryA
 #else
 #include <dirent.h>
-#include <limits.h>
 #define _O_BINARY 0
 #define _MAX_PATH PATH_MAX
 #define _MAX_FNAME NAME_MAX

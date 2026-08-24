@@ -3,7 +3,7 @@
  *
  * Copyright (c) 2001-2009, RedWolf Design GmbH, http://www.clonk.de/
  * Copyright (c) 2010-2016, The OpenClonk Team and contributors
- * Copyright (c) 2018-2021, The LegacyClonk Team and contributors
+ * Copyright (c) 2018-2024, The LegacyClonk Team and contributors
  *
  * Distributed under the terms of the ISC license; see accompanying file
  * "COPYING" for details.
@@ -19,7 +19,6 @@
 
 #include "C4GuiListBox.h"
 #include "C4GuiResource.h"
-#include "C4Include.h"
 #include "C4StartupAboutDlg.h"
 
 #include "C4Version.h"
@@ -64,7 +63,7 @@ static struct DeveloperList : public PersonList
 
 		for (auto &p : developers)
 		{
-			textbox->AddTextLine(p.nick ? std::format("{} <c f7f76f>({})</c>", p.name, p.nick).c_str() : p.name, &font, C4GUI_MessageFontClr, false, true);
+			textbox->AddTextLine(p.nick ? (p.name ? std::format("{} <c f7f76f>({})</c>", p.name, p.nick).c_str() : std::format("<c f7f76f>{}</c>", p.nick).c_str()) : p.name, &font, C4GUI_MessageFontClr, false, true);
 		}
 	}
 
@@ -75,10 +74,17 @@ static struct DeveloperList : public PersonList
 		std::stringstream out;
 		for (auto &p : developers)
 		{
-			out << p.name;
-			if (p.nick)
+			if (p.name)
 			{
-				out << opening_tag << " (" << p.nick << ")" << closing_tag;
+				out << p.name;
+				if (p.nick)
+				{
+					out << opening_tag << " (" << p.nick << ")" << closing_tag;
+				}
+			}
+			else
+			{
+				out << opening_tag << p.nick << closing_tag;
 			}
 			out << (newline ? "\n" : ", ");
 		}
@@ -115,7 +121,8 @@ scripting =
 	{"Florian Gro\xdf", "flgr"},
 	{"Tobias Zwick", "Newton"},
 	{"Bernhard Bonigl", "boni"},
-	{"Viktor Yuschuk", "Viktor"}
+	{"Viktor Yuschuk", "Viktor"},
+	{nullptr, "Raven"}
 },
 additionalArt =
 {
@@ -125,6 +132,8 @@ additionalArt =
 	{"Christopher Reimann", "Benzol"},
 	{"Jonathan Veit", "AniProGuy"},
 	{"Arthur M\xf6ller", "Aqua"},
+	{"Tobias Zwick", "Newton"},
+	{nullptr, "Raven"}
 },
 music =
 {
@@ -151,7 +160,7 @@ template<int32_t left, int32_t top, int32_t right, int32_t bottom>
 class CustomMarginTextWindow : public C4GUI::TextWindow
 {
 public:
-	CustomMarginTextWindow(C4Rect &rtBounds, size_t iPicWdt = 0, size_t iPicHgt = 0, size_t iPicPadding = 0, size_t iMaxLines = 100, size_t iMaxTextLen = 4096, const char *szIndentChars = "    ", bool fAutoGrow = false, const C4Facet *pOverlayPic = nullptr, int iOverlayBorder = 0, bool fMarkup = false) : C4GUI::TextWindow{rtBounds, iPicWdt, iPicHgt, iPicPadding, iMaxLines, iMaxTextLen, szIndentChars, fAutoGrow, pOverlayPic, iOverlayBorder, fMarkup}
+	CustomMarginTextWindow(C4Rect &rtBounds, std::int32_t iPicWdt = 0, std::int32_t iPicHgt = 0, std::int32_t iPicPadding = 0, size_t iMaxLines = 100, size_t iMaxTextLen = 4096, const char *szIndentChars = "    ", bool fAutoGrow = false, const C4GUI::OverlayFrameSpec *pOverlayPic = nullptr, int iOverlayBorder = 0, bool fMarkup = false) : C4GUI::TextWindow{rtBounds, iPicWdt, iPicHgt, iPicPadding, iMaxLines, iMaxTextLen, szIndentChars, fAutoGrow, pOverlayPic, iOverlayBorder, fMarkup}
 	{
 		UpdateSize();
 	}
@@ -282,7 +291,7 @@ C4StartupAboutDlg::C4StartupAboutDlg() : C4StartupDlg(LoadResStr(C4ResStrTableKe
 	DrawPersonList(page1, code, "Engine and Tools", caDevelopersCol1.GetAll());
 
 	C4GUI::ComponentAligner caDevelopersCol2(caDevelopers.GetFromLeft(caMain.GetWidth()*1/3), 0,0, false);
-	DrawPersonList(page1, scripting, "Scripting", caDevelopersCol2.GetFromTop(caDevelopersCol2.GetHeight()*2/3));
+	DrawPersonList(page1, scripting, "Scripting", caDevelopersCol2.GetFromTop(caDevelopersCol2.GetHeight()*1/2));
 	DrawPersonList(page1, additionalArt, "Additional Art", caDevelopersCol2.GetAll());
 
 	C4GUI::ComponentAligner caDevelopersCol3(caDevelopers.GetFromLeft(caMain.GetWidth()*1/3), 0,0, false);

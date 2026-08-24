@@ -3,7 +3,7 @@
  *
  * Copyright (c) RedWolf Design
  * Copyright (c) 2001, Sven2
- * Copyright (c) 2017-2021, The LegacyClonk Team and contributors
+ * Copyright (c) 2017-2024, The LegacyClonk Team and contributors
  *
  * Distributed under the terms of the ISC license; see accompanying file
  * "COPYING" for details.
@@ -28,9 +28,8 @@
 #include <StdFont.h>
 #include <StdWindow.h>
 
-#include <stdio.h>
-#include <limits.h>
 #include <cmath>
+#include <cstdio>
 #include <numbers>
 
 // Global access pointer
@@ -44,7 +43,7 @@ void CBltTransform::SetRotate(int iAngle, float fOffX, float fOffY) // set by an
 	// determine sine and cos of reversed angle in radians
 	// fAngle = -iAngle/100 * pi/180 = iAngle * -pi/18000
 	float fAngle = static_cast<float>(iAngle) * (-1.7453292519943295769236907684886e-4f);
-	float fsin = sinf(fAngle); float fcos = cosf(fAngle);
+	float fsin = std::sin(fAngle); float fcos = std::cos(fAngle);
 	// set matrix values
 	mat[0] = +fcos; mat[1] = +fsin; mat[2] = (1 - fcos) * fOffX - fsin * fOffY;
 	mat[3] = -fsin; mat[4] = +fcos; mat[5] = (1 - fcos) * fOffY + fsin * fOffX;
@@ -88,6 +87,34 @@ void CBltTransform::TransformPoint(float &rX, float &rY)
 	rX = fX; // apply temp
 }
 
+CPattern::CPattern(const CPattern &nPattern)
+	: sfcPattern32{nPattern.sfcPattern32},
+	  sfcPattern8{nPattern.sfcPattern8},
+	  Wdt{nPattern.Wdt},
+	  Hgt{nPattern.Hgt},
+	  Zoom{nPattern.Zoom},
+	  Monochrome{nPattern.Monochrome},
+	  pClrs{nPattern.pClrs},
+	  pAlpha{nPattern.pAlpha}
+{
+	if (sfcPattern32) sfcPattern32->Lock();
+
+	if (nPattern.CachedPattern)
+	{
+		if (!sfcPattern32)
+		{
+			throw std::runtime_error{"Cached pattern without surface to back it"};
+		}
+
+		CachedPattern = new uint32_t[sfcPattern32->Wdt * sfcPattern32->Hgt];
+		memcpy(CachedPattern, nPattern.CachedPattern, sfcPattern32->Wdt * sfcPattern32->Hgt * 4);
+	}
+	else
+	{
+		CachedPattern = nullptr;
+	}
+}
+
 CPattern &CPattern::operator=(const CPattern &nPattern)
 {
 	pClrs        = nPattern.pClrs;
@@ -104,7 +131,7 @@ CPattern &CPattern::operator=(const CPattern &nPattern)
 		}
 
 		CachedPattern = new uint32_t[sfcPattern32->Wdt * sfcPattern32->Hgt];
-		memcpy(CachedPattern, nPattern.CachedPattern, sfcPattern32->Wdt * sfcPattern32->Hgt * 4);
+		std::memcpy(CachedPattern, nPattern.CachedPattern, sfcPattern32->Wdt * sfcPattern32->Hgt * 4);
 	}
 	else
 	{
@@ -535,9 +562,9 @@ bool CStdDDraw::GetSurfaceSize(C4Surface *sfcSurface, int &iWdt, int &iHgt)
 bool CStdDDraw::SetPrimaryPalette(uint8_t *pBuf, uint8_t *pAlphaBuf)
 {
 	// store into loaded pal
-	memcpy(&Pal.Colors, pBuf, 768);
+	std::memcpy(&Pal.Colors, pBuf, 768);
 	// store alpha pal
-	if (pAlphaBuf) memcpy(Pal.Alpha, pAlphaBuf, 256);
+	if (pAlphaBuf) std::memcpy(Pal.Alpha, pAlphaBuf, 256);
 	// success
 	return true;
 }
@@ -813,10 +840,10 @@ bool CStdDDraw::Blit8(C4Surface *sfcSource, int fx, int fy, int fwdt, int fhgt,
 	pTransform->TransformPoint(ttx1, tty1);
 	pTransform->TransformPoint(ttx2, tty2);
 	pTransform->TransformPoint(ttx3, tty3);
-	int ttxMin = std::max<int>(static_cast<int>(floor((std::min)((std::min)(ttx0, ttx1), (std::min)(ttx2, ttx3)))), 0);
-	int ttxMax = std::min<int>(static_cast<int>(ceil((std::max)((std::max)(ttx0, ttx1), (std::max)(ttx2, ttx3)))), sfcTarget->Wdt);
-	int ttyMin = std::max<int>(static_cast<int>(floor((std::min)((std::min)(tty0, tty1), (std::min)(tty2, tty3)))), 0);
-	int ttyMax = std::min<int>(static_cast<int>(ceil((std::max)((std::max)(tty0, tty1), (std::max)(tty2, tty3)))), sfcTarget->Hgt);
+	int ttxMin = std::max<int>(static_cast<int>(std::floor((std::min)((std::min)(ttx0, ttx1), (std::min)(ttx2, ttx3)))), 0);
+	int ttxMax = std::min<int>(static_cast<int>(std::ceil((std::max)((std::max)(ttx0, ttx1), (std::max)(ttx2, ttx3)))), sfcTarget->Wdt);
+	int ttyMin = std::max<int>(static_cast<int>(std::floor((std::min)((std::min)(tty0, tty1), (std::min)(tty2, tty3)))), 0);
+	int ttyMax = std::min<int>(static_cast<int>(std::ceil((std::max)((std::max)(tty0, tty1), (std::max)(tty2, tty3)))), sfcTarget->Hgt);
 	// blit within target rect
 	for (int y = ttyMin; y < ttyMax; ++y)
 		for (int x = ttxMin; x < ttxMax; ++x)
@@ -860,7 +887,8 @@ bool CStdDDraw::BlitRotate(C4Surface *sfcSource, int fx, int fy, int fwdt, int f
 	fcx = fwdt / 2; fcy = fhgt / 2;
 	tcx = twdt / 2; tcy = thgt / 2;
 	// Adjust angle range
-	while (iAngle < 0) iAngle += 36000; while (iAngle > 35999) iAngle -= 36000;
+	while (iAngle < 0) iAngle += 36000;
+	while (iAngle > 35999) iAngle -= 36000;
 	// Exact/free rotation
 	switch (iAngle)
 	{
@@ -899,8 +927,8 @@ bool CStdDDraw::BlitRotate(C4Surface *sfcSource, int fx, int fy, int fwdt, int f
 	default:
 		// Calculate rotation matrix
 		dang = std::numbers::pi * iAngle / 18000.0;
-		mtx[0] = cos(dang); mtx[1] = -sin(dang);
-		mtx[2] = sin(dang); mtx[3] = cos(dang);
+		mtx[0] = std::cos(dang); mtx[1] = -std::sin(dang);
+		mtx[2] = std::sin(dang); mtx[3] = std::cos(dang);
 		// Blit source rect
 		for (ycnt = 0; ycnt < fhgt; ycnt++)
 		{
@@ -1097,8 +1125,11 @@ void CStdDDraw::DrawBox(C4Surface *sfcDest, int iX1, int iY1, int iX2, int iY2, 
 			sfcDest->Unlock(); return;
 		}
 		// Clip to surface/clip
-		if (iX1 < (std::max)(0, ClipX1)) iX1 = (std::max)(0, ClipX1); if (iX2 > (std::min)(iSfcWdt - 1, ClipX2)) iX2 = (std::min)(iSfcWdt - 1, ClipX2);
-		if (iY1 < (std::max)(0, ClipY1)) iY1 = (std::max)(0, ClipY1); if (iY2 > (std::min)(iSfcHgt - 1, ClipY2)) iY2 = (std::min)(iSfcHgt - 1, ClipY2);
+		if (iX1 < (std::max)(0, ClipX1)) iX1 = (std::max)(0, ClipX1);
+		if (iX2 > (std::min)(iSfcWdt - 1, ClipX2)) iX2 = (std::min)(iSfcWdt - 1, ClipX2);
+
+		if (iY1 < (std::max)(0, ClipY1)) iY1 = (std::max)(0, ClipY1);
+		if (iY2 > (std::min)(iSfcHgt - 1, ClipY2)) iY2 = (std::min)(iSfcHgt - 1, ClipY2);
 		// Set lines
 		for (ycnt = iY2 - iY1; ycnt >= 0; ycnt--)
 			for (xcnt = iX2 - iX1; xcnt >= 0; xcnt--)
@@ -1133,7 +1164,8 @@ void CStdDDraw::DrawHorizontalLine(C4Surface *sfcDest, int x1, int x2, int y, ui
 		sfcDest->Unlock(); return;
 	}
 	// Clip to clip
-	if (x1 < clpx1) x1 = clpx1; if (x2 > clpx2) x2 = clpx2;
+	if (x1 < clpx1) x1 = clpx1;
+	if (x2 > clpx2) x2 = clpx2;
 	// Set line
 	for (xcnt = x2 - x1; xcnt >= 0; xcnt--) sfcDest->SetPix(x1 + xcnt, y, col);
 	// Unlock surface
@@ -1163,7 +1195,8 @@ void CStdDDraw::DrawVerticalLine(C4Surface *sfcDest, int x, int y1, int y2, uint
 		sfcDest->Unlock(); return;
 	}
 	// Clip to clip
-	if (y1 < clpy1) y1 = clpy1; if (y2 > clpy2) y2 = clpy2;
+	if (y1 < clpy1) y1 = clpy1;
+	if (y2 > clpy2) y2 = clpy2;
 	// Set line
 	for (ycnt = y1; ycnt <= y2; ycnt++) sfcDest->SetPix(x, ycnt, col);
 	// Unlock surface
@@ -1193,7 +1226,7 @@ void CStdDDraw::DrawPatternedCircle(C4Surface *sfcDest, int x, int y, int r, uin
 	if (!sfcDest->Lock()) return;
 	for (int ycnt = -r; ycnt < r; ycnt++)
 	{
-		int lwdt = static_cast<int>(sqrt(static_cast<float>(r * r - ycnt * ycnt)));
+		int lwdt = static_cast<int>(std::sqrt(static_cast<float>(r * r - ycnt * ycnt)));
 		// Set line
 		for (int xcnt = x - lwdt; xcnt < x + lwdt; ++xcnt)
 		{
@@ -1297,7 +1330,7 @@ void CStdDDraw::SetBlitMode(uint32_t dwBlitMode)
 	this->dwBlitMode = dwBlitMode & Config.Graphics.AllowedBlitModes;
 }
 
-CStdDDraw *DDrawInit(CStdApp *pApp, int Engine)
+CStdDDraw *DDrawInit(CStdApp *pApp, C4LogSystem &logSystem, int Engine)
 {
 	// create engine
 	switch (iGfxEngine = Engine)
@@ -1310,7 +1343,7 @@ CStdDDraw *DDrawInit(CStdApp *pApp, int Engine)
 	}
 	if (!lpDDraw) return nullptr;
 	// init it
-	if (!lpDDraw->Init(pApp))
+	if (!lpDDraw->Init(pApp, logSystem))
 	{
 		delete lpDDraw;
 		return nullptr;
@@ -1319,13 +1352,13 @@ CStdDDraw *DDrawInit(CStdApp *pApp, int Engine)
 	return lpDDraw;
 }
 
-bool CStdDDraw::Init(CStdApp *pApp)
+bool CStdDDraw::Init(CStdApp *pApp, C4LogSystem &logSystem)
 {
 	this->pApp = pApp;
-	logger = CreateLogger(std::string{GetEngineName()});
+	logger = logSystem.CreateLoggerWithDifferentName(Config.Logging.DDraw, std::string{GetEngineName()});
 
 	logger->debug("Init DDraw");
-	logger->debug("  Create DirectDraw...");
+	logger->debug("Create DirectDraw...");
 
 	if (!CreateDirectDraw())
 	{
@@ -1333,7 +1366,7 @@ bool CStdDDraw::Init(CStdApp *pApp)
 		return false;
 	}
 
-	logger->debug("  Create Device...");
+	logger->debug("Create Device...");
 
 	if (!CreatePrimarySurfaces())
 	{
@@ -1341,7 +1374,7 @@ bool CStdDDraw::Init(CStdApp *pApp)
 		return false;
 	}
 
-	logger->debug("  Create Clipper");
+	logger->debug("Create Clipper");
 
 	if (!CreatePrimaryClipper())
 	{

@@ -3,7 +3,7 @@
  *
  * Copyright (c) RedWolf Design
  * Copyright (c) 2001, Sven2
- * Copyright (c) 2017-2020, The LegacyClonk Team and contributors
+ * Copyright (c) 2017-2022, The LegacyClonk Team and contributors
  *
  * Distributed under the terms of the ISC license; see accompanying file
  * "COPYING" for details.
@@ -98,6 +98,7 @@ public:
 	C4Group *FindGroup(int32_t Contents, C4Group *pAfter = nullptr, bool fSamePrio = false); // search for suitable group in list
 	C4Group *FindEntry(const char *szWildcard, int32_t *pPriority = nullptr, int32_t *pID = nullptr); // find entry in groups; store priority of group if ptr is given
 	C4Group *GetGroup(int32_t iIndex);
+	C4Group **GetGroupPtr(std::int32_t index);
 	bool LoadEntryString(const char *szEntryName, StdStrBuf &rBuf);
 	C4Group *RegisterParentFolders(const char *szScenFilename); // register all parent .c4f groups to the given scenario filename and return an open group file of the innermost parent c4f
 

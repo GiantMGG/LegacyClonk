@@ -3,7 +3,7 @@
  *
  * Copyright (c) RedWolf Design
  * Copyright (c) 2007, matthes
- * Copyright (c) 2017-2021, The LegacyClonk Team and contributors
+ * Copyright (c) 2017-2025, The LegacyClonk Team and contributors
  *
  * Distributed under the terms of the ISC license; see accompanying file
  * "COPYING" for details.
@@ -17,7 +17,6 @@
 
 // dialogs for update, and the actual update application code
 
-#include "C4Include.h"
 #include "C4UpdateDlg.h"
 #include "C4DownloadDlg.h"
 
@@ -28,9 +27,10 @@
 #ifdef _WIN32
 #include <shellapi.h>
 #else
+#include <cerrno>
+
 #include <unistd.h>
 #include <fcntl.h>
-#include <errno.h>
 #include <sys/wait.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
@@ -67,7 +67,7 @@ void C4UpdateDlg::UpdateText()
 	{
 		if (errno == EAGAIN)
 			return;
-		const std::string errorMessage{std::format("read error from c4group: {}", strerror(errno))};
+		const std::string errorMessage{std::format("read error from c4group: {}", std::strerror(errno))};
 		LogNTr(spdlog::level::err, errorMessage);
 		AddLine(errorMessage.c_str());
 		UpdateRunning = false;
@@ -82,8 +82,8 @@ void C4UpdateDlg::UpdateText()
 		int child_status = 0;
 		if (waitpid(pid, &child_status, WNOHANG) == -1)
 		{
-			LogNTr(spdlog::level::err, "error in waitpid: {}", strerror(errno));
-			AddLine(std::format("error in waitpid: {}", strerror(errno)).c_str());
+			LogNTr(spdlog::level::err, "error in waitpid: {}", std::strerror(errno));
+			AddLine(std::format("error in waitpid: {}", std::strerror(errno)).c_str());
 			succeeded = false;
 		}
 		// check if c4group failed.
@@ -184,7 +184,7 @@ bool C4UpdateDlg::ApplyUpdate(const char *strUpdateFile, bool fDeleteUpdate, C4G
 	// Look for update program at top level
 	if (!UpdateGroup.ExtractEntry(strUpdateProg.getData(), strUpdateProg.getData()))
 		// Not found: look for an engine update pack one level down
-		if (UpdateGroup.FindEntry(std::format("cr_*_%s.c4u", C4_OS).c_str(), strSubGroup))
+		if (UpdateGroup.FindEntry(std::format("lc_*_{}.c4u", C4_OS).c_str(), strSubGroup))
 			// Extract update program from sub group
 			if (SubGroup.OpenAsChild(&UpdateGroup, strSubGroup))
 			{
@@ -226,7 +226,7 @@ bool C4UpdateDlg::ApplyUpdate(const char *strUpdateFile, bool fDeleteUpdate, C4G
 		if (c4group_output[1] != STDOUT_FILENO && c4group_output[1] != STDERR_FILENO)
 			close(c4group_output[1]);
 		execl(C4CFN_UpdateProgram, C4CFN_UpdateProgram, "-v", strUpdateFile, (fDeleteUpdate ? "-yd" : "-y"), static_cast<char *>(0));
-		printf("execl failed: %s\n", strerror(errno));
+		printf("execl failed: %s\n", std::strerror(errno));
 		exit(1);
 	// Parent process
 	default:
@@ -269,6 +269,8 @@ bool C4UpdateDlg::CheckForUpdates(C4GUI::Screen *pScreen, bool fAutomatic)
 	Config.Network.LastUpdateTime = static_cast<int32_t>(time(nullptr));
 	// Get current update version from server
 	C4GameVersion UpdateVersion;
+	CStdOSVersion osVersion;
+	std::string friendlyOSName;
 	C4GUI::Dialog *pWaitDlg = nullptr;
 	if (pScreen && C4GUI::IsGUIValid())
 	{
@@ -295,7 +297,7 @@ bool C4UpdateDlg::CheckForUpdates(C4GUI::Screen *pScreen, bool fAutomatic)
 		}
 		if (!fAborted)
 		{
-			fSuccess = VerChecker.GetVersion(&UpdateVersion);
+			fSuccess = VerChecker.GetVersion(UpdateVersion, osVersion, friendlyOSName);
 			VerChecker.GetRedirect(strUpdateRedirect);
 		}
 		Application.InteractiveThread.RemoveProc(&VerChecker);
@@ -351,19 +353,46 @@ bool C4UpdateDlg::CheckForUpdates(C4GUI::Screen *pScreen, bool fAutomatic)
 
 	if (!pScreen)
 	{
-		return C4UpdateDlg::IsValidUpdate(UpdateVersion);
+		return C4UpdateDlg::IsValidUpdate(UpdateVersion) && CStdOSVersion::GetLocal() >= osVersion;
 	}
 
 	// Applicable update available
 	if (C4UpdateDlg::IsValidUpdate(UpdateVersion))
 	{
+		if (CStdOSVersion::GetLocal() < osVersion)
+		{
+			const std::string message{LoadResStr(
+							C4ResStrTableKey::IDS_MSG_UPDATENOTAVAILABLEFOROSVERSION,
+							UpdateVersion.GetString(),
+							friendlyOSName,
+							std::format("{}", osVersion),
+							CStdOSVersion::GetFriendlyOSName(),
+							std::format("{}", CStdOSVersion::GetLocal())
+							)};
+
+			// Prompt for whether automatic updates should be disabled
+			if (pScreen->ShowMessageModal(message.c_str(), Config.Network.UpdateServerAddress, C4GUI::MessageDialog::btnYesNo, C4GUI::Ico_Error))
+			{
+				Config.Network.AutomaticUpdate = false;
+				Config.Save();
+			}
+
+			return false;
+		}
+
 		// Prompt user, then apply update
 		const std::string message{LoadResStr(C4ResStrTableKey::IDS_MSG_ANUPDATETOVERSIONISAVAILA, UpdateVersion.GetString())};
 		if (pScreen->ShowMessageModal(message.c_str(), Config.Network.UpdateServerAddress, C4GUI::MessageDialog::btnYesNo, C4GUI::Ico_Ex_Update))
+		{
 			if (!DoUpdate(UpdateVersion, pScreen))
+			{
 				pScreen->ShowMessage(LoadResStr(C4ResStrTableKey::IDS_MSG_UPDATEFAILED), Config.Network.UpdateServerAddress, C4GUI::Ico_Ex_Update);
+			}
 			else
+			{
 				return true;
+			}
+		}
 	}
 	// No applicable update available
 	else
@@ -384,19 +413,41 @@ bool C4Network2VersionInfoClient::QueryVersion()
 	return Query(StdBuf{}, false);
 }
 
-bool C4Network2VersionInfoClient::GetVersion(C4GameVersion *piVerOut)
+bool C4Network2VersionInfoClient::GetVersion(C4GameVersion &saveToVer, CStdOSVersion &osVersion, std::string &friendlyOSName)
 {
 	// Sanity check
 	if (isBusy() || !isSuccess()) return false;
 	// Parse response
-	piVerOut->Set("", 0, 0, 0, 0, 0);
+	saveToVer.Set("", 0, 0, 0, 0, 0);
+
+	struct VersionAndOsVersion
+	{
+		C4GameVersion &Version;
+		CStdOSVersion &OsVersion;
+		std::string &FriendlyOSName;
+
+		void CompileFunc(StdCompiler *const comp)
+		{
+			comp->Value(mkNamingAdapt(mkParAdapt(Version, false),	"Version"));
+
+			if (const auto guard = comp->Name(C4_OS))
+			{
+				comp->Value(mkNamingAdapt(OsVersion, "RequiredOSVersion"));
+				comp->Value(mkNamingAdapt(FriendlyOSName, "FriendlyOSName"));
+			}
+			else if (comp->isCompiler())
+			{
+				OsVersion = {};
+				FriendlyOSName.clear();
+			}
+		}
+	};
+
+	VersionAndOsVersion versionAndOsVersion{saveToVer, osVersion, friendlyOSName};
+
 	try
 	{
-		CompileFromBuf<StdCompilerINIRead>(mkNamingAdapt(
-			mkNamingAdapt(
-				mkParAdapt(*piVerOut, false),
-				"Version"),
-			C4ENGINENAME), getResultString());
+		CompileFromBuf<StdCompilerINIRead>(mkNamingAdapt(versionAndOsVersion, C4ENGINENAME), getResultString());
 	}
 	catch (const StdCompiler::Exception &e)
 	{
@@ -404,7 +455,7 @@ bool C4Network2VersionInfoClient::GetVersion(C4GameVersion *piVerOut)
 		return false;
 	}
 	// validate version
-	if (!piVerOut->iVer[0])
+	if (!saveToVer.iVer[0])
 	{
 		SetError(LoadResStr(C4ResStrTableKey::IDS_ERR_INVALIDREPLYFROMSERVER));
 		return false;

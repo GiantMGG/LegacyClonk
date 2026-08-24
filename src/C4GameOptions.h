@@ -3,7 +3,7 @@
  *
  * Copyright (c) RedWolf Design
  * Copyright (c) 2005, Sven2
- * Copyright (c) 2017-2021, The LegacyClonk Team and contributors
+ * Copyright (c) 2017-2023, The LegacyClonk Team and contributors
  *
  * Distributed under the terms of the ISC license; see accompanying file
  * "COPYING" for details.
@@ -156,6 +156,18 @@ private:
 		virtual void DoDropdownSelChange(int32_t newSelection) override;
 
 		virtual void Update() override; // update data to current runtime join state
+	};
+
+	class OptionVote : public OptionDropdown
+	{
+	public:
+		OptionVote(C4GameOptionsList *forDlg);
+
+	protected:
+		virtual void DoDropdownFill(C4GUI::ComboBox_FillCB *filler) override;
+		virtual void DoDropdownSelChange(int32_t newSelection) override;
+
+		virtual void Update() override; // update data to current vote state
 	};
 
 public:

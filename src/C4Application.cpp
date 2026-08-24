@@ -2,7 +2,7 @@
  * LegacyClonk
  *
  * Copyright (c) 1998-2000, Matthes Bender (RedWolf Design)
- * Copyright (c) 2017-2021, The LegacyClonk Team and contributors
+ * Copyright (c) 2017-2024, The LegacyClonk Team and contributors
  *
  * Distributed under the terms of the ISC license; see accompanying file
  * "COPYING" for details.
@@ -16,7 +16,6 @@
 
 /* Main class to initialize configuration and execute the game */
 
-#include <C4Include.h>
 #include <C4Application.h>
 #include <C4Version.h>
 #ifdef _WIN32
@@ -50,10 +49,10 @@ C4Sec1TimerCallbackBase::C4Sec1TimerCallbackBase() : pNext(nullptr), iRefs(2)
 }
 
 C4Application::C4Application() :
-	isFullScreen(true), UseStartupDialog(true), launchEditor(false), restartAtEnd(false),
-	DDraw(nullptr), AppState(C4AS_None),
-	iLastGameTick(0), iGameTickDelay(defaultGameTickDelay), iExtraGameTickDelay(0), pGamePadControl(nullptr),
-	CheckForUpdates(false) {}
+	isFullScreen(true), UseStartupDialog(true), CheckForUpdates(false), launchEditor(false),
+	restartAtEnd(false), pGamePadControl(nullptr),
+	iLastGameTick(0), iGameTickDelay(defaultGameTickDelay), iExtraGameTickDelay(0), DDraw(nullptr),
+	AppState(C4AS_None) {}
 
 C4Application::~C4Application()
 {
@@ -79,10 +78,19 @@ void C4Application::DoInit()
 	assert(AppState == C4AS_None);
 	// Config overwrite by parameter
 	StdStrBuf sConfigFilename;
+	bool verbose{false};
 	char szParameter[_MAX_PATH + 1];
 	for (int32_t iPar = 0; SGetParameter(GetCommandLine(), iPar, szParameter, _MAX_PATH); iPar++)
+	{
 		if (SEqual2NoCase(szParameter, "/config:"))
+		{
 			sConfigFilename.Copy(szParameter + 8);
+		}
+		else if (!verbose && SEqualNoCase(szParameter, "/verbose"))
+		{
+			verbose = true;
+		}
+	}
 	// Config check
 	Config.Init();
 	Config.Load(true, sConfigFilename.getData());
@@ -113,7 +121,7 @@ void C4Application::DoInit()
 	C4Group_SetSortList(C4CFN_FLS);
 
 	// Open log
-	LogSystem.OpenLog();
+	LogSystem.OpenLog(verbose);
 
 	// init system group
 	if (!SystemGroup.Open(C4CFN_System))
@@ -126,7 +134,7 @@ void C4Application::DoInit()
 
 	// Language override by parameter
 	const char *pLanguage;
-	if (pLanguage = SSearchNoCase(GetCommandLine(), "/Language:"))
+	if ((pLanguage = SSearchNoCase(GetCommandLine(), "/Language:")))
 		SCopyUntil(pLanguage, Config.General.LanguageEx, ' ', CFG_MaxString);
 
 	// Init external language packs
@@ -204,7 +212,7 @@ void C4Application::DoInit()
 	spdlog::info("Version: " C4VERSION " " C4_OS);
 
 	// Initialize OpenGL
-	DDraw = DDrawInit(this, Config.Graphics.Engine);
+	DDraw = DDrawInit(this, LogSystem, Config.Graphics.Engine);
 	if (!DDraw) { LogFatal(C4ResStrTableKey::IDS_ERR_DDRAW); Clear(); throw StartupException{LogSystem.GetFatalErrorString()}; }
 
 #if defined(_WIN32) && !defined(USE_CONSOLE)
@@ -648,3 +656,10 @@ void C4Application::SetNextMission(const char *szMissionFilename)
 	else
 		NextMission.Clear();
 }
+
+#ifdef WITH_GLIB
+std::shared_ptr<spdlog::logger> C4Application::CreateGLibLogger()
+{
+	return LogSystem.CreateLogger(Config.Logging.GLib);
+}
+#endif

@@ -3,7 +3,7 @@
  *
  * Copyright (c) RedWolf Design
  * Copyright (c) 2013-2018, The OpenClonk Team and contributors
- * Copyright (c) 2017-2022, The LegacyClonk Team and contributors
+ * Copyright (c) 2017-2026, The LegacyClonk Team and contributors
  *
  * Distributed under the terms of the ISC license; see accompanying file
  * "COPYING" for details.
@@ -15,7 +15,6 @@
  * for the above references.
  */
 
-#include <C4Include.h>
 #include <C4Network2IO.h>
 #include <C4Network2Reference.h>
 
@@ -53,9 +52,9 @@ C4Network2IO::C4Network2IO()
 	pConnList(nullptr),
 	iNextConnID(0),
 	fAllowConnect(false),
-	fExclusiveConn(false),
 	pAutoAcceptList(nullptr),
-	iLastPing(0), iLastExecute(0), iLastStatistic(0),
+	fExclusiveConn(false),
+	iLastExecute(0), iLastPing(0), iLastStatistic(0),
 	iTCPIRate(0), iTCPORate(0), iTCPBCRate(0),
 	iUDPIRate(0), iUDPORate(0), iUDPBCRate(0)
 {
@@ -90,13 +89,13 @@ static T *CreateNetIO(const std::shared_ptr<spdlog::logger> &logger, const char 
 	}
 }
 
-bool C4Network2IO::Init(std::shared_ptr<spdlog::logger> logger, const std::uint16_t iPortTCP, const std::uint16_t iPortUDP, const std::uint16_t iPortDiscover, const std::uint16_t iPortRefServer) // by main thread
+bool C4Network2IO::Init(const std::uint16_t iPortTCP, const std::uint16_t iPortUDP, const std::uint16_t iPortDiscover, const std::uint16_t iPortRefServer) // by main thread
 {
 	// Already initialized? Clear first
 	if (pNetIO_TCP || pNetIO_UDP) Clear();
 
 	// init members
-	this->logger = std::move(logger);
+	logger = Application.LogSystem.CreateLogger(Config.Logging.Network2IO);
 	iLastPing = iLastStatistic = timeGetTime();
 	iTCPIRate = iTCPORate = iTCPBCRate = 0;
 	iUDPIRate = iUDPORate = iUDPBCRate = 0;
@@ -114,7 +113,7 @@ bool C4Network2IO::Init(std::shared_ptr<spdlog::logger> logger, const std::uint1
 	}
 
 	// initialize net i/o classes: TCP first
-	pNetIO_TCP = CreateNetIO(this->logger, "TCP I/O", new C4NetIOTCP{}, iPortTCP, Thread);
+	pNetIO_TCP = CreateNetIO(logger, "TCP I/O", new C4NetIOTCP{}, iPortTCP, Thread);
 	if (pNetIO_TCP)
 	{
 		pNetIO_TCP->SetCallback(this);
@@ -126,7 +125,7 @@ bool C4Network2IO::Init(std::shared_ptr<spdlog::logger> logger, const std::uint1
 	}
 
 	// then UDP
-	pNetIO_UDP = CreateNetIO(this->logger, "UDP I/O", new C4NetIOUDP{}, iPortUDP, Thread);
+	pNetIO_UDP = CreateNetIO(logger, "UDP I/O", new C4NetIOUDP{}, iPortUDP, Thread);
 	if (pNetIO_UDP)
 	{
 		pNetIO_UDP->SetCallback(this);
@@ -153,11 +152,11 @@ bool C4Network2IO::Init(std::shared_ptr<spdlog::logger> logger, const std::uint1
 		pNetIODiscover = new C4Network2IODiscover(iPortRefServer);
 		pNetIODiscover->SetDiscoverable(false);
 
-		pNetIODiscover = CreateNetIO(this->logger, "discovery", pNetIODiscover, iPortDiscover, Thread);
+		pNetIODiscover = CreateNetIO(logger, "discovery", pNetIODiscover, iPortDiscover, Thread);
 	}
 
 	// plus reference server
-	pRefServer = CreateNetIO(this->logger, "reference server", new C4Network2RefServer{}, iPortRefServer, Thread);
+	pRefServer = CreateNetIO(logger, "reference server", new C4Network2RefServer{}, iPortRefServer, Thread);
 
 	// own timer
 	iLastExecute = timeGetTime();
@@ -250,8 +249,9 @@ bool C4Network2IO::ConnectWithSocket(const C4NetIO::addr_t &addr, C4Network2IOPr
 	// connect
 	if (!pConn->Connect())
 	{
-		// show error
-		logger->error("could not connect to {} using {}: {}", addr.ToString(),
+		// log error as warning - it's not of the same severity as other Network2IO errors
+		// and may happen rather frequently with no impact to the player
+		logger->warn("could not connect to {} using {}: {}", addr.ToString(),
 			getNetIOName(pNetIO), pNetIO->GetError() ? pNetIO->GetError() : "");
 		pNetIO->ResetError();
 		// remove class
@@ -411,9 +411,13 @@ bool C4Network2IO::BroadcastMsg(const C4NetIOPacket &rPkt) // by both
 	// select one connection per reachable client
 	CStdLock ConnListLock(&ConnListCSec);
 	for (C4Network2IOConnection *pConn = pConnList; pConn; pConn = pConn->pNext)
+	{
 		if (pConn->isAccepted())
+		{
 			if (pConn->getProtocol() == P_UDP)
+			{
 				pConn->SetBroadcastTarget(true);
+			}
 			else if (pConn->getProtocol() == P_TCP)
 			{
 				C4Network2IOConnection *pConn2 = GetMsgConnection(pConn->getClientID());
@@ -421,6 +425,8 @@ bool C4Network2IO::BroadcastMsg(const C4NetIOPacket &rPkt) // by both
 					pConn->SetBroadcastTarget(true);
 				pConn2->DelRef();
 			}
+		}
+	}
 	// send
 	bool fSuccess = Broadcast(rPkt);
 	// end broadcast
@@ -598,12 +604,6 @@ void C4Network2IO::OnPacket(const class C4NetIOPacket &rPacket, C4NetIO *pNetIO)
 	if (timeGetTime() - iTime > 100)
 		logger->debug("OnPacket: ... blocked {} ms for handling!", timeGetTime() - iTime);
 #endif
-}
-
-void C4Network2IO::OnError(const char *strError, C4NetIO *pNetIO)
-{
-	// let's log it
-	logger->error("{} error: {}", getNetIOName(pNetIO), strError);
 }
 
 bool C4Network2IO::Execute(int iTimeout)
@@ -806,7 +806,8 @@ bool C4Network2IO::doAutoAccept(const C4ClientCore &CCore, const C4Network2IOCon
 bool C4Network2IO::HandlePacket(const C4NetIOPacket &rPacket, C4Network2IOConnection *pConn, bool fThread)
 {
 	// security: add connection reference
-	if (!pConn) return false; pConn->AddRef();
+	if (!pConn) return false;
+	pConn->AddRef();
 
 	// accept only PID_Conn and PID_Ping on non-accepted connections
 	if (!pConn->isHalfAccepted())
@@ -848,7 +849,9 @@ bool C4Network2IO::HandlePacket(const C4NetIOPacket &rPacket, C4Network2IOConnec
 	// search packet handling data
 	bool fSendToMainThread = false, fHandled = false;
 	for (const C4PktHandlingData *pHData = PktHandlingData; pHData->ID != PID_None; pHData++)
+	{
 		if (pHData->ID == rPacket.getStatus())
+		{
 			// correct thread?
 			if (!pHData->ProcByThread == !fThread)
 			{
@@ -875,6 +878,8 @@ bool C4Network2IO::HandlePacket(const C4NetIOPacket &rPacket, C4Network2IOConnec
 				fHandled = true;
 				fSendToMainThread = true;
 			}
+		}
+	}
 
 	// send to main thread?
 	if (fSendToMainThread)
@@ -1088,7 +1093,7 @@ void C4Network2IO::HandleFwdReq(const C4PacketFwd &rFwd, C4Network2IOConnection 
 		C4NetIOPacket Tmp = rFwd.getData();
 		C4NetIOPacket Pkt = Tmp.getRef();
 		for (int i = 0; i < nFwd.getClientCnt(); i++)
-			if (pConn = GetMsgConnection(nFwd.getClient(i)))
+			if ((pConn = GetMsgConnection(nFwd.getClient(i))))
 			{
 				pConn->Send(Pkt);
 				pConn->DelRef();
@@ -1106,7 +1111,7 @@ void C4Network2IO::HandleFwdReq(const C4PacketFwd &rFwd, C4Network2IOConnection 
 		// add all clients
 		CStdLock ConnListLock(&ConnListCSec);
 		for (int i = 0; i < nFwd.getClientCnt(); i++)
-			if (pConn = GetMsgConnection(nFwd.getClient(i)))
+			if ((pConn = GetMsgConnection(nFwd.getClient(i))))
 			{
 				pConn->SetBroadcastTarget(true);
 				pConn->DelRef();
@@ -1125,10 +1130,13 @@ void C4Network2IO::HandleFwdReq(const C4PacketFwd &rFwd, C4Network2IOConnection 
 void C4Network2IO::HandlePuncherPacket(const C4NetIOPacket &packet)
 {
 	auto pkt = C4NetpuncherPacket::Construct(packet);
-	if (!pkt || !Game.Network.HandlePuncherPacket(std::move(pkt), packet.getAddr().GetFamily()))
+	if (pkt)
 	{
-		assert(pNetIO_UDP);
-		pNetIO_UDP->Close(packet.getAddr());
+		if (!Game.Network.HandlePuncherPacket(std::move(pkt), packet.getAddr().GetFamily()))
+		{
+			assert(pNetIO_UDP);
+			pNetIO_UDP->Close(packet.getAddr());
+		}
 	}
 }
 
@@ -1258,12 +1266,12 @@ C4Network2IOConnection::C4Network2IOConnection()
 	iTimestamp(0),
 	iPingTime(-1),
 	iLastPing(~0), iLastPong(~0),
-	iOutPacketCounter(0), iInPacketCounter(0),
+	fConnSent(false), fPostMortemSent(false),
+	iOutPacketCounter(0),
+	iInPacketCounter(0),
 	pPacketLog(nullptr),
 	pNext(nullptr),
-	iRefCnt(0),
-	fConnSent(false),
-	fPostMortemSent(false) {}
+	iRefCnt(0) {}
 
 C4Network2IOConnection::~C4Network2IOConnection()
 {

@@ -3,7 +3,7 @@
  *
  * Copyright (c) RedWolf Design
  * Copyright (c) 2004, Sven2
- * Copyright (c) 2017-2022, The LegacyClonk Team and contributors
+ * Copyright (c) 2017-2024, The LegacyClonk Team and contributors
  *
  * Distributed under the terms of the ISC license; see accompanying file
  * "COPYING" for details.
@@ -287,7 +287,7 @@ bool C4GameSave::SaveDesc(C4Group &hToGroup)
 
 	// Save to file
 	StdStrBuf buf{desc.c_str(), desc.size()};
-	return !!hToGroup.Add(fmt::sprintf(C4CFN_ScenarioDesc, szLang).c_str(), buf, false, true);
+	return !!hToGroup.Add(std::vformat(C4CFN_ScenarioDesc, std::make_format_args(szLang)).c_str(), buf, false, true);
 }
 
 void C4GameSave::WriteDescLineFeed(std::string &desc)
@@ -393,10 +393,11 @@ void C4GameSave::WriteDescPlayers(std::string &desc, bool fByTeam, int32_t idTea
 {
 	// write out all players; only if they match the given team if specified
 	C4PlayerInfo *pPlr; bool fAnyPlrWritten = false;
-	for (int i = 0; pPlr = Game.PlayerInfos.GetPlayerInfoByIndex(i); i++)
+	for (int i = 0; (pPlr = Game.PlayerInfos.GetPlayerInfoByIndex(i)); i++)
 		if (pPlr->HasJoined() && !pPlr->IsRemoved() && !pPlr->IsInvisible())
 		{
 			if (fByTeam)
+			{
 				if (idTeam)
 				{
 					// match team
@@ -407,6 +408,7 @@ void C4GameSave::WriteDescPlayers(std::string &desc, bool fByTeam, int32_t idTea
 					// must be in no known team
 					if (Game.Teams.GetTeamByID(pPlr->GetTeam())) continue;
 				}
+			}
 			if (fAnyPlrWritten)
 				desc.append(", ");
 			else if (fByTeam && idTeam)
@@ -431,7 +433,7 @@ void C4GameSave::WriteDescPlayers(std::string &desc)
 			// Teams defined: Print players sorted by teams
 			WriteDescLineFeed(desc);
 			C4Team *pTeam; int32_t i = 0;
-			while (pTeam = Game.Teams.GetTeamByIndex(i++))
+			while ((pTeam = Game.Teams.GetTeamByIndex(i++)))
 			{
 				WriteDescPlayers(desc, true, pTeam->GetID());
 			}
@@ -479,7 +481,7 @@ bool C4GameSave::Save(C4Group &hToGroup, bool fKeepGroup)
 	{
 		pSaveGroup->Delete(C4CFN_ScenarioTitle);
 		pSaveGroup->Delete(C4CFN_ScenarioIcon);
-		pSaveGroup->Delete(fmt::sprintf(C4CFN_ScenarioDesc, "*").c_str());
+		pSaveGroup->Delete(std::vformat(C4CFN_ScenarioDesc, std::make_format_args("*")).c_str());
 		pSaveGroup->Delete(C4CFN_Titles);
 		pSaveGroup->Delete(C4CFN_Info);
 	}

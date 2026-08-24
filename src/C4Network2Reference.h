@@ -3,7 +3,7 @@
  *
  * Copyright (c) RedWolf Design
  * Copyright (c) 2013-2016, The OpenClonk Team and contributors
- * Copyright (c) 2017-2020, The LegacyClonk Team and contributors
+ * Copyright (c) 2017-2024, The LegacyClonk Team and contributors
  *
  * Distributed under the terms of the ISC license; see accompanying file
  * "COPYING" for details.
@@ -20,6 +20,7 @@
 #include "C4Coroutine.h"
 #include "C4ForwardDeclarations.h"
 #include "C4HTTPClient.h"
+#include "C4Log.h"
 #include "C4Network2.h"
 #include "C4Network2Client.h"
 
@@ -150,7 +151,7 @@ public:
 	bool SetServer(std::string_view serverAddress, std::uint16_t defaultPort = 0);
 	void SetNotify(class C4InteractiveThread *thread);
 
-	bool Execute(int iMaxTime = C4NetIO::TO_INF) override;
+	bool Execute(int iMaxTime = StdSync::Infinite) override;
 	int GetTimeout() override;
 
 #ifdef _WIN32
@@ -166,6 +167,8 @@ private:
 	std::unique_ptr<Impl> impl;
 };
 
+C4LOGGERCONFIG_NAME_TYPE(C4Network2HTTPClient);
+
 // Loads references (mini-HTTP-client)
 class C4Network2RefClient : public C4Network2HTTPClient
 {
@@ -175,7 +178,7 @@ class C4Network2RefClient : public C4Network2HTTPClient
 	bool fVerSet;
 
 public:
-	C4Network2RefClient() : fVerSet(false), C4Network2HTTPClient() {}
+	C4Network2RefClient() : C4Network2HTTPClient(), fVerSet(false) {}
 
 	bool QueryReferences();
 	bool GetReferences(C4Network2Reference ** &rpReferences, int32_t &rRefCount);

@@ -3,7 +3,7 @@
  *
  * Copyright (c) RedWolf Design
  * Copyright (c) 2005, Günther
- * Copyright (c) 2017-2022, The LegacyClonk Team and contributors
+ * Copyright (c) 2017-2025, The LegacyClonk Team and contributors
  *
  * Distributed under the terms of the ISC license; see accompanying file
  * "COPYING" for details.
@@ -20,13 +20,13 @@
 #include "res/engine_resource.h"
 
 #include <array>
+#include <cctype>
+#include <cstdio>
 #include <mutex>
 #include <stdexcept>
 
 #include <mmsystem.h>
-#include <stdio.h>
 #include <io.h>
-#include <ctype.h>
 #include <conio.h>
 
 CStdApp::CStdApp() : Active(false), hInstance(nullptr), fQuitMsgReceived(false),
@@ -83,7 +83,7 @@ C4AppHandleResult CStdApp::HandleMessage(unsigned int iTimeout, bool fCheckTimer
 	const std::array<HANDLE, 2> events{NetworkEvent.GetEvent(), TimerEvent.GetEvent()};
 
 	// Wait for something to happen
-	switch (MsgWaitForMultipleObjects(fCheckTimer ? 2 : 1, events.data(), false, iTimeout, QS_ALLEVENTS))
+	switch (MsgWaitForMultipleObjects(fCheckTimer ? 2 : 1, events.data(), false, iTimeout, QS_ALLINPUT))
 	{
 	case WAIT_OBJECT_0: // network event
 		// call network class to handle it
@@ -282,7 +282,7 @@ bool CStdApp::ReadStdInCommand()
 				OnCommand(CmdBuf.getData()); CmdBuf.Clear();
 			}
 		}
-		else if (isprint((unsigned char)c))
+		else if (std::isprint((unsigned char)c))
 			CmdBuf.AppendChar(c);
 	}
 	return true;

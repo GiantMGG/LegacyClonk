@@ -2,7 +2,7 @@
  * LegacyClonk
  *
  * Copyright (c) RedWolf Design
- * Copyright (c) 2017-2020, The LegacyClonk Team and contributors
+ * Copyright (c) 2017-2024, The LegacyClonk Team and contributors
  *
  * Distributed under the terms of the ISC license; see accompanying file
  * "COPYING" for details.
@@ -15,8 +15,6 @@
  */
 
 /* control management */
-
-#include "C4Include.h"
 
 #include <C4Application.h>
 #include <C4Game.h>
@@ -43,7 +41,7 @@ C4GameControl::~C4GameControl()
 
 void C4GameControl::InitLogger()
 {
-	logger = CreateLogger("C4GameControl");
+	logger = Application.LogSystem.CreateLogger(Config.Logging.GameControl);
 }
 
 bool C4GameControl::InitLocal(C4Client *pLocal)
@@ -72,7 +70,7 @@ bool C4GameControl::InitNetwork(C4Client *pLocal)
 bool C4GameControl::InitReplay(C4Group &rGroup)
 {
 	// open replay
-	pPlayback = new C4Playback(logger->clone("C4Playback"));
+	pPlayback = new C4Playback(Application.LogSystem.CreateLogger(Config.Logging.Playback));
 	if (!pPlayback->Open(rGroup))
 	{
 		LogFatal(C4ResStrTableKey::IDS_ERR_REPLAYREAD);
