@@ -19,8 +19,11 @@
 
 #include <C4Fonts.h>
 
+#include <C4Application.h>
 #include <C4Config.h>
 #include <C4Components.h>
+#include <C4Group.h>
+#include <C4GroupSet.h>
 #include <C4Log.h>
 #include <C4Surface.h>
 #include <C4Wrappers.h>
