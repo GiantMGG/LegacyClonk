@@ -15,7 +15,6 @@
  * for the above references.
  */
 
-#include "C4Include.h"
 #include "C4Game.h"
 #include "C4Version.h"
 #include "C4Network2Reference.h"
@@ -839,7 +838,7 @@ bool C4Network2HTTPClientImplNetIO::Query(const StdBuf &Data, bool fBinary, C4HT
 			Data.getSize(),
 			szCharset,
 			szCharset,
-			+Config.General.LanguageEx);
+			Config.General.LanguageEx);
 	else
 		header = std::format(
 			"GET {} HTTP/1.0\r\n"
@@ -853,7 +852,7 @@ bool C4Network2HTTPClientImplNetIO::Query(const StdBuf &Data, bool fBinary, C4HT
 			RequestPath.getData(),
 			Server.getData(),
 			szCharset,
-			+Config.General.LanguageEx);
+			Config.General.LanguageEx);
 
 	for (const auto &[key, value] : headers)
 	{

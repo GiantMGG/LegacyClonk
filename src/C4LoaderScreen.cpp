@@ -18,7 +18,6 @@
 // startup screen
 
 #include "C4GuiResource.h"
-#include <C4Include.h>
 #include <C4LoaderScreen.h>
 
 #include <C4LogBuf.h>
@@ -82,7 +81,7 @@ bool C4LoaderScreen::Init(const char *szLoaderSpec)
 		// Not even default loaders available? Fail.
 		if (!iLoaders)
 		{
-			LogFatalNTr("No loaders found for loader specification: {}/{}/{}/{}", +szLoaderSpecPng, +szLoaderSpecBmp, +szLoaderSpecJpg, +szLoaderSpecJpeg);
+			LogFatalNTr("No loaders found for loader specification: {}/{}/{}/{}", szLoaderSpecPng, szLoaderSpecBmp, szLoaderSpecJpg, szLoaderSpecJpeg);
 			return false;
 		}
 	}

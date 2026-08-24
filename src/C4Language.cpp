@@ -21,7 +21,6 @@
 	- loads and sets a language string table (ResStrTable) based on a specified language sequence
 */
 
-#include <C4Include.h>
 #include <C4Language.h>
 
 #include <C4Components.h>
@@ -58,7 +57,7 @@ bool C4Language::Init()
 	if (PackDirectory.Open(C4CFN_Languages))
 		while (PackDirectory.FindNextEntry("*.c4g", strEntry))
 		{
-			FormatWithNull(strPackFilename, "{}" DirSep "{}", +C4CFN_Languages, +strEntry);
+			FormatWithNull(strPackFilename, "{}" DirSep "{}", C4CFN_Languages, strEntry);
 			pPack = new C4Group();
 			if (pPack->Open(strPackFilename))
 			{

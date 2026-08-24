@@ -19,7 +19,6 @@
 
 #include "C4GuiEdit.h"
 #include "C4GuiResource.h"
-#include <C4Include.h>
 #include <C4MessageInput.h>
 
 #include <C4Game.h>
@@ -573,8 +572,8 @@ bool C4MessageInput::ProcessCommand(const char *szCommand)
 				Log(C4ResStrTableKey::IDS_MSG_CMD_NOCLIENT, pCmdPar);
 				return false;
 			}
-			// league: Kick needs voting
-			if (Game.Parameters.isLeague() && Game.Players.GetAtClient(pClient->getID()))
+			// votes: Kick needs voting
+			if (Game.Network.IsVotingEnabled() && Game.Players.GetAtClient(pClient->getID()))
 				Game.Network.Vote(VT_Kick, true, pClient->getID());
 			else
 				// add control
@@ -772,14 +771,7 @@ void C4MessageBoardCommand::CompileFunc(StdCompiler *pComp)
 {
 	pComp->Value(script);
 	pComp->Separator(StdCompiler::SEP_SEP);
-
-	constexpr StdEnumEntry<Restriction> restrictions[] =
-	{
-		{"Escaped", C4MSGCMDR_Escaped},
-		{"Plain", C4MSGCMDR_Plain},
-		{"Identifier", C4MSGCMDR_Identifier}
-	};
-	pComp->Value(mkEnumAdaptT<int>(restriction, restrictions));
+	pComp->Value(mkEnumAdapt(restriction));
 }
 
 bool C4MessageBoardCommand::operator==(const C4MessageBoardCommand &other) const

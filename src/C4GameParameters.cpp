@@ -14,7 +14,6 @@
  * for the above references.
  */
 
-#include "C4Include.h"
 #include "C4GameParameters.h"
 
 #include "C4Log.h"
@@ -454,6 +453,7 @@ void C4GameParameters::EnforceLeagueRules(C4Scenario *pScenario)
 	GameRes.CalcHashes();
 	Teams.EnforceLeagueRules();
 	AllowDebug = false;
+	Vote = true;
 	// Fair crew enabled in league, if not explicitely disabled by scenario
 	// Fair crew strengt to a moderately high value
 	if (!Game.Parameters.FairCrewForced)
@@ -559,6 +559,7 @@ void C4GameParameters::CompileFunc(StdCompiler *pComp, C4Scenario *pScenario)
 	pComp->Value(mkNamingAdapt(FairCrewForced,     "FairCrewForced",     !pScenario ? false : (pScenario->Head.ForcedFairCrew != C4SFairCrew_Free)));
 	pComp->Value(mkNamingAdapt(FairCrewStrength,   "FairCrewStrength",   !pScenario ? 0 : pScenario->Head.FairCrewStrength));
 	pComp->Value(mkNamingAdapt(AllowDebug,         "AllowDebug",         true));
+	pComp->Value(mkNamingAdapt(Vote,               "Vote",               false));
 	pComp->Value(mkNamingAdapt(IsNetworkGame,      "IsNetworkGame",      false));
 	pComp->Value(mkNamingAdapt(ControlRate,        "ControlRate",        -1));
 	pComp->Value(mkNamingAdapt(AutoFrameSkip,      "AutoFrameSkip",      false));

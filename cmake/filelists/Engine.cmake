@@ -51,6 +51,7 @@ src/C4Effect.cpp
 src/C4Effects.h
 src/C4EnumeratedObjectPtr.cpp
 src/C4EnumeratedObjectPtr.h
+src/C4EnumInfo.h
 src/C4Extra.cpp
 src/C4Extra.h
 src/C4Facet.cpp
@@ -127,7 +128,6 @@ src/C4IDList.cpp
 src/C4IDList.h
 src/C4Id.cpp
 src/C4Id.h
-src/C4Include.h
 src/C4InfoCore.cpp
 src/C4InfoCore.h
 src/C4InputValidation.cpp

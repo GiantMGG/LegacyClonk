@@ -22,7 +22,6 @@
 #include "C4GuiResource.h"
 #include "C4GuiTabular.h"
 
-#include <C4Include.h>
 #include <C4StartupOptionsDlg.h>
 #include <C4StartupOptionsAdvancedConfigDialog.h>
 
@@ -1210,7 +1209,7 @@ void C4StartupOptionsDlg::UpdateLanguage()
 	}
 	else
 	{
-		pLangCombo->SetText(std::format("unknown ({})", +Config.General.Language).c_str());
+		pLangCombo->SetText(std::format("unknown ({})", Config.General.Language).c_str());
 		pLangInfoLabel->SetText(LoadResStr(C4ResStrTableKey::IDS_CTL_NOLANGINFO));
 		return; // no need to mess with fallbacks
 	}
