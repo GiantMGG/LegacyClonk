@@ -554,7 +554,7 @@ void C4AulScriptEngine::CompileFunc(StdCompiler *pComp)
 
 	if (pComp->isCompiler())
 	{
-		std::size_t sectionCount;
+		uint32_t sectionCount;
 		pComp->Value(mkNamingCountAdapt(sectionCount, "SectionLocalNamed"));
 
 		SectionLocalNamed.clear();
@@ -581,7 +581,7 @@ void C4AulScriptEngine::CompileFunc(StdCompiler *pComp)
 	}
 	else
 	{
-		std::size_t sectionCount{SectionLocalNamed.size()};
+		uint32_t sectionCount{static_cast<uint32_t>(SectionLocalNamed.size())};
 		pComp->Value(mkNamingCountAdapt(sectionCount, "SectionLocalNamed"));
 
 		for (auto &[sectionNumber, named] : SectionLocalNamed)
