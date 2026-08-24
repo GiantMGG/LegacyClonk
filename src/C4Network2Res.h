@@ -18,11 +18,14 @@
 
 #pragma once
 
+#include "C4EnumInfo.h"
 #include "C4ForwardDeclarations.h"
+
 #include <StdSha1.h>
 #include <StdSync.h>
 
 #include <atomic>
+#include <list>
 
 const uint32_t C4NetResChunkSize = 100U * 1024U;
 
@@ -37,7 +40,7 @@ const int32_t C4NetResDiscoverTimeout = 10, // (s)
 
 const int32_t C4NetResIDAnonymous = -2;
 
-enum C4Network2ResType
+enum C4Network2ResType : std::uint8_t
 {
 	NRT_Null = 0,
 	NRT_Scenario,
@@ -46,6 +49,21 @@ enum C4Network2ResType
 	NRT_Definitions,
 	NRT_System,
 	NRT_Material,
+};
+
+template<>
+struct C4EnumInfo<C4Network2ResType>
+{
+	static inline constexpr auto data = mkEnumInfo<C4Network2ResType>("NRT_",
+		{
+			{ NRT_Scenario,    "Scenario" },
+			{ NRT_Dynamic,     "Dynamic" },
+			{ NRT_Player,      "Player" },
+			{ NRT_Definitions, "Definitions" },
+			{ NRT_System,      "System" },
+			{ NRT_Material,    "Material" }
+		}
+	);
 };
 
 // damn circular dependencies
@@ -164,33 +182,14 @@ public:
 	virtual void CompileFunc(StdCompiler *pComp) override;
 };
 
-class C4Network2Res
+class C4Network2Res : public std::enable_shared_from_this<C4Network2Res>
 {
 	friend class C4Network2ResList;
 	friend class C4Network2ResChunk;
 
 public:
 	// helper for reference-holding
-	class Ref
-	{
-	public:
-		Ref() : pRes(nullptr) {}
-		Ref(C4Network2Res *pRes) : pRes(pRes)    { if (pRes) pRes->AddRef(); }
-		Ref(const Ref &rCopy) : pRes(rCopy.pRes) { if (pRes) pRes->AddRef(); }
-		~Ref() { Clear(); }
-		Ref &operator=(C4Network2Res *pnRes) { Set(pnRes);      return *this; }
-		Ref &operator=(const Ref &rCopy)     { Set(rCopy.pRes); return *this; }
-
-	private:
-		C4Network2Res *pRes;
-
-	public:
-		operator C4Network2Res *()  const { return pRes; }
-		bool operator!()            const { return !pRes; }
-		C4Network2Res *operator->() const { return pRes; }
-		void Clear() { if (pRes) pRes->DelRef(); pRes = nullptr; }
-		void Set(C4Network2Res *pnRes) { if (pRes == pnRes) return; Clear(); pRes = pnRes; if (pRes) pRes->AddRef(); }
-	};
+	using Ref = std::shared_ptr<C4Network2Res>;
 
 	C4Network2Res(C4Network2ResList *pnParent);
 	~C4Network2Res();
@@ -207,7 +206,6 @@ protected:
 	bool fTempFile, fStandaloneFailed;
 
 	// references
-	std::atomic<long> iRefCnt;
 	bool fRemoved;
 
 	// being load?
@@ -263,9 +261,6 @@ public:
 	bool SendStatus(C4Network2IOConnection *pTo = nullptr);
 	bool SendChunk(uint32_t iChunk, int32_t iToClient);
 
-	// references
-	void AddRef(); void DelRef();
-
 	// events
 	void OnDiscover(C4Network2IOConnection *pBy);
 	void OnStatus(const C4Network2ResChunkData &rChunkData, C4Network2IOConnection *pBy);
@@ -280,7 +275,8 @@ public:
 	bool GetClientProgress(int32_t clientID, int32_t &presentChunkCnt, int32_t &chunkCnt);
 
 protected:
-	int32_t OpenFileRead(); int32_t OpenFileWrite();
+	C4File OpenFileRead();
+	C4File OpenFileWrite();
 
 	void StartNewLoads();
 	bool StartLoad(int32_t iFromClient, const C4Network2ResChunkData &Chunks);
@@ -324,7 +320,7 @@ public:
 	virtual ~C4Network2ResList();
 
 protected:
-	C4Network2Res *pFirst;
+	std::list<std::shared_ptr<C4Network2Res>> resources;
 	CStdCSecEx ResListCSec;
 	CStdCSec ResListAddCSec;
 
@@ -357,7 +353,7 @@ public:
 	C4Network2Res::Ref getRefRes(const char *szFile, bool fLocalOnly = false); // by both
 	C4Network2Res::Ref getRefNextRes(int32_t iResID); // by both
 
-	void Add(C4Network2Res *pRes); // by both
+	void Add(C4Network2Res::Ref res); // by both
 	C4Network2Res::Ref AddByFile(const char *strFilePath, bool fTemp, C4Network2ResType eType, int32_t iResID = -1, const char *szResName = nullptr, bool fAllowUnloadable = false); // by both
 	C4Network2Res::Ref AddByCore(const C4Network2ResCore &Core, bool fLoad = true); // by main thread
 	C4Network2Res::Ref AddLoad(const C4Network2ResCore &Core); // by main thread

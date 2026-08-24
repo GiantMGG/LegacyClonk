@@ -16,7 +16,6 @@
 
 /* Material definitions used by the landscape */
 
-#include <C4Include.h>
 #include <C4Material.h>
 #include <C4Components.h>
 
@@ -363,7 +362,7 @@ void C4MaterialMap::CrossMapMaterials(C4Section &section) // Called after load
 
 				if (Map[cnt].OverlayType & C4MatOv_None)
 				{
-					DebugLog(spdlog::level::err, "Error in overlay of material {}: Flag C4MatOv_None ignored because a custom overlay ({}) was specified!", +Map[cnt].Name, szTextureOverlay);
+					DebugLog(spdlog::level::err, "Error in overlay of material {}: Flag C4MatOv_None ignored because a custom overlay ({}) was specified!", Map[cnt].Name, szTextureOverlay);
 					Map[cnt].OverlayType &= ~C4MatOv_None;
 				}
 			}

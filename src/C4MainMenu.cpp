@@ -17,7 +17,6 @@
 
 // Engine internal C4Menus: Main menu, Options, Player join, Hostility, etc.
 
-#include <C4Include.h>
 #include <C4MainMenu.h>
 
 #include <C4FullScreen.h>
@@ -92,7 +91,7 @@ bool C4MainMenu::ActivateNewPlayer(int32_t iPlayer)
 			// Close group
 			hGroup.Close();
 			// Add player item
-			command = std::format("JoinPlayer:{}", +szFilename);
+			command = std::format("JoinPlayer:{}", szFilename);
 			const std::string itemText{LoadResStr(C4ResStrTableKey::IDS_MENU_NEWPLAYER, C4P.PrefName)};
 			// No custom portrait: use default player image
 			if (!fctPortrait.Surface)
@@ -477,7 +476,7 @@ bool C4MainMenu::ActivateSavegame(int32_t iPlayer)
 	// New Style 2007:
 	// * scenarios are saved into ScenName.c4f/ScenName123.c4s to keep umlauts out of filenames
 	// * language titles are stored in folders as title component
-	const std::string filename{std::format("{}.c4f" DirSep "{}{{}}.c4s", +ScenName, +ScenName)};
+	const std::string filename{std::format("{}.c4f" DirSep "{}{{}}.c4s", ScenName, ScenName)};
 
 	// Create menu items
 	std::string filenameIndexed;
@@ -812,7 +811,7 @@ bool C4MainMenu::MenuCommand(const char *szCommand, bool fIsCloseCommand)
 		int iClientID = atoi(szCommand + 10);
 		if (iClientID && Game.Network.isEnabled())
 		{
-			if (Game.Parameters.isLeague() && Game.Players.GetAtClient(iClientID))
+			if (Game.Network.IsVotingEnabled() && Game.Players.GetAtClient(iClientID))
 			{
 				Game.Network.Vote(VT_Kick, true, iClientID);
 			}
@@ -830,7 +829,7 @@ bool C4MainMenu::MenuCommand(const char *szCommand, bool fIsCloseCommand)
 	{
 		if (Game.Network.isEnabled())
 		{
-			if (Game.Parameters.isLeague() && Game.Players.GetLocalByIndex(0))
+			if (Game.Network.IsVotingEnabled() && Game.Players.GetLocalByIndex(0))
 			{
 				Game.Network.Vote(VT_Kick, true, Game.Control.ClientID());
 			}

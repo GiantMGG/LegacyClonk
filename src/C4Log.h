@@ -22,6 +22,7 @@
 #error C4Log.h must not be included in non-C4ENGINE builds
 #endif
 
+#include "C4File.h"
 #include "C4ResStrTable.h"
 
 #include "StdAdaptors.h"
@@ -32,6 +33,7 @@
 #include <span>
 
 #include <fmt/printf.h>
+#include <spdlog/common.h> // IWYU pragma: export
 #include <spdlog/spdlog.h>
 #include <spdlog/pattern_formatter.h>
 #include <spdlog/sinks/base_sink.h>
@@ -158,7 +160,6 @@ class C4LogSystem
 	{
 	public:
 		LogSink(std::unique_ptr<spdlog::formatter> formatter);
-		~LogSink();
 
 		LogSink(const LogSink &) = delete;
 		LogSink &operator=(const LogSink &) = delete;
@@ -167,14 +168,14 @@ class C4LogSystem
 		LogSink &operator=(LogSink &&) = delete;
 
 	public:
-		int GetFD() const noexcept { return fileno(file); }
+		int GetFD() const noexcept { return fileno(file.GetHandle()); }
 
 	protected:
 		void sink_it_(const spdlog::details::log_msg &msg) override;
 		void flush_() override;
 
 	private:
-		FILE *file{nullptr};
+		C4File file;
 	};
 
 	class GuiSink : public spdlog::sinks::base_sink<spdlog::details::null_mutex>, public std::enable_shared_from_this<GuiSink>
@@ -366,18 +367,22 @@ void LogFatal(const C4ResStrTableKeyFormat<std::type_identity_t<Args>...> id, Ar
 // Used to print a backtrace after a crash
 int GetLogFD();
 
+template<>
+struct C4EnumInfo<spdlog::level::level_enum>
+{
+	static inline constexpr auto data = mkEnumInfo<spdlog::level::level_enum>("",
+	{
+		{spdlog::level::trace, "trace"},
+		{spdlog::level::debug, "debug"},
+		{spdlog::level::info, "info"},
+		{spdlog::level::warn, "warn"},
+		{spdlog::level::err, "error"},
+		{spdlog::level::critical, "critical"},
+		{spdlog::level::off, "off"}
+	});
+};
+
 inline void CompileFunc(spdlog::level::level_enum &level, StdCompiler *const comp)
 {
-	constexpr StdEnumEntry<spdlog::level::level_enum> Values[]
-	{
-		{"trace", spdlog::level::trace},
-		{"debug", spdlog::level::debug},
-		{"info", spdlog::level::info},
-		{"warn", spdlog::level::warn},
-		{"error", spdlog::level::err},
-		{"critical", spdlog::level::critical},
-		{"off", spdlog::level::off},
-	};
-
-	comp->Value(mkEnumAdaptT<std::int32_t>(level, Values));
+	comp->Value(mkEnumAdapt(level));
 }

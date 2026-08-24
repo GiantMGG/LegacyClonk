@@ -16,7 +16,6 @@
  */
 
 #include "C4GuiResource.h"
-#include <C4Include.h>
 #include <C4Network2.h>
 #include <C4Version.h>
 
@@ -107,15 +106,7 @@ void C4Network2Status::CompileFunc(StdCompiler *pComp)
 
 void C4Network2Status::CompileFunc(StdCompiler *pComp, bool fReference)
 {
-	StdEnumEntry<C4NetGameState> GameStates[] =
-	{
-		{ "None",    GS_None },
-		{ "Init",    GS_Init },
-		{ "Lobby",   GS_Lobby },
-		{ "Paused",  GS_Pause },
-		{ "Running", GS_Go },
-	};
-	pComp->Value(mkNamingAdapt(mkEnumAdaptT<uint8_t>(eState, GameStates), "State",    GS_None));
+	pComp->Value(mkNamingAdapt(mkEnumAdapt(eState), "State",    GS_None));
 	pComp->Value(mkNamingAdapt(mkIntPackAdapt(iCtrlMode),                 "CtrlMode", -1));
 
 	if (!fReference)
@@ -648,8 +639,8 @@ bool C4Network2::RetrieveScenario(char *szScenario)
 		return false;
 
 	// unpack Material.c4g if materials need to be merged
-	const std::string materialScenario{std::format("{}" DirSep C4CFN_Material, +szScenario)};
-	const std::string materialDynamic{std::format("{}" DirSep C4CFN_Material, +szTempDynamic)};
+	const std::string materialScenario{std::format("{}" DirSep C4CFN_Material, szScenario)};
+	const std::string materialDynamic{std::format("{}" DirSep C4CFN_Material, szTempDynamic)};
 	if (FileExists(materialScenario.c_str()) && FileExists(materialDynamic.c_str()))
 		if (!C4Group_UnpackDirectory(materialScenario.c_str()) ||
 			!C4Group_UnpackDirectory(materialDynamic.c_str()))
@@ -1967,7 +1958,7 @@ bool C4Network2::CreateDynamic(bool fInit)
 	Log(C4ResStrTableKey::IDS_NET_SAVING);
 	// compose file name
 	char szDynamicBase[_MAX_PATH + 1], szDynamicFilename[_MAX_PATH + 1];
-	FormatWithNull(szDynamicBase, "{}Dyn{}", +Config.Network.WorkPath, GetFilename(Game.ScenarioFilename));
+	FormatWithNull(szDynamicBase, "{}Dyn{}", Config.Network.WorkPath, GetFilename(Game.ScenarioFilename));
 	if (!ResList.FindTempResFileName(szDynamicBase, szDynamicFilename))
 		Log(C4ResStrTableKey::IDS_NET_SAVE_ERR_CREATEDYNFILE);
 	// save dynamic data
@@ -3002,6 +2993,17 @@ void C4Network2::OnVoteDialogClosed()
 	pVoteDialog = nullptr;
 }
 
+bool C4Network2::IsVotingEnabled() const
+{
+	// No network?
+	if (!isEnabled()) return false;
+
+	// No need to vote if only one client present
+	if (Game.Clients.getClientCnt() == 1) return false;
+
+	return Game.Parameters.Vote;
+}
+
 // *** C4VoteDialog
 
 C4VoteDialog::C4VoteDialog(const char *szText, C4ControlVoteType eVoteType, int32_t iVoteData, bool fSurrender)
@@ -3022,7 +3024,10 @@ void C4VoteDialog::OnClosed(bool fOK)
 			// set game leave reason, although round results dialog isn't showing it ATM
 			Game.RoundResults.EvaluateNetwork(C4RoundResults::NR_NetError, LoadResStr(C4ResStrTableKey::IDS_ERR_YOUSURRENDEREDTHELEAGUEGA));
 			// leave game
-			Game.Network.LeagueSurrender();
+			if (Game.Parameters.isLeague())
+			{
+				Game.Network.LeagueSurrender();
+			}
 			Game.Network.Clear();
 			// We have just league-surrendered. Abort the game - that is what we originally wanted.
 			// Note: as we are losing league points and this is a relevant game, it would actually be

@@ -22,8 +22,9 @@
 #include "C4Network2Address.h"
 #include "Standard.h"
 
-#include <assert.h>
-#include <errno.h>
+#include <cassert>
+#include <cerrno>
+
 #include <fcntl.h>
 #include <format>
 #include <sys/stat.h>
@@ -197,7 +198,7 @@ void ReleaseWinSock()
 
 const char *GetSocketErrorMsg(int iError)
 {
-	return strerror(iError);
+	return std::strerror(iError);
 }
 
 const char *GetSocketErrorMsg()
@@ -311,22 +312,15 @@ std::vector<C4Network2HostAddress> C4NetIO::GetLocalAddresses(bool unsorted)
 	bool have_ipv6{false};
 
 #ifdef __linux__
-	struct FopenFile
-	{
-		std::FILE *const f;
-		FopenFile(const char *const name, const char *const mode) : f{std::fopen(name, mode)} {}
-		~FopenFile() { if (f) std::fclose(f); }
-		explicit operator bool() const { return f != nullptr; }
-	};
 	// Get IPv6 addresses on Linux from procfs which allows filtering deprecated privacy addresses.
-	if (FopenFile f{"/proc/net/if_inet6", "r"})
+	if (C4File f{"/proc/net/if_inet6", "r"})
 	{
 		sockaddr_in6 sa6{};
 		sa6.sin6_family = AF_INET6;
 		const auto a6 = sa6.sin6_addr.s6_addr;
 		std::uint8_t if_idx, plen, scope, flags;
 		char devname[20 + 1];
-		while (std::fscanf(f.f,
+		while (std::fscanf(f.GetHandle(),
 			"%2hhx%2hhx%2hhx%2hhx%2hhx%2hhx%2hhx%2hhx%2hhx%2hhx%2hhx%2hhx%2hhx%2hhx%2hhx%2hhx "
 			"%02" SCNx8 " %02" SCNx8 " %02" SCNx8 " %02" SCNx8 " %20s\n",
 			&a6[0], &a6[1], &a6[ 2], &a6[ 3], &a6[ 4], &a6[ 5], &a6[ 6], &a6[ 7],
@@ -2368,8 +2362,8 @@ bool C4NetIOUDP::Broadcast(const C4NetIOPacket &rPacket) // (mt-safe)
 	// send to all clients connected via du, too
 	for (pPeer = pPeerList; pPeer; pPeer = pPeer->Next)
 		if (pPeer->Open() && !pPeer->MultiCast() && pPeer->doBroadcast())
-			pPeer->Send(rPacket);
-	return true;
+			fSuccess &= pPeer->Send(rPacket);
+	return fSuccess;
 }
 
 bool C4NetIOUDP::SetBroadcast(const addr_t &addr, bool fSet) // (mt-safe)

@@ -17,8 +17,6 @@
 // C4AulFun-based effects assigned to an object
 /* Also contains some helper functions for various landscape effects */
 
-#include <C4Include.h>
-
 #include <C4Object.h>
 #include <C4Random.h>
 #include <C4Log.h>
@@ -30,30 +28,42 @@
 
 void C4Effect::AssignCallbackFunctions()
 {
-	C4AulScript *pSrcScript = GetCallbackScript();
+	C4AulScript &srcScript{GetCallbackScript()};
 	// compose function names and search them
-	pFnStart  = pSrcScript->GetFuncRecursive(std::format(PSF_FxStart, +Name).c_str());
-	pFnStop   = pSrcScript->GetFuncRecursive(std::format(PSF_FxStop, +Name).c_str());
-	pFnTimer  = pSrcScript->GetFuncRecursive(std::format(PSF_FxTimer, +Name).c_str());
-	pFnEffect = pSrcScript->GetFuncRecursive(std::format(PSF_FxEffect, +Name).c_str());
-	pFnDamage = pSrcScript->GetFuncRecursive(std::format(PSF_FxDamage, +Name).c_str());
+	pFnStart  = srcScript.GetFuncRecursive(std::format(PSF_FxStart, Name).c_str());
+	pFnStop   = srcScript.GetFuncRecursive(std::format(PSF_FxStop, Name).c_str());
+	pFnTimer  = srcScript.GetFuncRecursive(std::format(PSF_FxTimer, Name).c_str());
+	pFnEffect = srcScript.GetFuncRecursive(std::format(PSF_FxEffect, Name).c_str());
+	pFnDamage = srcScript.GetFuncRecursive(std::format(PSF_FxDamage, Name).c_str());
+
+	if (auto *const fnContext = srcScript.GetFuncRecursive(std::format(PSF_FxContext, Name).c_str()))
+	{
+		pFnContext = fnContext->SFunc();
+	}
+	else
+	{
+		pFnContext = nullptr;
+	}
 }
 
-C4AulScript *C4Effect::GetCallbackScript()
+C4AulScript &C4Effect::GetCallbackScript()
 {
 	// def script or global only?
-	C4AulScript *pSrcScript; C4Def *pDef;
+	C4Def *pDef;
 	if (pCommandTarget)
 	{
-		pSrcScript = &pCommandTarget->Def->Script;
 		// overwrite ID for sync safety in runtime join
 		idCommandTarget = pCommandTarget->id;
+		return pCommandTarget->Def->Script;
 	}
 	else if (idCommandTarget && (pDef = Game.Defs.ID2Def(idCommandTarget)))
-		pSrcScript = &pDef->Script;
+	{
+		return pDef->Script;
+	}
 	else
-		pSrcScript = &Game.ScriptEngine;
-	return pSrcScript;
+	{
+		return Game.ScriptEngine;
+	}
 }
 
 C4Effect::C4Effect(C4Section &section, C4Object *pForObj, const char *szName, int32_t iPrio, int32_t iTimerIntervall, C4Object *pCmdTarget, C4ID idCmdTarget, const C4Value &rVal1, const C4Value &rVal2, const C4Value &rVal3, const C4Value &rVal4, bool fDoCalls, int32_t &riStoredAsNumber, bool passErrors)
@@ -471,7 +481,7 @@ C4Value C4Effect::DoCall(C4Object *pObj, const char *szFn, const C4Value &rVal1,
 	else
 		pSrcScript = &Game.ScriptEngine;
 	// call it
-	C4AulFunc *pFn = pSrcScript->GetFuncRecursive(std::format(PSF_FxCustom, +Name, szFn).c_str());
+	C4AulFunc *pFn = pSrcScript->GetFuncRecursive(std::format(PSF_FxCustom, Name, szFn).c_str());
 	if (!pFn) return C4Value();
 	return pFn->Exec(**section, pCommandTarget, {C4VObj(pObj), C4VInt(iNumber), rVal1, rVal2, rVal3, rVal4, rVal5, rVal6, rVal7}, passErrors, true, convertNilToIntBool);
 }

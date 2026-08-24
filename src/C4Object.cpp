@@ -16,9 +16,7 @@
 
 /* That which fills the world with life */
 
-#include "C4Application.h"
-#include "C4Game.h"
-#include <C4Include.h>
+#include <C4HudBars.h>
 #include <C4Object.h>
 #include <C4Version.h>
 
@@ -27,6 +25,8 @@
 #include <C4ObjectCom.h>
 #include <C4Command.h>
 #include <C4Viewport.h>
+#include <C4Value.h>
+#include <C4ValueHash.h>
 #ifdef DEBUGREC
 #include <C4Record.h>
 #endif
@@ -149,6 +149,7 @@ void C4Object::Default()
 	pGfxOverlay = nullptr;
 	iLastAttachMovementFrame = -1;
 	InSectionMoveCallback = false;
+	HudBars = nullptr;
 }
 
 bool C4Object::Init(C4Def *pDef, C4Section &section, C4Object *pCreator,
@@ -223,6 +224,9 @@ bool C4Object::Init(C4Def *pDef, C4Section &section, C4Object *pCreator,
 
 	// local named vars
 	LocalNamed.SetNameList(&pDef->Script.LocalNamed);
+
+	// default hud bars
+	HudBars = Game.HudBars.DefaultBars();
 
 	// finished initializing
 	Initializing = false;
@@ -2600,7 +2604,7 @@ void C4Object::Draw(C4FacetEx &cgo, int32_t iByPlayer, DrawMode eDrawMode)
 	{
 		if (Action.Act > ActIdle)
 		{
-			const std::string message{std::format("{} ({})", +Def->ActMap[Action.Act].Name, Action.Phase)};
+			const std::string message{std::format("{} ({})", Def->ActMap[Action.Act].Name, Action.Phase)};
 			int32_t cmwdt, cmhgt;
 			Game.GraphicsResource.FontRegular.GetTextExtent(message.c_str(), cmwdt, cmhgt, true);
 			Application.DDraw->TextOut(message.c_str(), Game.GraphicsResource.FontRegular, 1.0, cgo.Surface, cgo.X + cox - Shape.x, cgo.Y + coy - cmhgt, InLiquid ? 0xfa0000FF : CStdDDraw::DEFAULT_MESSAGE_COLOR, ACenter);
@@ -2756,20 +2760,26 @@ void C4Object::DrawLine(C4FacetEx &cgo)
 	FinishedDrawing();
 }
 
-void C4Object::DrawEnergy(C4Facet &cgo)
+bool C4Object::DefineHudBars(C4ValueHash *graphics, C4ValueArray *definition)
 {
-	cgo.DrawEnergyLevelEx(Energy, GetPhysical()->Energy, Game.GraphicsResource.fctEnergyBars, 0);
+	// If null pointer is given restore default hud bars
+	if (!graphics || !definition)
+	{
+		HudBars = Game.HudBars.DefaultBars();
+		return true;
+	}
+
+	if (auto bars = Game.HudBars.DefineHudBars(*graphics, *definition); bars)
+	{
+		HudBars = bars;
+		return true;
+	}
+	return false;
 }
 
-void C4Object::DrawMagicEnergy(C4Facet &cgo)
+void C4Object::DrawHudBars(C4Facet &cgo)
 {
-	// draw in units of MagicPhysicalFactor, so you can get a full magic energy bar by script even if partial magic energy training is not fulfilled
-	cgo.DrawEnergyLevelEx(MagicEnergy / MagicPhysicalFactor, GetPhysical()->Magic / MagicPhysicalFactor, Game.GraphicsResource.fctEnergyBars, 1);
-}
-
-void C4Object::DrawBreath(C4Facet &cgo)
-{
-	cgo.DrawEnergyLevelEx(Breath, GetPhysical()->Breath, Game.GraphicsResource.fctEnergyBars, 2);
+	HudBars->Draw(cgo, *this);
 }
 
 void C4Object::CompileFunc(StdCompiler *pComp)
@@ -2863,6 +2873,8 @@ void C4Object::CompileFunc(StdCompiler *pComp)
 	pComp->Value(mkNamingPtrAdapt(pDrawTransform,                       "DrawTransform"));
 	pComp->Value(mkNamingPtrAdapt(pEffects,                             "Effects"));
 	pComp->Value(mkNamingAdapt(C4GraphicsOverlayListAdapt(pGfxOverlay), "GfxOverlay",         nullptr));
+	pComp->Value(mkNamingAdapt(C4HudBarsAdapt(HudBars), "HudBars", Game.HudBars.DefaultBars()));
+
 
 	if (PhysicalTemporary)
 	{
@@ -3959,7 +3971,7 @@ bool C4Object::AddCommand(int32_t iCommand, C4Object *pTarget, C4Value iTx, int3
 	for (pCom = Command, iCommands = 0; pCom; pCom = pCom->Next, iCommands++);
 	if (iCommands >= MaxCommandStack) return false;
 	// Valid command safety
-	if (!Inside(iCommand, C4CMD_First, C4CMD_Last)) return false;
+	if (!Inside<int32_t>(iCommand, C4CMD_First, C4CMD_Last)) return false;
 	// Allocate and set new command
 	pCom = new C4Command;
 	pCom->Set(iCommand, this, pTarget, iTx, iTy, pTarget2, iData,
@@ -6223,7 +6235,7 @@ StdStrBuf C4Object::GetInfoString()
 		if (!vInfo) continue;
 		// debug: warn for wrong return types
 		if (vInfo.GetType() != C4V_String)
-			DebugLog(spdlog::level::warn, "Effect {}({}) on object {} (#{}) returned wrong info type {}.", +pEff->Name, pEff->iNumber, Def->GetName(), Number, std::to_underlying(vInfo.GetType()));
+			DebugLog(spdlog::level::warn, "Effect {}({}) on object {} (#{}) returned wrong info type {}.", pEff->Name, pEff->iNumber, Def->GetName(), Number, std::to_underlying(vInfo.GetType()));
 		// get string val
 		C4String *psInfo = vInfo.getStr(); const char *szEffInfo;
 		if (psInfo && (szEffInfo = psInfo->Data.getData()))

@@ -16,7 +16,6 @@
 
 /* Handles script file components (calls, inheritance, function maps) */
 
-#include <C4Include.h>
 #include <C4ScriptHost.h>
 
 #include <C4Console.h>
@@ -56,7 +55,7 @@ bool C4ScriptHost::Load(const char *szName, C4Group &hGroup, const char *szFilen
 	if (pStringTable && fLoadTable)
 		pStringTable->LoadEx("StringTbl", hGroup, C4CFN_ScriptStringTbl, szLanguage);
 	// set name
-	ScriptName = std::format("{}" DirSep "{}", hGroup.GetFullName().getData(), +Filename);
+	ScriptName = std::format("{}" DirSep "{}", hGroup.GetFullName().getData(), Filename);
 	// preparse script
 	MakeScript();
 	// Success
@@ -209,10 +208,10 @@ void C4DefScriptHost::AfterLink()
 		for (int32_t cnt = 0; cnt < Def->ActNum; cnt++)
 		{
 			C4ActionDef *pad = &Def->ActMap[cnt];
-			FormatWithNull(WhereStr, "Action {}: StartCall", +pad->Name); pad->StartCall = GetSFuncWarn(pad->SStartCall, CallAccess, WhereStr);
-			FormatWithNull(WhereStr, "Action {}: PhaseCall", +pad->Name); pad->PhaseCall = GetSFuncWarn(pad->SPhaseCall, CallAccess, WhereStr);
-			FormatWithNull(WhereStr, "Action {}: EndCall",   +pad->Name); pad->EndCall   = GetSFuncWarn(pad->SEndCall,   CallAccess, WhereStr);
-			FormatWithNull(WhereStr, "Action {}: AbortCall", +pad->Name); pad->AbortCall = GetSFuncWarn(pad->SAbortCall, CallAccess, WhereStr);
+			FormatWithNull(WhereStr, "Action {}: StartCall", pad->Name); pad->StartCall = GetSFuncWarn(pad->SStartCall, CallAccess, WhereStr);
+			FormatWithNull(WhereStr, "Action {}: PhaseCall", pad->Name); pad->PhaseCall = GetSFuncWarn(pad->SPhaseCall, CallAccess, WhereStr);
+			FormatWithNull(WhereStr, "Action {}: EndCall",   pad->Name); pad->EndCall   = GetSFuncWarn(pad->SEndCall,   CallAccess, WhereStr);
+			FormatWithNull(WhereStr, "Action {}: AbortCall", pad->Name); pad->AbortCall = GetSFuncWarn(pad->SAbortCall, CallAccess, WhereStr);
 		}
 		Def->TimerCall = GetSFuncWarn(Def->STimerCall, CallAccess, "TimerCall");
 	}

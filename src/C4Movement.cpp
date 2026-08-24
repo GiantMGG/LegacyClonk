@@ -16,8 +16,6 @@
 
 /* Object motion, collision, friction */
 
-#include "C4Game.h"
-#include <C4Include.h>
 #include <C4Object.h>
 
 #include <C4Physics.h>

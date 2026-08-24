@@ -17,7 +17,6 @@
 
 // C4Aul script engine CP conversion
 
-#include <C4Include.h>
 #include <C4Aul.h>
 
 #include <C4Config.h>
@@ -26,10 +25,6 @@
 #include <C4Log.h>
 #include <C4Components.h>
 #include "C4Section.h"
-
-#include <format>
-
-C4AulError::C4AulError() {}
 
 void C4AulError::show() const
 {
@@ -185,8 +180,7 @@ void C4AulScript::Default()
 	// not compiled
 	State = ASS_NONE;
 	Script.Clear();
-	Code = CPos = nullptr;
-	CodeSize = CodeBufSize = 0;
+	Code.clear();
 	IncludesResolved = false;
 
 	// defaults
@@ -232,8 +226,7 @@ void C4AulScript::Clear()
 	while (Func0) delete Func0;
 	// delete script+code
 	Script.Clear();
-	delete[] Code; Code = nullptr;
-	CodeSize = CodeBufSize = 0;
+	Code.clear();
 	// reset flags
 	State = ASS_NONE;
 }

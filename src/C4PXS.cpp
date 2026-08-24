@@ -16,9 +16,6 @@
 
 /* Pixel Sprite system for tiny bits of moving material */
 
-#include "C4Application.h"
-#include "C4Config.h"
-#include <C4Include.h>
 #include <C4PXS.h>
 
 #include <C4Physics.h>
@@ -342,19 +339,18 @@ bool C4PXSSystem::Save(C4Group &hGroup)
 
 	// Save chunks to temp file
 	const std::string tempFilename{Config.AtTempPathWithPrefix(section.GetNumberAsString(), C4CFN_TempPXS)};
-	CStdFile hTempFile;
-	if (!hTempFile.Create(tempFilename.c_str()))
+	C4File tempFile{tempFilename.c_str(), "wb"};
+	if (!tempFile)
 		return false;
 	int32_t iNumFormat = 1;
-	if (!hTempFile.Write(&iNumFormat, sizeof(iNumFormat)))
+	if (!tempFile.WriteElement(iNumFormat))
 		return false;
 	for (cnt = 0; cnt < PXSMaxChunk; cnt++)
 		if (Chunk[cnt]) // must save all chunks in order to keep order consistent on all clients
-			if (!hTempFile.Write(Chunk[cnt], PXSChunkSize * sizeof(C4PXS)))
+			if (!tempFile.WriteElements(std::span{Chunk[cnt], PXSChunkSize}))
 				return false;
 
-	if (!hTempFile.Close())
-		return false;
+	tempFile.Close();
 
 	// Move temp file to group
 	if (!hGroup.Move(tempFilename.c_str(),

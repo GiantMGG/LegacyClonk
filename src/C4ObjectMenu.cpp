@@ -17,8 +17,6 @@
 
 // Menus attached to objects; script created or internal
 
-#include "C4Game.h"
-#include <C4Include.h>
 #include <C4ObjectMenu.h>
 
 #include <C4Object.h>
@@ -595,14 +593,13 @@ int32_t C4ObjectMenu::AddContextFunctions(C4Object *pTarget, bool fCountOnly)
 	// Effect context functions of target's effects
 	for (C4Effect *pEff = pTarget->pEffects; pEff; pEff = pEff->pNext)
 	{
-		if (pEff->IsActive())
+		if (C4AulScriptFunc *const pFunction{pEff->GetContextCallback()}; pFunction && pEff->IsActive())
 		{
-			C4AulScript *pEffScript = pEff->GetCallbackScript();
-			if (pEffScript)
+			if (!pFunction->Condition || pFunction->Condition->Exec(pEff->pCommandTarget, {C4VObj(pTarget), C4VInt(pEff->iNumber), C4VObj(Object), C4VID(pFunction->idImage)}))
 			{
-				for (iFunction = 0; (pFunction = pEffScript->GetSFunc(iFunction, std::format(PSF_FxCustom, +pEff->Name, "Context").c_str())); iFunction++)
+				if (!fCountOnly)
 				{
-					if (!pFunction->OverloadedBy)
+					if (pEff->pCommandTarget)
 					{
 						if (!pFunction->Condition || pFunction->Condition->Exec(**pEff->section, pEff->pCommandTarget, {C4VObj(pTarget), C4VInt(pEff->iNumber), C4VObj(Object), C4VID(pFunction->idImage)}))
 						{
@@ -632,6 +629,23 @@ int32_t C4ObjectMenu::AddContextFunctions(C4Object *pTarget, bool fCountOnly)
 							}
 						}
 					}
+					else if (pEff->idCommandTarget)
+					{
+						std::string commandTargetId{C4IdText(pEff->idCommandTarget)};
+						command = std::format("DefinitionCall({}, \"{}\", Object({}),{},Object({}),{})", commandTargetId, pFunction->Name, pTarget->Number, static_cast<int>(pEff->iNumber), Object->Number, C4IdText(pFunction->idImage));
+					}
+					else
+					{
+						command = std::format("global->~{}(Object({}),{},Object({}),{})", pFunction->Name, pTarget->Number, static_cast<int>(pEff->iNumber), Object->Number, C4IdText(pFunction->idImage));
+					}
+					if ((pDef = Game.Defs.ID2Def(pFunction->idImage))) pDef->Picture2Facet(fctSymbol, 0, pFunction->iImagePhase);
+					Add(pFunction->DescText.getData(), fctSymbol, command.c_str(), C4MN_Item_NoCount, nullptr, pFunction->DescLong.getData());
+					fctSymbol.Default();
+					iResult++;
+				}
+				else
+				{
+					iResult++;
 				}
 			}
 		}
@@ -704,7 +718,7 @@ int32_t C4ObjectMenu::AddContextFunctions(C4Object *pTarget, bool fCountOnly)
 						// Count only: don't actually add
 						if (fCountOnly) continue;
 						// Command
-						command = std::format("ProtectedCall(Object({}),\"{}\",this)", pTarget->Number, +pFunction->Name);
+						command = std::format("ProtectedCall(Object({}),\"{}\",this)", pTarget->Number, pFunction->Name);
 						// Symbol
 						if ((pDef = Game.Defs.ID2Def(pFunction->idImage)))
 						{

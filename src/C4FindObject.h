@@ -17,9 +17,10 @@
 #pragma once
 
 #include "C4ForwardDeclarations.h"
+#include <memory>
+
 #include "C4Id.h"
 #include "C4Sector.h"
-#include "C4Shape.h"
 #include "C4Value.h"
 #include "C4Aul.h"
 
@@ -64,6 +65,26 @@ enum C4SortObjectCondID
 	C4SO_Last = 200, // no sort condition larger than this
 };
 
+// result sorting
+class C4SortObject
+{
+public:
+	virtual ~C4SortObject() = default;
+
+public:
+	// Overridables
+	virtual int32_t Compare(C4Object *pObj1, C4Object *pObj2) = 0; // return value <0 if obj1 is to be sorted before obj2
+
+	virtual bool PrepareCache([[maybe_unused]] std::vector<C4Object *> &objects) { return false; }
+	virtual int32_t CompareCache(int32_t iObj1, int32_t iObj2, C4Object *pObj1, C4Object *pObj2) { return Compare(pObj1, pObj2); }
+
+public:
+	static std::unique_ptr<C4SortObject> CreateByValue(const C4Value &Data);
+	static std::unique_ptr<C4SortObject> CreateByValue(C4ValueInt iType, const C4ValueArray &Data);
+
+	void SortObjects(std::vector<C4Object *> &result);
+};
+
 // Base class
 class C4FindObject
 {
@@ -71,13 +92,12 @@ class C4FindObject
 	friend class C4FindObjectAnd;
 	friend class C4FindObjectOr;
 
-	class C4SortObject *pSort;
+	std::unique_ptr<C4SortObject> pSort;
 
 public:
-	C4FindObject() : pSort(nullptr) {}
-	virtual ~C4FindObject();
+	virtual ~C4FindObject() = default;
 
-	static C4FindObject *CreateByValue(const C4Value &Data, C4SortObject **ppSortObj = nullptr); // createFindObject or SortObject - if ppSortObj==nullptr, SortObject is not allowed
+	static std::unique_ptr<C4FindObject> CreateByValue(const C4Value &Data, std::vector<std::unique_ptr<C4SortObject>> *sorts = nullptr); // createFindObject or SortObject - if sorts==nullptr, SortObject is not allowed
 
 	C4Object *Find(std::vector<C4ObjectLink *> objectLinks, C4ObjectLink *extraLink);   // Returns first object for which the condition is true
 	C4ValueArray *FindMany(std::span<C4Section *> sections, C4ObjectList *extraList); // Returns all objects for which the condition is true
@@ -86,7 +106,7 @@ public:
 	C4Object *FindWithSectors(std::span<C4Section *> sections, C4ObjectList *extraList); // Returns first object for which the condition is true
 	C4ValueArray *FindManyWithSectors(std::span<C4Section *> sections, C4ObjectList *extraList); // Returns all objects for which the condition is true
 
-	void SetSort(C4SortObject *pToSort);
+	void SetSort(std::unique_ptr<C4SortObject> pToSort);
 
 protected:
 	// Overridables
@@ -105,54 +125,50 @@ private:
 class C4FindObjectNot : public C4FindObject
 {
 public:
-	C4FindObjectNot(C4FindObject *pCond)
-		: pCond(pCond) {}
-	virtual ~C4FindObjectNot();
+	C4FindObjectNot(std::unique_ptr<C4FindObject> cond)
+		: cond{std::move(cond)} {}
 
 private:
-	C4FindObject *pCond;
+	std::unique_ptr<C4FindObject> cond;
 
 protected:
-	virtual bool Check(C4Object *pObj) override;
-	virtual bool IsImpossible() override { return pCond->IsEnsured(); }
-	virtual bool IsEnsured() override { return pCond->IsImpossible(); }
+	virtual bool Check(C4Object *obj) override;
+	virtual bool IsImpossible() override { return cond->IsEnsured(); }
+	virtual bool IsEnsured() override { return cond->IsImpossible(); }
 };
 
 class C4FindObjectAnd : public C4FindObject
 {
 public:
-	C4FindObjectAnd(int32_t iCnt, C4FindObject **ppConds, bool fFreeArray = true);
-	virtual ~C4FindObjectAnd();
+	C4FindObjectAnd(std::vector<std::unique_ptr<C4FindObject>> conds);
 
 private:
-	int32_t iCnt;
-	C4FindObject **ppConds; bool fFreeArray; bool fUseShapes;
+	std::vector<std::unique_ptr<C4FindObject>> conds;
+	bool fUseShapes;
 	C4Rect Bounds; bool fHasBounds;
 
 protected:
-	virtual bool Check(C4Object *pObj) override;
+	virtual bool Check(C4Object *obj) override;
 	virtual C4Rect *GetBounds() override { return fHasBounds ? &Bounds : nullptr; }
 	virtual bool UseShapes() override { return fUseShapes; }
-	virtual bool IsEnsured() override { return !iCnt; }
+	virtual bool IsEnsured() override { return conds.empty(); }
 	virtual bool IsImpossible() override;
 };
 
 class C4FindObjectOr : public C4FindObject
 {
 public:
-	C4FindObjectOr(int32_t iCnt, C4FindObject **ppConds);
-	virtual ~C4FindObjectOr();
+	C4FindObjectOr(std::vector<std::unique_ptr<C4FindObject>> conds);
 
 private:
-	int32_t iCnt;
-	C4FindObject **ppConds;
+	std::vector<std::unique_ptr<C4FindObject>> conds;
 	C4Rect Bounds; bool fHasBounds;
 
 protected:
-	virtual bool Check(C4Object *pObj) override;
+	virtual bool Check(C4Object *obj) override;
 	virtual C4Rect *GetBounds() override { return fHasBounds ? &Bounds : nullptr; }
 	virtual bool IsEnsured() override;
-	virtual bool IsImpossible() override { return !iCnt; }
+	virtual bool IsImpossible() override { return conds.empty(); }
 };
 
 // Primitive conditions
@@ -433,7 +449,6 @@ class C4SortObjectByValue : public C4SortObject
 {
 public:
 	C4SortObjectByValue();
-	~C4SortObjectByValue() override = default;
 
 private:
 	std::vector<std::int32_t> values;
@@ -450,12 +465,11 @@ public:
 class C4SortObjectReverse : public C4SortObject // reverse sort
 {
 public:
-	C4SortObjectReverse(C4SortObject *pSort)
-		: C4SortObject(), pSort(pSort) {}
-	virtual ~C4SortObjectReverse();
+	C4SortObjectReverse(std::unique_ptr<C4SortObject> sort)
+		: sort{std::move(sort)} {}
 
 private:
-	C4SortObject *pSort;
+	std::unique_ptr<C4SortObject> sort;
 
 protected:
 	int32_t Compare(C4Object *pObj1, C4Object *pObj2) override;
@@ -467,14 +481,11 @@ protected:
 class C4SortObjectMultiple : public C4SortObject // apply next sort if previous compares to equality
 {
 public:
-	C4SortObjectMultiple(int32_t iCnt, C4SortObject **ppSorts, bool fFreeArray = true)
-		: C4SortObject(), fFreeArray(fFreeArray), iCnt(iCnt), ppSorts(ppSorts) {}
-	virtual ~C4SortObjectMultiple();
+	C4SortObjectMultiple(std::vector<std::unique_ptr<C4SortObject>> sorts)
+		: C4SortObject(), sorts(std::move(sorts)) {}
 
 private:
-	bool fFreeArray;
-	int32_t iCnt;
-	C4SortObject **ppSorts;
+	std::vector<std::unique_ptr<C4SortObject>> sorts;
 
 protected:
 	int32_t Compare(C4Object *pObj1, C4Object *pObj2) override;
