@@ -136,3 +136,33 @@ constexpr std::size_t hashCombine(std::size_t hash, std::size_t nextHash)
 	}
 	return hash;
 }
+
+template<typename Enum> requires std::is_enum_v<Enum>
+struct C4BitfieldOperators : std::false_type {};
+
+template<typename Enum>
+concept C4BitfieldOperatorsEnabled = C4BitfieldOperators<Enum>::value;
+
+template<C4BitfieldOperatorsEnabled T>
+constexpr T operator|(const T lhs, const T rhs) noexcept
+{
+	return static_cast<T>(std::to_underlying(lhs) | std::to_underlying(rhs));
+}
+
+template<C4BitfieldOperatorsEnabled T>
+constexpr T operator&(const T lhs, const T rhs) noexcept
+{
+	return static_cast<T>(std::to_underlying(lhs) & std::to_underlying(rhs));
+}
+
+template<C4BitfieldOperatorsEnabled T>
+constexpr T& operator|=(T& lhs, const T rhs) noexcept
+{
+	return lhs = (lhs | rhs);
+}
+
+template<C4BitfieldOperatorsEnabled T>
+constexpr T& operator&=(T& lhs, const T rhs) noexcept
+{
+	return lhs = (lhs & rhs);
+}

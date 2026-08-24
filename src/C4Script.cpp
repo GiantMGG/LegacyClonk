@@ -40,6 +40,7 @@
 
 #include <array>
 #include <cinttypes>
+#include <concepts>
 #include <numbers>
 #include <optional>
 #include <type_traits>
@@ -1660,14 +1661,14 @@ static bool FnAddMenuItem(C4AulContext *cthr, C4String *szCaption, C4String *szC
 			if (iExtra & C4MN_Add_PassValue)
 			{
 				// with value
-				command = std::format("{}({},{},0,{})", szScriptCom, C4IdText(idItem), +parameter, iValue);
-				command2 = std::format("{}({},{},1,{})", szScriptCom, C4IdText(idItem), +parameter, iValue);
+				command = std::format("{}({},{},0,{})", szScriptCom, C4IdText(idItem), parameter, iValue);
+				command2 = std::format("{}({},{},1,{})", szScriptCom, C4IdText(idItem), parameter, iValue);
 			}
 			else
 			{
 				// without value
-				command = std::format("{}({},{})", szScriptCom, C4IdText(idItem), +parameter);
-				command2 = std::format("{}({},{},1)", szScriptCom, C4IdText(idItem), +parameter);
+				command = std::format("{}({},{})", szScriptCom, C4IdText(idItem), parameter);
+				command2 = std::format("{}({},{},1)", szScriptCom, C4IdText(idItem), parameter);
 			}
 		}
 		else
@@ -1987,17 +1988,21 @@ static std::optional<bool> FnComponentAll(C4AulContext *cthr, C4Object *pObj, C4
 }
 
 static C4Object *FnCreateObject(C4AulContext *cthr,
-	C4ID id, C4ValueInt iXOffset, C4ValueInt iYOffset, C4ValueInt iOwner)
+	C4ID id, C4ValueInt iXOffset, C4ValueInt iYOffset, std::optional<C4ValueInt> iOwner)
 {
-	if (cthr->Obj) // Local object calls override
+	const auto obj = cthr->Obj;
+	const auto strictness = cthr->Caller ? cthr->Caller->Func->pOrgScript->Strict : C4AulScriptStrict::NONSTRICT;
+	const auto fallbackOwner = (strictness >= C4AulScriptStrict::STRICT3 ? (obj ? obj->Owner : NO_OWNER) : 0);
+	auto owner = iOwner.value_or(fallbackOwner);
+	if (obj) // Local object calls override
 	{
 		iXOffset += cthr->Obj->x;
 		iYOffset += cthr->Obj->y;
-		if (!cthr->Caller || cthr->Caller->Func->Owner->Strict == C4AulScriptStrict::NONSTRICT)
-			iOwner = cthr->Obj->Owner;
+		if (strictness == C4AulScriptStrict::NONSTRICT)
+			owner = obj->Owner;
 	}
 
-	C4Object *pNewObj = Game.CreateObject(id, cthr->Obj, iOwner, iXOffset, iYOffset);
+	C4Object *pNewObj = Game.CreateObject(id, obj, owner, iXOffset, iYOffset);
 
 	// Set initial controller to creating controller, so more complicated cause-effect-chains can be traced back to the causing player
 	if (pNewObj && cthr->Obj && cthr->Obj->Controller > NO_OWNER) pNewObj->Controller = cthr->Obj->Controller;
@@ -3359,20 +3364,14 @@ static C4ValueInt FnPow(C4AulContext *cthr, C4ValueInt iVal1, C4ValueInt iVal2)
 	return Pow(iVal1, iVal2);
 }
 
-static C4ValueInt FnSin(C4AulContext *cthr, C4ValueInt iAngle, C4ValueInt iRadius, C4ValueInt iPrec)
+template<C4Fixed Function(const C4Fixed &)>
+static C4ValueInt FnCircle(C4AulContext *const context, C4ValueInt angle, const C4ValueInt radius, C4ValueInt precision)
 {
-	if (!iPrec) iPrec = 1;
-	// Precalculate the modulo operation so the C4Fixed argument to Sin does not overflow
-	iAngle %= 360 * iPrec;
+	if (!precision) precision = 1;
+	// Precalculate the modulo operation so the C4Fixed argument does not overflow
+	angle %= 360 * precision;
 	// Let itofix and fixtoi handle the division and multiplication because that can handle higher ranges
-	return fixtoi(Sin(itofix(iAngle, iPrec)), iRadius);
-}
-
-static C4ValueInt FnCos(C4AulContext *cthr, C4ValueInt iAngle, C4ValueInt iRadius, C4ValueInt iPrec)
-{
-	if (!iPrec) iPrec = 1;
-	iAngle %= 360 * iPrec;
-	return fixtoi(Cos(itofix(iAngle, iPrec)), iRadius);
+	return fixtoi(Function(itofix(angle, precision)), radius);
 }
 
 static C4ValueInt FnSqrt(C4AulContext *cthr, C4ValueInt iValue)
@@ -3432,28 +3431,14 @@ static C4ValueInt FnAngle(C4AulContext *cthr, C4ValueInt iX1, C4ValueInt iY1, C4
 	return iAngle;
 }
 
-static C4ValueInt FnArcSin(C4AulContext *cthr, C4ValueInt iVal, C4ValueInt iRadius)
+template<double Function(double)>
+static C4ValueInt FnArcus(C4AulContext *const ctx, const C4ValueInt value, const C4ValueInt radius)
 {
-	// safety
-	if (!iRadius) return 0;
-	if (iVal > iRadius) return 0;
-	// calc arcsin
-	double f1 = iVal;
-	f1 = asin(f1 / iRadius) * 180.0 * std::numbers::inv_pi;
-	// return rounded angle
-	return static_cast<C4ValueInt>(floor(f1 + 0.5));
-}
+	if (radius == 0 || value > radius) return 0;
 
-static C4ValueInt FnArcCos(C4AulContext *cthr, C4ValueInt iVal, C4ValueInt iRadius)
-{
-	// safety
-	if (!iRadius) return 0;
-	if (iVal > iRadius) return 0;
-	// calc arccos
-	double f1 = iVal;
-	f1 = acos(f1 / iRadius) * 180.0 * std::numbers::inv_pi;
+	const double result{Function(static_cast<double>(value) / radius) * 180.0 * std::numbers::inv_pi};
 	// return rounded angle
-	return static_cast<C4ValueInt>(floor(f1 + 0.5));
+	return static_cast<C4ValueInt>(std::floor(result + 0.5));
 }
 
 static C4ValueInt FnMin(C4AulContext *cthr, C4ValueInt iVal1, C4ValueInt iVal2)
@@ -4721,16 +4706,16 @@ static bool FnLocateFunc(C4AulContext *cthr, C4String *funcname, C4Object *pObj,
 			C4AulScriptFunc *pSFunc = pFunc->SFunc();
 			if (!pSFunc)
 			{
-				LogNTr("{}{} (engine)", szPrefix, +pFunc->Name);
+				LogNTr("{}{} (engine)", szPrefix, pFunc->Name);
 			}
 			else if (!pSFunc->pOrgScript)
 			{
-				LogNTr("{}{} (no owner)", szPrefix, +pSFunc->Name);
+				LogNTr("{}{} (no owner)", szPrefix, pSFunc->Name);
 			}
 			else
 			{
 				int32_t iLine = SGetLine(pSFunc->pOrgScript->GetScript(), pSFunc->Script);
-				LogNTr("{}{} ({}:{})", szPrefix, +pFunc->Name, pSFunc->pOrgScript->ScriptName.c_str(), static_cast<int>(iLine));
+				LogNTr("{}{} ({}:{})", szPrefix, pFunc->Name, pSFunc->pOrgScript->ScriptName.c_str(), static_cast<int>(iLine));
 			}
 			// next func in overload chain
 			pFunc = pSFunc ? pSFunc->OwnerOverloaded : nullptr;
@@ -6354,6 +6339,17 @@ static void AddFunc(C4AulScript *owner, const char *name, Ret (&func)(C4AulConte
 	new C4AulEngineFunc<Ret, Pars...>{owner, name, func, pub};
 }
 
+template <typename Enum, std::size_t N = C4EnumInfo<Enum>::data.values.size()>
+static void AddEnum(const C4EnumInfoData<Enum, N> &info = C4EnumInfo<Enum>::data)
+{
+	static_assert(sizeof(Enum) <= sizeof(C4ValueInt), "The Enum type is too big for C4Script ints");
+	std::string prefix{info.prefix};
+	for (const auto infoVal : info.scopedValues(C4EnumValueScope::Script))
+	{
+		Game.ScriptEngine.RegisterGlobalConstant((prefix + std::string{infoVal.scriptName}).c_str(), C4VInt(static_cast<C4ValueInt>(infoVal.value)));
+	}
+}
+
 template<C4V_Type fromType, C4V_Type toType>
 class C4AulDefCastFunc : public C4AulEngineFuncHelper<1>
 {
@@ -6387,45 +6383,6 @@ public:
 
 static constexpr C4ScriptConstDef C4ScriptConstMap[] =
 {
-	{ "C4D_All",         C4V_Int, C4D_All },
-	{ "C4D_StaticBack",  C4V_Int, C4D_StaticBack },
-	{ "C4D_Structure",   C4V_Int, C4D_Structure },
-	{ "C4D_Vehicle",     C4V_Int, C4D_Vehicle },
-	{ "C4D_Living",      C4V_Int, C4D_Living },
-	{ "C4D_Object",      C4V_Int, C4D_Object },
-	{ "C4D_Goal",        C4V_Int, C4D_Goal },
-	{ "C4D_Environment", C4V_Int, C4D_Environment },
-	{ "C4D_Knowledge",   C4V_Int, C4D_SelectKnowledge },
-	{ "C4D_Magic",       C4V_Int, C4D_Magic },
-	{ "C4D_Rule",        C4V_Int, C4D_Rule },
-	{ "C4D_Background",  C4V_Int, C4D_Background },
-	{ "C4D_Parallax",    C4V_Int, C4D_Parallax },
-	{ "C4D_MouseSelect", C4V_Int, C4D_MouseSelect },
-	{ "C4D_Foreground",  C4V_Int, C4D_Foreground },
-	{ "C4D_MouseIgnore", C4V_Int, C4D_MouseIgnore },
-	{ "C4D_IgnoreFoW",   C4V_Int, C4D_IgnoreFoW },
-
-	{ "C4D_GrabGet", C4V_Int, C4D_Grab_Get },
-	{ "C4D_GrabPut", C4V_Int, C4D_Grab_Put },
-
-	{ "C4D_LinePower",     C4V_Int, C4D_Line_Power },
-	{ "C4D_LineSource",    C4V_Int, C4D_Line_Source },
-	{ "C4D_LineDrain",     C4V_Int, C4D_Line_Drain },
-	{ "C4D_LineLightning", C4V_Int, C4D_Line_Lightning },
-	{ "C4D_LineVolcano",   C4V_Int, C4D_Line_Volcano },
-	{ "C4D_LineRope",      C4V_Int, C4D_Line_Rope },
-	{ "C4D_LineColored",   C4V_Int, C4D_Line_Colored },
-	{ "C4D_LineVertex",    C4V_Int, C4D_Line_Vertex },
-
-	{ "C4D_PowerInput",     C4V_Int, C4D_Power_Input },
-	{ "C4D_PowerOutput",    C4V_Int, C4D_Power_Output },
-	{ "C4D_LiquidInput",    C4V_Int, C4D_Liquid_Input },
-	{ "C4D_LiquidOutput",   C4V_Int, C4D_Liquid_Output },
-	{ "C4D_PowerGenerator", C4V_Int, C4D_Power_Generator },
-	{ "C4D_PowerConsumer",  C4V_Int, C4D_Power_Consumer },
-	{ "C4D_LiquidPump",     C4V_Int, C4D_Liquid_Pump },
-	{ "C4D_EnergyHolder",   C4V_Int, C4D_EnergyHolder },
-
 	{ "C4V_Any",      C4V_Int, C4V_Any },
 	{ "C4V_Int",      C4V_Int, C4V_Int },
 	{ "C4V_Bool",     C4V_Int, C4V_Bool },
@@ -6448,51 +6405,6 @@ static constexpr C4ScriptConstDef C4ScriptConstMap[] =
 
 	{ "DIR_Left",  C4V_Int, DIR_Left },
 	{ "DIR_Right", C4V_Int, DIR_Right },
-
-	{ "CON_CursorLeft",   C4V_Int, CON_CursorLeft },
-	{ "CON_CursorToggle", C4V_Int, CON_CursorToggle },
-	{ "CON_CursorRight",  C4V_Int, CON_CursorRight },
-	{ "CON_Throw",        C4V_Int, CON_Throw },
-	{ "CON_Up",           C4V_Int, CON_Up },
-	{ "CON_Dig",          C4V_Int, CON_Dig },
-	{ "CON_Left",         C4V_Int, CON_Left },
-	{ "CON_Down",         C4V_Int, CON_Down },
-	{ "CON_Right",        C4V_Int, CON_Right },
-	{ "CON_Menu",         C4V_Int, CON_Menu },
-	{ "CON_Special",      C4V_Int, CON_Special },
-	{ "CON_Special2",     C4V_Int, CON_Special2 },
-
-	{ "OCF_Construct",        C4V_Int, OCF_Construct },
-	{ "OCF_Grab",             C4V_Int, OCF_Grab },
-	{ "OCF_Collectible",      C4V_Int, OCF_Carryable },
-	{ "OCF_OnFire",           C4V_Int, OCF_OnFire },
-	{ "OCF_HitSpeed1",        C4V_Int, OCF_HitSpeed1 },
-	{ "OCF_Fullcon",          C4V_Int, OCF_FullCon },
-	{ "OCF_Inflammable",      C4V_Int, OCF_Inflammable },
-	{ "OCF_Chop",             C4V_Int, OCF_Chop },
-	{ "OCF_Rotate",           C4V_Int, OCF_Rotate },
-	{ "OCF_Exclusive",        C4V_Int, OCF_Exclusive },
-	{ "OCF_Entrance",         C4V_Int, OCF_Entrance },
-	{ "OCF_HitSpeed2",        C4V_Int, OCF_HitSpeed2 },
-	{ "OCF_HitSpeed3",        C4V_Int, OCF_HitSpeed3 },
-	{ "OCF_Collection",       C4V_Int, OCF_Collection },
-	{ "OCF_Living",           C4V_Int, OCF_Living },
-	{ "OCF_HitSpeed4",        C4V_Int, OCF_HitSpeed4 },
-	{ "OCF_FightReady",       C4V_Int, OCF_FightReady },
-	{ "OCF_LineConstruct",    C4V_Int, OCF_LineConstruct },
-	{ "OCF_Prey",             C4V_Int, OCF_Prey },
-	{ "OCF_AttractLightning", C4V_Int, OCF_AttractLightning },
-	{ "OCF_NotContained",     C4V_Int, OCF_NotContained },
-	{ "OCF_CrewMember",       C4V_Int, OCF_CrewMember },
-	{ "OCF_Edible",           C4V_Int, OCF_Edible },
-	{ "OCF_InLiquid",         C4V_Int, OCF_InLiquid },
-	{ "OCF_InSolid",          C4V_Int, OCF_InSolid },
-	{ "OCF_InFree",           C4V_Int, OCF_InFree },
-	{ "OCF_Available",        C4V_Int, OCF_Available },
-	{ "OCF_PowerConsumer",    C4V_Int, OCF_PowerConsumer },
-	{ "OCF_PowerSupply",      C4V_Int, OCF_PowerSupply },
-	{ "OCF_Container",        C4V_Int, OCF_Container },
-	{ "OCF_Alive",            C4V_Int, static_cast<C4ValueInt>(OCF_Alive) },
 
 	{ "VIS_All",         C4V_Int, VIS_All },
 	{ "VIS_None",        C4V_Int, VIS_None },
@@ -6566,13 +6478,6 @@ static constexpr C4ScriptConstDef C4ScriptConstMap[] =
 	{ "FX_Call_EngStruct",         C4V_Int, C4FxCall_EngStruct }, // regular structure energy loss (normally not called)
 	{ "FX_Call_EngGetPunched",     C4V_Int, C4FxCall_EngGetPunched }, // energy loss during fighting
 
-	{ "GFXOV_MODE_None",          C4V_Int, C4GraphicsOverlay::MODE_None }, // gfx overlay modes
-	{ "GFXOV_MODE_Base",          C4V_Int, C4GraphicsOverlay::MODE_Base },
-	{ "GFXOV_MODE_Action",        C4V_Int, C4GraphicsOverlay::MODE_Action },
-	{ "GFXOV_MODE_Picture",       C4V_Int, C4GraphicsOverlay::MODE_Picture },
-	{ "GFXOV_MODE_IngamePicture", C4V_Int, C4GraphicsOverlay::MODE_IngamePicture },
-	{ "GFXOV_MODE_Object",        C4V_Int, C4GraphicsOverlay::MODE_Object },
-	{ "GFXOV_MODE_ExtraGraphics", C4V_Int, C4GraphicsOverlay::MODE_ExtraGraphics },
 	{ "GFX_Overlay",              C4V_Int, 1 }, // default overlay index
 	{ "GFXOV_Clothing",           C4V_Int, 1000 }, // overlay indices for clothes on Clonks, etc.
 	{ "GFXOV_Tools",              C4V_Int, 2000 }, // overlay indices for tools, weapons, etc.
@@ -6587,16 +6492,6 @@ static constexpr C4ScriptConstDef C4ScriptConstMap[] =
 	{ "GFX_BLIT_Parent",          C4V_Int, C4GFXBLIT_PARENT },
 
 	{ "NO_OWNER", C4V_Int, NO_OWNER }, // invalid player number
-
-	// contact attachment
-	{ "CNAT_None",        C4V_Int, CNAT_None },
-	{ "CNAT_Left",        C4V_Int, CNAT_Left },
-	{ "CNAT_Right",       C4V_Int, CNAT_Right },
-	{ "CNAT_Top",         C4V_Int, CNAT_Top },
-	{ "CNAT_Bottom",      C4V_Int, CNAT_Bottom },
-	{ "CNAT_Center",      C4V_Int, CNAT_Center },
-	{ "CNAT_MultiAttach", C4V_Int, CNAT_MultiAttach },
-	{ "CNAT_NoCollision", C4V_Int, CNAT_NoCollision },
 
 	// vertex data
 	{ "VTX_X",        C4V_Int, VTX_X },
@@ -6630,18 +6525,6 @@ static constexpr C4ScriptConstDef C4ScriptConstMap[] =
 	{ "C4OS_DELETED",  C4V_Int, C4OS_DELETED },
 	{ "C4OS_NORMAL",   C4V_Int, C4OS_NORMAL },
 	{ "C4OS_INACTIVE", C4V_Int, C4OS_INACTIVE },
-
-	{ "C4MSGCMDR_Escaped",    C4V_Int, C4MessageBoardCommand::C4MSGCMDR_Escaped },
-	{ "C4MSGCMDR_Plain",      C4V_Int, C4MessageBoardCommand::C4MSGCMDR_Plain },
-	{ "C4MSGCMDR_Identifier", C4V_Int, C4MessageBoardCommand::C4MSGCMDR_Identifier },
-
-	{ "BASEFUNC_Default",          C4V_Int, BASEFUNC_Default },
-	{ "BASEFUNC_AutoSellContents", C4V_Int, BASEFUNC_AutoSellContents },
-	{ "BASEFUNC_RegenerateEnergy", C4V_Int, BASEFUNC_RegenerateEnergy },
-	{ "BASEFUNC_Buy",              C4V_Int, BASEFUNC_Buy },
-	{ "BASEFUNC_Sell",             C4V_Int, BASEFUNC_Sell },
-	{ "BASEFUNC_RejectEntrance",   C4V_Int, BASEFUNC_RejectEntrance },
-	{ "BASEFUNC_Extinguish",       C4V_Int, BASEFUNC_Extinguish },
 
 	{ "C4FO_Not",          C4V_Int, C4FO_Not },
 	{ "C4FO_And",          C4V_Int, C4FO_And },
@@ -6709,9 +6592,6 @@ static constexpr C4ScriptConstDef C4ScriptConstMap[] =
 	{ "MSG_ACenter",     C4V_Int, C4GM_ACenter },
 	{ "MSG_ARight",      C4V_Int, C4GM_ARight },
 
-	{ "C4PT_User",   C4V_Int, C4PT_User },
-	{ "C4PT_Script", C4V_Int, C4PT_Script },
-
 	{ "CSPF_FixedAttributes",    C4V_Int, CSPF_FixedAttributes },
 	{ "CSPF_NoScenarioInit",     C4V_Int, CSPF_NoScenarioInit },
 	{ "CSPF_NoEliminationCheck", C4V_Int, CSPF_NoEliminationCheck },
@@ -6757,6 +6637,17 @@ template <typename T> struct C4ValueConv<std::optional<T>>
 void InitFunctionMap(C4AulScriptEngine *pEngine)
 {
 	// add all def constants (all Int)
+	AddEnum(C4D_Category_EnumInfo);
+	AddEnum(C4D_Line_EnumInfo);
+	AddEnum(C4D_LineConnect_EnumInfo);
+	AddEnum(C4D_Grab_EnumInfo);
+	AddEnum(CNAT_EnumInfo);
+	AddEnum(OCF_EnumInfo);
+	AddEnum(CON_EnumInfo);
+	AddEnum(BASEFUNC_EnumInfo);
+	AddEnum<C4PlayerType>();
+	AddEnum<C4GraphicsOverlay::Mode>();
+	AddEnum<C4MessageBoardCommand::Restriction>();
 	for (const auto &def : C4ScriptConstMap)
 		Game.ScriptEngine.RegisterGlobalConstant(def.Identifier, C4Value(def.Data, def.ValType));
 
@@ -6863,11 +6754,11 @@ void InitFunctionMap(C4AulScriptEngine *pEngine)
 	AddFunc(pEngine, "Div",                             FnDiv,                             false);
 	AddFunc(pEngine, "Mod",                             FnMod,                             false);
 	AddFunc(pEngine, "Pow",                             FnPow,                             false);
-	AddFunc(pEngine, "Sin",                             FnSin);
-	AddFunc(pEngine, "Cos",                             FnCos);
+	AddFunc(pEngine, "Sin",                             FnCircle<Sin>);
+	AddFunc(pEngine, "Cos",                             FnCircle<Cos>);
 	AddFunc(pEngine, "Sqrt",                            FnSqrt);
-	AddFunc(pEngine, "ArcSin",                          FnArcSin);
-	AddFunc(pEngine, "ArcCos",                          FnArcCos);
+	AddFunc(pEngine, "ArcSin",                          FnArcus<std::asin>);
+	AddFunc(pEngine, "ArcCos",                          FnArcus<std::acos>);
 	AddFunc(pEngine, "LessThan",                        FnLessThan,                        false);
 	AddFunc(pEngine, "GreaterThan",                     FnGreaterThan,                     false);
 	AddFunc(pEngine, "BoundBy",                         FnBoundBy);

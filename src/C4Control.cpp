@@ -239,6 +239,15 @@ void C4ControlSet::Execute(const std::shared_ptr<spdlog::logger> &) const
 			Game.Network.InvalidateReference();
 		break;
 
+	case C4CVT_Vote:
+		// host only
+		if (!HostControl()) break;
+
+		if (!Game.Network.isEnabled() || Game.Parameters.isLeague()) break;
+
+		Game.Parameters.Vote = !!iData;
+		break;
+
 	case C4CVT_None:
 		assert(!"C4ControlSet of type C4CVT_None");
 		break;
@@ -764,7 +773,7 @@ void C4ControlJoinPlayer::Execute(const std::shared_ptr<spdlog::logger> &logger)
 	else if (Game.Control.isReplay())
 	{
 		// Expect player in scenario file
-		Game.JoinPlayer(std::format("{}" DirSep "{}-{}", +Game.ScenarioFilename, ResCore.getID(), GetFilename(ResCore.getFileName())).c_str(), iAtClient, pClient ? pClient->getName() : "Unknown", pInfo);
+		Game.JoinPlayer(std::format("{}" DirSep "{}-{}", Game.ScenarioFilename, ResCore.getID(), GetFilename(ResCore.getFileName())).c_str(), iAtClient, pClient ? pClient->getName() : "Unknown", pInfo);
 	}
 	else
 		// Shouldn't happen
