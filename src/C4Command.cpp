@@ -1146,10 +1146,7 @@ void C4Command::Get()
 	// Target collected
 	if (Target->Contained == cObj)
 	{
-		if (successOrNext())
-		{
-			return;
-		}
+		if (successOrNext()) return;
 	}
 
 	// Grabbing other than target container: let go
@@ -1419,10 +1416,7 @@ void C4Command::Put() // Notice: Put command is currently using Ty as an interna
 	// Thing is in target
 	if (Target2->Contained == Target)
 	{
-		if (successOrNext())
-		{
-			return;
-		}
+		if (successOrNext()) return;
 	}
 
 	// Thing to put not in contents: get object

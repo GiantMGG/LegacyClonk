@@ -328,7 +328,7 @@ C4Value C4VString(const char *strString);
 // converter templates
 template <> struct C4ValueConv<C4ValueInt>
 {
-	inline static constexpr C4V_Type Type() noexcept { return C4V_Int; }
+	constexpr static C4V_Type Type() { return C4V_Int; }
 	inline static C4ValueInt FromC4V(C4Value &v) { return v.getInt(); }
 	inline static constexpr C4ValueInt _FromC4V(const C4Value &v) noexcept { return v._getInt(); }
 	inline static constexpr C4Value ToC4V(int32_t v) noexcept { return C4VInt(v); }
@@ -336,7 +336,7 @@ template <> struct C4ValueConv<C4ValueInt>
 
 template <> struct C4ValueConv<bool>
 {
-	inline static constexpr C4V_Type Type() noexcept { return C4V_Bool; }
+	constexpr static C4V_Type Type() { return C4V_Bool; }
 	inline static bool FromC4V(C4Value &v) { return v.getBool(); }
 	inline static constexpr bool _FromC4V(const C4Value &v) noexcept { return v._getBool(); }
 	inline static constexpr C4Value ToC4V(bool v) noexcept { return C4VBool(v); }
@@ -344,7 +344,7 @@ template <> struct C4ValueConv<bool>
 
 template <> struct C4ValueConv<C4ID>
 {
-	inline static constexpr C4V_Type Type() noexcept { return C4V_C4ID; }
+	constexpr static C4V_Type Type() { return C4V_C4ID; }
 	inline static C4ID FromC4V(C4Value &v) { return v.getC4ID(); }
 	inline static constexpr C4ID _FromC4V(const C4Value &v) noexcept { return v._getC4ID(); }
 	inline static constexpr C4Value ToC4V(C4ID v) noexcept { return C4VID(v); }
@@ -352,7 +352,7 @@ template <> struct C4ValueConv<C4ID>
 
 template <> struct C4ValueConv<C4Object *>
 {
-	inline static constexpr C4V_Type Type() noexcept { return C4V_C4Object; }
+	constexpr static C4V_Type Type() { return C4V_C4Object; }
 	inline static C4Object *FromC4V(C4Value &v) { return v.getObj(); }
 	inline static constexpr C4Object *_FromC4V(const C4Value &v) noexcept { return v._getObj(); }
 	inline static C4Value ToC4V(C4Object *v) { return C4VObj(v); }
@@ -360,7 +360,7 @@ template <> struct C4ValueConv<C4Object *>
 
 template <> struct C4ValueConv<C4String *>
 {
-	inline static constexpr C4V_Type Type() noexcept { return C4V_String; }
+	constexpr static C4V_Type Type() { return C4V_String; }
 	inline static C4String *FromC4V(C4Value &v) { return v.getStr(); }
 	inline static constexpr C4String *_FromC4V(const C4Value &v) noexcept { return v._getStr(); }
 	inline static C4Value ToC4V(C4String *v) { return C4VString(v); }
@@ -368,7 +368,7 @@ template <> struct C4ValueConv<C4String *>
 
 template <> struct C4ValueConv<C4ValueArray *>
 {
-	inline static constexpr C4V_Type Type() noexcept { return C4V_Array; }
+	constexpr static C4V_Type Type() { return C4V_Array; }
 	inline static C4ValueArray *FromC4V(C4Value &v) { return v.getArray(); }
 	inline static constexpr C4ValueArray *_FromC4V(const C4Value &v) noexcept { return v._getArray(); }
 	inline static C4Value ToC4V(C4ValueArray *v) { return C4VArray(v); }
@@ -376,7 +376,7 @@ template <> struct C4ValueConv<C4ValueArray *>
 
 template <> struct C4ValueConv<C4ValueHash *>
 {
-	inline static constexpr C4V_Type Type() noexcept { return C4V_Map; }
+	constexpr static C4V_Type Type() { return C4V_Map; }
 	inline static C4ValueHash *FromC4V(C4Value &v) { return v.getMap(); }
 	inline static constexpr C4ValueHash *_FromC4V(const C4Value &v) noexcept { return v._getMap(); }
 	inline static C4Value ToC4V(C4ValueHash *v) { return C4VMap(v); }
@@ -384,9 +384,9 @@ template <> struct C4ValueConv<C4ValueHash *>
 
 template <> struct C4ValueConv<C4Value *>
 {
-	inline static constexpr C4V_Type Type() noexcept { return C4V_pC4Value; }
-	inline static C4Value *FromC4V(C4Value &v) { return v.getRef(); }
-	inline static constexpr C4Value *_FromC4V(const C4Value &v) noexcept { return v._getRef(); }
+	constexpr static C4V_Type Type() { return C4V_pC4Value; }
+	static C4Value *FromC4V(C4Value &v) { return v.getRef(); }
+	inline static C4Value *_FromC4V(const C4Value &v) { return v._getRef(); }
 	inline static C4Value ToC4V(C4Value *v) { return C4VRef(v); }
 };
 
