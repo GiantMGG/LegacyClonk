@@ -18,6 +18,9 @@
 
 #include <C4PXS.h>
 
+#include <C4Application.h>
+#include <C4Components.h>
+#include <C4Config.h>
 #include <C4Physics.h>
 #include <C4Random.h>
 #include "C4Section.h"

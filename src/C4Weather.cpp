@@ -21,6 +21,7 @@
 #include <C4Object.h>
 #include <C4Random.h>
 #include "C4SoundSystem.h"
+#include <C4Game.h>
 #include <C4Wrappers.h>
 
 C4Weather::C4Weather(C4Section &section)

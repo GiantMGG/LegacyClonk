@@ -20,6 +20,12 @@
 #include <C4Object.h>
 #include <C4Version.h>
 
+#include <C4Application.h>
+#include <C4Config.h>
+#include <C4Game.h>
+#include <C4GameMessage.h>
+#include <C4GameVersion.h>
+#include <C4InfoCore.h>
 #include <C4ObjectInfo.h>
 #include <C4Physics.h>
 #include <C4ObjectCom.h>
@@ -32,6 +38,7 @@
 #endif
 #include <C4SolidMask.h>
 #include <C4Random.h>
+#include <C4SoundSystem.h>
 #include <C4Wrappers.h>
 #include <C4Player.h>
 #include <C4ObjectMenu.h>

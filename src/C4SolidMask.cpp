@@ -20,6 +20,7 @@
 #include <C4SolidMask.h>
 
 #include <C4Object.h>
+#include <C4Game.h>
 #include <C4Wrappers.h>
 
 void C4SolidMask::Put(bool fCauseInstability, C4TargetRect *pClipRect, bool fRestoreAttachment)

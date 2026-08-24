@@ -21,6 +21,7 @@
 #include <C4Object.h>
 #include <C4Wrappers.h>
 #include <C4Application.h>
+#include <C4Game.h>
 
 #include <format>
 
