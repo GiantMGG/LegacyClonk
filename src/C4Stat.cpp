@@ -17,7 +17,6 @@
 // statistics
 //  by peter
 
-#include <C4Include.h>
 #include <C4Stat.h>
 
 #include <C4Game.h>
@@ -25,7 +24,7 @@
 // ** implemetation of C4MainStat
 
 C4MainStat::C4MainStat()
-	: bStatFileOpen(false), pFirst(nullptr) {}
+	: pFirst(nullptr) {}
 
 C4MainStat::~C4MainStat()
 {
@@ -91,7 +90,7 @@ void C4MainStat::Show()
 	// output the whole statistic (to stat.txt)
 
 	// open file
-	if (!bStatFileOpen)
+	if (!StatFile)
 		OpenStatFile();
 
 	// count stats
@@ -113,7 +112,9 @@ void C4MainStat::Show()
 		unsigned int iBestNr = ~0u;
 
 		for (ii = 0, pAkt = pFirst; ii < iCnt; ii++, pAkt = pAkt->pNext)
+		{
 			if (!bHS[ii])
+			{
 				if (iBestNr == ~0u)
 				{
 					iBestNr = ii;
@@ -124,6 +125,8 @@ void C4MainStat::Show()
 					iBestNr = ii;
 					pBestStat = pAkt;
 				}
+			}
+		}
 
 		if (iBestNr == ~0u)
 			break;
@@ -134,7 +137,7 @@ void C4MainStat::Show()
 
 	delete[] bHS;
 
-	fprintf(StatFile, "** Stat\n");
+	(void) StatFile.WriteStringLine("** Stat");
 
 	// output in order
 	for (i = 0; i < iCnt; i++)
@@ -143,7 +146,7 @@ void C4MainStat::Show()
 
 		// output it!
 		if (pAkt->iCount)
-			fprintf(StatFile, "%s: n = %d, t = %d, td = %.2f\n",
+			(void) StatFile.WriteStringLine("{}: n = {}, t = {}, td = {:.2f}",
 				pAkt->strName, pAkt->iCount, pAkt->iTimeSum,
 				double(pAkt->iTimeSum) / std::max<int>(1, pAkt->iCount - 100) * 1000);
 	}
@@ -152,8 +155,8 @@ void C4MainStat::Show()
 	delete[] StatArray;
 
 	// ok. job done
-	fputs("** Stat end\n", StatFile);
-	fflush(StatFile);
+	(void) StatFile.WriteStringLine("** Stat end");
+	(void) StatFile.Flush();
 }
 
 void C4MainStat::ShowPart()
@@ -161,44 +164,33 @@ void C4MainStat::ShowPart()
 	C4Stat *pAkt;
 
 	// open file
-	if (!bStatFileOpen)
+	if (!StatFile)
 		OpenStatFile();
 
 	// insert tick nr
-	fprintf(StatFile, "** PartStat begin %d\n", Game.FrameCounter);
+	(void) StatFile.WriteStringLine("** PartStat begin {}", Game.FrameCounter);
 
 	// insert all stats
 	for (pAkt = pFirst; pAkt; pAkt = pAkt->pNext)
-		fprintf(StatFile, "%s: n=%d, t=%d\n", pAkt->strName, pAkt->iCountPart, pAkt->iTimeSumPart);
+		(void) StatFile.WriteStringLine("{}: n={}, t={}\n", pAkt->strName, pAkt->iCountPart, pAkt->iTimeSumPart);
 
 	// insert part stat end idtf
-	fprintf(StatFile, "** PartStat end\n");
-	fflush(StatFile);
+	(void) StatFile.WriteStringLine("** PartStat end");
+	(void) StatFile.Flush();
 }
 
 // stat file handling
 void C4MainStat::OpenStatFile()
 {
-	if (bStatFileOpen) return;
+	if (StatFile) return;
 
 	// open & reset file
-	StatFile = fopen("stat.txt", "w");
-
-	// success?
-	if (!StatFile)
-		return;
-
-	bStatFileOpen = true;
+	(void) StatFile.Open("stat.txt", "w");
 }
 
 void C4MainStat::CloseStatFile()
 {
-	if (!bStatFileOpen) return;
-
-	// open & reset file
-	fclose(StatFile);
-
-	bStatFileOpen = false;
+	StatFile.Close();
 }
 
 // ** implemetation of C4Stat

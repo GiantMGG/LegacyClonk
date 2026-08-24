@@ -2,7 +2,7 @@
  * LegacyClonk
  *
  * Copyright (c) RedWolf Design
- * Copyright (c) 2017-2021, The LegacyClonk Team and contributors
+ * Copyright (c) 2017-2024, The LegacyClonk Team and contributors
  *
  * Distributed under the terms of the ISC license; see accompanying file
  * "COPYING" for details.
@@ -94,7 +94,7 @@ void C4LangStringTable::ReplaceStrings(const StdStrBuf &rBuf, StdStrBuf &rTarget
 		// found?
 		if (!pStrTblEntry)
 		{
-			LogNTr(spdlog::level::warn, "{}: string table entry not found: \"{}\"", FilePath[0] ? FilePath : (szParentFilePath ? szParentFilePath : "Unknown"), +szStringName);
+			LogNTr(spdlog::level::warn, "{}: string table entry not found: \"{}\"", FilePath[0] ? FilePath : (szParentFilePath ? szParentFilePath : "Unknown"), szStringName);
 			continue;
 		}
 		// add new replace-position entry

@@ -2,7 +2,7 @@
  * LegacyClonk
  *
  * Copyright (c) 2012-2016, The OpenClonk Team and contributors
- * Copyright (c) 2024, The LegacyClonk Team and contributors
+ * Copyright (c) 2024-2025, The LegacyClonk Team and contributors
  *
  * Distributed under the terms of the ISC license; see accompanying file
  * "COPYING" for details.
@@ -158,7 +158,13 @@ private:
 			co_return;
 		}
 
+#if MINIUPNPC_API_VERSION >= 18
+		std::array<char, 64> wanAddress;
+		if (const int status{UPNP_GetValidIGD(deviceList.get(), &urls, &igdData, lanAddress.data(), lanAddress.size(), wanAddress.data(), wanAddress.size())}; !status)
+#else
 		if (const int status{UPNP_GetValidIGD(deviceList.get(), &urls, &igdData, lanAddress.data(), lanAddress.size())}; !status)
+#endif
+
 		{
 			logger->error("Could not find valid IGD");
 		}

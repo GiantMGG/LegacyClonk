@@ -31,8 +31,8 @@ src/C4Console.h
 src/C4Constants.h
 src/C4Control.cpp
 src/C4Control.h
-src/C4Coroutine.h
 src/C4Cooldown.h
+src/C4Coroutine.h
 src/C4CurlSystem.cpp
 src/C4CurlSystem.h
 src/C4Def.cpp
@@ -51,6 +51,7 @@ src/C4Effect.cpp
 src/C4Effects.h
 src/C4EnumeratedObjectPtr.cpp
 src/C4EnumeratedObjectPtr.h
+src/C4EnumInfo.h
 src/C4Extra.cpp
 src/C4Extra.h
 src/C4Facet.cpp
@@ -123,11 +124,12 @@ src/C4GuiTabular.cpp
 src/C4GuiTabular.h
 src/C4HTTPClient.cpp
 src/C4HTTPClient.h
+src/C4HudBars.cpp
+src/C4HudBars.h
 src/C4IDList.cpp
 src/C4IDList.h
 src/C4Id.cpp
 src/C4Id.h
-src/C4Include.h
 src/C4InfoCore.cpp
 src/C4InfoCore.h
 src/C4InputValidation.cpp
@@ -298,10 +300,10 @@ src/C4SurfaceFile.cpp
 src/C4SurfaceFile.h
 src/C4Teams.cpp
 src/C4Teams.h
-src/C4Texture.cpp
-src/C4Texture.h
 src/C4TextEncoding.cpp
 src/C4TextEncoding.h
+src/C4Texture.cpp
+src/C4Texture.h
 src/C4Thread.cpp
 src/C4Thread.h
 src/C4ThreadPool.cpp
@@ -320,6 +322,9 @@ src/C4UpperBoard.h
 src/C4UserMessages.h
 src/C4Value.cpp
 src/C4Value.h
+src/C4ValueBase.h
+src/C4ValueConstexpr.cpp
+src/C4ValueConstexpr.h
 src/C4ValueContainer.h
 src/C4ValueHash.cpp
 src/C4ValueHash.h

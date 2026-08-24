@@ -2,7 +2,7 @@
  * LegacyClonk
  *
  * Copyright (c) 1998-2000, Matthes Bender (RedWolf Design)
- * Copyright (c) 2017-2020, The LegacyClonk Team and contributors
+ * Copyright (c) 2017-2024, The LegacyClonk Team and contributors
  *
  * Distributed under the terms of the ISC license; see accompanying file
  * "COPYING" for details.
@@ -16,7 +16,6 @@
 
 /* Rank list for players or crew members */
 
-#include <C4Include.h>
 #include <C4RankSystem.h>
 
 #include <C4Log.h>
@@ -149,6 +148,7 @@ bool C4RankSystem::Load(C4Group &hGroup, const char *szFilenames, int DefRankBas
 		{
 			// zero-character found: content?
 			if (pPos - pRank0 > 0)
+			{
 				// extension?
 				if (*pRank0 == '*')
 				{
@@ -172,6 +172,8 @@ bool C4RankSystem::Load(C4Group &hGroup, const char *szFilenames, int DefRankBas
 						// yeeehaa! it's a name! store it, store it!
 						*pszCurrRank++ = pRank0;
 				}
+			}
+
 			// advance pos
 			pRank0 = pPos + 1;
 		}

@@ -2,7 +2,7 @@
  * LegacyClonk
  *
  * Copyright (c) 1998-2000, Matthes Bender (RedWolf Design)
- * Copyright (c) 2017-2021, The LegacyClonk Team and contributors
+ * Copyright (c) 2017-2024, The LegacyClonk Team and contributors
  *
  * Distributed under the terms of the ISC license; see accompanying file
  * "COPYING" for details.
@@ -27,6 +27,7 @@
 #include <C4MouseControl.h>
 #include <C4MessageInput.h>
 #include <C4Weather.h>
+#include <C4HudBars.h>
 #include <C4Material.h>
 #include <C4GameObjects.h>
 #include <C4Landscape.h>
@@ -175,6 +176,8 @@ public:
 	bool fQuitWithError; // if set, game shut down irregularly
 	bool IsMusicEnabled;
 	int32_t iMusicLevel; // scenario-defined music level
+	C4HudBarsUniquifier HudBars;
+
 	// current play list
 	StdStrBuf PlayList;
 	bool DebugMode;

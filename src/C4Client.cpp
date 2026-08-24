@@ -2,7 +2,7 @@
  * LegacyClonk
  *
  * Copyright (c) RedWolf Design
- * Copyright (c) 2017-2021, The LegacyClonk Team and contributors
+ * Copyright (c) 2017-2024, The LegacyClonk Team and contributors
  *
  * Distributed under the terms of the ISC license; see accompanying file
  * "COPYING" for details.
@@ -14,7 +14,6 @@
  * for the above references.
  */
 
-#include <C4Include.h>
 #include <C4Client.h>
 
 #include <C4Config.h>
@@ -88,7 +87,7 @@ C4Client::C4Client()
 	: C4Client{C4ClientCore()} {}
 
 C4Client::C4Client(const C4ClientCore &Core)
-	: Core{Core}, fLocal{false}, pNetClient{nullptr}, pNext{nullptr}, last_lobby_ready_change{0}, muted{Config.Sound.MuteSoundCommand} {}
+	: Core{Core}, fLocal{false}, pNetClient{nullptr}, last_lobby_ready_change{0}, muted{Config.Sound.MuteSoundCommand}, pNext{nullptr} {}
 
 C4Client::~C4Client()
 {

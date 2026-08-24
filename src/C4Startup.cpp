@@ -3,7 +3,7 @@
  *
  * Copyright (c) RedWolf Design
  * Copyright (c) 2005, Sven2
- * Copyright (c) 2017-2020, The LegacyClonk Team and contributors
+ * Copyright (c) 2017-2024, The LegacyClonk Team and contributors
  *
  * Distributed under the terms of the ISC license; see accompanying file
  * "COPYING" for details.
@@ -17,7 +17,6 @@
 
 // Startup screen for non-parameterized engine start
 
-#include <C4Include.h>
 #include <C4Startup.h>
 
 #include <C4StartupMainDlg.h>
@@ -67,8 +66,14 @@ bool C4StartupGraphics::Init()
 	if (!LoadFile(fctScenSelIcons, "StartupScenSelIcons")) return false;
 	Game.SetInitProgress(68);
 	fctScenSelIcons.Wdt = fctScenSelIcons.Hgt; // icon width is determined by icon height
-	if (!LoadFile(fctScenSelTitleOverlay, "StartupScenSelTitleOv")) return false;
+
+	if (!LoadFile(fctScenSelTitleOverlay, "StartupScenSelTitleOv"))
+	{
+		return false;
+	}
+	scenSelTitleOverlayFrame = {fctScenSelTitleOverlay, 31, 29};
 	Game.SetInitProgress(70);
+
 	if (!LoadFile(fctPlrCtrlType, "StartupPlrCtrlType")) return false;
 	fctPlrCtrlType.Set(fctPlrCtrlType.Surface, 0, 0, 128, 52);
 	Game.SetInitProgress(72);
@@ -221,7 +226,8 @@ C4StartupDlg *C4Startup::SwitchDialog(DialogID eToDlg, bool fFade)
 		delete pLastDlg;
 	}
 	// retain current dialog as last, so it can fade out and may be used later
-	if (pLastDlg = pCurrDlg)
+	if ((pLastDlg = pCurrDlg))
+	{
 		if (fFade)
 		{
 			if (!pLastDlg->IsShown()) pLastDlg->Show(Game.pGUI, false);
@@ -232,6 +238,7 @@ C4StartupDlg *C4Startup::SwitchDialog(DialogID eToDlg, bool fFade)
 			delete pLastDlg;
 			pLastDlg = nullptr;
 		}
+	}
 	// Okay; now using this dialog
 	pCurrDlg = pToDlg;
 	// fade in new dlg

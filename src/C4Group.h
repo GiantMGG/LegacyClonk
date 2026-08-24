@@ -2,7 +2,7 @@
  * LegacyClonk
  *
  * Copyright (c) 1998-2000, Matthes Bender (RedWolf Design)
- * Copyright (c) 2017-2020, The LegacyClonk Team and contributors
+ * Copyright (c) 2017-2024, The LegacyClonk Team and contributors
  *
  * Distributed under the terms of the ISC license; see accompanying file
  * "COPYING" for details.
@@ -158,6 +158,12 @@ public:
 	C4Group();
 	~C4Group();
 
+	C4Group(const C4Group &) = delete;
+	C4Group &operator=(const C4Group &) = delete;
+
+	C4Group(C4Group &&) = delete;
+	C4Group &operator=(C4Group &&) = delete;
+
 protected:
 	int Status;
 	char FileName[_MAX_PATH + 1];
@@ -192,8 +198,7 @@ public:
 	bool Close();
 	bool Save(bool fReOpen);
 	bool OpenAsChild(C4Group *pMother, const char *szEntryName, bool fExclusive = false);
-	bool OpenChild(const char *strEntry);
-	bool OpenMother();
+	C4Group *GrabMother();
 	bool Add(const char *szFiles);
 	bool Add(const char *szFile, const char *szAddAs);
 	bool Add(const char *szName, void *pBuffer, size_t iSize, bool fChild = false, bool fHoldBuffer = false, time_t iTime = 0, bool fExecutable = false);

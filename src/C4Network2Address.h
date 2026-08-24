@@ -3,7 +3,7 @@
  *
  * Copyright (c) 2001-2009, RedWolf Design GmbH, http://www.clonk.de/
  * Copyright (c) 2013-2017, The OpenClonk Team and contributors
- * Copyright (c) 2019, The LegacyClonk Team and contributors
+ * Copyright (c) 2019-2024, The LegacyClonk Team and contributors
  *
  * Distributed under the terms of the ISC license; see accompanying file
  * "COPYING" for details.
@@ -17,6 +17,7 @@
 
 #pragma once
 
+#include "C4EnumInfo.h"
 #include "StdBuf.h"
 
 #include <cstddef>
@@ -118,6 +119,12 @@ public:
 	C4Network2EndpointAddress(const C4Network2HostAddress::SpecialAddress addr, const std::uint16_t port = IPPORT_NONE) : C4Network2HostAddress{addr} { SetPort(port); }
 	explicit C4Network2EndpointAddress(const StdStrBuf &addr) { SetAddress(addr); }
 
+	C4Network2EndpointAddress &operator=(const C4Network2EndpointAddress &other)
+	{
+		SetAddress(other);
+		return *this;
+	}
+
 public:
 	std::string ToString(int flags = 0) const;
 
@@ -186,9 +193,20 @@ public:
 	friend class EndpointAddressPtr;
 };
 
-enum C4Network2IOProtocol
+enum C4Network2IOProtocol : std::int8_t
 {
 	P_UDP, P_TCP, P_NONE = -1
+};
+
+template<>
+struct C4EnumInfo<C4Network2IOProtocol>
+{
+	static inline constexpr auto data = mkEnumInfo<C4Network2IOProtocol>("P_",
+		{
+			{ P_UDP, "UDP" },
+			{ P_TCP, "TCP" }
+		}
+	);
 };
 
 class C4Network2Address

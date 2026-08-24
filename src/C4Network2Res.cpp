@@ -2,7 +2,7 @@
  * LegacyClonk
  *
  * Copyright (c) RedWolf Design
- * Copyright (c) 2017-2021, The LegacyClonk Team and contributors
+ * Copyright (c) 2017-2025, The LegacyClonk Team and contributors
  *
  * Distributed under the terms of the ISC license; see accompanying file
  * "COPYING" for details.
@@ -14,7 +14,6 @@
  * for the above references.
  */
 
-#include <C4Include.h>
 #include <C4Network2Res.h>
 
 #include <C4Random.h>
@@ -78,8 +77,8 @@ C4Network2ResCore::C4Network2ResCore()
 	iID(-1), iDerID(-1),
 	fLoadable(false),
 	iFileSize(~0u), iFileCRC(~0u), iContentsCRC(~0u),
-	iChunkSize(C4NetResChunkSize),
-	fHasFileSHA(false) {}
+	fHasFileSHA(false),
+	iChunkSize(C4NetResChunkSize) {}
 
 void C4Network2ResCore::Set(C4Network2ResType enType, int32_t iResID, const char *strFileName, uint32_t inContentsCRC, const char *strAuthor)
 {
@@ -114,17 +113,7 @@ void C4Network2ResCore::Clear()
 
 void C4Network2ResCore::CompileFunc(StdCompiler *pComp)
 {
-	constexpr StdEnumEntry<C4Network2ResType> C4Network2ResType_EnumMap[] =
-	{
-		{ "Scenario",    NRT_Scenario },
-		{ "Dynamic",     NRT_Dynamic },
-		{ "Player",      NRT_Player },
-		{ "Definitions", NRT_Definitions },
-		{ "System",      NRT_System },
-		{ "Material",    NRT_Material },
-	};
-
-	pComp->Value(mkNamingAdapt(mkEnumAdaptT<uint8_t>(eType, C4Network2ResType_EnumMap), "Type",     NRT_Null));
+	pComp->Value(mkNamingAdapt(mkEnumAdapt(eType),          "Type",     NRT_Null));
 	pComp->Value(mkNamingAdapt(iID,                                                     "ID",       -1));
 	pComp->Value(mkNamingAdapt(iDerID,                                                  "DerID",    -1));
 	pComp->Value(mkNamingAdapt(fLoadable,                                               "Loadable", true));
@@ -146,7 +135,7 @@ void C4Network2ResCore::CompileFunc(StdCompiler *pComp)
 // *** C4Network2ResLoad
 
 C4Network2ResLoad::C4Network2ResLoad(int32_t inChunk, int32_t inByClient)
-	: iChunk(inChunk), iByClient(inByClient), Timestamp(time(nullptr)), pNext(nullptr) {}
+	: iChunk(inChunk), Timestamp(time(nullptr)), iByClient(inByClient), pNext(nullptr) {}
 
 C4Network2ResLoad::~C4Network2ResLoad() {}
 
@@ -384,7 +373,8 @@ bool C4Network2Res::SetByFile(const char *strFilePath, bool fTemp, C4Network2Res
 	// so it needs to be a file
 	if (!FileExists(szFile))
 	{
-		if (!fSilent) pParent->logger->error("SetByFile: file {} not found!", strFilePath); return false;
+		if (!fSilent) pParent->logger->error("SetByFile: file {} not found!", strFilePath);
+		return false;
 	}
 	// calc checksum
 	uint32_t iCRC32;
@@ -596,11 +586,15 @@ bool C4Network2Res::GetStandalone(char *pTo, int32_t iMaxL, bool fSetOfficial, b
 			uint32_t iDirSize;
 			if (!DirSizeHelper::GetDirSize(szFile, &iDirSize, Config.Network.MaxLoadFileSize))
 			{
-				if (!fSilent) pParent->logger->error("could not get directory size of {}!", szFile); szStandalone[0] = '\0'; return false;
+				if (!fSilent) pParent->logger->error("could not get directory size of {}!", szFile);
+				szStandalone[0] = '\0';
+				return false;
 			}
 			if (iDirSize > uint32_t(Config.Network.MaxLoadFileSize))
 			{
-				if (!fSilent) pParent->logger->error("{} over size limit, will be marked unloadable!", szFile); szStandalone[0] = '\0'; return false;
+				if (!fSilent) pParent->logger->error("{} over size limit, will be marked unloadable!", szFile);
+				szStandalone[0] = '\0';
+				return false;
 			}
 		}
 		// log - this may take a few seconds
@@ -610,21 +604,31 @@ bool C4Network2Res::GetStandalone(char *pTo, int32_t iMaxL, bool fSetOfficial, b
 		{
 			if (!pParent->FindTempResFileName(szFile, szStandalone))
 			{
-				if (!fSilent) pParent->logger->error("GetStandalone: could not find free name for temporary file!"); szStandalone[0] = '\0'; return false;
+				if (!fSilent) pParent->logger->error("GetStandalone: could not find free name for temporary file!");
+				szStandalone[0] = '\0';
+				return false;
 			}
 			if (!C4Group_PackDirectoryTo(szFile, szStandalone, true))
 			{
-				if (!fSilent) pParent->logger->error("GetStandalone: could not pack directory!"); szStandalone[0] = '\0'; return false;
+				if (!fSilent) pParent->logger->error("GetStandalone: could not pack directory!");
+				szStandalone[0] = '\0';
+				return false;
 			}
 		}
 		else if (!C4Group_PackDirectory(szStandalone))
 		{
-			if (!fSilent) pParent->logger->error("GetStandalone: could not pack directory!"); if (!SEqual(szFile, szStandalone)) EraseDirectory(szStandalone); szStandalone[0] = '\0'; return false;
+			if (!fSilent) pParent->logger->error("GetStandalone: could not pack directory!");
+			if (!SEqual(szFile, szStandalone)) EraseDirectory(szStandalone);
+			szStandalone[0] = '\0';
+			return false;
 		}
 		// make sure directory is packed
 		if (DirectoryExists(szStandalone))
 		{
-			if (!fSilent) pParent->logger->error("GetStandalone: directory hasn't been packed!"); if (!SEqual(szFile, szStandalone)) EraseDirectory(szStandalone); szStandalone[0] = '\0'; return false;
+			if (!fSilent) pParent->logger->error("GetStandalone: directory hasn't been packed!");
+			if (!SEqual(szFile, szStandalone)) EraseDirectory(szStandalone);
+			szStandalone[0] = '\0';
+			return false;
 		}
 		strcpy(szFile, szStandalone);
 		fTempFile = true;
@@ -637,24 +641,32 @@ bool C4Network2Res::GetStandalone(char *pTo, int32_t iMaxL, bool fSetOfficial, b
 		// try C4Group (might be packed)
 		if (!pParent->FindTempResFileName(szFile, szStandalone))
 		{
-			if (!fSilent) pParent->logger->error("GetStandalone: could not find free name for temporary file!"); szStandalone[0] = '\0'; return false;
+			if (!fSilent) pParent->logger->error("GetStandalone: could not find free name for temporary file!");
+			szStandalone[0] = '\0';
+			return false;
 		}
 		if (!C4Group_CopyItem(szFile, szStandalone))
 		{
-			if (!fSilent) pParent->logger->error("GetStandalone: could not copy to temporary file!"); szStandalone[0] = '\0'; return false;
+			if (!fSilent) pParent->logger->error("GetStandalone: could not copy to temporary file!");
+			szStandalone[0] = '\0';
+			return false;
 		}
 	}
 
 	// remains missing? give up.
 	if (!FileExists(szStandalone))
 	{
-		if (!fSilent) pParent->logger->error("GetStandalone: file not found!"); szStandalone[0] = '\0'; return false;
+		if (!fSilent) pParent->logger->error("GetStandalone: file not found!");
+		szStandalone[0] = '\0';
+		return false;
 	}
 
 	// do optimizations (delete unneeded entries)
 	if (!OptimizeStandalone(fSilent))
 	{
-		if (!SEqual(szFile, szStandalone)) remove(szStandalone); szStandalone[0] = '\0'; return false;
+		if (!SEqual(szFile, szStandalone)) remove(szStandalone);
+		szStandalone[0] = '\0';
+		return false;
 	}
 
 	// get file size
@@ -663,13 +675,16 @@ bool C4Network2Res::GetStandalone(char *pTo, int32_t iMaxL, bool fSetOfficial, b
 	if (fAllowUnloadable)
 		if (iSize > uint32_t(Config.Network.MaxLoadFileSize))
 		{
-			if (!fSilent) pParent->logger->info("{} over size limit, will be marked unloadable!", szFile); szStandalone[0] = '\0'; return false;
+			if (!fSilent) pParent->logger->info("{} over size limit, will be marked unloadable!", szFile);
+			szStandalone[0] = '\0';
+			return false;
 		}
 	// check
 	if (!fSetOfficial && iSize != Core.getFileSize())
 	{
 		// remove file
-		if (!SEqual(szFile, szStandalone)) remove(szStandalone); szStandalone[0] = '\0';
+		if (!SEqual(szFile, szStandalone)) remove(szStandalone);
+		szStandalone[0] = '\0';
 		// sorry, this version isn't good enough :(
 		return false;
 	}
@@ -678,13 +693,15 @@ bool C4Network2Res::GetStandalone(char *pTo, int32_t iMaxL, bool fSetOfficial, b
 	uint32_t iCRC32;
 	if (!C4Group_GetFileCRC(szStandalone, &iCRC32))
 	{
-		if (!fSilent) pParent->logger->error("GetStandalone: could not calculate checksum!"); return false;
+		if (!fSilent) pParent->logger->error("GetStandalone: could not calculate checksum!");
+		return false;
 	}
 	// set / check
 	if (!fSetOfficial && iCRC32 != Core.getFileCRC())
 	{
 		// remove file, return
-		if (!SEqual(szFile, szStandalone)) remove(szStandalone); szStandalone[0] = '\0';
+		if (!SEqual(szFile, szStandalone)) remove(szStandalone);
+		szStandalone[0] = '\0';
 		return false;
 	}
 
@@ -991,17 +1008,17 @@ void C4Network2Res::Clear()
 	ClearLoad();
 }
 
-int32_t C4Network2Res::OpenFileRead()
+C4File C4Network2Res::OpenFileRead()
 {
 	CStdLock FileLock(&FileCSec);
-	if (!GetStandalone(nullptr, 0, false, false, true)) return -1;
-	return open(szStandalone, _O_BINARY | O_RDONLY);
+	if (!GetStandalone(nullptr, 0, false, false, true)) return C4File{};
+	return {szStandalone, "rb"};
 }
 
-int32_t C4Network2Res::OpenFileWrite()
+C4File C4Network2Res::OpenFileWrite()
 {
 	CStdLock FileLock(&FileCSec);
-	return open(szStandalone, _O_BINARY | O_CREAT | O_WRONLY, S_IREAD | S_IWRITE);
+	return C4File{fdopen(open(szStandalone, _O_BINARY | O_CREAT | O_WRONLY, S_IREAD | S_IWRITE), "wb")};
 }
 
 void C4Network2Res::StartNewLoads()
@@ -1169,11 +1186,13 @@ bool C4Network2Res::OptimizeStandalone(bool fSilent)
 			char szNewStandalone[_MAX_PATH + 1];
 			if (!pParent->FindTempResFileName(szStandalone, szNewStandalone))
 			{
-				if (!fSilent) pParent->logger->error("OptimizeStandalone: could not find free name for temporary file!"); return false;
+				if (!fSilent) pParent->logger->error("OptimizeStandalone: could not find free name for temporary file!");
+				return false;
 			}
 			if (!C4Group_CopyItem(szStandalone, szNewStandalone))
 			{
-				if (!fSilent) pParent->logger->error("OptimizeStandalone: could not copy to temporary file!"); return false;
+				if (!fSilent) pParent->logger->error("OptimizeStandalone: could not copy to temporary file!");
+				return false;
 			} /* TODO: Test failure */
 			SCopy(szNewStandalone, szStandalone, sizeof(szStandalone) - 1);
 		}
@@ -1181,7 +1200,8 @@ bool C4Network2Res::OptimizeStandalone(bool fSilent)
 		C4Group Grp;
 		if (!Grp.Open(szStandalone))
 		{
-			if (!fSilent) pParent->logger->error("OptimizeStandalone: could not open player file!"); return false;
+			if (!fSilent) pParent->logger->error("OptimizeStandalone: could not open player file!");
+			return false;
 		}
 		// remove portrais
 		Grp.Delete(C4CFN_Portraits, true);
@@ -1228,24 +1248,22 @@ bool C4Network2ResChunk::Set(C4Network2Res *pRes, uint32_t inChunk)
 		iSize = std::min<int32_t>(Core.getFileSize() - iOffset, C4NetResChunkSize);
 	if (iSize < 0) { logger->error("could not get chunk from offset {} from resource file {}: File size is only {}!", iOffset, pRes->getFile(), Core.getFileSize()); return false; }
 	// open file
-	int32_t f = pRes->OpenFileRead();
-	if (f == -1) { logger->error("could not open resource file {}!", pRes->getFile()); return false; }
+	C4File file{pRes->OpenFileRead()};
+	if (!file) { logger->error("could not open resource file {}!", pRes->getFile()); return false; }
 	// seek
 	if (iOffset)
-		if (lseek(f, iOffset, SEEK_SET) != iOffset)
+		if (!file.Seek(iOffset, C4File::SeekMode::Start))
 		{
-			close(f); logger->error("could not read resource file {}!", pRes->getFile()); return false;
+			logger->error("could not read resource file {}!", pRes->getFile()); return false;
 		}
 	// read chunk of data
 	char *pBuf = static_cast<char *>(malloc(sizeof(char) * iSize));
-	if (read(f, pBuf, iSize) != iSize)
+	if (!file.ReadExact(pBuf, iSize))
 	{
-		free(pBuf); close(f); logger->error("could not read resource file {}!", pRes->getFile()); return false;
+		free(pBuf); logger->error("could not read resource file {}!", pRes->getFile()); return false;
 	}
 	// set
 	Data.Take(pBuf, iSize);
-	// close
-	close(f);
 	// ok
 	return true;
 }
@@ -1275,8 +1293,8 @@ bool C4Network2ResChunk::AddTo(C4Network2Res *pRes, C4Network2IO *pIO) const
 		return false;
 	}
 	// open file
-	int32_t f = pRes->OpenFileWrite();
-	if (f == -1)
+	C4File file{pRes->OpenFileWrite()};
+	if (!file)
 	{
 #ifdef C4NET2RES_DEBUG_LOG
 		logger->trace("C4Network2ResChunk({})::AddTo({} [{}]): Open write file error: {}!", iResID, Core.getFileName(), pRes->getResID(), std::strerror(errno));
@@ -1285,25 +1303,22 @@ bool C4Network2ResChunk::AddTo(C4Network2Res *pRes, C4Network2IO *pIO) const
 	}
 	// seek
 	if (iOffset)
-		if (lseek(f, iOffset, SEEK_SET) != iOffset)
+		if (!file.Seek(iOffset, C4File::SeekMode::Start))
 		{
 #ifdef C4NET2RES_DEBUG_LOG
 			logger->trace("C4Network2ResChunk({})::AddTo({} [{}]): lseek file error: {}!", iResID, Core.getFileName(), pRes->getResID(), std::strerror(errno));
 #endif
-			close(f);
 			return false;
 		}
 	// write
-	if (write(f, Data.getData(), Data.getSize()) != int32_t(Data.getSize()))
+	if (!file.WriteExact(Data.getData(), Data.getSize()))
 	{
 #ifdef C4NET2RES_DEBUG_LOG
 		logger->trace("C4Network2ResChunk({})::AddTo({} [{}]): write error: {}!", iResID, Core.getFileName(), pRes->getResID(), std::strerror(errno));
 #endif
-		close(f);
 		return false;
 	}
 	// ok, add chunks
-	close(f);
 	pRes->Chunks.AddChunk(iChunk);
 	return true;
 }
@@ -1320,9 +1335,9 @@ void C4Network2ResChunk::CompileFunc(StdCompiler *pComp)
 // *** C4Network2ResList
 
 C4Network2ResList::C4Network2ResList()
-	: iClientID(-1),
+	: ResListCSec(this),
+	iClientID(-1),
 	iNextResID((-1) << 16),
-	ResListCSec(this),
 	iLastDiscover(0), iLastStatus(0),
 	pIO(nullptr) {}
 
@@ -1559,6 +1574,14 @@ void C4Network2ResList::Clear()
 
 	iClientID = C4ClientIDUnknown;
 	iLastDiscover = iLastStatus = 0;
+
+	// Make sure the logger is not reset as OnShareFree() and
+	// C4GameRes::~C4GameRes() will destroy the C4Network2Res objects
+}
+
+void C4Network2ResList::ClearLogger()
+{
+	assert(iClientID == C4ClientIDUnknown);
 	logger.reset();
 }
 
@@ -1781,13 +1804,7 @@ bool C4Network2ResList::FindTempResFileName(const char *szFilename, char *pTarge
 {
 	static constexpr auto newFileCreated = [](const char *const filename)
 	{
-		FILE *const file{fopen(filename, "wxb")};
-		if (file)
-		{
-			fclose(file);
-		}
-
-		return file != nullptr;
+		return !!C4File{filename, "wxb"};
 	};
 
 	char safeFilename[_MAX_PATH];

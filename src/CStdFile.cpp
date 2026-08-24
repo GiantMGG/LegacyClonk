@@ -2,7 +2,7 @@
  * LegacyClonk
  *
  * Copyright (c) 1998-2000, Matthes Bender (RedWolf Design)
- * Copyright (c) 2017-2020, The LegacyClonk Team and contributors
+ * Copyright (c) 2017-2024, The LegacyClonk Team and contributors
  *
  * Distributed under the terms of the ISC license; see accompanying file
  * "COPYING" for details.
@@ -332,16 +332,5 @@ size_t UncompressedFileSize(const char *szFilename)
 	}
 }
 
-size_t CStdFile::AccessedEntrySize()
-{
-	if (hFile)
-	{
-		long pos = std::ftell(hFile);
-		std::fseek(hFile, 0, SEEK_END);
-		long r = std::ftell(hFile);
-		std::fseek(hFile, pos, SEEK_SET);
-		return static_cast<size_t>(r);
-	}
-	assert(!readCompressedFile);
-	return 0;
-}
+
+

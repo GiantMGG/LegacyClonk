@@ -2,7 +2,7 @@
  * LegacyClonk
  *
  * Copyright (c) RedWolf Design
- * Copyright (c) 2017-2020, The LegacyClonk Team and contributors
+ * Copyright (c) 2017-2022, The LegacyClonk Team and contributors
  *
  * Distributed under the terms of the ISC license; see accompanying file
  * "COPYING" for details.
@@ -19,6 +19,7 @@
 
 #pragma once
 
+#include "C4File.h"
 #include "Standard.h"
 
 #include <cassert>
@@ -45,8 +46,7 @@ public:
 	void OpenStatFile();
 	void CloseStatFile();
 
-	FILE *StatFile;
-	bool bStatFileOpen;
+	C4File StatFile;
 
 protected:
 	C4Stat *pFirst;

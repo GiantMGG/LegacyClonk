@@ -3,7 +3,7 @@
  *
  * Copyright (c) RedWolf Design
  * Copyright (c) 2005, Sven2
- * Copyright (c) 2017-2021, The LegacyClonk Team and contributors
+ * Copyright (c) 2017-2024, The LegacyClonk Team and contributors
  *
  * Distributed under the terms of the ISC license; see accompanying file
  * "COPYING" for details.
@@ -20,6 +20,7 @@
 #pragma once
 
 #include "C4Constants.h"
+#include "C4EnumInfo.h"
 #include "C4ForwardDeclarations.h"
 #include "StdBuf.h"
 
@@ -113,7 +114,7 @@ public:
 	};
 
 	// team distribution configuration
-	enum TeamDist
+	enum TeamDist : std::uint8_t
 	{
 		TEAMDIST_First = 0,
 		TEAMDIST_Free = 0, // anyone can choose teams
@@ -144,7 +145,7 @@ private:
 
 public:
 	C4TeamList() : ppList(nullptr), iTeamCount(0), iTeamCapacity(0), iLastTeamID(0), fAllowHostilityChange(true), fAllowTeamSwitch(false),
-		fActive(true), fCustom(false), eTeamDist(TEAMDIST_Free), fTeamColors(false), fAutoGenerateTeams(false), iMaxScriptPlayers(0) {}
+		fActive(true), fCustom(false), fTeamColors(false), fAutoGenerateTeams(false), eTeamDist(TEAMDIST_Free), iMaxScriptPlayers(0) {}
 	~C4TeamList() { Clear(); }
 	void Clear();
 
@@ -226,4 +227,19 @@ public:
 	void SendSetTeamColors(bool fEnabled);
 	void SetTeamColors(bool fEnabled);
 	void SetRandomTeamCount(int32_t count);
+};
+
+template<>
+struct C4EnumInfo<C4TeamList::TeamDist>
+{
+	using E = C4TeamList::TeamDist;
+	static inline constexpr auto data = mkEnumInfo<E>("TEAMDIST_",
+		{
+			{ E::TEAMDIST_Free,      "Free" },
+			{ E::TEAMDIST_Host,      "Host" },
+			{ E::TEAMDIST_None,      "None" },
+			{ E::TEAMDIST_Random,    "Random" },
+			{ E::TEAMDIST_RandomInv, "RandomInv" }
+		}
+	);
 };

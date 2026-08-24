@@ -3,7 +3,7 @@
  *
  * Copyright (c) RedWolf Design
  * Copyright (c) 2001, Sven2
- * Copyright (c) 2017-2021, The LegacyClonk Team and contributors
+ * Copyright (c) 2017-2024, The LegacyClonk Team and contributors
  *
  * Distributed under the terms of the ISC license; see accompanying file
  * "COPYING" for details.
@@ -17,13 +17,13 @@
 
 // a wrapper class to DirectDraw surfaces
 
+#include "C4File.h"
 #include "C4Group.h"
 #include <Standard.h>
 #include <StdSurface8.h>
 #include <Bitmap256.h>
 #include <StdPNG.h>
 #include <StdDDraw2.h>
-#include <CStdFile.h>
 #include <Bitmap256.h>
 
 #include <utility>
@@ -182,10 +182,10 @@ bool CSurface8::Save(const char *szFilename, uint8_t *bpPalette)
 	BitmapInfo.Set(Wdt, Hgt, bpPalette ? bpPalette : pPal->Colors);
 
 	// Create file & write info
-	CStdFile hFile;
+	C4File file;
 
-	if (!hFile.Create(szFilename)
-		|| !hFile.Write(&BitmapInfo, sizeof(BitmapInfo)))
+	if (!file.Open(szFilename, "wb")
+		|| !file.WriteElement(BitmapInfo))
 	{
 		return false;
 	}
@@ -194,19 +194,19 @@ bool CSurface8::Save(const char *szFilename, uint8_t *bpPalette)
 	char bpEmpty[4]{}; int iEmpty = DWordAligned(Wdt) - Wdt;
 	for (int cnt = Hgt - 1; cnt >= 0; cnt--)
 	{
-		if (!hFile.Write(Bits + (Pitch * cnt), Wdt))
+		if (!file.WriteExact(Bits + (Pitch * cnt), Wdt))
 		{
 			return false;
 		}
 		if (iEmpty)
-			if (!hFile.Write(bpEmpty, iEmpty))
+			if (!file.WriteExact(bpEmpty, iEmpty))
 			{
 				return false;
 			}
 	}
 
 	// Close file
-	hFile.Close();
+	file.Close();
 
 	// Success
 	return true;

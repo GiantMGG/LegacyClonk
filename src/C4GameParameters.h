@@ -2,7 +2,7 @@
  * LegacyClonk
  *
  * Copyright (c) RedWolf Design
- * Copyright (c) 2017-2020, The LegacyClonk Team and contributors
+ * Copyright (c) 2017-2024, The LegacyClonk Team and contributors
  *
  * Distributed under the terms of the ISC license; see accompanying file
  * "COPYING" for details.
@@ -150,6 +150,9 @@ public:
 
 	// Allow debug mode?
 	bool AllowDebug;
+
+	// Allow voting?
+	bool Vote;
 
 	// Scenario title
 	ValidatedStdStrBuf<C4InVal::VAL_NameExNoEmpty> ScenarioTitle;

@@ -1,7 +1,7 @@
 /*
  * LegacyClonk
  *
- * Copyright (c) 2020-2021, The LegacyClonk Team and contributors
+ * Copyright (c) 2020-2023, The LegacyClonk Team and contributors
  *
  * Distributed under the terms of the ISC license; see accompanying file
  * "COPYING" for details.
@@ -16,6 +16,7 @@
 #pragma once
 
 #include <concepts>
+#include <cstddef>
 #include <functional>
 #include <limits>
 #include <memory>
@@ -55,11 +56,16 @@ To checked_cast(From from)
 	return static_cast<To>(from);
 }
 
+template<std::integral T>
+constexpr T RoundedDivision(T numerator, T denominator) noexcept
+{
+	return (numerator + denominator / 2) / denominator;
+}
+
 template<typename... T>
 class StdOverloadedCallable : public T...
 {
 public:
-	StdOverloadedCallable(T... bases) : T{bases}... {}
 	using T::operator()...;
 };
 
@@ -91,3 +97,97 @@ struct C4SingleArgumentFunctionFunctor
 
 template <auto free>
 using C4DeleterFunctionUniquePtr = std::unique_ptr<std::remove_pointer_t<detail::FunctionSingleArgument<free>>, C4SingleArgumentFunctionFunctor<free>>;
+
+// based on boost container_hash's hashCombine
+constexpr std::size_t hashCombine(std::size_t hash, std::size_t nextHash)
+{
+	if constexpr (sizeof(std::size_t) == 4)
+	{
+		constexpr std::size_t c1 = 0xcc9e2d51;
+		constexpr std::size_t c2 = 0x1b873593;
+
+		nextHash *= c1;
+		nextHash = std::rotl(nextHash, 15);
+		nextHash *= c2;
+
+		hash ^= nextHash;
+		hash = std::rotl(hash, 13);
+		hash = hash * 5 + 0xe6546b64;
+	}
+	else if constexpr (sizeof(std::size_t) == 8)
+	{
+		constexpr std::size_t m = 0xc6a4a7935bd1e995;
+		constexpr int r = 47;
+
+		nextHash *= m;
+		nextHash ^= nextHash >> r;
+		nextHash *= m;
+
+		hash ^= nextHash;
+		hash *= m;
+
+		// Completely arbitrary number, to prevent 0's
+		// from hashing to 0.
+		hash += 0xe6546b64;
+	}
+	else
+	{
+		hash ^= nextHash + 0x9e3779b9 + (hash << 6) + (hash >> 2);
+	}
+	return hash;
+}
+
+template<typename... Args>
+constexpr void HashCombineArguments(std::size_t &hash, Args &&...args)
+{
+	(..., (hash = hashCombine(hash, std::hash<std::decay_t<Args>>{}(args))));
+}
+
+template<typename... Args>
+constexpr std::size_t HashArguments(Args &&...args)
+{
+	std::size_t result{0};
+	(..., (result = hashCombine(result, std::hash<std::decay_t<Args>>{}(args))));
+	return result;
+}
+
+struct C4TransparentHash
+{
+	using is_transparent = void;
+
+	template<typename T>
+	std::size_t operator()(const T &t) const noexcept(noexcept(std::hash<T>{}(t)))
+	{
+		return std::hash<T>{}(t);
+	}
+};
+
+template<typename Enum> requires std::is_enum_v<Enum>
+struct C4BitfieldOperators : std::false_type {};
+
+template<typename Enum>
+concept C4BitfieldOperatorsEnabled = C4BitfieldOperators<Enum>::value;
+
+template<C4BitfieldOperatorsEnabled T>
+constexpr T operator|(const T lhs, const T rhs) noexcept
+{
+	return static_cast<T>(std::to_underlying(lhs) | std::to_underlying(rhs));
+}
+
+template<C4BitfieldOperatorsEnabled T>
+constexpr T operator&(const T lhs, const T rhs) noexcept
+{
+	return static_cast<T>(std::to_underlying(lhs) & std::to_underlying(rhs));
+}
+
+template<C4BitfieldOperatorsEnabled T>
+constexpr T& operator|=(T& lhs, const T rhs) noexcept
+{
+	return lhs = (lhs | rhs);
+}
+
+template<C4BitfieldOperatorsEnabled T>
+constexpr T& operator&=(T& lhs, const T rhs) noexcept
+{
+	return lhs = (lhs & rhs);
+}

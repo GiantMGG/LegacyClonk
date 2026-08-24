@@ -3,7 +3,7 @@
  *
  * Copyright (c) RedWolf Design
  * Copyright (c) 2013-2017, The OpenClonk Team and contributors
- * Copyright (c) 2017-2022, The LegacyClonk Team and contributors
+ * Copyright (c) 2017-2024, The LegacyClonk Team and contributors
  *
  * Distributed under the terms of the ISC license; see accompanying file
  * "COPYING" for details.
@@ -15,7 +15,6 @@
  * for the above references.
  */
 
-#include "C4Include.h"
 #include "C4Game.h"
 #include "C4Version.h"
 #include "C4Network2Reference.h"
@@ -55,8 +54,8 @@ void C4Network2Reference::InitLocal(C4Game *pGame)
 	// Add league performance (but only after game end)
 	C4ClientPlayerInfos *pClientInfos; C4PlayerInfo *pPlayerInfo;
 	int32_t i, j;
-	for (i = 0; pClientInfos = Parameters.PlayerInfos.GetIndexedInfo(i); i++)
-		for (j = 0; pPlayerInfo = pClientInfos->GetPlayerInfo(j); j++)
+	for (i = 0; (pClientInfos = Parameters.PlayerInfos.GetIndexedInfo(i)); i++)
+		for (j = 0; (pPlayerInfo = pClientInfos->GetPlayerInfo(j)); j++)
 		{
 			pPlayerInfo->DiscardResource();
 			if (pGame->GameOver)
@@ -235,7 +234,7 @@ public:
 	virtual void SetNotify(C4InteractiveThread *thread) = 0;
 
 	virtual bool Execute(int maxTime) = 0;
-	virtual int GetTimeout() = 0;
+	virtual int GetTimeout() { return StdSync::Infinite; }
 
 #ifdef _WIN32
 	virtual HANDLE GetEvent() = 0;
@@ -274,8 +273,7 @@ public:
 	bool SetServer(std::string_view serverAddress, std::uint16_t defaultPort) override;
 	void SetNotify(class C4InteractiveThread *thread) override { this->thread.store(thread, std::memory_order_release); }
 
-	bool Execute(int iMaxTime = C4NetIO::TO_INF) override { return true; }
-	int GetTimeout() override { return C4NetIO::TO_INF; }
+	bool Execute(int iMaxTime = StdSync::Infinite) override { return true; }
 
 #ifdef _WIN32
 	HANDLE GetEvent() override { return nullptr; }
@@ -385,13 +383,13 @@ public:
 	void SetNotify(class C4InteractiveThread *pnNotify) override { pNotify = pnNotify; }
 
 	// Overridden
-	bool Execute(int iMaxTime = TO_INF) override;
+	bool Execute(int iMaxTime = StdSync::Infinite) override;
 	int GetTimeout() override;
 
 #ifdef _WIN32
 	HANDLE GetEvent() override { return C4NetIOTCP::GetEvent(); }
 #else
-	void GetFDs(std::vector<pollfd> &fds) { C4NetIOTCP::GetFDs(fds); }
+	void GetFDs(std::vector<pollfd> &fds) override { C4NetIOTCP::GetFDs(fds); }
 #endif
 
 protected:
@@ -588,7 +586,7 @@ C4Task::Hot<void> C4Network2HTTPClientImplCurl::QueryAsync(C4Task::Hot<C4HTTPCli
 }
 
 C4Network2HTTPClientImplNetIO::C4Network2HTTPClientImplNetIO(std::shared_ptr<spdlog::logger> logger)
-	: logger{std::move(logger)}, fBusy(false), fSuccess(false), fConnected(false), iDownloadedSize(0), iTotalSize(0), fBinary(false), iDataOffset(0),
+	: logger{std::move(logger)}, fBinary(false), fBusy(false), fSuccess(false), fConnected(false), iDataOffset(0), iDownloadedSize(0), iTotalSize(0),
 	pNotify(nullptr)
 {
 	C4NetIOTCP::SetCallback(this);
@@ -840,7 +838,7 @@ bool C4Network2HTTPClientImplNetIO::Query(const StdBuf &Data, bool fBinary, C4HT
 			Data.getSize(),
 			szCharset,
 			szCharset,
-			+Config.General.LanguageEx);
+			Config.General.LanguageEx);
 	else
 		header = std::format(
 			"GET {} HTTP/1.0\r\n"
@@ -854,7 +852,7 @@ bool C4Network2HTTPClientImplNetIO::Query(const StdBuf &Data, bool fBinary, C4HT
 			RequestPath.getData(),
 			Server.getData(),
 			szCharset,
-			+Config.General.LanguageEx);
+			Config.General.LanguageEx);
 
 	for (const auto &[key, value] : headers)
 	{

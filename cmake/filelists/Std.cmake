@@ -3,6 +3,8 @@ src/C4Attributes.h
 src/C4Breakpoint.h
 src/C4Chrono.cpp
 src/C4Chrono.h
+src/C4File.cpp
+src/C4File.h
 src/C4ForwardDeclarations.h
 src/C4Math.cpp
 src/C4Math.h
@@ -22,5 +24,7 @@ src/StdFile.h
 src/StdGzCompressedFile.cpp
 src/StdGzCompressedFile.h
 src/StdHelpers.h
+src/StdOSVersion.cpp
+src/StdOSVersion.cpp
 src/StdSha1.h
 )

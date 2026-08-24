@@ -2,7 +2,7 @@
  * LegacyClonk
  *
  * Copyright (c) 1998-2000, Matthes Bender (RedWolf Design)
- * Copyright (c) 2017-2021, The LegacyClonk Team and contributors
+ * Copyright (c) 2017-2024, The LegacyClonk Team and contributors
  *
  * Distributed under the terms of the ISC license; see accompanying file
  * "COPYING" for details.
@@ -21,7 +21,6 @@
 	- loads and sets a language string table (ResStrTable) based on a specified language sequence
 */
 
-#include <C4Include.h>
 #include <C4Language.h>
 
 #include <C4Components.h>
@@ -58,7 +57,7 @@ bool C4Language::Init()
 	if (PackDirectory.Open(C4CFN_Languages))
 		while (PackDirectory.FindNextEntry("*.c4g", strEntry))
 		{
-			FormatWithNull(strPackFilename, "{}" DirSep "{}", +C4CFN_Languages, +strEntry);
+			FormatWithNull(strPackFilename, "{}" DirSep "{}", C4CFN_Languages, strEntry);
 			pPack = new C4Group();
 			if (pPack->Open(strPackFilename))
 			{
@@ -72,7 +71,7 @@ bool C4Language::Init()
 
 	// Now create a pack group for each language pack (these pack groups are child groups
 	// that browse along each pack to access requested data)
-	for (int iPack = 0; pPack = Packs.GetGroup(iPack); iPack++)
+	for (int iPack = 0; (pPack = Packs.GetGroup(iPack)); iPack++)
 		PackGroups.RegisterGroup(*(new C4Group), true, C4GSPrio_Base, C4GSCnt_Language);
 
 	// Load language infos by scanning string tables (the engine doesn't really need this at the moment)
@@ -132,12 +131,12 @@ C4GroupSet &C4Language::GetPackGroups(const char *strRelativePath)
 		return PackGroups;
 
 	// Process all language packs (and their respective pack groups)
-	C4Group *pPack, *pPackGroup;
-	for (int iPack = 0; (pPack = Packs.GetGroup(iPack)) && (pPackGroup = PackGroups.GetGroup(iPack)); iPack++)
+	C4Group *pPack, *newPackGroup, **pPackGroupPtr;
+	for (int iPack = 0; (pPack = Packs.GetGroup(iPack)) && (pPackGroupPtr = PackGroups.GetGroupPtr(iPack)); iPack++)
 	{
 		// Get current pack group position within pack
 		SCopy(pPack->GetFullName().getData(), strPackPath, _MAX_PATH);
-		GetRelativePath(pPackGroup->GetFullName().getData(), strPackPath, strPackGroupLocation);
+		GetRelativePath((*pPackGroupPtr)->GetFullName().getData(), strPackPath, strPackGroupLocation);
 
 		// Pack group is at correct position within pack: continue with next pack
 		if (SEqualNoCase(strPackGroupLocation, strTargetLocation))
@@ -145,27 +144,41 @@ C4GroupSet &C4Language::GetPackGroups(const char *strRelativePath)
 
 		// Try to backtrack until we can reach the target location as a relative child
 		while (strPackGroupLocation[0]
-			&& !GetRelativePath(strTargetLocation, strPackGroupLocation, strAdvance)
-			&& pPackGroup->OpenMother())
+			&& !GetRelativePath(strTargetLocation, strPackGroupLocation, strAdvance))
 		{
+			newPackGroup = (*pPackGroupPtr)->GrabMother();
+			if (newPackGroup)
+			{
+				delete *pPackGroupPtr; // Pack groups are always owned
+				*pPackGroupPtr = newPackGroup;
+			}
+			else
+			{
+				break;
+			}
+
 			// Update pack group location
-			GetRelativePath(pPackGroup->GetFullName().getData(), strPackPath, strPackGroupLocation);
+			GetRelativePath((*pPackGroupPtr)->GetFullName().getData(), strPackPath, strPackGroupLocation);
 		}
 
 		// We can reach the target location as a relative child
 		if (strPackGroupLocation[0] && GetRelativePath(strTargetLocation, strPackGroupLocation, strAdvance))
 		{
 			// Advance pack group to relative child
-			pPackGroup->OpenChild(strAdvance);
+			auto group = std::make_unique<C4Group>();
+			if (group->OpenAsChild(*pPackGroupPtr, strAdvance, true))
+			{
+				(*pPackGroupPtr) = group.release();
+			}
 		}
 
 		// Cannot reach by advancing: need to close and reopen (rewinding group file)
 		else
 		{
 			// Close pack group (if it is open at all)
-			pPackGroup->Close();
+			(*pPackGroupPtr)->Close();
 			// Reopen pack group to relative position in language pack if possible
-			pPackGroup->OpenAsChild(pPack, strTargetLocation);
+			(*pPackGroupPtr)->OpenAsChild(pPack, strTargetLocation);
 		}
 	}
 
@@ -187,7 +200,7 @@ void C4Language::InitInfos()
 	}
 	// Now look through the registered packs
 	C4Group *pPack;
-	for (int iPack = 0; pPack = Packs.GetGroup(iPack); iPack++)
+	for (int iPack = 0; (pPack = Packs.GetGroup(iPack)); iPack++)
 		// Does it contain a System.c4g child group?
 		if (hGroup.OpenAsChild(pPack, C4CFN_System))
 		{
@@ -278,7 +291,7 @@ bool C4Language::InitStringTable(const char *strCode)
 	}
 	// Now look through the registered packs
 	C4Group *pPack;
-	for (int iPack = 0; pPack = Packs.GetGroup(iPack); iPack++)
+	for (int iPack = 0; (pPack = Packs.GetGroup(iPack)); iPack++)
 		// Does it contain a System.c4g child group?
 		if (hGroup.OpenAsChild(pPack, C4CFN_System))
 		{

@@ -3,7 +3,7 @@
  *
  * Copyright (c) RedWolf Design
  * Copyright (c) 2001, Sven2
- * Copyright (c) 2017-2021, The LegacyClonk Team and contributors
+ * Copyright (c) 2017-2024, The LegacyClonk Team and contributors
  *
  * Distributed under the terms of the ISC license; see accompanying file
  * "COPYING" for details.
@@ -17,7 +17,6 @@
 
 // links aul scripts; i.e. resolves includes & appends, etc
 
-#include <C4Include.h>
 #include <C4Aul.h>
 
 #include <C4Def.h>
@@ -119,7 +118,7 @@ void C4AulScript::AppendTo(C4AulScript &Scr, bool bHighPrio)
 	C4AulScriptFunc *sf;
 	for (C4AulFunc *f = bHighPrio ? Func0 : FuncL; f; f = bHighPrio ? f->Next : f->Prev)
 		// script funcs only
-		if (sf = f->SFunc())
+		if ((sf = f->SFunc()))
 			// no need to append global funcs
 			if (sf->Access != AA_GLOBAL)
 			{

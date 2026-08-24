@@ -2,7 +2,7 @@
  * LegacyClonk
  *
  * Copyright (c) 1998-2000, Matthes Bender (RedWolf Design)
- * Copyright (c) 2017-2021, The LegacyClonk Team and contributors
+ * Copyright (c) 2017-2024, The LegacyClonk Team and contributors
  *
  * Distributed under the terms of the ISC license; see accompanying file
  * "COPYING" for details.
@@ -16,7 +16,6 @@
 
 /* Mouse input */
 
-#include <C4Include.h>
 #include <C4MouseControl.h>
 
 #include <C4Viewport.h>
@@ -744,7 +743,7 @@ bool C4MouseControl::UpdatePutTarget(bool fVehicle)
 	// Target object
 	uint32_t ocf = OCF_Container;
 	StdStrBuf sName;
-	if (TargetObject = GetTargetObject(X, Y, ocf))
+	if ((TargetObject = GetTargetObject(X, Y, ocf)))
 	{
 		// Cursor
 		if (fVehicle) Cursor = C4MC_Cursor_VehiclePut;
@@ -1284,7 +1283,7 @@ void C4MouseControl::UpdateFogOfWar()
 void C4MouseControl::SendPlayerSelectNext()
 {
 	C4ObjectLink *cLnk;
-	if (cLnk = pPlayer->Crew.GetLink(pPlayer->Cursor))
+	if ((cLnk = pPlayer->Crew.GetLink(pPlayer->Cursor)))
 		for (cLnk = cLnk->Next; cLnk; cLnk = cLnk->Next)
 			if (cLnk->Obj->Status && !cLnk->Obj->CrewDisabled) break;
 	if (!cLnk)

@@ -3,7 +3,7 @@
  *
  * Copyright (C) 1998-2000, Matthes Bender (RedWolf Design)
  * Copyright (c) 2017, The OpenClonk Team and contributors
- * Copyright (c) 2017-2022, The LegacyClonk Team and contributors
+ * Copyright (c) 2017-2024, The LegacyClonk Team and contributors
  *
  * Distributed under the terms of the ISC license; see accompanying file
  * "COPYING" for details.
@@ -20,11 +20,11 @@
 /* Functions mapped by C4Script */
 
 #include "C4FindObject.h"
-#include <C4Include.h>
 #include <C4Script.h>
 #include <C4Version.h>
 
 #include <C4Application.h>
+#include <C4HudBars.h>
 #include <C4Object.h>
 #include <C4ObjectInfo.h>
 #include <C4ObjectCom.h>
@@ -42,6 +42,9 @@
 #include <C4SoundSystem.h>
 
 #include <memory>
+#include <array>
+#include <cinttypes>
+#include <concepts>
 #include <numbers>
 #include <optional>
 #include <utility>
@@ -341,7 +344,7 @@ static bool FnSplit2Components(C4AulContext *cthr, Required<C4ObjectOrThis> pObj
 	// Store container
 	pContainer = pObj->Contained;
 	// Contents: exit / transfer to container
-	while (pThing = pObj->Contents.GetObject())
+	while ((pThing = pObj->Contents.GetObject()))
 		if (pContainer) pThing->Enter(pContainer);
 		else pThing->Exit(pThing->x, pThing->y);
 	// Destroy the object, create its components
@@ -357,11 +360,11 @@ static bool FnSplit2Components(C4AulContext *cthr, Required<C4ObjectOrThis> pObj
 			const auto r3 = itofix(Rnd3());
 			const auto r2 = itofix(Rnd3());
 			const auto r1 = Random(360);
-			if (pNew = Game.CreateObject(ObjComponents.GetID(cnt),
+			if ((pNew = Game.CreateObject(ObjComponents.GetID(cnt),
 				pObj,
 				pObj->Owner,
 				pObj->x, pObj->y,
-				r1, r2, r3, r4))
+				r1, r2, r3, r4)))
 			{
 				if (pObj->GetOnFire()) pNew->Incinerate(pObj->Owner);
 				if (pContainer) pNew->Enter(pContainer);
@@ -573,10 +576,16 @@ static std::optional<C4ValueInt> FnGetPhysical(C4AulContext *cthr, C4String *szP
 		if (!pObj->Info) return {};
 		// In fair crew mode, scripts may not read permanent physical values - fallback to fair def physical instead!
 		if (Game.Parameters.UseFairCrew)
+		{
 			if (pObj->Info->pDef)
+			{
 				return {pObj->Info->pDef->GetFairCrewPhysicals()->*off};
+			}
 			else
+			{
 				return {pObj->Def->GetFairCrewPhysicals()->*off};
+			}
+		}
 		// Get physical
 		return {pObj->Info->Physical.*off};
 	// Temporary physical
@@ -876,7 +885,7 @@ static bool FnSetName(C4String *pNewName, C4ObjectOrThis pObj, C4ID idDef, bool 
 	C4Def *pDef;
 
 	if (idDef)
-		if (pDef = C4Id2Def(idDef))
+		if ((pDef = C4Id2Def(idDef)))
 			pDef->Name.Copy(FnStringPar(pNewName));
 		else
 			return false;
@@ -1177,7 +1186,7 @@ static std::optional<C4ValueInt> FnGetCategory(C4ObjectOrThis pObj, C4ID idDef)
 {
 	// Def category
 	C4Def *pDef;
-	if (idDef) if (pDef = C4Id2Def(idDef)) return {pDef->Category};
+	if (idDef) if ((pDef = C4Id2Def(idDef))) return {pDef->Category};
 	// Object category
 	if (!pObj) return {};
 	return {pObj->Category};
@@ -1198,8 +1207,18 @@ static std::optional<C4ValueInt> FnGetValue(C4ObjectOrThis pObj, C4ID idDef, C4O
 	// Def value
 	C4Def *pDef;
 	if (idDef)
+	{
 		// return Def value or 0 if def unloaded
-		if (pDef = C4Id2Def(idDef)) return pDef->GetValue(pInBase, iForPlayer); else return {};
+		if ((pDef = C4Id2Def(idDef)))
+		{
+			return pDef->GetValue(pInBase, iForPlayer);
+		}
+		else
+		{
+			return {};
+		}
+	}
+
 	// Object value
 	if (!pObj) return {};
 	return {pObj->GetValue(pInBase, iForPlayer)};
@@ -1261,7 +1280,7 @@ static bool FnCreateMenu(C4ID iSymbol, Required<C4ObjectOrThis> pMenuObj, C4Obje
 	C4Def *pDef;
 	C4FacetExSurface fctSymbol;
 	fctSymbol.Create(C4SymbolSize, C4SymbolSize);
-	if (pDef = C4Id2Def(iSymbol)) pDef->Draw(fctSymbol);
+	if ((pDef = C4Id2Def(iSymbol))) pDef->Draw(fctSymbol);
 
 	// Clear any old menu, init new menu
 	if (!pMenuObj->CloseMenu(false)) return false;
@@ -1393,14 +1412,14 @@ static bool FnAddMenuItem(C4AulContext *cthr, C4String *szCaption, C4String *szC
 			if (iExtra & C4MN_Add_PassValue)
 			{
 				// with value
-				command = std::format("{}({},{},0,{})", szScriptCom, C4IdText(idItem), +parameter, iValue);
-				command2 = std::format("{}({},{},1,{})", szScriptCom, C4IdText(idItem), +parameter, iValue);
+				command = std::format("{}({},{},0,{})", szScriptCom, C4IdText(idItem), parameter, iValue);
+				command2 = std::format("{}({},{},1,{})", szScriptCom, C4IdText(idItem), parameter, iValue);
 			}
 			else
 			{
 				// without value
-				command = std::format("{}({},{})", szScriptCom, C4IdText(idItem), +parameter);
-				command2 = std::format("{}({},{},1)", szScriptCom, C4IdText(idItem), +parameter);
+				command = std::format("{}({},{})", szScriptCom, C4IdText(idItem), parameter);
+				command2 = std::format("{}({},{},1)", szScriptCom, C4IdText(idItem), parameter);
 			}
 		}
 		else
@@ -1574,6 +1593,53 @@ static bool FnSetMenuTextProgress(C4ValueInt iNewProgress, C4Object &menuObj)
 	return menuObj.Menu->SetTextProgress(iNewProgress, false);
 }
 
+// Custom Energy Bars
+
+static bool FnDefineHudBars(C4AulContext *const cthr, C4ValueHash *const graphics, C4ValueArray *const bars)
+{
+	const auto obj = cthr->Obj;
+	if (!obj) return false;
+
+	try
+	{
+		return obj->DefineHudBars(graphics, bars);
+	}
+	catch (const C4HudBarException &e)
+	{
+		throw C4AulExecError{cthr->Obj, std::format("DefineHudBars: {}", e.what())};
+	}
+}
+
+static void FnSetHudBarValue(C4AulContext *const cthr, C4String *const name, const C4ValueInt newValue, const C4ValueInt newMax)
+{
+	const auto obj = cthr->Obj;
+	if (!obj) return;
+
+	try
+	{
+		obj->HudBars->SetValue(FnStringPar(name), newValue, newMax);
+	}
+	catch (const C4HudBarException &e)
+	{
+		throw C4AulExecError{cthr->Obj, std::format("SetHudBarValue: {}", e.what())};
+	}
+}
+
+static void FnSetHudBarVisibility(C4AulContext *const cthr, C4String *const name, const bool visible)
+{
+	const auto obj = cthr->Obj;
+	if (!obj) return;
+
+	try
+	{
+		obj->HudBars->SetVisibility(FnStringPar(name), visible);
+	}
+	catch (const C4HudBarException &e)
+	{
+		throw C4AulExecError{cthr->Obj, std::format("SetHudBarVisibility: {}", e.what())};
+	}
+}
+
 // Check / Status
 
 static C4Object *FnContained(Required<C4ObjectOrThis> pObj)
@@ -1586,7 +1652,7 @@ static C4Object *FnContents(C4ValueInt index, Required<C4ObjectOrThis> pObj, boo
 	// Special: objects attaching to another object
 	//          cannot be accessed by FnContents, unless returnAttached is true
 	C4Object *cobj;
-	while (cobj = pObj->Contents.GetObject(index))
+	while ((cobj = pObj->Contents.GetObject(index)))
 	{
 		if (cobj->GetProcedure() != DFA_ATTACH || returnAttached) return cobj;
 		index++;
@@ -2152,9 +2218,19 @@ static bool FnPlayerMessage(C4AulContext *cthr, C4ValueInt iPlayer, C4String &sz
 
 	// Text
 	if (!fSpoken)
+	{
 		if (SCopySegment(FnStringFormat(cthr, FnStringPar(szMessage), &iPar0, &iPar1, &iPar2, &iPar3, &iPar4, &iPar5, &iPar6).c_str(), 0, buf, '$', MaxFnStringParLen))
-			if (pObj) GameMsgObjectPlayer(buf, pObj, iPlayer);
-			else GameMsgPlayer(buf, iPlayer);
+		{
+			if (pObj)
+			{
+				GameMsgObjectPlayer(buf, pObj, iPlayer);
+			}
+			else
+			{
+				GameMsgPlayer(buf, iPlayer);
+			}
+		}
+	}
 
 	return true;
 }
@@ -2171,9 +2247,19 @@ static bool FnMessage(C4AulContext *cthr, C4String &szMessage, C4Object *pObj, C
 
 	// Text
 	if (!fSpoken)
+	{
 		if (SCopySegment(FnStringFormat(cthr, FnStringPar(szMessage), &iPar0, &iPar1, &iPar2, &iPar3, &iPar4, &iPar5, &iPar6, &iPar7).c_str(), 0, buf, '$', MaxFnStringParLen))
-			if (pObj) GameMsgObject(buf, pObj);
-			else GameMsgGlobal(buf);
+		{
+			if (pObj)
+			{
+				GameMsgObject(buf, pObj);
+			}
+			else
+			{
+				GameMsgGlobal(buf);
+			}
+		}
+	}
 
 	return true;
 }
@@ -2198,11 +2284,21 @@ static bool FnPlrMessage(C4AulContext *cthr, C4String &szMessage, C4ValueInt iPl
 
 	// Text
 	if (!fSpoken)
+	{
 		if (SCopySegment(FnStringFormat(cthr, FnStringPar(szMessage), &iPar0, &iPar1, &iPar2, &iPar3, &iPar4, &iPar5, &iPar6, &iPar7).c_str(), 0, buf, '$', MaxFnStringParLen))
-			if (ValidPlr(iPlr)) GameMsgPlayer(buf, iPlr);
-			else GameMsgGlobal(buf);
+		{
+			if (ValidPlr(iPlr))
+			{
+				GameMsgPlayer(buf, iPlr);
+			}
+			else
+			{
+				GameMsgGlobal(buf);
+			}
+		}
+	}
 
-			return true;
+	return true;
 }
 
 static void FnScriptGo(bool go)
@@ -2571,7 +2667,7 @@ static C4Object *FnGetCursor(C4Player &player, C4ValueInt iIndex)
 	C4Object *pCrew;
 	for (C4ObjectLink *pLnk = player.Crew.First; pLnk; pLnk = pLnk->Next)
 		// get crew object
-		if (pCrew = pLnk->Obj)
+		if ((pCrew = pLnk->Obj))
 			// is it selected?
 			if (pCrew->Select)
 				// is it not the cursor? (which is always first)
@@ -2799,8 +2895,29 @@ static C4ValueInt FnAngle(C4ValueInt iX1, C4ValueInt iY1, C4ValueInt iX2, C4Valu
 	C4ValueInt iAngle;
 
 	C4ValueInt dx = iX2 - iX1, dy = iY2 - iY1;
-	if (!dx) if (dy > 0) return 180 * iPrec; else return 0;
-	if (!dy) if (dx > 0) return 90 * iPrec; else return 270 * iPrec;
+	if (!dx)
+	{
+		if (dy > 0)
+		{
+			return 180 * iPrec;
+		}
+		else
+		{
+			return 0;
+		}
+	}
+
+	if (!dy)
+	{
+		if (dx > 0)
+		{
+			return 90 * iPrec;
+		}
+		else
+		{
+			return 270 * iPrec;
+		}
+	}
 
 	iAngle = static_cast<C4ValueInt>(180.0 * iPrec * atan2(static_cast<double>(Abs(dy)), static_cast<double>(Abs(dx))) * std::numbers::inv_pi);
 
@@ -3933,16 +4050,16 @@ static bool FnLocateFunc(C4AulContext *cthr, C4String *funcname, C4Object *pObj,
 			C4AulScriptFunc *pSFunc = pFunc->SFunc();
 			if (!pSFunc)
 			{
-				LogNTr("{}{} (engine)", szPrefix, +pFunc->Name);
+				LogNTr("{}{} (engine)", szPrefix, pFunc->Name);
 			}
 			else if (!pSFunc->pOrgScript)
 			{
-				LogNTr("{}{} (no owner)", szPrefix, +pSFunc->Name);
+				LogNTr("{}{} (no owner)", szPrefix, pSFunc->Name);
 			}
 			else
 			{
 				int32_t iLine = SGetLine(pSFunc->pOrgScript->GetScript(), pSFunc->Script);
-				LogNTr("{}{} ({}:{})", szPrefix, +pFunc->Name, pSFunc->pOrgScript->ScriptName.c_str(), static_cast<int>(iLine));
+				LogNTr("{}{} ({}:{})", szPrefix, pFunc->Name, pSFunc->pOrgScript->ScriptName.c_str(), static_cast<int>(iLine));
 			}
 			// next func in overload chain
 			pFunc = pSFunc ? pSFunc->OwnerOverloaded : nullptr;
@@ -4158,7 +4275,7 @@ static bool FnSetCrewEnabled(bool fEnabled, Required<C4ObjectOrThis> pObj)
 	{
 		pObj->Select = false;
 		C4Player *pOwner;
-		if (pOwner = Game.Players.Get(pObj->Owner))
+		if ((pOwner = Game.Players.Get(pObj->Owner)))
 		{
 			// if viewed player cursor gets deactivated and no new cursor is found, follow the old in target mode
 			bool fWasCursorMode = (pOwner->ViewMode == C4PVM_Cursor);
@@ -4348,7 +4465,7 @@ static C4ValueHash *FnGetPath(C4ValueInt iFromX, C4ValueInt iFromY, C4ValueInt i
 	SetWaypoint(static_cast<int32_t>(iToX), static_cast<int32_t>(iToY), reinterpret_cast<intptr_t>(nullptr), reinterpret_cast<intptr_t>(&pathinfo));
 
 	auto *hash = new C4ValueHash;
-	(*hash)[C4VString("Length")] = C4VInt(pathinfo.length);
+	(*hash)["Length"] = C4VInt(pathinfo.length);
 
 	auto *array = new C4ValueArray(static_cast<int32_t>(pathinfo.path.size()));
 
@@ -4357,16 +4474,16 @@ static C4ValueHash *FnGetPath(C4ValueInt iFromX, C4ValueInt iFromY, C4ValueInt i
 		for (size_t i = 0; i < pathinfo.path.size(); ++i)
 		{
 			auto *waypoint = new C4ValueHash;
-			(*waypoint)[C4VString("X")] = C4VInt(pathinfo.path[i].x);
-			(*waypoint)[C4VString("Y")] = C4VInt(pathinfo.path[i].y);
+			(*waypoint)["X"] = C4VInt(pathinfo.path[i].x);
+			(*waypoint)["Y"] = C4VInt(pathinfo.path[i].y);
 			if (pathinfo.path[i].obj)
-				(*waypoint)[C4VString("TransferTarget")] = C4VObj(pathinfo.path[i].obj);
+				(*waypoint)["TransferTarget"] = C4VObj(pathinfo.path[i].obj);
 
 			(*array)[static_cast<int32_t>(i)] = C4VMap(waypoint);
 		}
 	}
 
-	(*hash)[C4VString("Waypoints")] = C4VArray(array);
+	(*hash)["Waypoints"] = C4VArray(array);
 
 	return hash;
 }
@@ -4632,9 +4749,17 @@ static C4Value FnGetPortrait(Required<C4ObjectOrThis> pObj, bool fGetID, bool fG
 		{
 			// custom portrait?
 			if (pObj->Info->pCustomPortrait)
-				if (fGetID) return C4VNull;
+			{
+				if (fGetID)
+				{
+					return C4VNull;
+				}
 				else
+				{
 					return C4VString(C4Portrait_Custom);
+				}
+			}
+
 			// portrait string from info?
 			const char *szPortrait = pObj->Info->PortraitFile;
 			// no portrait string: portrait undefined ("none" would mean no portrait)
@@ -4860,8 +4985,8 @@ static C4ValueInt FnModulateColor(Default<C4ValueInt, 0xffffff> iClr1, C4ValueIn
 	C4ValueInt iA1 = dwClr1 >> 24, iA2 = dwClr2 >> 24;
 	// modulate color values; mod alpha upwards
 	uint32_t r = ((dwClr1 & 0xff) * (dwClr2 & 0xff)) >> 8 | // blue
-		((dwClr1 >> 8 & 0xff) * (dwClr2 >> 8 & 0xff)) & 0xff00 | // green
-		((dwClr1 >> 16 & 0xff) * (dwClr2 >> 8 & 0xff00)) & 0xff0000 | // red
+		(((dwClr1 >> 8 & 0xff) * (dwClr2 >> 8 & 0xff)) & 0xff00) | // green
+		(((dwClr1 >> 16 & 0xff) * (dwClr2 >> 8 & 0xff00)) & 0xff0000) | // red
 		std::min<C4ValueInt>(iA1 + iA2 - ((iA1 * iA2) >> 8), 255) << 24; // alpha
 	return r;
 }
@@ -5074,7 +5199,7 @@ static bool FnOnOwnerRemoved(C4AulContext *cthr)
 		// Do not ignore flags which might be StaticBack if being attached to castle parts
 		int32_t iNewOwner = NO_OWNER;
 		C4Team *pTeam;
-		if (pPlr->Team) if (pTeam = Game.Teams.GetTeamByID(pPlr->Team))
+		if (pPlr->Team) if ((pTeam = Game.Teams.GetTeamByID(pPlr->Team)))
 		{
 			for (int32_t i = 0; i < pTeam->GetPlayerCount(); ++i)
 			{
@@ -5190,17 +5315,17 @@ static bool FnCustomMessage(C4AulContext *ctx, C4String &msg, C4Object *pObj, C4
 	// only one positioning flag per direction allowed
 	uint32_t hpos = dwFlags & (C4GM_Left | C4GM_HCenter | C4GM_Right);
 	uint32_t vpos = dwFlags & (C4GM_Top | C4GM_VCenter | C4GM_Bottom);
-	if (((hpos | hpos - 1) + 1) >> 1 != hpos)
+	if (((hpos | (hpos - 1)) + 1) >> 1 != hpos)
 	{
 		throw C4AulExecError(ctx->Obj, "CustomMessage: Only one horizontal positioning flag allowed!");
 	}
-	if (((vpos | vpos - 1) + 1) >> 1 != vpos)
+	if (((vpos | (vpos - 1)) + 1) >> 1 != vpos)
 	{
 		throw C4AulExecError(ctx->Obj, "CustomMessage: Only one vertical positioning flag allowed!");
 	}
 
 	uint32_t alignment = dwFlags & (C4GM_ALeft | C4GM_ACenter | C4GM_ARight);
-	if (((alignment | alignment - 1) + 1) >> 1 != alignment)
+	if (((alignment | (alignment - 1)) + 1) >> 1 != alignment)
 	{
 		throw C4AulExecError(ctx->Obj, "CustomMessage: Only one text alignment flag allowed!");
 	}
@@ -5307,45 +5432,6 @@ static void FnSetRestoreInfos(C4ValueInt what)
 
 static constexpr C4ScriptConstDef C4ScriptConstMap[] =
 {
-	{ "C4D_All",         C4V_Int, C4D_All },
-	{ "C4D_StaticBack",  C4V_Int, C4D_StaticBack },
-	{ "C4D_Structure",   C4V_Int, C4D_Structure },
-	{ "C4D_Vehicle",     C4V_Int, C4D_Vehicle },
-	{ "C4D_Living",      C4V_Int, C4D_Living },
-	{ "C4D_Object",      C4V_Int, C4D_Object },
-	{ "C4D_Goal",        C4V_Int, C4D_Goal },
-	{ "C4D_Environment", C4V_Int, C4D_Environment },
-	{ "C4D_Knowledge",   C4V_Int, C4D_SelectKnowledge },
-	{ "C4D_Magic",       C4V_Int, C4D_Magic },
-	{ "C4D_Rule",        C4V_Int, C4D_Rule },
-	{ "C4D_Background",  C4V_Int, C4D_Background },
-	{ "C4D_Parallax",    C4V_Int, C4D_Parallax },
-	{ "C4D_MouseSelect", C4V_Int, C4D_MouseSelect },
-	{ "C4D_Foreground",  C4V_Int, C4D_Foreground },
-	{ "C4D_MouseIgnore", C4V_Int, C4D_MouseIgnore },
-	{ "C4D_IgnoreFoW",   C4V_Int, C4D_IgnoreFoW },
-
-	{ "C4D_GrabGet", C4V_Int, C4D_Grab_Get },
-	{ "C4D_GrabPut", C4V_Int, C4D_Grab_Put },
-
-	{ "C4D_LinePower",     C4V_Int, C4D_Line_Power },
-	{ "C4D_LineSource",    C4V_Int, C4D_Line_Source },
-	{ "C4D_LineDrain",     C4V_Int, C4D_Line_Drain },
-	{ "C4D_LineLightning", C4V_Int, C4D_Line_Lightning },
-	{ "C4D_LineVolcano",   C4V_Int, C4D_Line_Volcano },
-	{ "C4D_LineRope",      C4V_Int, C4D_Line_Rope },
-	{ "C4D_LineColored",   C4V_Int, C4D_Line_Colored },
-	{ "C4D_LineVertex",    C4V_Int, C4D_Line_Vertex },
-
-	{ "C4D_PowerInput",     C4V_Int, C4D_Power_Input },
-	{ "C4D_PowerOutput",    C4V_Int, C4D_Power_Output },
-	{ "C4D_LiquidInput",    C4V_Int, C4D_Liquid_Input },
-	{ "C4D_LiquidOutput",   C4V_Int, C4D_Liquid_Output },
-	{ "C4D_PowerGenerator", C4V_Int, C4D_Power_Generator },
-	{ "C4D_PowerConsumer",  C4V_Int, C4D_Power_Consumer },
-	{ "C4D_LiquidPump",     C4V_Int, C4D_Liquid_Pump },
-	{ "C4D_EnergyHolder",   C4V_Int, C4D_EnergyHolder },
-
 	{ "C4V_Any",      C4V_Int, C4V_Any },
 	{ "C4V_Int",      C4V_Int, C4V_Int },
 	{ "C4V_Bool",     C4V_Int, C4V_Bool },
@@ -5368,51 +5454,6 @@ static constexpr C4ScriptConstDef C4ScriptConstMap[] =
 
 	{ "DIR_Left",  C4V_Int, DIR_Left },
 	{ "DIR_Right", C4V_Int, DIR_Right },
-
-	{ "CON_CursorLeft",   C4V_Int, CON_CursorLeft },
-	{ "CON_CursorToggle", C4V_Int, CON_CursorToggle },
-	{ "CON_CursorRight",  C4V_Int, CON_CursorRight },
-	{ "CON_Throw",        C4V_Int, CON_Throw },
-	{ "CON_Up",           C4V_Int, CON_Up },
-	{ "CON_Dig",          C4V_Int, CON_Dig },
-	{ "CON_Left",         C4V_Int, CON_Left },
-	{ "CON_Down",         C4V_Int, CON_Down },
-	{ "CON_Right",        C4V_Int, CON_Right },
-	{ "CON_Menu",         C4V_Int, CON_Menu },
-	{ "CON_Special",      C4V_Int, CON_Special },
-	{ "CON_Special2",     C4V_Int, CON_Special2 },
-
-	{ "OCF_Construct",        C4V_Int, OCF_Construct },
-	{ "OCF_Grab",             C4V_Int, OCF_Grab },
-	{ "OCF_Collectible",      C4V_Int, OCF_Carryable },
-	{ "OCF_OnFire",           C4V_Int, OCF_OnFire },
-	{ "OCF_HitSpeed1",        C4V_Int, OCF_HitSpeed1 },
-	{ "OCF_Fullcon",          C4V_Int, OCF_FullCon },
-	{ "OCF_Inflammable",      C4V_Int, OCF_Inflammable },
-	{ "OCF_Chop",             C4V_Int, OCF_Chop },
-	{ "OCF_Rotate",           C4V_Int, OCF_Rotate },
-	{ "OCF_Exclusive",        C4V_Int, OCF_Exclusive },
-	{ "OCF_Entrance",         C4V_Int, OCF_Entrance },
-	{ "OCF_HitSpeed2",        C4V_Int, OCF_HitSpeed2 },
-	{ "OCF_HitSpeed3",        C4V_Int, OCF_HitSpeed3 },
-	{ "OCF_Collection",       C4V_Int, OCF_Collection },
-	{ "OCF_Living",           C4V_Int, OCF_Living },
-	{ "OCF_HitSpeed4",        C4V_Int, OCF_HitSpeed4 },
-	{ "OCF_FightReady",       C4V_Int, OCF_FightReady },
-	{ "OCF_LineConstruct",    C4V_Int, OCF_LineConstruct },
-	{ "OCF_Prey",             C4V_Int, OCF_Prey },
-	{ "OCF_AttractLightning", C4V_Int, OCF_AttractLightning },
-	{ "OCF_NotContained",     C4V_Int, OCF_NotContained },
-	{ "OCF_CrewMember",       C4V_Int, OCF_CrewMember },
-	{ "OCF_Edible",           C4V_Int, OCF_Edible },
-	{ "OCF_InLiquid",         C4V_Int, OCF_InLiquid },
-	{ "OCF_InSolid",          C4V_Int, OCF_InSolid },
-	{ "OCF_InFree",           C4V_Int, OCF_InFree },
-	{ "OCF_Available",        C4V_Int, OCF_Available },
-	{ "OCF_PowerConsumer",    C4V_Int, OCF_PowerConsumer },
-	{ "OCF_PowerSupply",      C4V_Int, OCF_PowerSupply },
-	{ "OCF_Container",        C4V_Int, OCF_Container },
-	{ "OCF_Alive",            C4V_Int, static_cast<C4ValueInt>(OCF_Alive) },
 
 	{ "VIS_All",         C4V_Int, VIS_All },
 	{ "VIS_None",        C4V_Int, VIS_None },
@@ -5458,6 +5499,15 @@ static constexpr C4ScriptConstDef C4ScriptConstMap[] =
 	{ "C4MN_Add_ForceCount",  C4V_Int, C4MN_Add_ForceCount },
 	{ "C4MN_Add_ForceNoDesc", C4V_Int, C4MN_Add_ForceNoDesc },
 
+	{ "EBP_None",        C4V_Int, static_cast<C4ValueInt>(C4HudBarDef::Physical::None) },
+	{ "EBP_Energy",      C4V_Int, static_cast<C4ValueInt>(C4HudBarDef::Physical::Energy) },
+	{ "EBP_Magic",       C4V_Int, static_cast<C4ValueInt>(C4HudBarDef::Physical::Magic) },
+	{ "EBP_Breath",      C4V_Int, static_cast<C4ValueInt>(C4HudBarDef::Physical::Breath) },
+	{ "EBH_Never",       C4V_Int, static_cast<C4ValueInt>(C4HudBarDef::Hide::Never) },
+	{ "EBH_Empty",       C4V_Int, static_cast<C4ValueInt>(C4HudBarDef::Hide::Empty) },
+	{ "EBH_Full",        C4V_Int, static_cast<C4ValueInt>(C4HudBarDef::Hide::Full) },
+	{ "EBH_AsDef",       C4V_Int, static_cast<C4ValueInt>(C4HudBarDef::Hide::AsDef) },
+
 	{ "FX_OK",                  C4V_Int, C4Fx_OK }, // generic standard behaviour for all effect callbacks
 	{ "FX_Effect_Deny",         C4V_Int, C4Fx_Effect_Deny }, // delete effect
 	{ "FX_Effect_Annul",        C4V_Int, C4Fx_Effect_Annul }, // delete effect, because it has annulled a countereffect
@@ -5486,13 +5536,6 @@ static constexpr C4ScriptConstDef C4ScriptConstMap[] =
 	{ "FX_Call_EngStruct",         C4V_Int, C4FxCall_EngStruct }, // regular structure energy loss (normally not called)
 	{ "FX_Call_EngGetPunched",     C4V_Int, C4FxCall_EngGetPunched }, // energy loss during fighting
 
-	{ "GFXOV_MODE_None",          C4V_Int, C4GraphicsOverlay::MODE_None }, // gfx overlay modes
-	{ "GFXOV_MODE_Base",          C4V_Int, C4GraphicsOverlay::MODE_Base },
-	{ "GFXOV_MODE_Action",        C4V_Int, C4GraphicsOverlay::MODE_Action },
-	{ "GFXOV_MODE_Picture",       C4V_Int, C4GraphicsOverlay::MODE_Picture },
-	{ "GFXOV_MODE_IngamePicture", C4V_Int, C4GraphicsOverlay::MODE_IngamePicture },
-	{ "GFXOV_MODE_Object",        C4V_Int, C4GraphicsOverlay::MODE_Object },
-	{ "GFXOV_MODE_ExtraGraphics", C4V_Int, C4GraphicsOverlay::MODE_ExtraGraphics },
 	{ "GFX_Overlay",              C4V_Int, 1 }, // default overlay index
 	{ "GFXOV_Clothing",           C4V_Int, 1000 }, // overlay indices for clothes on Clonks, etc.
 	{ "GFXOV_Tools",              C4V_Int, 2000 }, // overlay indices for tools, weapons, etc.
@@ -5507,16 +5550,6 @@ static constexpr C4ScriptConstDef C4ScriptConstMap[] =
 	{ "GFX_BLIT_Parent",          C4V_Int, C4GFXBLIT_PARENT },
 
 	{ "NO_OWNER", C4V_Int, NO_OWNER }, // invalid player number
-
-	// contact attachment
-	{ "CNAT_None",        C4V_Int, CNAT_None },
-	{ "CNAT_Left",        C4V_Int, CNAT_Left },
-	{ "CNAT_Right",       C4V_Int, CNAT_Right },
-	{ "CNAT_Top",         C4V_Int, CNAT_Top },
-	{ "CNAT_Bottom",      C4V_Int, CNAT_Bottom },
-	{ "CNAT_Center",      C4V_Int, CNAT_Center },
-	{ "CNAT_MultiAttach", C4V_Int, CNAT_MultiAttach },
-	{ "CNAT_NoCollision", C4V_Int, CNAT_NoCollision },
 
 	// vertex data
 	{ "VTX_X",        C4V_Int, VTX_X },
@@ -5550,18 +5583,6 @@ static constexpr C4ScriptConstDef C4ScriptConstMap[] =
 	{ "C4OS_DELETED",  C4V_Int, C4OS_DELETED },
 	{ "C4OS_NORMAL",   C4V_Int, C4OS_NORMAL },
 	{ "C4OS_INACTIVE", C4V_Int, C4OS_INACTIVE },
-
-	{ "C4MSGCMDR_Escaped",    C4V_Int, C4MessageBoardCommand::C4MSGCMDR_Escaped },
-	{ "C4MSGCMDR_Plain",      C4V_Int, C4MessageBoardCommand::C4MSGCMDR_Plain },
-	{ "C4MSGCMDR_Identifier", C4V_Int, C4MessageBoardCommand::C4MSGCMDR_Identifier },
-
-	{ "BASEFUNC_Default",          C4V_Int, BASEFUNC_Default },
-	{ "BASEFUNC_AutoSellContents", C4V_Int, BASEFUNC_AutoSellContents },
-	{ "BASEFUNC_RegenerateEnergy", C4V_Int, BASEFUNC_RegenerateEnergy },
-	{ "BASEFUNC_Buy",              C4V_Int, BASEFUNC_Buy },
-	{ "BASEFUNC_Sell",             C4V_Int, BASEFUNC_Sell },
-	{ "BASEFUNC_RejectEntrance",   C4V_Int, BASEFUNC_RejectEntrance },
-	{ "BASEFUNC_Extinguish",       C4V_Int, BASEFUNC_Extinguish },
 
 	{ "C4FO_Not",          C4V_Int, C4FO_Not },
 	{ "C4FO_And",          C4V_Int, C4FO_And },
@@ -5629,9 +5650,6 @@ static constexpr C4ScriptConstDef C4ScriptConstMap[] =
 	{ "MSG_ACenter",     C4V_Int, C4GM_ACenter },
 	{ "MSG_ARight",      C4V_Int, C4GM_ARight },
 
-	{ "C4PT_User",   C4V_Int, C4PT_User },
-	{ "C4PT_Script", C4V_Int, C4PT_Script },
-
 	{ "CSPF_FixedAttributes",    C4V_Int, CSPF_FixedAttributes },
 	{ "CSPF_NoScenarioInit",     C4V_Int, CSPF_NoScenarioInit },
 	{ "CSPF_NoEliminationCheck", C4V_Int, CSPF_NoEliminationCheck },
@@ -5649,6 +5667,17 @@ static constexpr C4ScriptConstDef C4ScriptConstMap[] =
 void InitFunctionMap(C4AulScriptEngine *pEngine)
 {
 	// add all def constants (all Int)
+	AddEnum(C4D_Category_EnumInfo);
+	AddEnum(C4D_Line_EnumInfo);
+	AddEnum(C4D_LineConnect_EnumInfo);
+	AddEnum(C4D_Grab_EnumInfo);
+	AddEnum(CNAT_EnumInfo);
+	AddEnum(OCF_EnumInfo);
+	AddEnum(CON_EnumInfo);
+	AddEnum(BASEFUNC_EnumInfo);
+	AddEnum<C4PlayerType>();
+	AddEnum<C4GraphicsOverlay::Mode>();
+	AddEnum<C4MessageBoardCommand::Restriction>();
 	for (const auto &def : C4ScriptConstMap)
 		Game.ScriptEngine.RegisterGlobalConstant(def.Identifier, C4Value(def.Data, def.ValType));
 

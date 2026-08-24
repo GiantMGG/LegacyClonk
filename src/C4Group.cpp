@@ -2,7 +2,7 @@
  * LegacyClonk
  *
  * Copyright (c) 1998-2000, Matthes Bender (RedWolf Design)
- * Copyright (c) 2017-2022, The LegacyClonk Team and contributors
+ * Copyright (c) 2017-2025, The LegacyClonk Team and contributors
  *
  * Distributed under the terms of the ISC license; see accompanying file
  * "COPYING" for details.
@@ -18,6 +18,7 @@
 
 /* Needs to be compiles as Objective C++ on OS X */
 
+#include "C4File.h"
 #include <C4Group.h>
 
 #include <C4Components.h>
@@ -42,6 +43,7 @@
 #include <StdSha1.h>
 #include <fcntl.h>
 
+#include <array>
 #include <cstring>
 #include <print>
 
@@ -438,23 +440,26 @@ bool C4Group_GetFileCRC(const char *szFilename, uint32_t *pCRC32)
 		fTemporary = true;
 	}
 	// open file
-	CStdFile File;
-	if (!File.Open(szPath))
+	C4File file{szPath, "rb"};
+	if (!file)
 		return false;
 	// calculcate CRC
 	uint32_t iCRC32 = 0;
 	for (;;)
 	{
 		// read a chunk of data
-		uint8_t szData[CStdFileBufSize]; size_t iSize = 0;
-		if (!File.Read(szData, CStdFileBufSize, &iSize))
-			if (!iSize)
-				break;
+		std::array<std::uint8_t, CStdFileBufSize> data;
+		const auto result = file.Read(data.data(), data.size());
+		if (!result || !*result)
+		{
+			break;
+		}
+
 		// update CRC
-		iCRC32 = crc32(iCRC32, szData, checked_cast<unsigned int>(iSize));
+		iCRC32 = crc32(iCRC32, data.data(), checked_cast<unsigned int>(data.size()));
 	}
 	// close file
-	File.Close();
+	file.Close();
 	// okay
 	*pCRC32 = iCRC32;
 
@@ -494,23 +499,25 @@ bool C4Group_GetFileSHA1(const char *szFilename, uint8_t *pSHA1)
 		fTemporary = true;
 	}
 	// open file
-	CStdFile File;
-	if (!File.Open(szPath))
+	C4File file{szPath, "rb"};
+	if (!file)
 		return false;
 	// calculcate CRC
 	StdSha1 sha1;
 	for (;;)
 	{
 		// read a chunk of data
-		uint8_t szData[CStdFileBufSize]; size_t iSize = 0;
-		if (!File.Read(szData, CStdFileBufSize, &iSize))
-			if (!iSize)
-				break;
+		std::array<std::uint8_t, CStdFileBufSize> data;
+		const auto result = file.Read(data.data(), data.size());
+		if (!result)
+		{
+			break;
+		}
 		// update CRC
-		sha1.Update(szData, iSize);
+		sha1.Update(data.data(), *result);
 	}
 	// close file
-	File.Close();
+	file.Close();
 
 	if (fTemporary)
 	{
@@ -675,8 +682,8 @@ bool C4Group::Open(const char *szGroupName, bool fCreate, const OpenFlags openFl
 	// If requested, try creating a new group file
 	if (fCreate)
 	{
-		CStdFile temp;
-		if (temp.Create(szGroupNameN, false))
+		C4File temp{szGroupNameN, "wb"};
+		if (temp)
 		{
 			// Temporary file has been created
 			temp.Close();
@@ -826,7 +833,17 @@ bool C4Group::AddEntry(int status,
 				fOkay = !!hFile.Write(membuf, size);
 			hFile.Close();
 
-			if (fHoldBuffer) if (fBufferIsStdbuf) StdBuf::DeletePointer(membuf); else delete[] membuf;
+			if (fHoldBuffer)
+			{
+				if (fBufferIsStdbuf)
+				{
+					StdBuf::DeletePointer(membuf);
+				}
+				else
+				{
+					delete[] membuf;
+				}
+			}
 
 			return fOkay;
 
@@ -1254,12 +1271,7 @@ bool C4Group::SetFilePtr(size_t iOffset)
 
 bool C4Group::Advance(size_t iOffset)
 {
-	if (Status == GRPF_Folder) return !!StdFile.Advance(iOffset);
-	// FIXME: reading the file one byte at a time sounds just slow.
-	uint8_t buf;
-	for (; iOffset > 0; iOffset--)
-		if (!Read(&buf, 1)) return false;
-	return true;
+	return AdvanceFilePtr(iOffset);
 }
 
 bool C4Group::Read(void *pBuffer, size_t iSize)
@@ -1330,7 +1342,7 @@ bool C4Group::RewindFilePtr()
 #ifdef C4ENGINE
 	if (szCurrAccessedEntry && !iC4GroupRewindFilePtrNoWarn)
 	{
-		LogNTr(spdlog::level::debug, "C4Group::RewindFilePtr() for {} ({})", szCurrAccessedEntry ? szCurrAccessedEntry : "???", +FileName);
+		LogNTr(spdlog::level::debug, "C4Group::RewindFilePtr() for {} ({})", szCurrAccessedEntry ? szCurrAccessedEntry : "???", FileName);
 		szCurrAccessedEntry = nullptr;
 	}
 #endif
@@ -1372,7 +1384,7 @@ bool C4Group::View(const char *szFiles)
 
 	// Display list
 	ResetSearch();
-	while (centry = SearchNextEntry(szFiles))
+	while ((centry = SearchNextEntry(szFiles)))
 	{
 		fcount++;
 		bcount += centry->Size;
@@ -1386,7 +1398,7 @@ bool C4Group::View(const char *szFiles)
 		Head.Ver1, Head.Ver2,
 		crc, crc);
 	ResetSearch();
-	while (centry = SearchNextEntry(szFiles))
+	while ((centry = SearchNextEntry(szFiles)))
 	{
 		// convert centry->Time into time_t for localtime
 		time_t cur_time = centry->Time;
@@ -1450,13 +1462,14 @@ bool C4Group::AddEntryOnDisk(const char *szFilename,
 	// Do not process yourself
 	if (ItemIdentical(szFilename, FileName)) return true;
 
+	char szTempFilename[_MAX_PATH + 1];
+
 	// File is a directory: copy to temp path, pack, and add packed file
 	if (DirectoryExists(szFilename))
 	{
 		// Ignore
 		if (C4Group_TestIgnore(szFilename)) return true;
 		// Temp filename
-		char szTempFilename[_MAX_PATH + 1];
 		if (C4Group_TempPath[0]) { SCopy(C4Group_TempPath, szTempFilename, _MAX_PATH); SAppend(GetFilename(szFilename), szTempFilename, _MAX_PATH); }
 		else SCopy(szFilename, szTempFilename, _MAX_PATH);
 		MakeTempFilename(szTempFilename);
@@ -1610,7 +1623,7 @@ bool C4Group::DeleteEntry(const char *szFilename, bool fRecycle)
 	case GRPF_Folder:
 		StdFile.Close();
 		char szPath[_MAX_FNAME + 1];
-		FormatWithNull(szPath, "{}" DirSep "{}", +FileName, szFilename);
+		FormatWithNull(szPath, "{}" DirSep "{}", FileName, szFilename);
 
 		if (fRecycle)
 		{
@@ -1691,12 +1704,12 @@ bool C4Group::Extract(const char *szFiles, const char *szExtractTo, const char *
 	{
 		// Search all entries
 		ResetSearch();
-		while (tentry = SearchNextEntry(szFileName))
+		while ((tentry = SearchNextEntry(szFileName)))
 		{
 			// skip?
 			if (C4Group_IsExcluded(tentry->FileName, szExclude)) continue;
 			// Process data & output
-			if (StdOutput) std::println("{}", +tentry->FileName);
+			if (StdOutput) std::println("{}", tentry->FileName);
 			cbytes += tentry->Size;
 			if (fnProcessCallback)
 				fnProcessCallback(tentry->FileName, 100 * cbytes / (std::max)(tbytes, 1));
@@ -1781,7 +1794,7 @@ bool C4Group::ExtractEntry(const char *szFilename, const char *szExtractTo)
 		break;
 	case GRPF_Folder: // Copy item from folder to target
 		char szPath[_MAX_FNAME + 1];
-		FormatWithNull(szPath, "{}" DirSep "{}", +FileName, szFilename);
+		FormatWithNull(szPath, "{}" DirSep "{}", FileName, szFilename);
 		if (!CopyItem(szPath, szTargetFName))
 			return Error("ExtractEntry: Cannot copy item");
 		break;
@@ -1835,7 +1848,7 @@ bool C4Group::OpenAsChild(C4Group *pMother,
 
 	// Get original entry name
 	C4GroupEntry *centry;
-	if (centry = Mother->GetEntry(FileName))
+	if ((centry = Mother->GetEntry(FileName)))
 		SCopy(centry->FileName, FileName, _MAX_PATH);
 
 	// Access entry in mother group
@@ -2151,7 +2164,7 @@ int C4Group::EntryCount(const char *szWildCard)
 	if (!szWildCard) szWildCard = "*";
 	// Match wildcard
 	ResetSearch(); fcount = 0;
-	while (tentry = SearchNextEntry(szWildCard)) fcount++;
+	while ((tentry = SearchNextEntry(szWildCard))) fcount++;
 	return fcount;
 }
 
@@ -2163,7 +2176,7 @@ int C4Group::EntrySize(const char *szWildCard)
 	if (!szWildCard) szWildCard = "*";
 	// Match wildcard
 	ResetSearch(); fsize = 0;
-	while (tentry = SearchNextEntry(szWildCard))
+	while ((tentry = SearchNextEntry(szWildCard)))
 		fsize += tentry->Size;
 	return fsize;
 }
@@ -2174,7 +2187,7 @@ unsigned int C4Group::EntryCRC32(const char *szWildCard)
 	// iterate thorugh child
 	C4GroupEntry *pEntry; unsigned int iCRC = 0;
 	ResetSearch();
-	while (pEntry = SearchNextEntry(szWildCard))
+	while ((pEntry = SearchNextEntry(szWildCard)))
 	{
 		if (!CalcCRC32(pEntry)) return false;
 		iCRC ^= pEntry->CRC;
@@ -2194,7 +2207,7 @@ uint32_t C4Group::EntryTime(const char *szFilename)
 		break;
 	case GRPF_Folder:
 		char szPath[_MAX_FNAME + 1];
-		FormatWithNull(szPath, "{}" DirSep "{}", +FileName, szFilename);
+		FormatWithNull(szPath, "{}" DirSep "{}", FileName, szFilename);
 		iTime = FileTime(szPath);
 		break;
 	}
@@ -2301,7 +2314,7 @@ bool C4Group::Sort(const char *szSortList)
 		fBubble = false;
 
 		for (prev = nullptr, centry = FirstEntry; centry; prev = centry, centry = next)
-			if (next = centry->Next)
+			if ((next = centry->Next))
 			{
 				// primary sort by file list
 				int iS1 = SortRank(centry->FileName, szSortList);
@@ -2390,7 +2403,7 @@ bool C4Group::EnsureChildFilePtr(C4Group *pChild)
 
 	// Open standard file is not the child file ...or StdFile ptr does not match pChild->FilePtr
 	char szChildPath[_MAX_PATH + 1];
-	FormatWithNull(szChildPath, "{}" DirSep "{}", +FileName, GetFilename(pChild->FileName));
+	FormatWithNull(szChildPath, "{}" DirSep "{}", FileName, GetFilename(pChild->FileName));
 	if (!ItemIdentical(StdFile.Name, szChildPath))
 	{
 		// Reopen correct child stdfile
@@ -2506,45 +2519,10 @@ bool C4Group::CalcCRC32(C4GroupEntry *pEntry)
 	return true;
 }
 
-bool C4Group::OpenChild(const char *strEntry)
-{
-	// hack: The seach-handle would be closed twice otherwise
-	FolderSearch.Reset();
-	// Create a memory copy of ourselves
-	C4Group *pOurselves = new C4Group;
-	*pOurselves = *this;
-
-	// Open a child from the memory copy
-	C4Group hChild;
-	if (!hChild.OpenAsChild(pOurselves, strEntry, false))
-	{
-		// Silently delete our memory copy
-		pOurselves->Default(); delete pOurselves;
-		return false;
-	}
-
-	// hack: The seach-handle would be closed twice otherwise
-	FolderSearch.Reset();
-	hChild.FolderSearch.Reset();
-
-	// We now become our own child
-	*this = hChild;
-
-	// Make ourselves exclusive (until we hit our memory copy parent)
-	for (C4Group *pGroup = this; pGroup != pOurselves; pGroup = pGroup->Mother)
-		pGroup->ExclusiveChild = true;
-
-	// Reset the temporary child variable so it doesn't delete anything
-	hChild.Default();
-
-	// Yeehaw
-	return true;
-}
-
-bool C4Group::OpenMother()
+C4Group *C4Group::GrabMother()
 {
 	// This only works if we are an exclusive child
-	if (!Mother || !ExclusiveChild) return false;
+	if (!Mother || !ExclusiveChild) return nullptr;
 
 	// Store a pointer to our mother
 	C4Group *pMother = Mother;
@@ -2553,34 +2531,23 @@ bool C4Group::OpenMother()
 	ExclusiveChild = false;
 	Clear();
 
-	// hack: The seach-handle would be closed twice otherwise
-	pMother->FolderSearch.Reset();
-	FolderSearch.Reset();
-	// We now become our own mother (whoa!)
-	*this = *pMother;
-
-	// Now silently delete our former mother
-	pMother->Default();
-	delete pMother;
-
-	// Yeehaw
-	return true;
+	return pMother;
 }
 
 #ifndef NDEBUG
 void C4Group::PrintInternals(const char *szIndent)
 {
 	if (!szIndent) szIndent = "";
-	std::println("{}Head.id: '{}'", szIndent, +Head.id);
+	std::println("{}Head.id: '{}'", szIndent, Head.id);
 	std::println("{}Head.Ver1: {}", szIndent, Head.Ver1);
 	std::println("{}Head.Ver2: {}", szIndent, Head.Ver2);
 	std::println("{}Head.Entries: {}", szIndent, Head.Entries);
-	std::println("{}Head.Maker: '{}'", szIndent, +Head.Maker);
+	std::println("{}Head.Maker: '{}'", szIndent, Head.Maker);
 	std::println("{}Head.Creation: {}", szIndent, Head.Creation);
 	std::println("{}Head.Original: {}", szIndent, Head.Original);
 	for (C4GroupEntry *p = FirstEntry; p; p = p->Next)
 	{
-		std::println("{}Entry '{}':", szIndent, +p->FileName);
+		std::println("{}Entry '{}':", szIndent, p->FileName);
 		std::println("{}  Packed: {}", szIndent, p->Packed);
 		std::println("{}  ChildGroup: {}", szIndent, p->ChildGroup);
 		std::println("{}  Size: {}", szIndent, p->Size);

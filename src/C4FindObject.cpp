@@ -2,7 +2,7 @@
  * LegacyClonk
  *
  * Copyright (c) RedWolf Design
- * Copyright (c) 2017-2022, The LegacyClonk Team and contributors
+ * Copyright (c) 2017-2024, The LegacyClonk Team and contributors
  *
  * Distributed under the terms of the ISC license; see accompanying file
  * "COPYING" for details.
@@ -14,7 +14,6 @@
  * for the above references.
  */
 
-#include <C4Include.h>
 #include <C4FindObject.h>
 
 #include <C4Object.h>
@@ -288,24 +287,44 @@ C4Object *C4FindObject::Find(const C4ObjectList &Objs, const C4LSectors &Sct)
 		C4LArea Area(&Game.Objects.Sectors, *pBounds); C4LSector *pSct;
 		C4Object *pObj;
 		for (C4ObjectList *pLst = Area.FirstObjectShapes(&pSct); pLst; pLst = Area.NextObjectShapes(pLst, &pSct))
-			if (pObj = Find(*pLst))
+		{
+			if ((pObj = Find(*pLst)))
+			{
 				if (!pSort)
+				{
 					return pObj;
+				}
 				else if (!pBestResult || pSort->Compare(pObj, pBestResult) > 0)
+				{
 					if (pObj->Status)
+					{
 						pBestResult = pObj;
+					}
+				}
+			}
+		}
 	}
 	else
 	{
 		C4LArea Area(&Game.Objects.Sectors, *pBounds); C4LSector *pSct;
 		C4Object *pObj;
 		for (C4ObjectList *pLst = Area.FirstObjects(&pSct); pLst; pLst = Area.NextObjects(pLst, &pSct))
-			if (pObj = Find(*pLst))
+		{
+			if ((pObj = Find(*pLst)))
+			{
 				if (!pSort)
+				{
 					return pObj;
+				}
 				else if (!pBestResult || pSort->Compare(pObj, pBestResult) > 0)
+				{
 					if (pObj->Status)
+					{
 						pBestResult = pObj;
+					}
+				}
+			}
+		}
 	}
 	return pBestResult;
 }

@@ -2,7 +2,7 @@
  * LegacyClonk
  *
  * Copyright (c) 1998-2000, Matthes Bender (RedWolf Design)
- * Copyright (c) 2017-2022, The LegacyClonk Team and contributors
+ * Copyright (c) 2017-2024, The LegacyClonk Team and contributors
  *
  * Distributed under the terms of the ISC license; see accompanying file
  * "COPYING" for details.
@@ -14,7 +14,6 @@
  * for the above references.
  */
 
-#include <C4Include.h>
 #include <C4SoundSystem.h>
 
 #include <C4Random.h>
@@ -129,7 +128,7 @@ void C4SoundSystem::LoadEffects(C4Group &group)
 			}
 			catch (const std::runtime_error &e)
 			{
-				LogNTr(spdlog::level::err, "Could not load sound effect \"{}/{}\": {}", group.GetFullName().getData(), +filename, e.what());
+				LogNTr(spdlog::level::err, "Could not load sound effect \"{}/{}\": {}", group.GetFullName().getData(), filename, e.what());
 			}
 		}
 	}

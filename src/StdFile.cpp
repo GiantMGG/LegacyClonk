@@ -2,7 +2,7 @@
  * LegacyClonk
  *
  * Copyright (c) 1998-2000, Matthes Bender (RedWolf Design)
- * Copyright (c) 2017-2022, The LegacyClonk Team and contributors
+ * Copyright (c) 2017-2026, The LegacyClonk Team and contributors
  *
  * Distributed under the terms of the ISC license; see accompanying file
  * "COPYING" for details.
@@ -236,7 +236,7 @@ bool TruncatePath(char *szPath)
 void AppendBackslash(char *szFilename)
 {
 	const auto i = SLen(szFilename);
-	if (i > 0) if ((szFilename[i - 1] == DirectorySeparator)) return;
+	if (i > 0) if (szFilename[i - 1] == DirectorySeparator) return;
 	SAppendChar(DirectorySeparator, szFilename);
 }
 
@@ -245,7 +245,7 @@ void AppendBackslash(char *szFilename)
 void TruncateBackslash(char *szFilename)
 {
 	const auto i = SLen(szFilename);
-	if (i > 0) if ((szFilename[i - 1] == DirectorySeparator)) szFilename[i - 1] = 0;
+	if (i > 0) if (szFilename[i - 1] == DirectorySeparator) szFilename[i - 1] = 0;
 }
 
 // Append extension if no extension.
@@ -352,7 +352,7 @@ bool WildcardMatch(const char *szWildcard, const char *szString)
 		else if (!*pPos)
 			break;
 		// equal or one-character-wildcard? proceed
-		else if (*pWild == '?' || tolower(*pWild) == tolower(*pPos))
+		else if (*pWild == '?' || C4Strings::ToLower(*pWild) == C4Strings::ToLower(*pPos))
 		{
 			pWild++; pPos++;
 		}
@@ -891,7 +891,7 @@ int ForEachFile(const char *szDirName, bool(*fnCallback)(const char *))
 bool ReadFileLine(FILE *fhnd, char *tobuf, int maxlen)
 {
 	int cread;
-	char inc;
+	int inc;
 	if (!fhnd || !tobuf) return 0;
 	for (cread = 0; cread < maxlen; cread++)
 	{
@@ -902,7 +902,7 @@ bool ReadFileLine(FILE *fhnd, char *tobuf, int maxlen)
 		}
 		if (inc == 0x0A) break; // Text file line feed
 		if (!inc || (inc == EOF)) break; // End of file
-		*tobuf = inc; tobuf++;
+		*tobuf = static_cast<char>(inc); tobuf++;
 	}
 	*tobuf = 0;
 	if (inc == EOF) return 0;

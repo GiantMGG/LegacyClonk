@@ -3,7 +3,7 @@
  *
  * Copyright (c) RedWolf Design
  * Copyright (c) 2003, Sven2
- * Copyright (c) 2017-2022, The LegacyClonk Team and contributors
+ * Copyright (c) 2017-2024, The LegacyClonk Team and contributors
  *
  * Distributed under the terms of the ISC license; see accompanying file
  * "COPYING" for details.
@@ -63,7 +63,7 @@ public:
 			throw std::runtime_error("Cannot init Freetype");
 		// Load the font
 		FT_Error e;
-		if (e = FT_New_Face(library, filepathname, 0, &face))
+		if ((e = FT_New_Face(library, filepathname, 0, &face)))
 			throw std::runtime_error(std::format("Cannot load {}: {}", filepathname, e));
 	}
 
@@ -74,7 +74,7 @@ public:
 			throw std::runtime_error("Cannot init Freetype");
 		// Load the font
 		FT_Error e;
-		if (e = FT_New_Memory_Face(library, static_cast<const FT_Byte *>(Data.getData()), Data.getSize(), 0, &face))
+		if ((e = FT_New_Memory_Face(library, static_cast<const FT_Byte *>(Data.getData()), Data.getSize(), 0, &face)))
 			throw std::runtime_error(std::format("Cannot load font: {}", e));
 	}
 
@@ -441,7 +441,7 @@ void CStdFont::Init(CStdVectorFont &VectorFont, uint32_t dwHeight, uint32_t dwFo
 	fPrerenderedFont = false;
 	if (0) for (int i = 0; i < iNumFontSfcs; ++i)
 	{
-		const std::string pngFilename{std::format("{}{}{}_{}.png", +szFontName, dwHeight, fDoShadow ? "_shadow" : "", i)};
+		const std::string pngFilename{std::format("{}{}{}_{}.png", szFontName, dwHeight, fDoShadow ? "_shadow" : "", i)};
 		psfcFontData[i]->SavePNG(pngFilename.c_str(), true, false, false);
 	}
 }
@@ -846,7 +846,7 @@ void CStdFont::DrawText(C4Surface *sfcDest, int iX, int iY, uint32_t dwColor, co
 	// output text
 	uint32_t c;
 	C4Facet fctFromBlt; // source facet
-	while (c = GetNextCharacter(&szText))
+	while ((c = GetNextCharacter(&szText)))
 	{
 		// ignore system characters
 		if (c < _T(' ')) continue;

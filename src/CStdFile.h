@@ -2,7 +2,7 @@
  * LegacyClonk
  *
  * Copyright (c) 1998-2000, Matthes Bender (RedWolf Design)
- * Copyright (c) 2017-2020, The LegacyClonk Team and contributors
+ * Copyright (c) 2017-2024, The LegacyClonk Team and contributors
  *
  * Distributed under the terms of the ISC license; see accompanying file
  * "COPYING" for details.
@@ -65,7 +65,6 @@ public:
 			  bool exclusive = false);
 	// flush contents to disk
 	inline bool Flush() { if (ModeWrite && BufferLoad) return SaveBuffer(); else return true; }
-	size_t AccessedEntrySize();
 
 protected:
 	void ClearBuffer();

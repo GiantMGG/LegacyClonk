@@ -3,7 +3,7 @@
  *
  * Copyright (c) RedWolf Design
  * Copyright (c) 2007, matthes
- * Copyright (c) 2017-2021, The LegacyClonk Team and contributors
+ * Copyright (c) 2017-2025, The LegacyClonk Team and contributors
  *
  * Distributed under the terms of the ISC license; see accompanying file
  * "COPYING" for details.
@@ -17,7 +17,6 @@
 
 // dialogs for update, and the actual update application code
 
-#include "C4Include.h"
 #include "C4UpdateDlg.h"
 #include "C4DownloadDlg.h"
 
@@ -270,6 +269,8 @@ bool C4UpdateDlg::CheckForUpdates(C4GUI::Screen *pScreen, bool fAutomatic)
 	Config.Network.LastUpdateTime = static_cast<int32_t>(time(nullptr));
 	// Get current update version from server
 	C4GameVersion UpdateVersion;
+	CStdOSVersion osVersion;
+	std::string friendlyOSName;
 	C4GUI::Dialog *pWaitDlg = nullptr;
 	if (pScreen && C4GUI::IsGUIValid())
 	{
@@ -280,7 +281,7 @@ bool C4UpdateDlg::CheckForUpdates(C4GUI::Screen *pScreen, bool fAutomatic)
 	C4Network2VersionInfoClient VerChecker;
 	bool fSuccess = false, fAborted = false;
 	StdStrBuf strUpdateRedirect;
-	const std::string query{std::format("{}?action=version", +Config.Network.UpdateServerAddress)};
+	const std::string query{std::format("{}?action=version", Config.Network.UpdateServerAddress)};
 	if (VerChecker.Init() && VerChecker.SetServer(query) && VerChecker.QueryVersion())
 	{
 		Application.InteractiveThread.AddProc(&VerChecker);
@@ -296,7 +297,7 @@ bool C4UpdateDlg::CheckForUpdates(C4GUI::Screen *pScreen, bool fAutomatic)
 		}
 		if (!fAborted)
 		{
-			fSuccess = VerChecker.GetVersion(&UpdateVersion);
+			fSuccess = VerChecker.GetVersion(UpdateVersion, osVersion, friendlyOSName);
 			VerChecker.GetRedirect(strUpdateRedirect);
 		}
 		Application.InteractiveThread.RemoveProc(&VerChecker);
@@ -352,19 +353,46 @@ bool C4UpdateDlg::CheckForUpdates(C4GUI::Screen *pScreen, bool fAutomatic)
 
 	if (!pScreen)
 	{
-		return C4UpdateDlg::IsValidUpdate(UpdateVersion);
+		return C4UpdateDlg::IsValidUpdate(UpdateVersion) && CStdOSVersion::GetLocal() >= osVersion;
 	}
 
 	// Applicable update available
 	if (C4UpdateDlg::IsValidUpdate(UpdateVersion))
 	{
+		if (CStdOSVersion::GetLocal() < osVersion)
+		{
+			const std::string message{LoadResStr(
+							C4ResStrTableKey::IDS_MSG_UPDATENOTAVAILABLEFOROSVERSION,
+							UpdateVersion.GetString(),
+							friendlyOSName,
+							std::format("{}", osVersion),
+							CStdOSVersion::GetFriendlyOSName(),
+							std::format("{}", CStdOSVersion::GetLocal())
+							)};
+
+			// Prompt for whether automatic updates should be disabled
+			if (pScreen->ShowMessageModal(message.c_str(), Config.Network.UpdateServerAddress, C4GUI::MessageDialog::btnYesNo, C4GUI::Ico_Error))
+			{
+				Config.Network.AutomaticUpdate = false;
+				Config.Save();
+			}
+
+			return false;
+		}
+
 		// Prompt user, then apply update
 		const std::string message{LoadResStr(C4ResStrTableKey::IDS_MSG_ANUPDATETOVERSIONISAVAILA, UpdateVersion.GetString())};
 		if (pScreen->ShowMessageModal(message.c_str(), Config.Network.UpdateServerAddress, C4GUI::MessageDialog::btnYesNo, C4GUI::Ico_Ex_Update))
+		{
 			if (!DoUpdate(UpdateVersion, pScreen))
+			{
 				pScreen->ShowMessage(LoadResStr(C4ResStrTableKey::IDS_MSG_UPDATEFAILED), Config.Network.UpdateServerAddress, C4GUI::Ico_Ex_Update);
+			}
 			else
+			{
 				return true;
+			}
+		}
 	}
 	// No applicable update available
 	else
@@ -385,19 +413,41 @@ bool C4Network2VersionInfoClient::QueryVersion()
 	return Query(StdBuf{}, false);
 }
 
-bool C4Network2VersionInfoClient::GetVersion(C4GameVersion *piVerOut)
+bool C4Network2VersionInfoClient::GetVersion(C4GameVersion &saveToVer, CStdOSVersion &osVersion, std::string &friendlyOSName)
 {
 	// Sanity check
 	if (isBusy() || !isSuccess()) return false;
 	// Parse response
-	piVerOut->Set("", 0, 0, 0, 0, 0);
+	saveToVer.Set("", 0, 0, 0, 0, 0);
+
+	struct VersionAndOsVersion
+	{
+		C4GameVersion &Version;
+		CStdOSVersion &OsVersion;
+		std::string &FriendlyOSName;
+
+		void CompileFunc(StdCompiler *const comp)
+		{
+			comp->Value(mkNamingAdapt(mkParAdapt(Version, false),	"Version"));
+
+			if (const auto guard = comp->Name(C4_OS))
+			{
+				comp->Value(mkNamingAdapt(OsVersion, "RequiredOSVersion"));
+				comp->Value(mkNamingAdapt(FriendlyOSName, "FriendlyOSName"));
+			}
+			else if (comp->isCompiler())
+			{
+				OsVersion = {};
+				FriendlyOSName.clear();
+			}
+		}
+	};
+
+	VersionAndOsVersion versionAndOsVersion{saveToVer, osVersion, friendlyOSName};
+
 	try
 	{
-		CompileFromBuf<StdCompilerINIRead>(mkNamingAdapt(
-			mkNamingAdapt(
-				mkParAdapt(*piVerOut, false),
-				"Version"),
-			C4ENGINENAME), getResultString());
+		CompileFromBuf<StdCompilerINIRead>(mkNamingAdapt(versionAndOsVersion, C4ENGINENAME), getResultString());
 	}
 	catch (const StdCompiler::Exception &e)
 	{
@@ -405,7 +455,7 @@ bool C4Network2VersionInfoClient::GetVersion(C4GameVersion *piVerOut)
 		return false;
 	}
 	// validate version
-	if (!piVerOut->iVer[0])
+	if (!saveToVer.iVer[0])
 	{
 		SetError(LoadResStr(C4ResStrTableKey::IDS_ERR_INVALIDREPLYFROMSERVER));
 		return false;

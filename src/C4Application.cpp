@@ -2,7 +2,7 @@
  * LegacyClonk
  *
  * Copyright (c) 1998-2000, Matthes Bender (RedWolf Design)
- * Copyright (c) 2017-2021, The LegacyClonk Team and contributors
+ * Copyright (c) 2017-2024, The LegacyClonk Team and contributors
  *
  * Distributed under the terms of the ISC license; see accompanying file
  * "COPYING" for details.
@@ -16,7 +16,6 @@
 
 /* Main class to initialize configuration and execute the game */
 
-#include <C4Include.h>
 #include <C4Application.h>
 #include <C4Version.h>
 #ifdef _WIN32
@@ -50,10 +49,10 @@ C4Sec1TimerCallbackBase::C4Sec1TimerCallbackBase() : pNext(nullptr), iRefs(2)
 }
 
 C4Application::C4Application() :
-	isFullScreen(true), UseStartupDialog(true), launchEditor(false), restartAtEnd(false),
-	DDraw(nullptr), AppState(C4AS_None),
-	iLastGameTick(0), iGameTickDelay(defaultGameTickDelay), iExtraGameTickDelay(0), pGamePadControl(nullptr),
-	CheckForUpdates(false) {}
+	isFullScreen(true), UseStartupDialog(true), CheckForUpdates(false), launchEditor(false),
+	restartAtEnd(false), pGamePadControl(nullptr),
+	iLastGameTick(0), iGameTickDelay(defaultGameTickDelay), iExtraGameTickDelay(0), DDraw(nullptr),
+	AppState(C4AS_None) {}
 
 C4Application::~C4Application()
 {
@@ -135,7 +134,7 @@ void C4Application::DoInit()
 
 	// Language override by parameter
 	const char *pLanguage;
-	if (pLanguage = SSearchNoCase(GetCommandLine(), "/Language:"))
+	if ((pLanguage = SSearchNoCase(GetCommandLine(), "/Language:")))
 		SCopyUntil(pLanguage, Config.General.LanguageEx, ' ', CFG_MaxString);
 
 	// Init external language packs

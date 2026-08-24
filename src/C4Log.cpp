@@ -2,7 +2,7 @@
  * LegacyClonk
  *
  * Copyright (c) 1998-2000, Matthes Bender (RedWolf Design)
- * Copyright (c) 2017-2021, The LegacyClonk Team and contributors
+ * Copyright (c) 2017-2024, The LegacyClonk Team and contributors
  *
  * Distributed under the terms of the ISC license; see accompanying file
  * "COPYING" for details.
@@ -113,8 +113,6 @@ public:
 		dest.resize_and_overwrite(dest.size() + msg.payload.size(), [&msg, oldSize{dest.size()}](char *const ptr, const std::size_t size)
 		{
 			std::fill_n(ptr + oldSize, size - oldSize, 0xAB);
-			auto oldSize2 = oldSize;
-			auto &payload = msg.payload;
 			auto copied = msg.payload.copy(ptr + oldSize, msg.payload.size());
 			ptr[oldSize + copied] = '\0';
 
@@ -144,9 +142,9 @@ C4LogSystem::LogSink::LogSink(std::unique_ptr<spdlog::formatter> formatter)
 	// open
 	int iLog = 2;
 #ifdef _WIN32
-	while (!(file = _fsopen(logFileName.c_str(), "wb", _SH_DENYWR)))
+	while (!(file = C4File{_fsopen(logFileName.c_str(), "wb", _SH_DENYWR)}))
 #else
-	while (!(file = fopen(logFileName.c_str(), "wb")))
+	while (!(file.Open(logFileName, "wb")))
 #endif
 	{
 		if (errno == EACCES)
@@ -168,21 +166,16 @@ C4LogSystem::LogSink::LogSink(std::unique_ptr<spdlog::formatter> formatter)
 	}
 }
 
-C4LogSystem::LogSink::~LogSink()
-{
-	std::fclose(file);
-}
-
 void C4LogSystem::LogSink::sink_it_(const spdlog::details::log_msg &msg)
 {
 	std::string formatted;
 	formatter_->format(msg, formatted);
-	std::fwrite(formatted.data(), sizeof(char), formatted.size(), file);
+	(void) file.WriteString(formatted);
 }
 
 void C4LogSystem::LogSink::flush_()
 {
-	std::fflush(file);
+	(void) file.Flush();
 }
 
 C4LogSystem::GuiSink::GuiSink(const spdlog::level::level_enum level, const bool showLoggerNameInGui)

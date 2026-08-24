@@ -2,7 +2,7 @@
  * LegacyClonk
  *
  * Copyright (c) 1998-2000, Matthes Bender (RedWolf Design)
- * Copyright (c) 2017-2022, The LegacyClonk Team and contributors
+ * Copyright (c) 2017-2024, The LegacyClonk Team and contributors
  *
  * Distributed under the terms of the ISC license; see accompanying file
  * "COPYING" for details.
@@ -14,7 +14,6 @@
  * for the above references.
  */
 
-#include <C4Include.h>
 #include <C4MusicSystem.h>
 
 #include <C4Application.h>
@@ -150,7 +149,7 @@ void C4MusicSystem::PlayScenarioMusic(C4Group &group)
 	}
 
 	// Check for music folders in group set
-	for (C4Group *group = nullptr; group = Game.GroupSet.FindGroup(C4GSCnt_Music, group); )
+	for (C4Group *group = nullptr; (group = Game.GroupSet.FindGroup(C4GSCnt_Music, group)); )
 	{
 		musicDirs.emplace_back(std::string() +
 			group->GetFullName().getData() + DirectorySeparator + C4CFN_Music);
@@ -391,14 +390,12 @@ void C4MusicSystem::LoadDir(const char *const path)
 void C4MusicSystem::LoadMoreMusic()
 {
 	// Read MoreMusic.txt file or cancel if not present
-	CStdFile MoreMusicFile;
-	std::uint8_t *fileContentsTmp; size_t size;
-	if (!MoreMusicFile.Load(Config.AtExePath(C4CFN_MoreMusic), &fileContentsTmp, &size)) return;
-	std::unique_ptr<std::uint8_t[]> fileContents(fileContentsTmp);
+	const auto result = C4File::LoadContentsAsString(Config.AtExePath(C4CFN_MoreMusic));
+	if (!result) return;
 
 	// read contents
-	const char *rest = reinterpret_cast<const char *>(fileContents.get());
-	const auto end = rest + size;
+	const char *rest = reinterpret_cast<const char *>(result->c_str());
+	const auto end = rest + result->size();
 
 	while (rest != end)
 	{

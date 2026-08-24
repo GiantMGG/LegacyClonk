@@ -3,7 +3,7 @@
  *
  * Copyright (c) RedWolf Design
  * Copyright (c) 2007, Sven2
- * Copyright (c) 2017-2020, The LegacyClonk Team and contributors
+ * Copyright (c) 2017-2024, The LegacyClonk Team and contributors
  *
  * Distributed under the terms of the ISC license; see accompanying file
  * "COPYING" for details.
@@ -21,7 +21,6 @@
 #include "C4GuiListBox.h"
 #include "C4GuiResource.h"
 #include "C4GuiTabular.h"
-#include "C4Include.h"
 #include "C4ChatDlg.h"
 #include "C4Game.h"
 #include "C4InputValidation.h"
@@ -180,11 +179,11 @@ int32_t C4ChatControl::ChatSheet::NickItem::SortFunc(const C4GUI::Element *pEl1,
 
 C4ChatControl::ChatSheet::ChatSheet(C4ChatControl *pChatControl, const char *szTitle, const char *szIdent, SheetType eType)
 	: C4GUI::Tabular::Sheet(szTitle, C4Rect(0, 0, 10, 10), C4GUI::Ico_None, true, false),
-	  iBackBufferIndex(-1),
-	  eType(eType),
+	  pChatControl(pChatControl),
 	  pNickList(nullptr),
 	  pInputLbl(nullptr),
-	  pChatControl(pChatControl),
+	  iBackBufferIndex(-1),
+	  eType(eType),
 	  fHasUnread(false),
 	  sChatTitle{szIdent}
 {
@@ -371,7 +370,7 @@ void C4ChatControl::ChatSheet::UpdateUsers(C4Network2IRCUser *pUsers)
 	// update existing users
 	for (; pUsers; pUsers = pUsers->getNext())
 	{
-		if (pNickItem = GetNickItem(pUsers->getName()))
+		if ((pNickItem = GetNickItem(pUsers->getName())))
 		{
 			pNickItem->Update(pUsers);
 		}
@@ -385,7 +384,7 @@ void C4ChatControl::ChatSheet::UpdateUsers(C4Network2IRCUser *pUsers)
 	}
 	// remove left users
 	pNextNickItem = GetFirstNickItem();
-	while (pNickItem = pNextNickItem)
+	while ((pNickItem = pNextNickItem))
 	{
 		pNextNickItem = GetNextNickItem(pNickItem);
 		if (!pNickItem->IsFlaggedExisting())
@@ -550,10 +549,10 @@ C4ChatControl::ChatSheet *C4ChatControl::GetActiveChatSheet()
 C4ChatControl::ChatSheet *C4ChatControl::GetSheetByIdent(const char *szIdent, C4ChatControl::SheetType eType)
 {
 	int32_t i = 0; C4GUI::Tabular::Sheet *pSheet; const char *szCheckIdent;
-	while (pSheet = pTabChats->GetSheet(i++))
+	while ((pSheet = pTabChats->GetSheet(i++)))
 	{
 		ChatSheet *pChatSheet = static_cast<ChatSheet *>(pSheet);
-		if (szCheckIdent = pChatSheet->GetIdent())
+		if ((szCheckIdent = pChatSheet->GetIdent()))
 			if (SEqualNoCase(szCheckIdent, szIdent))
 				if (eType == pChatSheet->GetSheetType())
 					return pChatSheet;
@@ -564,8 +563,8 @@ C4ChatControl::ChatSheet *C4ChatControl::GetSheetByIdent(const char *szIdent, C4
 C4ChatControl::ChatSheet *C4ChatControl::GetSheetByTitle(const char *szTitle, C4ChatControl::SheetType eType)
 {
 	int32_t i = 0; C4GUI::Tabular::Sheet *pSheet; const char *szCheckTitle;
-	while (pSheet = pTabChats->GetSheet(i++))
-		if (szCheckTitle = pSheet->GetTitle())
+	while ((pSheet = pTabChats->GetSheet(i++)))
+		if ((szCheckTitle = pSheet->GetTitle()))
 			if (SEqualNoCase(szCheckTitle, szTitle))
 			{
 				ChatSheet *pChatSheet = static_cast<ChatSheet *>(pSheet);
@@ -668,7 +667,7 @@ bool C4ChatControl::IsServiceName(const char *szName)
 	if (!szName) return false;
 	const char *szServiceNames[] = { "NickServ", "ChanServ", "MemoServ", "HelpServ", "Global", nullptr }, *szServiceName;
 	int32_t i = 0;
-	while (szServiceName = szServiceNames[i++])
+	while ((szServiceName = szServiceNames[i++]))
 		if (SEqualNoCase(szName, szServiceName))
 			return true;
 	return false;
@@ -691,7 +690,7 @@ void C4ChatControl::Update()
 	}
 	// remove parted channels
 	int32_t i = 0; C4GUI::Tabular::Sheet *pSheet;
-	while (pSheet = pTabChats->GetSheet(i++))
+	while ((pSheet = pTabChats->GetSheet(i++)))
 	{
 		C4Network2IRCChannel *pIRCChan;
 		ChatSheet *pChatSheet = static_cast<ChatSheet *>(pSheet);
@@ -1042,7 +1041,6 @@ C4ChatDlg::C4ChatDlg() : C4GUI::Dialog(100, 100, "IRC", false)
 	pChatCtrl = new C4ChatControl(&Application.IRCClient);
 	pChatCtrl->SetTitleChangeCB(new C4GUI::InputCallback<C4ChatDlg>(this, &C4ChatDlg::OnChatTitleChange));
 	AddElement(pChatCtrl);
-	C4Rect rcDefault(0, 0, 10, 10);
 	// del dlg when closed
 	SetDelOnClose();
 	// set initial element positions

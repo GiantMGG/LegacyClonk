@@ -3,7 +3,7 @@
  *
  * Copyright (c) RedWolf Design
  * Copyright (c) 2013-2018, The OpenClonk Team and contributors
- * Copyright (c) 2017-2022, The LegacyClonk Team and contributors
+ * Copyright (c) 2017-2026, The LegacyClonk Team and contributors
  *
  * Distributed under the terms of the ISC license; see accompanying file
  * "COPYING" for details.
@@ -16,7 +16,6 @@
  */
 
 #include "C4GuiResource.h"
-#include <C4Include.h>
 #include <C4Network2.h>
 #include <C4Version.h>
 
@@ -107,15 +106,7 @@ void C4Network2Status::CompileFunc(StdCompiler *pComp)
 
 void C4Network2Status::CompileFunc(StdCompiler *pComp, bool fReference)
 {
-	StdEnumEntry<C4NetGameState> GameStates[] =
-	{
-		{ "None",    GS_None },
-		{ "Init",    GS_Init },
-		{ "Lobby",   GS_Lobby },
-		{ "Paused",  GS_Pause },
-		{ "Running", GS_Go },
-	};
-	pComp->Value(mkNamingAdapt(mkEnumAdaptT<uint8_t>(eState, GameStates), "State",    GS_None));
+	pComp->Value(mkNamingAdapt(mkEnumAdapt(eState), "State",    GS_None));
 	pComp->Value(mkNamingAdapt(mkIntPackAdapt(iCtrlMode),                 "CtrlMode", -1));
 
 	if (!fReference)
@@ -200,15 +191,15 @@ C4Network2::C4Network2()
 	iDynamicTick(-1), fDynamicNeeded(false),
 	fStatusAck(false), fStatusReached(false),
 	fChasing(false),
-	pLobby(nullptr), fLobbyRunning(false), pLobbyCountdown(nullptr),
+	pControl(nullptr), pLobby(nullptr), fLobbyRunning(false),
 #ifndef USE_CONSOLE
+	pLobbyCountdown(nullptr),
 	readyCheckDialog{nullptr},
 #endif
 	pSec1Timer(nullptr),
-	pControl(nullptr),
 	iNextClientID(0),
-	iLastActivateRequest(0),
 	iLastChaseTargetUpdate(0),
+	iLastActivateRequest(0),
 	iLastReferenceUpdate(0),
 	iLastLeagueUpdate(0),
 	pLeagueClient(nullptr),
@@ -425,11 +416,13 @@ C4Network2::InitResult C4Network2::InitClient(const std::vector<class C4Network2
 	{
 		if (Application.HandleMessage(100) == HR_Failure)
 		{
-			if (Game.pGUI) delete pDlg; return IR_Fatal;
+			if (Game.pGUI) delete pDlg;
+			return IR_Fatal;
 		}
 		if (pDlg && pDlg->IsAborted())
 		{
-			if (Game.pGUI) delete pDlg; return IR_Fatal;
+			if (Game.pGUI) delete pDlg;
+			return IR_Fatal;
 		}
 	}
 	// Close dialog
@@ -646,8 +639,8 @@ bool C4Network2::RetrieveScenario(char *szScenario)
 		return false;
 
 	// unpack Material.c4g if materials need to be merged
-	const std::string materialScenario{std::format("{}" DirSep C4CFN_Material, +szScenario)};
-	const std::string materialDynamic{std::format("{}" DirSep C4CFN_Material, +szTempDynamic)};
+	const std::string materialScenario{std::format("{}" DirSep C4CFN_Material, szScenario)};
+	const std::string materialDynamic{std::format("{}" DirSep C4CFN_Material, szTempDynamic)};
 	if (FileExists(materialScenario.c_str()) && FileExists(materialDynamic.c_str()))
 		if (!C4Group_UnpackDirectory(materialScenario.c_str()) ||
 			!C4Group_UnpackDirectory(materialDynamic.c_str()))
@@ -746,7 +739,11 @@ void C4Network2::Execute()
 void C4Network2::Clear()
 {
 	// stop timer
-	if (pSec1Timer) pSec1Timer->Release(); pSec1Timer = nullptr;
+	if (pSec1Timer)
+	{
+		pSec1Timer->Release();
+	}
+	pSec1Timer = nullptr;
 	// stop streaming
 	StopStreaming();
 	// clear league
@@ -781,7 +778,8 @@ void C4Network2::Clear()
 	iDynamicTick = -1; fDynamicNeeded = false;
 	iLastActivateRequest = iLastChaseTargetUpdate = iLastReferenceUpdate = iLastLeagueUpdate = 0;
 	fDelayedActivateReq = false;
-	if (Game.pGUI) delete pVoteDialog; pVoteDialog = nullptr;
+	if (Game.pGUI) delete pVoteDialog;
+	pVoteDialog = nullptr;
 	fPausedForVote = false;
 	iLastOwnVoting = 0;
 	NetpuncherGameID = {};
@@ -1036,7 +1034,8 @@ bool C4Network2::HandlePuncherPacket(const C4NetpuncherPacket::uptr pkt, const C
 			}
 			return true;
 		default:
-			return false;
+			// ignore unexpected puncher packets
+			return true;
 	}
 #pragma pop_macro("GETPKT")
 }
@@ -1105,14 +1104,22 @@ void C4Network2::OnGameSynchronized()
 		bool fSuccess = CreateDynamic(false);
 		// check for clients that still need join-data
 		C4Network2Client *pClient = nullptr;
-		while (pClient = Clients.GetNextClient(pClient))
+		while ((pClient = Clients.GetNextClient(pClient)))
+		{
 			if (!pClient->hasJoinData())
+			{
 				if (fSuccess)
+				{
 					// now we can provide join data: send it
 					SendJoinData(pClient);
+				}
 				else
+				{
 					// join data could not be created: emergency kick
 					Game.Clients.CtrlRemove(pClient->getClient(), LoadResStr(C4ResStrTableKey::IDS_ERR_ERRORWHILECREATINGJOINDAT));
+				}
+			}
+		}
 	}
 }
 
@@ -1951,7 +1958,7 @@ bool C4Network2::CreateDynamic(bool fInit)
 	Log(C4ResStrTableKey::IDS_NET_SAVING);
 	// compose file name
 	char szDynamicBase[_MAX_PATH + 1], szDynamicFilename[_MAX_PATH + 1];
-	FormatWithNull(szDynamicBase, "{}Dyn{}", +Config.Network.WorkPath, GetFilename(Game.ScenarioFilename));
+	FormatWithNull(szDynamicBase, "{}Dyn{}", Config.Network.WorkPath, GetFilename(Game.ScenarioFilename));
 	if (!ResList.FindTempResFileName(szDynamicBase, szDynamicFilename))
 		Log(C4ResStrTableKey::IDS_NET_SAVE_ERR_CREATEDYNFILE);
 	// save dynamic data
@@ -2066,7 +2073,7 @@ void C4Network2::CheckStatusAck()
 	// status must be reached and not yet acknowledged
 	if (!fStatusReached || fStatusAck) return;
 	// all clients ready?
-	if (fStatusAck = Clients.AllClientsReady())
+	if ((fStatusAck = Clients.AllClientsReady()))
 	{
 		// pause/go: check for sync control that can be executed
 		if (Status.getState() == GS_Go || Status.getState() == GS_Pause)
@@ -2491,9 +2498,9 @@ bool C4Network2::LeagueUpdateProcessReply()
 	// Take round results
 	C4PlayerInfoList &TargetList = Game.PlayerInfos;
 	C4ClientPlayerInfos *pInfos; C4PlayerInfo *pInfo, *pResultInfo;
-	for (int iClient = 0; pInfos = TargetList.GetIndexedInfo(iClient); iClient++)
-		for (int iInfo = 0; pInfo = pInfos->GetPlayerInfo(iInfo); iInfo++)
-			if (pResultInfo = PlayerLeagueInfos.GetPlayerInfoByID(pInfo->GetID()))
+	for (int iClient = 0; (pInfos = TargetList.GetIndexedInfo(iClient)); iClient++)
+		for (int iInfo = 0; (pInfo = pInfos->GetPlayerInfo(iInfo)); iInfo++)
+			if ((pResultInfo = PlayerLeagueInfos.GetPlayerInfoByID(pInfo->GetID())))
 			{
 				int32_t iLeagueProjectedGain = pResultInfo->GetLeagueProjectedGain();
 				if (iLeagueProjectedGain != pInfo->GetLeagueProjectedGain())
@@ -2788,7 +2795,7 @@ void C4Network2::LeagueNotifyDisconnect(int32_t iClientID, C4LeagueDisconnectRea
 	const C4ClientPlayerInfos *pInfos = Game.PlayerInfos.GetInfoByClientID(iClientID);
 	if (!pInfos) return;
 	int32_t i = 0; C4PlayerInfo *pInfo;
-	while (pInfo = pInfos->GetPlayerInfo(i++)) if (pInfo->IsJoined() && !pInfo->IsRemoved()) break;
+	while ((pInfo = pInfos->GetPlayerInfo(i++))) if (pInfo->IsJoined() && !pInfo->IsRemoved()) break;
 	if (!pInfo) return;
 	// Make sure league client is avilable
 	LeagueWaitNotBusy();
@@ -2798,7 +2805,6 @@ void C4Network2::LeagueNotifyDisconnect(int32_t iClientID, C4LeagueDisconnectRea
 	// wait for the reply
 	LeagueWaitNotBusy();
 	// display it
-	const char *szMsg;
 	StdStrBuf sMessage;
 	if (pLeagueClient->GetReportDisconnectReply(&sMessage))
 		Log(C4ResStrTableKey::IDS_MSG_LEAGUEUNEXPECTEDDISCONNEC, sMessage.getData());
@@ -2890,7 +2896,7 @@ C4IDPacket *C4Network2::GetVote(int32_t iClientID, C4ControlVoteType eType, int3
 	C4ControlVote *pVote;
 	for (C4IDPacket *pPkt = Votes.firstPkt(); pPkt; pPkt = Votes.nextPkt(pPkt))
 		if (pPkt->getPktType() == CID_Vote)
-			if (pVote = static_cast<C4ControlVote *>(pPkt->getPkt()))
+			if ((pVote = static_cast<C4ControlVote *>(pPkt->getPkt())))
 				if (iClientID == C4ClientIDUnknown || pVote->getByClient() == iClientID)
 					if (pVote->getType() == eType && pVote->getData() == iData)
 						return pPkt;
@@ -2901,7 +2907,7 @@ void C4Network2::EndVote(C4ControlVoteType eType, bool fApprove, int32_t iData)
 {
 	// Remove all vote packets
 	C4IDPacket *pPkt; int32_t iOrigin = C4ClientIDUnknown;
-	while (pPkt = GetVote(C4ClientIDAll, eType, iData))
+	while ((pPkt = GetVote(C4ClientIDAll, eType, iData)))
 	{
 		if (iOrigin == C4ClientIDUnknown)
 			iOrigin = static_cast<C4ControlVote *>(pPkt->getPkt())->getByClient();
@@ -2987,11 +2993,22 @@ void C4Network2::OnVoteDialogClosed()
 	pVoteDialog = nullptr;
 }
 
+bool C4Network2::IsVotingEnabled() const
+{
+	// No network?
+	if (!isEnabled()) return false;
+
+	// No need to vote if only one client present
+	if (Game.Clients.getClientCnt() == 1) return false;
+
+	return Game.Parameters.Vote;
+}
+
 // *** C4VoteDialog
 
 C4VoteDialog::C4VoteDialog(const char *szText, C4ControlVoteType eVoteType, int32_t iVoteData, bool fSurrender)
-	: eVoteType(eVoteType), iVoteData(iVoteData), fSurrender(fSurrender),
-	MessageDialog(szText, LoadResStr(C4ResStrTableKey::IDS_DLG_VOTING), C4GUI::MessageDialog::btnYesNo, C4GUI::Ico_Confirm, C4GUI::MessageDialog::dsRegular, nullptr, true) {}
+	: MessageDialog(szText, LoadResStr(C4ResStrTableKey::IDS_DLG_VOTING), C4GUI::MessageDialog::btnYesNo, C4GUI::Ico_Confirm, C4GUI::MessageDialog::dsRegular, nullptr, true), eVoteType(eVoteType), iVoteData(iVoteData),
+	fSurrender(fSurrender) {}
 
 void C4VoteDialog::OnClosed(bool fOK)
 {
@@ -3007,7 +3024,10 @@ void C4VoteDialog::OnClosed(bool fOK)
 			// set game leave reason, although round results dialog isn't showing it ATM
 			Game.RoundResults.EvaluateNetwork(C4RoundResults::NR_NetError, LoadResStr(C4ResStrTableKey::IDS_ERR_YOUSURRENDEREDTHELEAGUEGA));
 			// leave game
-			Game.Network.LeagueSurrender();
+			if (Game.Parameters.isLeague())
+			{
+				Game.Network.LeagueSurrender();
+			}
 			Game.Network.Clear();
 			// We have just league-surrendered. Abort the game - that is what we originally wanted.
 			// Note: as we are losing league points and this is a relevant game, it would actually be

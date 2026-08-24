@@ -3,7 +3,7 @@
  *
  * Copyright (c) RedWolf Design
  * Copyright (c) 2017, The OpenClonk Team and contributors
- * Copyright (c) 2017-2021, The LegacyClonk Team and contributors
+ * Copyright (c) 2017-2026, The LegacyClonk Team and contributors
  *
  * Distributed under the terms of the ISC license; see accompanying file
  * "COPYING" for details.
@@ -90,7 +90,7 @@ char StdCompiler::SeparatorToChar(Sep eSep)
 
 bool StdCompiler::IsIdentifierChar(char c) noexcept
 {
-	return std::isalnum(static_cast<unsigned char>(c)) || c == '_' || c == '-';
+	return C4Strings::IsAlphanumeric(c) || c == '_' || c == '-';
 }
 
 bool StdCompiler::IsIdentifier(std::string_view str)
@@ -179,7 +179,7 @@ void StdCompilerBinRead::String(char *szString, size_t iMaxLength, RawCompileTyp
 	}
 	// Copy until no data left
 	char *pPos = szString;
-	while (*pPos++ = *Buf.getPtr<char>(iPos++))
+	while ((*pPos++ = *Buf.getPtr<char>(iPos++)))
 		if (iPos >= Buf.getSize())
 		{
 			excEOF(); return;
@@ -1005,7 +1005,7 @@ bool StdCompilerINIRead::TestStringEnd(RawCompileType eType)
 char StdCompilerINIRead::ReadEscapedChar()
 {
 	// Catch some no-noes like \0, \n etc.
-	if (*pPos >= 0 && std::iscntrl(static_cast<unsigned char>(*pPos)))
+	if (static_cast<signed char>(*pPos) >= 0 && std::iscntrl(static_cast<unsigned char>(*pPos)))
 	{
 		Warn("Nonprintable character found in string: {:02x}", static_cast<unsigned char>(*pPos));
 		return *pPos++;

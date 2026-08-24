@@ -3,7 +3,7 @@
  *
  * Copyright (c) RedWolf Design
  * Copyright (c) 2011-2017, The OpenClonk Team and contributors
- * Copyright (c) 2017-2019, The LegacyClonk Team and contributors
+ * Copyright (c) 2017-2026, The LegacyClonk Team and contributors
  *
  * Distributed under the terms of the ISC license; see accompanying file
  * "COPYING" for details.
@@ -15,7 +15,6 @@
  * for the above references.
  */
 
-#include "C4Include.h"
 #include "C4Network2Discover.h"
 
 // *** C4Network2IODiscover
@@ -66,6 +65,11 @@ bool C4Network2IODiscover::Init(uint16_t iPort)
 
 bool C4Network2IODiscover::Announce()
 {
+	if (!DiscoveryAddr.GetPort())
+	{
+		return true;
+	}
+
 	// Announce our presence
 	C4Network2IODiscoverReply Reply = { 4, iRefServerPort };
 	return Send(C4NetIOPacket(&Reply, sizeof(Reply), false, DiscoveryAddr));
@@ -110,6 +114,11 @@ bool C4Network2IODiscoverClient::Init(uint16_t iPort)
 
 bool C4Network2IODiscoverClient::StartDiscovery()
 {
+	if (!DiscoveryAddr.GetPort())
+	{
+		return true;
+	}
+
 	// Multicast discovery byte
 	char c = 3;
 	return Send(C4NetIOPacket(&c, sizeof(c), false, DiscoveryAddr));

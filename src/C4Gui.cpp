@@ -3,7 +3,7 @@
  *
  * Copyright (c) RedWolf Design
  * Copyright (c) 2001, Sven2
- * Copyright (c) 2017-2020, The LegacyClonk Team and contributors
+ * Copyright (c) 2017-2023, The LegacyClonk Team and contributors
  *
  * Distributed under the terms of the ISC license; see accompanying file
  * "COPYING" for details.
@@ -20,7 +20,6 @@
 
 #include <C4GuiDialogs.h>
 #include "C4GuiResource.h"
-#include <C4Include.h>
 #include <C4Gui.h>
 
 #include <C4FullScreen.h>
@@ -98,12 +97,106 @@ void DynBarFacet::SetHorizontal(C4Surface &rBySfc, int iHeight, int iBorderWidth
 	fctEnd.Set(&rBySfc, rBySfc.Wdt - iBorderWidth, 0, iBorderWidth, iHeight);
 }
 
-void DynBarFacet::SetHorizontal(C4Facet &rByFct, int32_t iBorderWidth)
+void DynBarFacet::SetHorizontal(const C4Facet &fromFacet, std::int32_t iBorderWidth)
 {
-	if (!iBorderWidth) iBorderWidth = rByFct.Hgt;
-	fctBegin.Set(rByFct.Surface, rByFct.X, rByFct.Y, iBorderWidth, rByFct.Hgt);
-	fctMiddle.Set(rByFct.Surface, rByFct.Hgt, rByFct.X, rByFct.Y + rByFct.Wdt - 2 * iBorderWidth, rByFct.Hgt);
-	fctEnd.Set(rByFct.Surface, rByFct.X + rByFct.Wdt - iBorderWidth, rByFct.Y, iBorderWidth, rByFct.Hgt);
+	if (!iBorderWidth)
+	{
+		iBorderWidth = fromFacet.Hgt;
+	}
+
+	fctBegin.Set(fromFacet.Surface, fromFacet.X, fromFacet.Y, iBorderWidth, fromFacet.Hgt);
+	fctMiddle.Set(fromFacet.Surface, iBorderWidth, fromFacet.Y, fromFacet.X + fromFacet.Wdt - 2 * iBorderWidth, fromFacet.Hgt);
+	fctEnd.Set(fromFacet.Surface, fromFacet.X + fromFacet.Wdt - iBorderWidth, fromFacet.Y, iBorderWidth, fromFacet.Hgt);
+}
+
+void DynBarFacet::Draw(C4FacetEx &cgo)
+{
+	if (cgo.Hgt == fctMiddle.Hgt)
+	{
+		// exact bar
+		const std::int32_t x0{cgo.TargetX + cgo.X};
+		const std::int32_t y0{cgo.TargetY + cgo.Y};
+		const std::int32_t w{fctMiddle.Wdt};
+		const std::int32_t endWidth{fctEnd.Wdt};
+		const std::int32_t iRightShowLength = endWidth;
+
+		std::int32_t x{fctBegin.Wdt};
+
+		{
+			const std::int32_t beginWidth{fctBegin.Wdt};
+			const bool overflows{beginWidth > cgo.Wdt};
+			if (overflows)
+			{
+				fctBegin.Wdt = cgo.Wdt;
+			}
+
+			fctBegin.Draw(cgo.Surface, x0, y0);
+
+			if (overflows)
+			{
+				fctBegin.Wdt = beginWidth;
+			}
+		}
+
+		while (x < cgo.Wdt - iRightShowLength)
+		{
+			const std::int32_t w2{std::min(w, cgo.Wdt - iRightShowLength - x)};
+			fctMiddle.Wdt = w2;
+			fctMiddle.Draw(cgo.Surface, x0 + x, y0);
+			x += w2;
+
+			if (w2 <= 0)
+			{
+				break;
+			}
+		}
+		fctMiddle.Wdt = w;
+
+		{
+			const bool overflows{endWidth > cgo.Wdt};
+			if (overflows)
+			{
+				fctEnd.X += endWidth - cgo.Wdt;
+				fctEnd.Wdt = cgo.Wdt;
+			}
+
+			fctEnd.Draw(cgo.Surface, x0 + cgo.Wdt - fctEnd.Wdt, y0);
+
+			if (overflows)
+			{
+				fctEnd.X -= endWidth - cgo.Wdt;
+				fctEnd.Wdt = endWidth;
+			}
+		}
+	}
+	else
+	{
+		// zoomed bar
+		const auto scale = static_cast<float>(cgo.Hgt) / fctMiddle.Hgt;
+		const std::int32_t x0{cgo.TargetX + cgo.X};
+		const std::int32_t y0{cgo.TargetY + cgo.Y};
+		const auto w = static_cast<std::int32_t>(scale * fctMiddle.Wdt);
+		const auto wOld = fctMiddle.Wdt;
+		const std::int32_t iRightShowLength{fctEnd.Wdt};
+
+		auto x = static_cast<std::int32_t>(scale * fctBegin.Wdt);
+
+		fctBegin.DrawX(cgo.Surface, x0, y0, static_cast<std::int32_t>(scale * fctBegin.Wdt), cgo.Hgt);
+		while (x < cgo.Wdt - (scale * iRightShowLength))
+		{
+			std::int32_t w2 = std::min(w, cgo.Wdt - static_cast<std::int32_t>(scale * iRightShowLength) - x);
+			fctMiddle.Wdt = static_cast<std::int32_t>(w2 / scale);
+			fctMiddle.DrawX(cgo.Surface, x0 + x, y0, w2, cgo.Hgt);
+			x += w2;
+
+			if (w2 <= 0)
+			{
+				break;
+			}
+		}
+		fctMiddle.Wdt = wOld;
+		fctEnd.DrawX(cgo.Surface, x0 + cgo.Wdt - static_cast<std::int32_t>(scale * fctEnd.Wdt), y0, static_cast<std::int32_t>(scale * fctEnd.Wdt), cgo.Hgt);
+	}
 }
 
 void ScrollBarFacets::Set(const C4Facet &rByFct, int32_t iPinIndex)
@@ -519,7 +612,17 @@ void Screen::RemoveElement(Element *pChild)
 	// clear ptrs
 	if (pActiveDlg == pChild) { pActiveDlg = nullptr; Mouse.ResetElements(); }
 	Mouse.RemoveElement(pChild);
-	if (pContext) if (pContext == pChild) pContext = nullptr; else pContext->RemoveElement(pChild);
+	if (pContext)
+	{
+		if (pContext == pChild)
+		{
+			pContext = nullptr;
+		}
+		else
+		{
+			pContext->RemoveElement(pChild);
+		}
+	}
 }
 
 Screen::Screen(int32_t tx, int32_t ty, int32_t twdt, int32_t thgt) : Window(), Mouse(tx + twdt / 2, ty + thgt / 2), pContext(nullptr), fExclusive(true), pGamePadOpener(nullptr)
@@ -573,7 +676,7 @@ void Screen::ShowDialog(Dialog *pDlg, bool fFade)
 	// add to local component list at correct ordering
 	int32_t iNewZ = pDlg->GetZOrdering(); Element *pEl; Dialog *pOtherDlg;
 	for (pEl = GetFirst(); pEl; pEl = pEl->GetNext())
-		if (pOtherDlg = pEl->GetDlg())
+		if ((pOtherDlg = pEl->GetDlg()))
 			if (pOtherDlg->GetZOrdering() > iNewZ)
 				break;
 	InsertElement(pDlg, pEl);
@@ -639,7 +742,7 @@ Dialog *Screen::GetTopDialog()
 	// search backwards in component list
 	Dialog *pDlg;
 	for (Element *pEl = pLast; pEl; pEl = pEl->GetPrev())
-		if (pDlg = pEl->GetDlg())
+		if ((pDlg = pEl->GetDlg()))
 			if (pDlg->IsShown())
 				return pDlg;
 	// no dlg found
@@ -802,7 +905,7 @@ bool Screen::MouseInput(int32_t iButton, int32_t iX, int32_t iY, uint32_t dwKeyP
 			// non-exclusive mode: process all dialogs; make them active on left-click
 			Dialog *pDlg;
 			for (Element *pEl = pLast; pEl; pEl = pEl->GetPrev())
-				if (pDlg = pEl->GetDlg())
+				if ((pDlg = pEl->GetDlg()))
 					if (pDlg->IsShown())
 					{
 						// if specified: process specified dlg only
@@ -898,7 +1001,7 @@ int32_t Screen::GetMouseControlledDialogCount()
 {
 	Dialog *pDlg; int32_t iResult = 0;
 	for (Element *pEl = GetFirst(); pEl; pEl = pEl->GetNext())
-		if (pDlg = pEl->GetDlg())
+		if ((pDlg = pEl->GetDlg()))
 			if (pDlg->IsShown() && pDlg->IsMouseControlled())
 				++iResult;
 	return iResult;
@@ -936,7 +1039,7 @@ Dialog *Screen::GetFullscreenDialog(bool fIncludeFading)
 {
 	Dialog *pDlg;
 	for (Element *pEl = GetFirst(); pEl; pEl = pEl->GetNext())
-		if (pDlg = pEl->GetDlg())
+		if ((pDlg = pEl->GetDlg()))
 			if (pDlg->IsVisible())
 				if (pDlg->IsFullscreenDialog())
 					if (fIncludeFading || !pDlg->IsFading())

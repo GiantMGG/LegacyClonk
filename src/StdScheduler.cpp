@@ -2,7 +2,7 @@
  * LegacyClonk
  *
  * Copyright (c) RedWolf Design
- * Copyright (c) 2017-2022, The LegacyClonk Team and contributors
+ * Copyright (c) 2017-2024, The LegacyClonk Team and contributors
  *
  * Distributed under the terms of the ISC license; see accompanying file
  * "COPYING" for details.
@@ -71,7 +71,7 @@ bool StdScheduler::Execute(int iTimeout)
 	{
 		if (const int procTimeout{proc->GetTimeout()}; procTimeout >= 0)
 		{
-			if (iTimeout == -1 || iTimeout > procTimeout)
+			if (iTimeout == StdSync::Infinite || iTimeout > procTimeout)
 			{
 				iTimeout = procTimeout;
 			}

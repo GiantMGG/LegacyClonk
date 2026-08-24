@@ -2,7 +2,7 @@
  * LegacyClonk
  *
  * Copyright (c) 1998-2000, Matthes Bender (RedWolf Design)
- * Copyright (c) 2017-2020, The LegacyClonk Team and contributors
+ * Copyright (c) 2017-2024, The LegacyClonk Team and contributors
  *
  * Distributed under the terms of the ISC license; see accompanying file
  * "COPYING" for details.
@@ -17,7 +17,6 @@
 /* Loads all standard graphics from Graphics.c4g */
 
 #include "C4GuiResource.h"
-#include <C4Include.h>
 #include <C4GraphicsResource.h>
 
 #include <C4Gui.h>
@@ -69,7 +68,6 @@ void C4GraphicsResource::Default()
 	fctHand.Default();
 	fctGamepad.Default();
 	fctBuild.Default();
-	fctEnergyBars.Default();
 
 	std::fill(GamePalette, std::end(GamePalette), 0);
 	std::fill(AlphaPalette, std::end(AlphaPalette), 0);
@@ -130,7 +128,6 @@ void C4GraphicsResource::Clear()
 	fctHand.Clear();
 	fctGamepad.Clear();
 	fctBuild.Clear();
-	fctEnergyBars.Clear();
 
 	// unhook deflist from font
 	FontRegular.SetCustomImages(nullptr);
@@ -228,17 +225,8 @@ bool C4GraphicsResource::Init()
 	if (!LoadFile(fctHand,            "Hand",         Files, C4FCT_Height))         return false;
 	if (!LoadFile(fctGamepad,         "Gamepad",      Files, 80))                   return false;
 	if (!LoadFile(fctBuild,           "Build",        Files))                       return false;
-	if (!LoadFile(fctEnergyBars,      "EnergyBars",   Files))                       return false;
 	if (!LoadFile(sfcLiquidAnimation, "Liquid",       Files, idSfcLiquidAnimation)) return false;
 	if (!ReloadResolutionDependentFiles()) return false;
-	// life bar facets
-	if (fctEnergyBars.Surface)
-	{
-		int32_t bar_wdt = fctEnergyBars.Surface->Wdt / 6;
-		int32_t bar_hgt = fctEnergyBars.Surface->Hgt / 3;
-		if (!bar_wdt || !bar_hgt) { LogFatalNTr("EnergyBars.png invalid or too small!"); return false; }
-		fctEnergyBars.Set(fctEnergyBars.Surface, 0, 0, bar_wdt, bar_hgt);
-	}
 
 	// create ColorByOwner overlay surfaces
 	if (fctCrew.idSourceGroup != fctCrewClr.idSourceGroup)
@@ -434,7 +422,7 @@ bool C4GraphicsResource::LoadFile(C4FacetExID &fct, const char *szName, C4GroupS
 	// load
 	if (!fct.Load(*pGrp, FileName, iWdt, iHgt))
 	{
-		Log(C4ResStrTableKey::IDS_PRC_NOGFXFILE, +FileName, LoadResStr(C4ResStrTableKey::IDS_ERR_NOFILE));
+		Log(C4ResStrTableKey::IDS_PRC_NOGFXFILE, FileName, LoadResStr(C4ResStrTableKey::IDS_ERR_NOFILE));
 		return false;
 	}
 	fct.idSourceGroup = ID;
@@ -458,7 +446,7 @@ bool C4GraphicsResource::LoadFile(C4Surface &sfc, const char *szName, C4GroupSet
 	// load
 	if (!sfc.Load(*pGrp, FileName))
 	{
-		Log(C4ResStrTableKey::IDS_PRC_NOGFXFILE, +FileName, LoadResStr(C4ResStrTableKey::IDS_ERR_NOFILE));
+		Log(C4ResStrTableKey::IDS_PRC_NOGFXFILE, FileName, LoadResStr(C4ResStrTableKey::IDS_ERR_NOFILE));
 		return false;
 	}
 	ridCurrSfc = ID;

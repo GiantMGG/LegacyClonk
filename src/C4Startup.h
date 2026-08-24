@@ -3,7 +3,7 @@
  *
  * Copyright (c) RedWolf Design
  * Copyright (c) 2005, Sven2
- * Copyright (c) 2017-2019, The LegacyClonk Team and contributors
+ * Copyright (c) 2017-2023, The LegacyClonk Team and contributors
  *
  * Distributed under the terms of the ISC license; see accompanying file
  * "COPYING" for details.
@@ -62,6 +62,7 @@ public:
 	C4FacetExID fctScenSelIcons;
 	// scenario selection: Title overlay
 	C4FacetExID fctScenSelTitleOverlay;
+	C4GUI::OverlayFrameSpec scenSelTitleOverlayFrame;
 	// scenario selection and player selection book fonts
 	CStdFont BookFontCapt, BookFont, BookFontTitle, BookSmallFont;
 

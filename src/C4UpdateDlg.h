@@ -3,7 +3,7 @@
  *
  * Copyright (c) RedWolf Design
  * Copyright (c) 2007, matthes
- * Copyright (c) 2017-2020, The LegacyClonk Team and contributors
+ * Copyright (c) 2017-2025, The LegacyClonk Team and contributors
  *
  * Distributed under the terms of the ISC license; see accompanying file
  * "COPYING" for details.
@@ -23,6 +23,7 @@
 #include "C4GuiDialogs.h"
 #include "C4GameVersion.h"
 #include "C4Network2Reference.h"
+#include "StdOSVersion.h"
 
 // dialog showing info about a connected client
 class C4UpdateDlg : public C4GUI::InfoDialog
@@ -54,6 +55,6 @@ public:
 	C4Network2VersionInfoClient() : C4Network2HTTPClient() {}
 
 	bool QueryVersion();
-	bool GetVersion(C4GameVersion *pSaveToVer);
+	bool GetVersion(C4GameVersion &saveToVer, CStdOSVersion &osVersion, std::string &friendlyOSName);
 	bool GetRedirect(StdStrBuf &rRedirect);
 };

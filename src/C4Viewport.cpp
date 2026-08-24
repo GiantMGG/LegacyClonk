@@ -2,7 +2,7 @@
  * LegacyClonk
  *
  * Copyright (c) 1998-2000, Matthes Bender (RedWolf Design)
- * Copyright (c) 2017-2022, The LegacyClonk Team and contributors
+ * Copyright (c) 2017-2024, The LegacyClonk Team and contributors
  *
  * Distributed under the terms of the ISC license; see accompanying file
  * "COPYING" for details.
@@ -16,7 +16,6 @@
 
 /* A viewport to each player */
 
-#include <C4Include.h>
 #include <C4Viewport.h>
 
 #include <C4Console.h>
@@ -461,10 +460,10 @@ gboolean C4ViewportWindow::OnKeyPressStatic(GtkWidget *widget, GdkEventKey *even
 #ifndef NDEBUG
 	switch (event->keyval)
 	{
-	case GDK_KEY_1: Config.Graphics.BlitOffset -= 0.05; printf("%f\n", Config.Graphics.BlitOffset); break;
-	case GDK_KEY_2: Config.Graphics.BlitOffset += 0.05; printf("%f\n", Config.Graphics.BlitOffset); break;
-	case GDK_KEY_3: Config.Graphics.TexIndent  -= 0.05; printf("%f\n", Config.Graphics.TexIndent);  break;
-	case GDK_KEY_4: Config.Graphics.TexIndent  += 0.05; printf("%f\n", Config.Graphics.TexIndent);  break;
+	case GDK_KEY_1: Config.Graphics.BlitOffset -= 5; printf("%d\n", Config.Graphics.BlitOffset); break;
+	case GDK_KEY_2: Config.Graphics.BlitOffset += 5; printf("%d\n", Config.Graphics.BlitOffset); break;
+	case GDK_KEY_3: Config.Graphics.TexIndent  -= 5; printf("%d\n", Config.Graphics.TexIndent);  break;
+	case GDK_KEY_4: Config.Graphics.TexIndent  += 5; printf("%d\n", Config.Graphics.TexIndent);  break;
 	}
 #endif
 	uint32_t key = XkbKeycodeToKeysym(GDK_WINDOW_XDISPLAY(event->window), event->hardware_keycode, 0, 0);
@@ -923,24 +922,12 @@ void C4Viewport::DrawCursorInfo(C4FacetEx &cgo)
 		{
 			int32_t cx = C4SymbolBorder;
 			C4ST_STARTNEW(EnStat, "C4Viewport::DrawCursorInfo: Energy")
-			int32_t bar_wdt = Game.GraphicsResource.fctEnergyBars.Wdt;
 			int32_t iYOff = Config.Graphics.ShowPortraits ? 10 : 0;
-			// Energy
-			ccgo.Set(cgo.Surface, cgo.X + cx, cgo.Y + C4SymbolSize + 2 * C4SymbolBorder + iYOff, bar_wdt, cgo.Hgt - 3 * C4SymbolBorder - 2 * C4SymbolSize - iYOff);
-			if (!(cursor->Def->HideHUDBars & C4DefCore::HB_Energy))
-			{
-				cursor->DrawEnergy(ccgo); ccgo.X += bar_wdt + 1;
-			}
-			// Magic energy
-			if (cursor->MagicEnergy && !(cursor->Def->HideHUDBars & C4DefCore::HB_MagicEnergy))
-			{
-				cursor->DrawMagicEnergy(ccgo); ccgo.X += bar_wdt + 1;
-			}
-			// Breath
-			if (cursor->Breath && (cursor->Breath < cursor->GetPhysical()->Breath) && !(cursor->Def->HideHUDBars & C4DefCore::HB_Breath))
-			{
-				cursor->DrawBreath(ccgo); ccgo.X += bar_wdt + 1;
-			}
+
+			ccgo.Set(cgo.Surface, cgo.X + cx, cgo.Y + C4SymbolSize + 2 * C4SymbolBorder + iYOff, 0, cgo.Hgt - 3 * C4SymbolBorder - 2 * C4SymbolSize - iYOff);
+
+			cursor->DrawHudBars(ccgo);
+
 			C4ST_STOP(EnStat)
 		}
 
@@ -1493,7 +1480,7 @@ void C4Viewport::SetOutputSize(int32_t iDrawX, int32_t iDrawY, int32_t iOutX, in
 	ResetMenuPositions = true;
 	// player uses mouse control? then clip the cursor
 	C4Player *pPlr;
-	if (pPlr = Game.Players.Get(Player))
+	if ((pPlr = Game.Players.Get(Player)))
 		if (pPlr->MouseControl)
 		{
 			Game.MouseControl.UpdateClip();

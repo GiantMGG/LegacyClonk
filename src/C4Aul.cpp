@@ -3,7 +3,7 @@
  *
  * Copyright (c) RedWolf Design
  * Copyright (c) 2001, Sven2
- * Copyright (c) 2017-2021, The LegacyClonk Team and contributors
+ * Copyright (c) 2017-2024, The LegacyClonk Team and contributors
  *
  * Distributed under the terms of the ISC license; see accompanying file
  * "COPYING" for details.
@@ -17,7 +17,6 @@
 
 // C4Aul script engine CP conversion
 
-#include <C4Include.h>
 #include <C4Aul.h>
 
 #include <C4Config.h>
@@ -42,7 +41,7 @@ C4AulFunc::C4AulFunc(C4AulScript *pOwner, const char *pName, bool bAtEnd) :
 	Owner = pOwner;
 	if (bAtEnd)
 	{
-		if (Prev = Owner->FuncL)
+		if ((Prev = Owner->FuncL))
 		{
 			Prev->Next = this;
 			Owner->FuncL = this;
@@ -56,7 +55,7 @@ C4AulFunc::C4AulFunc(C4AulScript *pOwner, const char *pName, bool bAtEnd) :
 	}
 	else
 	{
-		if (Next = Owner->Func0)
+		if ((Next = Owner->Func0))
 		{
 			Next->Prev = this;
 			Owner->Func0 = this;
@@ -236,16 +235,24 @@ void C4AulScript::Reg2List(C4AulScriptEngine *pEngine, C4AulScript *pOwner)
 	if (Owner) return;
 	// reg to list
 	Engine = pEngine;
-	if (Owner = pOwner)
+	if ((Owner = pOwner))
 	{
-		if (Prev = Owner->ChildL)
+		if ((Prev = Owner->ChildL))
+		{
 			Prev->Next = this;
+		}
 		else
+		{
 			Owner->Child0 = this;
+		}
+
 		Owner->ChildL = this;
 	}
 	else
+	{
 		Prev = nullptr;
+	}
+
 	Next = nullptr;
 }
 
@@ -267,7 +274,7 @@ C4AulFunc *C4AulScript::GetOverloadedFunc(C4AulFunc *ByFunc)
 	// nothing found? then search owner, if existent
 	if (!f && Owner)
 	{
-		if (f = Owner->GetFuncRecursive(ByFunc->Name))
+		if ((f = Owner->GetFuncRecursive(ByFunc->Name)))
 			// just found the global link?
 			if (ByFunc && f->LinkedTo == ByFunc)
 				f = Owner->GetOverloadedFunc(f);
@@ -517,7 +524,7 @@ void C4AulScriptEngine::CompileFunc(StdCompiler *pComp)
 
 static const size_t CapacityInc = 1024;
 
-C4AulFuncMap::C4AulFuncMap() : Capacity(CapacityInc), FuncCnt(0), Funcs(new C4AulFunc *[CapacityInc])
+C4AulFuncMap::C4AulFuncMap() : Funcs(new C4AulFunc *[CapacityInc]), FuncCnt(0), Capacity(CapacityInc)
 {
 	memset(Funcs, 0, sizeof(C4AulFunc *) * Capacity);
 }

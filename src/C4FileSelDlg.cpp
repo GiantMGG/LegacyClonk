@@ -3,7 +3,7 @@
  *
  * Copyright (c) RedWolf Design
  * Copyright (c) 2008, Sven2
- * Copyright (c) 2017-2021, The LegacyClonk Team and contributors
+ * Copyright (c) 2017-2024, The LegacyClonk Team and contributors
  *
  * Distributed under the terms of the ISC license; see accompanying file
  * "COPYING" for details.
@@ -20,7 +20,6 @@
 #include "C4GuiComboBox.h"
 #include "C4GuiListBox.h"
 #include "C4GuiResource.h"
-#include <C4Include.h>
 #include <C4FileSelDlg.h>
 
 #include <C4Game.h> // only for single use of Game.GraphicsResource.fctOKCancel below...
@@ -112,7 +111,7 @@ bool C4FileSelDlg::DefaultListItem::UserToggleCheck()
 
 C4FileSelDlg::C4FileSelDlg(const char *szRootPath, const char *szTitle, C4FileSel_BaseCB *pSelCallback, bool fInitElements)
 	: C4GUI::Dialog(BoundBy(C4GUI::GetScreenWdt() * 2 / 3 + 10, 300, 600), BoundBy(C4GUI::GetScreenHgt() * 2 / 3 + 10, 220, 500), szTitle, false),
-	pFileListBox(nullptr), pSelectionInfoBox(nullptr), btnOK(nullptr), pSelection(nullptr), pSelCallback(pSelCallback), pLocations(nullptr), iLocationCount(0), pLocationComboBox(nullptr)
+	pLocationComboBox(nullptr), pFileListBox(nullptr), pSelectionInfoBox(nullptr), btnOK(nullptr), pLocations(nullptr), iLocationCount(0), pSelection(nullptr), pSelCallback(pSelCallback)
 {
 	sTitle.Copy(szTitle);
 	// key bindings
@@ -253,7 +252,7 @@ void C4FileSelDlg::UpdateFileList()
 	BeginFileListUpdate();
 	// reload files
 	C4GUI::Element *pEl;
-	while (pEl = pFileListBox->GetFirst()) delete pEl;
+	while ((pEl = pFileListBox->GetFirst())) delete pEl;
 	// file items
 	const char *szFileMask = GetFileMask();
 	for (DirectoryIterator iter(sPath.getData()); *iter; ++iter)
@@ -413,7 +412,7 @@ bool C4DefinitionSelDlg::SelectDefinitions(C4GUI::Screen *pOnScreen, std::vector
 	// let the user select definitions by showing a modal selection dialog
 	C4DefinitionSelDlg *pDlg = new C4DefinitionSelDlg(nullptr, selection);
 	bool fResult;
-	if (fResult = pOnScreen->ShowModalDlg(pDlg, false))
+	if ((fResult = pOnScreen->ShowModalDlg(pDlg, false)))
 	{
 		selection = pDlg->GetSelection(selection, true);
 	}

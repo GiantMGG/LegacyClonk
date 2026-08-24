@@ -2,7 +2,7 @@
  * LegacyClonk
  *
  * Copyright (c) 1998-2000, Matthes Bender (RedWolf Design)
- * Copyright (c) 2017-2022, The LegacyClonk Team and contributors
+ * Copyright (c) 2017-2024, The LegacyClonk Team and contributors
  *
  * Distributed under the terms of the ISC license; see accompanying file
  * "COPYING" for details.
@@ -16,7 +16,6 @@
 
 /* A piece of a DirectDraw surface */
 
-#include <C4Include.h>
 #include <C4Facet.h>
 #include <C4Game.h>
 
@@ -56,6 +55,19 @@ void C4Facet::Draw(C4Surface *sfcTarget, int32_t iX, int32_t iY, int32_t iPhaseX
 		float(X + Wdt * iPhaseX) * scale, float(Y + Hgt * iPhaseY) * scale, float(Wdt) * scale, float(Hgt) * scale,
 		sfcTarget,
 		iX, iY, Wdt, Hgt, true);
+}
+
+void C4Facet::DrawPart(C4Surface *const sfcTarget, const std::int32_t sourceWidth, const std::int32_t sourceHeight, const std::int32_t targetX, const std::int32_t targetY, const float scale) const
+{
+	if (!lpDDraw || !Surface || !sfcTarget || !sourceWidth || !sourceHeight)
+	{
+		return;
+	}
+
+	lpDDraw->Blit(Surface,
+		static_cast<float>(X) * scale, static_cast<float>(Y) * scale, static_cast<float>(sourceWidth) * scale, static_cast<float>(sourceHeight) * scale,
+		sfcTarget,
+		targetX, targetY, sourceWidth, sourceHeight, true);
 }
 
 void C4Facet::DrawT(C4Surface *sfcTarget, int32_t iX, int32_t iY, int32_t iPhaseX, int32_t iPhaseY, C4DrawTransform *pTransform, bool noScalingCorrection, const float scale)
@@ -102,18 +114,18 @@ void C4Facet::Draw(C4Facet &cgo, bool fAspect, int32_t iPhaseX, int32_t iPhaseY,
 	// Valid parameter check
 	if (!lpDDraw || !Surface || !cgo.Surface || !Wdt || !Hgt) return;
 	// Drawing area
-	C4Facet ccgo = cgo;
+	C4Facet ccgo{cgo};
 	// Adjust for fixed aspect ratio
 	if (fAspect)
 	{
-		// By height
-		if (100 * cgo.Wdt / Wdt < 100 * cgo.Hgt / Hgt)
+		//    w1 : h1 <=> w2 : h2
+		// => w1 * h2 <=> w2 * h1
+		if (Wdt * cgo.Hgt > cgo.Wdt * Hgt)	// Scale height
 		{
 			ccgo.Hgt = Hgt * cgo.Wdt / Wdt;
 			ccgo.Y += (cgo.Hgt - ccgo.Hgt) / 2;
 		}
-		// By width
-		else if (100 * cgo.Hgt / Hgt < 100 * cgo.Wdt / Wdt)
+		else //  Scale width
 		{
 			ccgo.Wdt = Wdt * cgo.Hgt / Hgt;
 			ccgo.X += (cgo.Wdt - ccgo.Wdt) / 2;
@@ -125,6 +137,45 @@ void C4Facet::Draw(C4Facet &cgo, bool fAspect, int32_t iPhaseX, int32_t iPhaseY,
 		ccgo.Surface,
 		ccgo.X, ccgo.Y, ccgo.Wdt, ccgo.Hgt,
 		fTransparent);
+}
+
+void C4Facet::DrawVTile(C4FacetEx &cgo) const
+{
+	const std::int32_t x0{cgo.TargetX + cgo.X};
+	const std::int32_t y0{cgo.TargetY + cgo.Y};
+	std::int32_t y{0};
+	if (cgo.Wdt == Wdt)
+	{
+		// exact bar
+		while (Hgt > 0 && y < cgo.Hgt)
+		{
+			const auto hgt = std::min(Hgt, cgo.Hgt - y);
+			DrawPart(cgo.Surface, Wdt, hgt, x0, y0 + y);
+			y += hgt;
+		}
+	}
+	else
+	{
+		// zoomed bar
+		const auto zoom = static_cast<float>(cgo.Wdt) / Wdt;
+		const auto tileTargetHeight = static_cast<std::int32_t>(Hgt * zoom);
+		while (y < cgo.Hgt)
+		{
+			const std::int32_t targetHeight{std::min(static_cast<std::int32_t>(Hgt * zoom), cgo.Hgt - y)};
+			std::int32_t sourceHeight{Hgt};
+			if (targetHeight < tileTargetHeight)
+			{
+				sourceHeight = static_cast<std::int32_t>(targetHeight / zoom);
+			}
+			DrawXPart(cgo.Surface, Wdt, sourceHeight, x0, y0 + y, cgo.Wdt, targetHeight);
+			y += targetHeight;
+
+			if (targetHeight <= 0)
+			{
+				break;
+			}
+		}
+	}
 }
 
 void C4Facet::DrawFullScreen(C4Facet &cgo)
@@ -303,6 +354,20 @@ void C4Facet::DrawX(C4Surface *sfcTarget, int32_t iX, int32_t iY, int32_t iWdt, 
 		true);
 }
 
+void C4Facet::DrawXPart(C4Surface *const sfcTarget, const std::int32_t sourceWidth, const std::int32_t sourceHeight, const std::int32_t targetX, const std::int32_t targetY, const std::int32_t targetWidth, const std::int32_t targetHeight, float scale) const
+{
+	if (!lpDDraw || !Surface || !sfcTarget || !sourceWidth || !sourceHeight)
+	{
+		return;
+	}
+
+	lpDDraw->Blit(Surface,
+		static_cast<float>(X) * scale, static_cast<float>(Y) * scale, static_cast<float>(sourceWidth) * scale, static_cast<float>(sourceHeight) * scale,
+		sfcTarget,
+		targetX, targetY, targetWidth, targetHeight,
+		true);
+}
+
 void C4Facet::DrawXFloat(C4Surface *sfcTarget, float fX, float fY, float fWdt, float fHgt) const
 {
 	if (!lpDDraw || !Surface || !sfcTarget || !Wdt || !Hgt || fWdt <= 0 || fHgt <= 0) return;
@@ -331,7 +396,7 @@ void C4Facet::DrawXT(C4Surface *sfcTarget, int32_t iX, int32_t iY, int32_t iWdt,
 		true, pTransform, noScalingCorrection);
 }
 
-void C4Facet::DrawEnergyLevelEx(int32_t iLevel, int32_t iRange, const C4Facet &gfx, int32_t bar_idx)
+void C4Facet::DrawEnergyLevelEx(int32_t iLevel, int32_t iRange, const C4Facet &gfx, const std::uint32_t barIndex, float scale)
 {
 	// draw energy level using graphics
 	if (!lpDDraw || !gfx.Surface) return;
@@ -383,7 +448,7 @@ void C4Facet::DrawEnergyLevelEx(int32_t iLevel, int32_t iRange, const C4Facet &g
 		// draw it; partially if necessary
 		gfx_draw.Y = gfx.Y + vidx * h + dy;
 		gfx_draw.Hgt = dh;
-		gfx_draw.Draw(Surface, X, Y + iY, bar_idx + bar_idx + !filled);
+		gfx_draw.Draw(Surface, X, Y + iY, barIndex + barIndex + !filled, 0, scale);
 		iY += dh;
 	}
 }

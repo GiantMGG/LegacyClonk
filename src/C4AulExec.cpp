@@ -3,7 +3,7 @@
  *
  * Copyright (c) RedWolf Design
  * Copyright (c) 2001, Sven2
- * Copyright (c) 2017-2022, The LegacyClonk Team and contributors
+ * Copyright (c) 2017-2025, The LegacyClonk Team and contributors
  *
  * Distributed under the terms of the ISC license; see accompanying file
  * "COPYING" for details.
@@ -17,7 +17,6 @@
 
 // executes script functions
 
-#include <C4Include.h>
 #include <C4Aul.h>
 
 #include <C4Object.h>
@@ -59,13 +58,19 @@ void C4AulScriptContext::dump(std::string Dump)
 		Dump += '(';
 		int iNullPars = 0;
 		for (int i = 0; i < C4AUL_MAX_Par; i++)
+		{
 			if (Pars + i < Vars)
+			{
 				if (!Pars[i].IsRef() && Pars[i].GetType() == C4V_Any)
+				{
 					iNullPars++;
+				}
 				else
 				{
 					if (i > iNullPars)
+					{
 						Dump += ',';
+					}
 					// Insert missing null parameters
 					while (iNullPars > 0)
 					{
@@ -75,10 +80,14 @@ void C4AulScriptContext::dump(std::string Dump)
 					// Insert parameter
 					Dump += Pars[i].GetDataString();
 				}
+			}
+		}
 		Dump += ')';
 	}
 	else
+	{
 		Dump += Func->Owner->ScriptName;
+	}
 	// Context
 	if (Obj)
 		Dump += std::format(" (obj {})", C4VObj(Obj).GetDataString());
@@ -972,6 +981,7 @@ C4Value C4AulExec::Exec(C4AulBCC *pCPos, bool fPassErrors)
 
 			case AB_DEREF:
 				pCurVal[0].Deref();
+				[[fallthrough]];
 
 			case AB_STACK:
 				if (pCPos->bccX < 0)
@@ -1050,7 +1060,7 @@ C4Value C4AulExec::Exec(C4AulBCC *pCPos, bool fPassErrors)
 				{
 					std::string buf{"T"};
 					buf.append(ContextStackSize() - iTraceStart, '>');
-					traceLogger->info("{}{} returned {}", buf, pCurCtx->Func->Name, pCurVal->GetDataString());
+					traceLogger->info("{}{} returned {}", buf, +pCurCtx->Func->Name, pCurVal->GetDataString());
 				}
 
 				// External call?
@@ -1365,7 +1375,7 @@ static bool CheckConvertFunctionParameters(C4Object *const ctxObject, C4AulFunc 
 		{
 			ErrorOrWarning(ctxObject,
 				std::format("call to \"{}\" parameter {}: got \"{}\", but expected \"{}\"!",
-					+pFunc->Name, i + 1, pPars[i].GetTypeName(), GetC4VName(pTypes[i])
+					pFunc->Name, i + 1, pPars[i].GetTypeName(), GetC4VName(pTypes[i])
 				), onlyWarn);
 			ok = false;
 		}
@@ -1398,7 +1408,7 @@ static bool TryCheckConvertFunctionParameters(C4Object *const ctxObject, C4AulFu
 			throw;
 		// Show
 		e.show();
-		DebugLog(" by: internal call to {}", +pFunc->Name);
+		DebugLog(" by: internal call to {}", pFunc->Name);
 		return false;
 	}
 }
@@ -1706,7 +1716,7 @@ void C4AulScript::ResetProfilerTimes()
 	// zero all profiler times of owned functions
 	C4AulScriptFunc *pSFunc;
 	for (C4AulFunc *pFn = Func0; pFn; pFn = pFn->Next)
-		if (pSFunc = pFn->SFunc())
+		if ((pSFunc = pFn->SFunc()))
 			pSFunc->tProfileTime = 0;
 	// reset sub-scripts
 	for (C4AulScript *pScript = Child0; pScript; pScript = pScript->Next)
@@ -1718,7 +1728,7 @@ void C4AulScript::CollectProfilerTimes(class C4AulProfiler &rProfiler)
 	// collect all profiler times of owned functions
 	C4AulScriptFunc *pSFunc;
 	for (C4AulFunc *pFn = Func0; pFn; pFn = pFn->Next)
-		if (pSFunc = pFn->SFunc())
+		if ((pSFunc = pFn->SFunc()))
 			rProfiler.CollectEntry(pSFunc, pSFunc->tProfileTime);
 	// collect sub-scripts
 	for (C4AulScript *pScript = Child0; pScript; pScript = pScript->Next)

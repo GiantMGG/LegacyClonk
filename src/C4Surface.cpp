@@ -2,7 +2,7 @@
  * LegacyClonk
  *
  * Copyright (c) 1998-2000, Matthes Bender (RedWolf Design)
- * Copyright (c) 2017-2021, The LegacyClonk Team and contributors
+ * Copyright (c) 2017-2026, The LegacyClonk Team and contributors
  *
  * Distributed under the terms of the ISC license; see accompanying file
  * "COPYING" for details.
@@ -180,7 +180,12 @@ bool C4Surface::CreateTextures()
 #endif
 		/* keep standard texture size */;
 	// get needed tex size - begin with smaller value of wdt/hgt, so there won't be too much space wasted
-	int iNeedSize = (std::min)(Wdt, Hgt); int n = 0; while ((1 << ++n) < iNeedSize); iNeedSize = 1 << n;
+	int iNeedSize = (std::min)(Wdt, Hgt);
+	int n = 0;
+	while ((1 << ++n) < iNeedSize)
+	{
+	}
+	iNeedSize = 1 << n;
 	// adjust to available texture size
 	iTexSize = (std::min)(iNeedSize, iMaxTexSize);
 	// get the number of textures needed for this size
@@ -201,7 +206,11 @@ bool C4Surface::CreateTextures()
 		{
 			// last texture might be smaller
 			iNeedSize = (std::max)(Wdt % iTexSize, Hgt % iTexSize);
-			int n = 0; while ((1 << ++n) < iNeedSize); iNeedSize = 1 << n;
+			int n = 0;
+			while ((1 << ++n) < iNeedSize)
+			{
+			}
+			iNeedSize = 1 << n;
 			*ppCTex = new C4TexRef(iNeedSize, fIsRenderTarget);
 		}
 		if (fIsBackground && ppCTex)(*ppCTex)->FillBlack();
@@ -410,60 +419,89 @@ bool C4Surface::Read(C4Group &hGroup, bool fOwnPal)
 
 bool C4Surface::SavePNG(const char *szFilename, bool fSaveAlpha, bool fApplyGamma, bool fSaveOverlayOnly, float scale)
 {
-	// Lock - WARNING - maybe locking primary surface here...
-	if (!Lock()) return false;
-
-	if (lpDDraw->Gamma.GetSize() == 0)
-		fApplyGamma = false;
-
-	int realWdt = static_cast<int32_t>(ceilf(Wdt * scale));
-	int realHgt = static_cast<int32_t>(ceilf(Hgt * scale));
-
-	// Create bitmap
-	StdBitmap bmp(realWdt, realHgt, fSaveAlpha);
-
-	// reset overlay if desired
-	C4Surface *pMainSfcBackup;
-	if (fSaveOverlayOnly) { pMainSfcBackup = pMainSfc; pMainSfc = nullptr; }
-
-#ifndef USE_CONSOLE
-	if (fPrimary && pGL)
+	const auto bmp = CloneToBitmap(fSaveAlpha, fApplyGamma, fSaveOverlayOnly, scale);
+	if (!bmp)
 	{
-		// Take shortcut. FIXME: Check Endian
-		for (int y = 0; y < realHgt; ++y)
-			glReadPixels(0, realHgt - y, realWdt, 1, fSaveAlpha ? GL_BGRA : GL_BGR, GL_UNSIGNED_BYTE, bmp.GetPixelAddr(0, y));
+		return false;
 	}
-	else
-#endif
-	{
-		// write pixel values
-		for (int y = 0; y < realHgt; ++y)
-			for (int x = 0; x < realWdt; ++x)
-			{
-				uint32_t dwClr = GetPixDw(x, y, false, scale);
-				if (fApplyGamma) dwClr = lpDDraw->Gamma.ApplyTo(dwClr);
-				bmp.SetPixel(x, y, dwClr);
-			}
-	}
-
-	// reset overlay
-	if (fSaveOverlayOnly) pMainSfc = pMainSfcBackup;
-
-	// Unlock
-	Unlock();
 
 	// Save bitmap to PNG file
 	try
 	{
-		CPNGFile(szFilename, realWdt, realHgt, fSaveAlpha).Encode(bmp.GetBytes());
+		CPNGFile{szFilename, bmp->GetWidth(), bmp->GetHeight(), fSaveAlpha}.Encode(bmp->GetBytes());
 	}
 	catch (const std::runtime_error &)
 	{
 		return false;
 	}
 
-	// Success
 	return true;
+}
+
+std::optional<StdBitmap> C4Surface::CloneToBitmap(const bool withAlpha, bool applyGamma, const bool overlayOnly, const float scale)
+{
+	// Lock - WARNING - maybe locking primary surface here...
+	if (!Lock())
+	{
+		return std::nullopt;
+	}
+
+	if (lpDDraw->Gamma.GetSize() == 0)
+	{
+		applyGamma = false;
+	}
+
+	const auto realWdt = static_cast<int>(std::ceilf(Wdt * scale));
+	const auto realHgt = static_cast<int>(std::ceilf(Hgt * scale));
+
+	// Create bitmap
+	std::optional<StdBitmap> result{std::in_place, static_cast<std::uint32_t>(realWdt), static_cast<std::uint32_t>(realHgt), withAlpha};
+
+	// reset overlay if desired
+	C4Surface *mainSfcBackup{};
+	if (overlayOnly)
+	{
+		mainSfcBackup = pMainSfc;
+		pMainSfc = nullptr;
+	}
+
+#ifndef USE_CONSOLE
+	if (fPrimary && pGL)
+	{
+		// Take shortcut. FIXME: Check Endian
+		for (int y = 0; y < realHgt; ++y)
+		{
+			glReadPixels(0, realHgt - y, realWdt, 1, withAlpha ? GL_BGRA : GL_BGR, GL_UNSIGNED_BYTE, result->GetPixelAddr(0, y));
+		}
+	}
+	else
+#endif
+	{
+		// write pixel values
+		for (int y = 0; y < realHgt; ++y)
+		{
+			for (int x = 0; x < realWdt; ++x)
+			{
+				std::uint32_t dwClr = GetPixDw(x, y, false, scale);
+				if (applyGamma)
+				{
+					dwClr = lpDDraw->Gamma.ApplyTo(dwClr);
+				}
+				result->SetPixel(x, y, dwClr);
+			}
+		}
+	}
+
+	// reset overlay
+	if (overlayOnly)
+	{
+		pMainSfc = mainSfcBackup;
+	}
+
+	// Unlock
+	Unlock();
+
+	return result;
 }
 
 bool C4Surface::Wipe()
@@ -643,7 +681,7 @@ uint32_t C4Surface::GetPixDw(int iX, int iY, bool fApplyModulation, float scale)
 	{
 #ifndef USE_CONSOLE
 		// OpenGL?
-		if (pGL)
+		if (pGL) [[likely]]
 		{
 			int hgt = static_cast<int32_t>(ceilf(Hgt * scale));
 			if (!PrimarySurfaceLockBits)
@@ -655,6 +693,10 @@ uint32_t C4Surface::GetPixDw(int iX, int iY, bool fApplyModulation, float scale)
 				PrimarySurfaceLockPitch = wdt * 3;
 			}
 			return *reinterpret_cast<uint32_t *>(PrimarySurfaceLockBits + (hgt - iY - 1) * PrimarySurfaceLockPitch + iX * 3);
+		}
+		else
+		{
+			std::abort();
 		}
 #endif
 	}
@@ -854,7 +896,7 @@ bool C4Surface::LoadAny(C4Group &hGroup, const char *szName, bool fOwnPal, bool 
 		// no extension: Default to extension that is found as file in group
 		const char *const extensions[] = { "png", "bmp", "jpeg", "jpg", nullptr };
 		int i = 0; const char *szExt;
-		while (szExt = extensions[i++])
+		while ((szExt = extensions[i++]))
 		{
 			EnforceExtension(szFilename, szExt);
 			if (hGroup.FindEntry(szFilename)) break;
@@ -876,7 +918,7 @@ bool C4Surface::LoadAny(C4GroupSet &hGroupset, const char *szName, bool fOwnPal,
 		// no extension: Default to extension that is found as file in group
 		const char *const extensions[] = { "png", "bmp", "jpeg", "jpg", nullptr };
 		int i = 0; const char *szExt;
-		while (szExt = extensions[i++])
+		while ((szExt = extensions[i++]))
 		{
 			EnforceExtension(szFilename, szExt);
 			pGroup = hGroupset.FindEntry(szFilename);
@@ -1125,7 +1167,8 @@ C4TexRef::~C4TexRef()
 		glDeleteTextures(1, &texName);
 	}
 #endif
-	if (lpDDraw) delete[] texLock.pBits; texLock.pBits = nullptr;
+	if (lpDDraw) delete[] texLock.pBits;
+	texLock.pBits = nullptr;
 	// remove from texture manager
 	pTexMgr->UnregTex(this);
 }

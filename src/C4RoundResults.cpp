@@ -3,7 +3,7 @@
  *
  * Copyright (c) RedWolf Design
  * Copyright (c) 2008, Sven2
- * Copyright (c) 2017-2022, The LegacyClonk Team and contributors
+ * Copyright (c) 2017-2024, The LegacyClonk Team and contributors
  *
  * Distributed under the terms of the ISC license; see accompanying file
  * "COPYING" for details.
@@ -17,7 +17,6 @@
 
 // Round result information to be displayed in game over dialog
 
-#include <C4Include.h>
 #include <C4RoundResults.h>
 
 #include <C4Player.h>
@@ -40,13 +39,7 @@ void C4RoundResultsPlayer::CompileFunc(StdCompiler *pComp)
 	pComp->Value(mkNamingAdapt(iLeagueRankNew,       "Rank",                0)); // name used in league reply!
 	pComp->Value(mkNamingAdapt(iLeagueRankSymbolNew, "RankSymbol",          0)); // name used in league reply!
 	pComp->Value(mkNamingAdapt(sLeagueProgressData,  "LeagueProgressData", StdStrBuf()));
-	StdEnumEntry<LeagueStatus> LeagueStatusEntries[] =
-	{
-		{ "",     RRPLS_Unknown },
-		{ "Lost", RRPLS_Lost },
-		{ "Won",  RRPLS_Won },
-	};
-	pComp->Value(mkNamingAdapt(mkEnumAdaptT<uint8_t>(eLeagueStatus, LeagueStatusEntries), "Status", RRPLS_Unknown)); // name used in league reply!
+	pComp->Value(mkNamingAdapt(mkEnumAdapt(eLeagueStatus), "Status", RRPLS_Unknown)); // name used in league reply!
 }
 
 void C4RoundResultsPlayer::EvaluatePlayer(C4Player *pPlr)
@@ -230,7 +223,7 @@ C4RoundResultsPlayers &C4RoundResultsPlayers::operator=(const C4RoundResultsPlay
 {
 	Clear();
 	C4RoundResultsPlayer *pPlr; int32_t i = 0;
-	while (pPlr = cpy.GetByIndex(i++))
+	while ((pPlr = cpy.GetByIndex(i++)))
 		Add(new C4RoundResultsPlayer(*pPlr));
 	return *this;
 }
@@ -267,14 +260,7 @@ void C4RoundResults::CompileFunc(StdCompiler *pComp)
 	pComp->Value(mkNamingAdapt(iLeaguePerformance,       "LeaguePerformance",       0));
 	pComp->Value(mkNamingAdapt(Players,                  "PlayerInfos",             C4RoundResultsPlayers()));
 	pComp->Value(mkNamingAdapt(sNetResult,               "NetResult",               StdStrBuf()));
-	StdEnumEntry<NetResult> NetResultEntries[] =
-	{
-		{ "",            NR_None },
-		{ "LeagueOK",    NR_LeagueOK },
-		{ "LeagueError", NR_LeagueError },
-		{ "NetError",    NR_NetError },
-	};
-	pComp->Value(mkNamingAdapt(mkEnumAdaptT<uint8_t>(eNetResult, NetResultEntries), "NetResult", NR_None));
+	pComp->Value(mkNamingAdapt(mkEnumAdapt(eNetResult), "NetResult", NR_None));
 }
 
 void C4RoundResults::EvaluateGoals(C4IDList &GoalList, C4IDList &FulfilledGoalList, int32_t iPlayerNumber)
@@ -284,12 +270,12 @@ void C4RoundResults::EvaluateGoals(C4IDList &GoalList, C4IDList &FulfilledGoalLi
 	// Items
 	bool fRivalvry = !!Game.ObjectCount(C4Id("RVLR"));
 	int32_t cnt; C4ID idGoal;
-	for (cnt = 0; idGoal = Game.Objects.GetListID(C4D_Goal, cnt); cnt++)
+	for (cnt = 0; (idGoal = Game.Objects.GetListID(C4D_Goal, cnt)); cnt++)
 	{
 		// determine if the goal is fulfilled - do the calls even if the menu is not to be opened to ensure synchronization
 		bool fFulfilled = false;
 		C4Object *pObj;
-		if (pObj = Game.Objects.Find(idGoal))
+		if ((pObj = Game.Objects.Find(idGoal)))
 		{
 			if (fRivalvry)
 			{
@@ -328,7 +314,7 @@ void C4RoundResults::EvaluateLeague(const char *szResultMsg, bool fSuccess, cons
 	Game.RoundResults.EvaluateNetwork(fSuccess ? C4RoundResults::NR_LeagueOK : C4RoundResults::NR_LeagueError, szResultMsg);
 	// Evaluation called by league: Sets new league scores and ranks
 	C4RoundResultsPlayer *pPlr, *pOwnPlr; int32_t i = 0;
-	while (pPlr = rLeagueInfo.GetByIndex(i++))
+	while ((pPlr = rLeagueInfo.GetByIndex(i++)))
 	{
 		pOwnPlr = Players.GetCreateByID(pPlr->GetID());
 		pOwnPlr->EvaluateLeague(pPlr);

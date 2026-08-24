@@ -3,7 +3,7 @@
  *
  * Copyright (c) RedWolf Design
  * Copyright (c) 2003, Sven2
- * Copyright (c) 2017-2021, The LegacyClonk Team and contributors
+ * Copyright (c) 2017-2024, The LegacyClonk Team and contributors
  *
  * Distributed under the terms of the ISC license; see accompanying file
  * "COPYING" for details.
@@ -18,7 +18,6 @@
 // startup screen
 
 #include "C4GuiResource.h"
-#include <C4Include.h>
 #include <C4LoaderScreen.h>
 
 #include <C4LogBuf.h>
@@ -45,7 +44,7 @@ bool C4LoaderScreen::Init(const char *szLoaderSpec)
 	C4Group *pGroup = nullptr, *pChosenGrp = nullptr;
 	char ChosenFilename[_MAX_PATH + 1];
 	// query groups of equal priority in set
-	while (pGroup = Game.GroupSet.FindGroup(C4GSCnt_Loaders, pGroup, true))
+	while ((pGroup = Game.GroupSet.FindGroup(C4GSCnt_Loaders, pGroup, true)))
 	{
 		iLoaders += SeekLoaderScreens(*pGroup, szLoaderSpecPng, iLoaders, ChosenFilename, &pChosenGrp);
 		iLoaders += SeekLoaderScreens(*pGroup, szLoaderSpecJpeg, iLoaders, ChosenFilename, &pChosenGrp);
@@ -82,7 +81,7 @@ bool C4LoaderScreen::Init(const char *szLoaderSpec)
 		// Not even default loaders available? Fail.
 		if (!iLoaders)
 		{
-			LogFatalNTr("No loaders found for loader specification: {}/{}/{}/{}", +szLoaderSpecPng, +szLoaderSpecBmp, +szLoaderSpecJpg, +szLoaderSpecJpeg);
+			LogFatalNTr("No loaders found for loader specification: {}/{}/{}/{}", szLoaderSpecPng, szLoaderSpecBmp, szLoaderSpecJpg, szLoaderSpecJpeg);
 			return false;
 		}
 	}

@@ -3,7 +3,7 @@
  *
  * Copyright (c) RedWolf Design
  * Copyright (c) 2001, Sven2
- * Copyright (c) 2017-2021, The LegacyClonk Team and contributors
+ * Copyright (c) 2017-2024, The LegacyClonk Team and contributors
  *
  * Distributed under the terms of the ISC license; see accompanying file
  * "COPYING" for details.
@@ -21,7 +21,6 @@
 
 #include "C4GuiComboBox.h"
 #include "C4GuiResource.h"
-#include <C4Include.h>
 #include <C4Gui.h>
 #include <C4FacetEx.h>
 #include <C4Wrappers.h>
@@ -47,7 +46,7 @@ bool ComboBox_FillCB::FindEntry(const char *szText)
 {
 	// check for entry with same name
 	ContextMenu::Entry *pEntry; int32_t idx = 0;
-	while (pEntry = pDrop->GetIndexedEntry(idx++)) if (SEqual(pEntry->GetText(), szText)) return true;
+	while ((pEntry = pDrop->GetIndexedEntry(idx++))) if (SEqual(pEntry->GetText(), szText)) return true;
 	return false;
 }
 
