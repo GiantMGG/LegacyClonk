@@ -424,27 +424,6 @@ private:
 	C4Section *section;
 };
 
-// result sorting
-class C4SortObject
-{
-public:
-	C4SortObject() {}
-	virtual ~C4SortObject() {}
-
-public:
-	// Overridables
-	virtual int32_t Compare(C4Object *pObj1, C4Object *pObj2) = 0; // return value <0 if obj1 is to be sorted before obj2
-
-	virtual bool PrepareCache([[maybe_unused]] std::vector<C4Object *> &objects) { return false; }
-	virtual int32_t CompareCache(int32_t iObj1, int32_t iObj2, C4Object *pObj1, C4Object *pObj2) { return Compare(pObj1, pObj2); }
-
-public:
-	static C4SortObject *CreateByValue(const C4Value &Data);
-	static C4SortObject *CreateByValue(C4ValueInt iType, const C4ValueArray &Data);
-
-	void SortObjects(std::vector<C4Object *> &result);
-};
-
 class C4SortObjectByValue : public C4SortObject
 {
 public:

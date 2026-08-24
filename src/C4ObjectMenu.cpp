@@ -595,7 +595,7 @@ int32_t C4ObjectMenu::AddContextFunctions(C4Object *pTarget, bool fCountOnly)
 	{
 		if (C4AulScriptFunc *const pFunction{pEff->GetContextCallback()}; pFunction && pEff->IsActive())
 		{
-			if (!pFunction->Condition || pFunction->Condition->Exec(pEff->pCommandTarget, {C4VObj(pTarget), C4VInt(pEff->iNumber), C4VObj(Object), C4VID(pFunction->idImage)}))
+			if (!pFunction->Condition || pFunction->Condition->Exec(**pEff->section, pEff->pCommandTarget, {C4VObj(pTarget), C4VInt(pEff->iNumber), C4VObj(Object), C4VID(pFunction->idImage)}))
 			{
 				if (!fCountOnly)
 				{

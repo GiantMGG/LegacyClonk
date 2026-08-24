@@ -35,9 +35,9 @@ void C4AulExecError::show() const
 	// debug mode object/viewport message
 	if (Game.DebugMode)
 	{
-		if (cObj)
+		if (Obj)
 		{
-			Game.Messages.New(C4GM_Target, StdStrBuf{message.c_str(), message.size(), false}, cObj->Section, cObj, NO_OWNER);
+			Game.Messages.New(C4GM_Target, StdStrBuf{message.c_str(), message.size(), false}, Obj->Section, Obj, NO_OWNER);
 		}
 		else
 		{

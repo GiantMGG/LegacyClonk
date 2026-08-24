@@ -107,7 +107,7 @@ CPattern &CPattern::operator=(const CPattern &nPattern)
 	sfcPattern8  = nPattern.sfcPattern8;
 	sfcPattern32 = nPattern.sfcPattern32;
 	if (sfcPattern32) sfcPattern32->Lock();
-	delete[] CachedPattern;
+	CachedPattern.reset();
 	if (nPattern.CachedPattern)
 	{
 		if (!sfcPattern32)
@@ -115,8 +115,8 @@ CPattern &CPattern::operator=(const CPattern &nPattern)
 			throw std::runtime_error{"Cached pattern without surface to back it"};
 		}
 
-		CachedPattern = new uint32_t[sfcPattern32->Wdt * sfcPattern32->Hgt];
-		std::memcpy(CachedPattern, nPattern.CachedPattern, sfcPattern32->Wdt * sfcPattern32->Hgt * 4);
+		CachedPattern = std::make_shared_for_overwrite<std::uint32_t[]>(sfcPattern32->Wdt * sfcPattern32->Hgt);
+		std::memcpy(CachedPattern.get(), nPattern.CachedPattern.get(), sfcPattern32->Wdt * sfcPattern32->Hgt * 4);
 	}
 	else
 	{

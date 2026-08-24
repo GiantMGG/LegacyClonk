@@ -2256,13 +2256,10 @@ bool C4Game::InitGame(C4Group &hGroup, bool fLoadSky)
 	// close any gfx groups, because they are no longer needed (after sky is initialized)
 	GraphicsResource.CloseFiles();
 
-	if (!section)
-	{
-		// Music
-		Application.MusicSystem->PlayScenarioMusic(ScenarioFile);
-		SetMusicLevel(iMusicLevel);
-		SetInitProgress(97);
-	}
+	// Music
+	Application.MusicSystem->PlayScenarioMusic(ScenarioFile);
+	SetMusicLevel(iMusicLevel);
+	SetInitProgress(97);
 	return true;
 }
 

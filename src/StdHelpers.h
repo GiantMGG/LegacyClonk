@@ -150,6 +150,7 @@ template<auto Member>
 [[nodiscard]] inline C4LinkedListIterator<Member> end(const C4LinkedListIterator<Member>) noexcept
 {
 	return {};
+}
 
 // based on boost container_hash's hashCombine
 constexpr std::size_t hashCombine(std::size_t hash, std::size_t nextHash)

@@ -1460,6 +1460,8 @@ bool AlgoGradient(C4MCOverlay *pOvrl, int32_t iX, int32_t iY)
 	return (abs((iX ^ (iY * 3)) * 2531011L) % 214013L) % z > iX / pOvrl->Wdt;
 }
 
+} // namespace
+
 bool AlgoScript(C4MCOverlay *pOvrl, int32_t iX, int32_t iY)
 {
 	// get script function
@@ -1582,8 +1584,6 @@ bool AlgoPolygon(C4MCOverlay *pOvrl, int32_t iX, int32_t iY)
 #undef s
 #undef z
 #undef z2
-
-}
 
 C4MCAlgorithm C4MCAlgoMap[] =
 {
