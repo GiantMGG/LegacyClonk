@@ -212,23 +212,8 @@ int32_t C4HudBarDef::DefaultIndex(const C4HudBarDef::Physical physical) noexcept
 void C4HudBarDef::CompileFunc(StdCompiler *const comp)
 {
 	comp->Value(mkNamingAdapt(name, "Name"));
-	StdEnumEntry<Physical> PhysicalEntries[]
-	{
-		{ "Energy", Physical::Energy },
-		{ "Magic", Physical::Magic },
-		{ "Breath", Physical::Breath },
-	};
-	comp->Value(mkNamingAdapt(mkEnumAdaptT<std::uint8_t>(physical, PhysicalEntries), "Physical", Physical::None));
-	StdBitfieldEntry<std::uint8_t> HideEntries[]
-	{
-		{ "HideHud", std::to_underlying(Hide::AsDef) },
-		{ "Empty", std::to_underlying(Hide::Empty) },
-		{ "Full", std::to_underlying(Hide::Full) },
-	};
-
-	auto hideVal = static_cast<std::uint8_t>(hide);
-	comp->Value(mkNamingAdapt(mkBitfieldAdapt<std::uint8_t>(hideVal, HideEntries), "Hide", Hide::Empty));
-	hide = static_cast<Hide>(hideVal);
+	comp->Value(mkNamingAdapt(mkEnumAdapt(physical), "Physical", Physical::None));
+	comp->Value(mkNamingAdapt(mkBitfieldAdapt(hide), "Hide", Hide::Empty));
 
 	comp->Value(mkNamingAdapt(gfx, "Gfx"));
 	comp->Value(mkNamingAdapt(index, "Index"));

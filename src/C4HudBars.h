@@ -17,6 +17,7 @@
 
 #pragma once
 
+#include "C4EnumInfo.h"
 #include "C4FacetEx.h"
 #include "C4Id.h"
 #include "C4Value.h"
@@ -115,6 +116,32 @@ constexpr C4HudBarDef::Hide operator~(const C4HudBarDef::Hide a) noexcept
 {
 	return static_cast<C4HudBarDef::Hide>(~std::to_underlying(a));
 }
+
+template<>
+struct C4EnumInfo<C4HudBarDef::Physical>
+{
+	using E = C4HudBarDef::Physical;
+	static inline constexpr auto data = mkEnumInfo<E>("",
+		{
+			{ E::Energy, "Energy" },
+			{ E::Magic, "Magic" },
+			{ E::Breath, "Breath" }
+		}
+	);
+};
+
+template<>
+struct C4EnumInfo<C4HudBarDef::Hide>
+{
+	using E = C4HudBarDef::Hide;
+	static inline constexpr auto data = mkBitfieldInfo<E>("",
+		{
+			{ E::AsDef, "HideHud" },
+			{ E::Empty, "Empty" },
+			{ E::Full, "Full" }
+		}
+	);
+};
 
 template<>
 struct std::hash<C4HudBarDef>
