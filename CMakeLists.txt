@@ -11,19 +11,7 @@
 # To redistribute this file separately, substitute the full license texts
 # for the above references.
 
-cmake_minimum_required(VERSION 3.16)
-
-# Enable MACOSX_RPATH by default
-cmake_policy(SET CMP0042 NEW)
-
-# Prefer GLVND OpenGL libraries
-cmake_policy(SET CMP0072 NEW)
-
-# Enable <PackageName>_ROOT for find_package
-cmake_policy(SET CMP0074 NEW)
-
-# Enable option() honoring existing variables
-cmake_policy(SET CMP0077 NEW)
+cmake_minimum_required(VERSION 4.0...4.4)
 
 if (APPLE)
 	set(LANGUAGE_OBJCXX OBJCXX)
@@ -54,13 +42,8 @@ if (WIN32)
 	endif ()
 endif ()
 
-set(CMAKE_CXX_STANDARD 23)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
-
-if (APPLE)
-	set(CMAKE_OBJCXX_STANDARD ${CMAKE_CXX_STANDARD})
-	set(CMAKE_OBJCXX_STANDARD_REQUIRED ${CMAKE_CXX_STANDARD_REQUIRED})
-endif ()
+# C++ standard level is set per-target via target_compile_features() below;
+# see the LC_CXX_STANDARD_LEVEL variable defined alongside USE_CXX_26.
 
 
 include(CheckCXXSymbolExists)
@@ -121,6 +104,23 @@ option(USE_MINIUPNPC "Use miniupnpc for UPnP support" ON)
 CMAKE_DEPENDENT_OPTION(USE_WINDOWS_RUNTIME "Use Windows Runtime features" ON "WIN32" OFF)
 # USE_SYSTEM_SPDLOG
 option(USE_SYSTEM_SPDLOG "Use system spdlog instead of local checkout" OFF)
+
+# Opt-in C++26 standard. Default is C++23.
+option(USE_CXX_26 "Compile with -std=c++26 instead of -std=c++23 (experimental)" OFF)
+
+if (USE_CXX_26)
+	set(LC_CXX_STANDARD_LEVEL 26)
+	message(STATUS "C++26 standard requested via USE_CXX_26=ON")
+else ()
+	set(LC_CXX_STANDARD_LEVEL 23)
+endif ()
+
+# CMake's target_compile_features() performs the actual compiler-capability
+# check at configure time. If cxx_std_26 is not supported by the detected
+# compiler, CMake emits a fatal error of the form:
+#   "The compiler feature "cxx_std_26" is unknown to the CXX compiler ..."
+# We let that error surface directly — it is more informative than a
+# project-specific wrapper.
 
 if (USE_LTO)
 	include(CheckIPOSupported)
@@ -316,6 +316,7 @@ else ()
 endif ()
 target_link_libraries(clonk standard)
 target_compile_definitions(clonk PRIVATE C4ENGINE)
+target_compile_features(clonk PRIVATE cxx_std_${LC_CXX_STANDARD_LEVEL})
 
 if (USE_SDL_MIXER AND WIN32)
 	target_compile_definitions(clonk PRIVATE SDL_MAIN_HANDLED)
@@ -341,6 +342,7 @@ append_filelist(C4GROUP_SOURCES C4Group)
 add_executable(c4group ${C4GROUP_SOURCES})
 target_link_libraries(c4group standard)
 target_compile_definitions(c4group PRIVATE USE_CONSOLE)
+target_compile_features(c4group PRIVATE cxx_std_${LC_CXX_STANDARD_LEVEL})
 
 # Add libstandard target
 
@@ -362,6 +364,7 @@ endif ()
 
 add_library(standard STATIC ${LIBSTANDARD_SOURCES})
 target_compile_definitions(standard PRIVATE C4ENGINE)
+target_compile_features(standard PUBLIC cxx_std_${LC_CXX_STANDARD_LEVEL})
 
 if (WIN32)
 	target_compile_definitions(standard PUBLIC UNICODE _UNICODE)

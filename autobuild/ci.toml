@@ -113,6 +113,14 @@ platform-suffix = 'linux-arm64'
 itch-manifest = 'linux'
 gcc_arch = 'aarch64'
 
+[[matrix.linux.config]]
+name = 'cxx26'
+arch = 'x64'
+platform-suffix = 'linux64'
+gcc_arch = 'x86_64'
+cxx26 = true
+exclude-release = true
+
 [matrix.mac]
 runner = 'macos-15-intel'
 
