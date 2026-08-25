@@ -67,8 +67,8 @@ jobs:
 
       - name: Configure
         run: |
-          echo "Configuring with cmake -B build . -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo -DUSE_TESTS=On -DCMAKE_CTEST_ARGUMENTS=--output-on-failure $CMAKE_CONFIGURE_ARGS $EXTRA_CONFIG_ARGS"
-          $CHROOT cmake -B build . -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo -DUSE_TESTS=On -DCMAKE_CTEST_ARGUMENTS=--output-on-failure $CMAKE_CONFIGURE_ARGS $EXTRA_CONFIG_ARGS
+          echo "Configuring with cmake -B build . -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo -DUSE_TESTS=On '-DCMAKE_CTEST_ARGUMENTS=--output-on-failure;--no-tests=error' $CMAKE_CONFIGURE_ARGS $EXTRA_CONFIG_ARGS"
+          $CHROOT cmake -B build . -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo -DUSE_TESTS=On '-DCMAKE_CTEST_ARGUMENTS=--output-on-failure;--no-tests=error' $CMAKE_CONFIGURE_ARGS $EXTRA_CONFIG_ARGS
 
       - name: "Enable Debugrec"
         if: ${{ matrix.debugrec }}
@@ -86,7 +86,15 @@ jobs:
 
       - name: Test
         run: |
-          $CHROOT cmake --build build --target test
+          $CHROOT ctest --test-dir build --output-on-failure --no-tests=error --output-junit test-results.xml
+
+      - name: "Publish Test Results"
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: test-results-${{ matrix.config-suffix }}
+          path: build/test-results.xml
+          if-no-files-found: warn
 
       - name: "Windows: Collect binaries"
         if: ${{ matrix.os == 'Windows' }}
