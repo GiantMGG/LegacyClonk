@@ -769,6 +769,44 @@ int32_t C4ObjectMenu::AddContextFunctions(C4Object *pTarget, bool fCountOnly)
 		}
 	}
 
+	// Rule-injected context items (generic extension point).
+	// Iterate every C4D_Rule object in the target's section and call
+	// ~GetContextMenuItems(pTarget, pCaller) on it. The callback returns an
+	// array of [caption, command, idSymbol, infoCaption] tuples which we
+	// append via Add(...). Mirrors the fCountOnly pattern used above.
+	for (C4ObjectLink *rLnk = pTarget->Section->Objects.First; rLnk; rLnk = rLnk->Next)
+	{
+		C4Object *pRule = rLnk->Obj;
+		if (!pRule || !pRule->Status) continue;
+		if (!(pRule->Category & C4D_Rule)) continue;
+
+		C4Value vResult = pRule->Call(PSF_GetContextMenuItems, {C4VObj(pTarget), C4VObj(Object)});
+		C4ValueArray *pItems = vResult.getArray();
+		if (!pItems) continue;
+
+		for (int32_t i = 0; i < pItems->GetSize(); i++)
+		{
+			C4ValueArray *pTuple = (*pItems)[i].getArray();
+			if (!pTuple || pTuple->GetSize() < 4) continue;
+
+			const char *szCaption = (*pTuple)[0].getStr() ? (*pTuple)[0].getStr()->Data.getData() : "";
+			const char *szCommand = (*pTuple)[1].getStr() ? (*pTuple)[1].getStr()->Data.getData() : "";
+			C4ID idSymbol = (*pTuple)[2].getC4ID();
+			const char *szInfo = (*pTuple)[3].getStr() ? (*pTuple)[3].getStr()->Data.getData() : "";
+
+			if (fCountOnly)
+			{
+				iResult++;
+				continue;
+			}
+
+			if ((pDef = Game.Defs.ID2Def(idSymbol))) pDef->Picture2Facet(fctSymbol, 0, 0);
+			Add(szCaption, fctSymbol, szCommand, C4MN_Item_NoCount, nullptr, szInfo);
+			fctSymbol.Default();
+			iResult++;
+		}
+	}
+
 	// Context functions of the menu clonk itself (if not same as target)
 	if (Object != pTarget)
 		// Only if clonk is inside or grabbing or containing target (this excludes remote mouse-right-click context menus)

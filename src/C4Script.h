@@ -98,6 +98,7 @@ void InitFunctionMap(C4AulScriptEngine *pEngine); // add functions to engine
 #define PSF_RejectFight            "~RejectFight" // C4Object* pEnemy
 #define PSF_AttachTargetLost       "~AttachTargetLost"
 #define PSF_CrewSelection          "~CrewSelection" // bool fDeselect, bool fCursorOnly
+#define PSF_GetContextMenuItems    "~GetContextMenuItems" // C4Object *pTarget, C4Object *pCaller
 #define PSF_GetObject2Drop         "~GetObject2Drop" // C4Object *pForCollectionOfObj
 #define PSF_MenuSelection          "~OnMenuSelection" // int iItemIndex, C4Object *pMenuObject
 #define PSF_OnActionJump           "~OnActionJump" // int iXDir100, iYDir100
