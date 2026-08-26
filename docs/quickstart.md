@@ -4,6 +4,17 @@ This guide takes you from a fresh `git clone` to a custom object that fires
 a callback, using only the console build (the full GUI build is currently
 broken and out of scope). Budget: under 60 minutes.
 
+## Prerequisites
+
+- **CMake ≥ 4.0.** Debian stable ships CMake 3.31 and Ubuntu 24.04 LTS ships
+  3.28 — both are insufficient. Install a recent CMake via
+  `pip install cmake==4.4.2` or `snap install cmake --classic`.
+- **A C++23 compiler.** GCC 14+, Clang 18+, or MSVC 19.40+ are known to work.
+- **Build essentials** (`build-essential` on Debian/Ubuntu, or the equivalent
+  "Desktop development with C++" workload on Windows).
+
+See the root `README.md` for platform-specific build instructions.
+
 ## 1. Clone and configure (console build only)
 
 ```bash
@@ -25,7 +36,7 @@ archive tool).
 
 ```bash
 mkdir -p ~/clonk
-ln -s build/clonk ~/clonk/myclonk
+ln -s "$(pwd)/build/clonk" ~/clonk/myclonk
 ln -s planet/Graphics.c4g planet/System.c4g ~/clonk
 ```
 
@@ -54,8 +65,19 @@ cd ~/clonk
 ./myclonk
 ```
 
-Pick a scenario that loads `Objects.c4d`. Your sword spawns and prints
-`Hello!` above it. The `Initialize` callback fires in the console build too.
+The console engine starts in interactive mode. To load a scenario, pass its
+`.c4f` path as the first argument:
+
+```bash
+# Example: load the tutorial scenario from the content tree
+./myclonk /path/to/content-community/Tutorials/Tutorial.c4f
+```
+
+If you run `./myclonk` without arguments it drops into a prompt; type the
+scenario path (or `help` for available commands). Any scenario placed under
+`~/clonk/` that loads `Objects.c4d` will pick up your `MySword.c4d`: your
+sword spawns and prints `Hello!` above it. The `Initialize` callback fires in
+the console build too.
 
 ## Where next?
 

@@ -241,8 +241,16 @@ def parse_callbacks(header_path: Path) -> list[Callback]:
 
 
 def count_psf_macros(header_path: Path) -> int:
-    return sum(1 for line in header_path.read_text(encoding="utf-8", errors="replace").splitlines()
-               if _PSF_RE.match(line))
+    """Independent count of `#define PSF_*` macro lines.
+
+    Uses a deliberately simple line-prefix check that does NOT share the
+    parser's `_PSF_RE` regex, so the integration test can catch regex misses.
+    """
+    count = 0
+    for line in header_path.read_text(encoding="utf-8", errors="replace").splitlines():
+        if re.match(r"\s*\#\s*define\s+PSF", line):
+            count += 1
+    return count
 
 
 def callback_group(symbol: str) -> str:
@@ -310,26 +318,44 @@ def _parse_one_param_token(token: str) -> Optional[Param]:
 
 _ADDFUNC_RE = re.compile(
     r"""^\s*AddFunc\s*\(\s*pEngine\s*,\s*
-        "([^"]+)"            # group 1: C4Script function name
+        (?:"([^"]+)"|(PSF_[A-Za-z0-9_]+))   # group 1: quoted name; group 2: PSF_ macro
         \s*,\s*
-        (Fn[A-Za-z0-9_]+)    # group 2: C++ symbol
-        (?:\s*,\s*(true|false))?  # group 3: optional protected flag
+        (Fn[A-Za-z0-9_]+)                    # group 3: C++ symbol
+        (?:\s*,\s*(true|false))?             # group 4: optional protected flag
         \s*\)\s*;?\s*$""",
     re.VERBOSE,
 )
 
 # static <ret> Fn<Name>(<params>)
+# `\s*` (not `\s+`) between return type and symbol so pointer return types
+# like `static C4Object *FnFindObject(...)` match (no space between `*` and
+# `Fn`). Multi-line signatures are joined into a single logical line by
+# `_scan_fn_definitions` before this regex is applied. The params capture is
+# non-greedy and the `)` may be followed by a body (`{ ... }`) or a trailing
+# `//` comment, so single-line definitions like
+# `static C4ValueInt FnAnyContainer(C4AulContext *) { return ANY_CONTAINER; }`
+# are matched.
 _FN_DEF_RE = re.compile(
     r"""^(?:static\s+)?(?:inline\s+)?
-        ([A-Za-z_][A-Za-z0-9_ *\&<>:]*?)\s+     # group 1: return type
-        (Fn[A-Za-z0-9_]+)\s*                    # group 2: symbol
-        \(([^;]*)\)\s*$""",
+        ([A-Za-z_][A-Za-z0-9_ *\&<>:]*?)\s*    # group 1: return type
+        (Fn[A-Za-z0-9_]+)\s*                   # group 2: symbol
+        \(([^;]*?)\)                           # group 3: params (non-greedy, no ';')
+        .*$""",
     re.VERBOSE,
 )
 
 
 def parse_functions(cpp_path: Path, src_dir: Path) -> list[Function]:
     """Parse AddFunc registrations and resolve Fn<Name> signatures across src_dir."""
+    # Build a PSF_* macro -> raw_string map so AddFunc calls that reference a
+    # PSF_* macro (e.g. `AddFunc(pEngine, PSF_OnOwnerRemoved, ...)`) can be
+    # resolved to their C4Script callback name.
+    psf_map: dict[str, str] = {}
+    header = src_dir / "C4Script.h"
+    if header.exists():
+        for cb in parse_callbacks(header):
+            psf_map[cb.symbol] = cb.raw_string
+
     # 1. Collect AddFunc registrations from cpp_path (the InitFunctionMap file).
     registrations: list[tuple[str, str, bool, int]] = []
     text = cpp_path.read_text(encoding="utf-8", errors="replace")
@@ -337,7 +363,16 @@ def parse_functions(cpp_path: Path, src_dir: Path) -> list[Function]:
         m = _ADDFUNC_RE.match(line)
         if not m:
             continue
-        name, symbol, prot = m.group(1), m.group(2), m.group(3)
+        quoted, psf_macro, symbol, prot = m.group(1), m.group(2), m.group(3), m.group(4)
+        if quoted is not None:
+            name = quoted
+        else:
+            # Resolve PSF_* macro to the callback name (strip "~" and "{}").
+            raw = psf_map.get(psf_macro or "", "")
+            if raw:
+                name = raw.lstrip("~").replace("{}", "")
+            else:
+                name = (psf_macro or "")[len("PSF_"):]
         protected = (prot != "false")  # no fourth arg => callable => protected True per spec convention
         registrations.append((name, symbol, protected, lineno))
 
@@ -370,9 +405,34 @@ def parse_functions(cpp_path: Path, src_dir: Path) -> list[Function]:
 
 
 def _scan_fn_definitions(cpp_path: Path, fn_defs: dict) -> None:
-    lines = cpp_path.read_text(encoding="utf-8", errors="replace").splitlines()
+    raw_lines = cpp_path.read_text(encoding="utf-8", errors="replace").splitlines()
+    # Join multi-line function signatures into a single logical line so
+    # `_FN_DEF_RE` (which expects the closing `)` on the same line) can match
+    # them. We only join when a line opens a `Fn<Name>(` whose parentheses
+    # are not yet balanced.
+    logical: list[tuple[int, str]] = []
+    i = 0
+    n = len(raw_lines)
+    while i < n:
+        line = raw_lines[i]
+        if (
+            re.search(r"\bFn[A-Za-z0-9_]+\s*\(", line)
+            and line.count("(") > line.count(")")
+        ):
+            buf = [line]
+            start = i
+            joined = buf[0]
+            while i + 1 < n and joined.count("(") > joined.count(")"):
+                i += 1
+                buf.append(raw_lines[i])
+                joined = " ".join(buf)
+            logical.append((start + 1, joined))
+        else:
+            logical.append((i + 1, line))
+        i += 1
+
     pending_docstring = ""
-    for idx, line in enumerate(lines):
+    for idx, (lineno, line) in enumerate(logical):
         # Capture /** ... */ docstring that may span lines.
         if "/**" in line:
             start = line.index("/**")
@@ -381,11 +441,11 @@ def _scan_fn_definitions(cpp_path: Path, fn_defs: dict) -> None:
             else:
                 buf = [line[start:]]
                 j = idx + 1
-                while j < len(lines) and "*/" not in lines[j]:
-                    buf.append(lines[j])
+                while j < len(logical) and "*/" not in logical[j][1]:
+                    buf.append(logical[j][1])
                     j += 1
-                if j < len(lines):
-                    buf.append(lines[j][:lines[j].index("*/") + 2])
+                if j < len(logical):
+                    buf.append(logical[j][1][:logical[j][1].index("*/") + 2])
                 pending_docstring = "\n".join(buf)
             continue
         m = _FN_DEF_RE.match(line)
@@ -402,7 +462,7 @@ def _scan_fn_definitions(cpp_path: Path, fn_defs: dict) -> None:
             "return_type": ret_type.strip(),
             "params": params,
             "docstring": _clean_docstring(pending_docstring),
-            "source": f"{cpp_path.name}:{idx + 1}",
+            "source": f"{cpp_path.name}:{lineno}",
         }
         pending_docstring = ""
 
@@ -473,8 +533,17 @@ def _clean_docstring(raw: str) -> str:
 
 
 def count_addfuncs(cpp_path: Path) -> int:
-    return sum(1 for line in cpp_path.read_text(encoding="utf-8", errors="replace").splitlines()
-               if _ADDFUNC_RE.match(line))
+    """Independent count of `AddFunc(pEngine, ...)` registration lines.
+
+    Uses a plain substring check (not `_ADDFUNC_RE`) so the integration test
+    can catch regex misses — e.g. a `PSF_*` macro argument the regex doesn't
+    yet accept would show up as `count > len(parse_functions(...))`.
+    """
+    count = 0
+    for line in cpp_path.read_text(encoding="utf-8", errors="replace").splitlines():
+        if "AddFunc" in line and "pEngine" in line:
+            count += 1
+    return count
 
 
 # ---------------------------------------------------------------------------
@@ -488,7 +557,9 @@ _CONSTROW_RE = re.compile(
         (C4V_[A-Za-z]+)          # group 2: C4V_* type
         \s*,\s*
         ([^}]+?)                 # group 3: value (unused but captured)
-        \s*\}\s*,?\s*$""",
+        \s*\}\s*,?\s*
+        (?: //[^\n]*)?           # optional trailing // comment
+        \s*$""",
     re.VERBOSE,
 )
 
@@ -516,7 +587,25 @@ def parse_constants(cpp_path: Path) -> list[Constant]:
 
 
 def count_constmap_rows(cpp_path: Path) -> int:
-    return len(parse_constants(cpp_path))
+    """Independent count of `C4ScriptConstMap[]` data rows.
+
+    Counts lines starting with `{ "` (a quoted constant name) inside the
+    const map block. Does NOT share the parser's `_CONSTROW_RE` regex, so the
+    integration test can catch regex misses (e.g. trailing comments).
+    """
+    text = cpp_path.read_text(encoding="utf-8", errors="replace")
+    in_map = False
+    count = 0
+    for line in text.splitlines():
+        if "C4ScriptConstMap" in line and "[" in line:
+            in_map = True
+            continue
+        if in_map and line.strip().startswith("};"):
+            in_map = False
+            continue
+        if in_map and line.lstrip().startswith('{ "'):
+            count += 1
+    return count
 
 
 # ---------------------------------------------------------------------------
@@ -599,7 +688,28 @@ def parse_defcore_fields(def_path: Path) -> list[DefCoreField]:
 
 
 def count_defcore_fields(def_path: Path) -> int:
-    return len(parse_defcore_fields(def_path))
+    """Independent count of `mkNamingAdapt(...)` calls in `C4Def::CompileFunc`.
+
+    Locates the `CompileFunc` body with simple brace matching (does NOT use
+    the parser's `_extract_paren_calls` logic), then counts `mkNamingAdapt`
+    occurrences. This way the integration test can catch parser extraction
+    misses.
+    """
+    text = def_path.read_text(encoding="utf-8", errors="replace")
+    func_match = re.search(r"C4DefCore::CompileFunc\s*\([^)]*\)\s*\{", text)
+    if not func_match:
+        return 0
+    body_start = func_match.end()
+    depth = 1
+    i = body_start
+    while i < len(text) and depth > 0:
+        if text[i] == "{":
+            depth += 1
+        elif text[i] == "}":
+            depth -= 1
+        i += 1
+    body = text[body_start:i - 1]
+    return body.count("mkNamingAdapt")
 
 
 # ===========================================================================
