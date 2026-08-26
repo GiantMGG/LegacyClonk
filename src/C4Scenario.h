@@ -298,6 +298,28 @@ public:
 	void CompileFunc(StdCompiler *pComp);
 };
 
+class C4SEventEntry
+{
+public:
+	C4ID    id{C4ID_None};
+	int32_t Weight{0};        // relative probability weight
+	int32_t SeasonMin{-1};    // season gate (0..100); -1 = any
+	int32_t SeasonMax{-1};    // -1 = any
+
+	void Default() { id = C4ID_None; Weight = 0; SeasonMin = -1; SeasonMax = -1; }
+	void CompileFunc(StdCompiler *pComp);
+};
+
+class C4SEvents
+{
+public:
+	std::vector<C4SEventEntry> Entries;
+
+	void Default() { Entries.clear(); }
+	void CompileFunc(StdCompiler *pComp);
+	C4ID RollEventForSeason(int32_t iSeason) const; // weighted roll, season-gated; C4ID_None if empty
+};
+
 class C4Scenario
 {
 public:
@@ -312,6 +334,7 @@ public:
 	C4SAnimals Animals;
 	C4SWeather Weather;
 	C4SDisasters Disasters;
+	C4SEvents    Events;       // [WeatherEvents] block
 	C4SEnvironment Environment;
 
 public:
