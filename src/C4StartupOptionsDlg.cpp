@@ -891,7 +891,8 @@ C4StartupOptionsDlg::C4StartupOptionsDlg() : C4StartupDlg(LoadResStrNoAmp(C4ResS
 	C4GUI::Tabular::Sheet *pSheetSound = pOptionsTabular->AddSheet(LoadResStr(C4ResStrTableKey::IDS_DLG_SOUND), 2);
 	C4GUI::Tabular::Sheet *pSheetKeyboard = pOptionsTabular->AddSheet(LoadResStr(C4ResStrTableKey::IDS_DLG_KEYBOARD), 3);
 	C4GUI::Tabular::Sheet *pSheetGamepad = pOptionsTabular->AddSheet(LoadResStr(C4ResStrTableKey::IDS_DLG_GAMEPAD), 4);
-	C4GUI::Tabular::Sheet *pSheetNetwork = pOptionsTabular->AddSheet(LoadResStr(C4ResStrTableKey::IDS_DLG_NETWORK), 5);
+	C4GUI::Tabular::Sheet *pSheetBindings = pOptionsTabular->AddSheet(LoadResStr(C4ResStrTableKey::IDS_DLG_BINDINGS), 5);
+	C4GUI::Tabular::Sheet *pSheetNetwork = pOptionsTabular->AddSheet(LoadResStr(C4ResStrTableKey::IDS_DLG_NETWORK), 6);
 
 	C4GUI::CheckBox *pCheck; C4GUI::Label *pLbl;
 	int iCheckWdt = 100, iCheckHgt = 20, iEdit2Wdt = 100, iEdit2Hgt = 40;
@@ -1215,6 +1216,9 @@ C4StartupOptionsDlg::C4StartupOptionsDlg() : C4StartupDlg(LoadResStrNoAmp(C4ResS
 
 	// page gamepad
 	pSheetGamepad->AddElement(new ControlConfigArea(pSheetGamepad->GetClientRect(), caMain.GetWidth() / 20, caMain.GetHeight() / 40, true, this));
+
+	// page bindings
+	pSheetBindings->AddElement(new BindingsTab(pSheetBindings->GetClientRect(), this));
 
 	// page network
 	C4GUI::ComponentAligner caSheetNetwork(pSheetNetwork->GetClientRect(), caMain.GetWidth() / 20, caMain.GetHeight() / 20, true);
