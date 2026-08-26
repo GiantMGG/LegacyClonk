@@ -78,6 +78,7 @@ void C4Scenario::Default()
 	Animals.Default();
 	Weather.Default();
 	Disasters.Default();
+	Events.Default();
 	Game.Realism.Default();
 	Environment.Default();
 }
@@ -130,6 +131,7 @@ void C4Scenario::CompileFunc(StdCompiler *pComp, bool fSection)
 	pComp->Value(mkNamingAdapt(Animals,     "Animals"));
 	pComp->Value(mkNamingAdapt(Weather,     "Weather"));
 	pComp->Value(mkNamingAdapt(Disasters,   "Disasters"));
+	pComp->Value(mkNamingAdapt(Events,      "WeatherEvents"));
 	pComp->Value(mkNamingAdapt(Environment, "Environment"));
 }
 
@@ -426,6 +428,95 @@ void C4SDisasters::CompileFunc(StdCompiler *pComp)
 	pComp->Value(mkNamingAdapt(Meteorite,  "Meteorite",  C4SVal()));
 	pComp->Value(mkNamingAdapt(Volcano,    "Volcano",    C4SVal()));
 	pComp->Value(mkNamingAdapt(Earthquake, "Earthquake", C4SVal()));
+}
+
+void C4SEventEntry::CompileFunc(StdCompiler *pComp)
+{
+	// Serialize id as a C4ID, weight + season bounds as int32.
+	pComp->Value(mkNamingAdapt(id,        "id",        C4ID_None));
+	pComp->Value(mkNamingAdapt(Weight,    "Weight",    0));
+	pComp->Value(mkNamingAdapt(SeasonMin, "SeasonMin", -1));
+	pComp->Value(mkNamingAdapt(SeasonMax, "SeasonMax", -1));
+}
+
+void C4SEvents::CompileFunc(StdCompiler *pComp)
+{
+	// The INI format is a repeated `Event=C4ID=Weight;SeasonMin;SeasonMax` line.
+	// We accept the line as a single string and parse `C4ID=Weight;...` ourselves,
+	// because StdCompiler has no built-in variant-list-of-records primitive that
+	// matches the legacy `Event=...` idiom used elsewhere in C4Scenario.
+	//
+	// mkNamingAdapt(mkSTLContainerAdapt(vec), "Event") produces repeated
+	// `Event=<element>` INI lines — see C4League.cpp:163 for the same idiom
+	// (`mkNamingAdapt(mkArrayAdapt(Leagues, ""), "League")`).
+	std::vector<std::string> rawLines;
+	if (pComp->isCompiler())
+	{
+		pComp->Value(mkNamingAdapt(mkSTLContainerAdapt(rawLines), "Event"));
+		Entries.clear();
+		for (const std::string &line : rawLines)
+		{
+			C4SEventEntry e;
+			// Split on '=': "C4ID=Weight;SeasonMin;SeasonMax"
+			const auto eqPos = line.find('=');
+			if (eqPos == std::string::npos) continue;
+			const std::string idStr   = line.substr(0, eqPos);
+			const std::string tailStr = line.substr(eqPos + 1);
+			e.id = C4Id(idStr);
+			// Split tail on ';': Weight;SeasonMin;SeasonMax
+			std::vector<std::string> parts;
+			size_t start = 0;
+			while (true)
+			{
+				const auto semi = tailStr.find(';', start);
+				if (semi == std::string::npos) { parts.push_back(tailStr.substr(start)); break; }
+				parts.push_back(tailStr.substr(start, semi - start));
+				start = semi + 1;
+			}
+			if (parts.size() >= 1 && !parts[0].empty()) e.Weight = atoi(parts[0].c_str());
+			if (parts.size() >= 2 && !parts[1].empty()) e.SeasonMin = atoi(parts[1].c_str());
+			if (parts.size() >= 3 && !parts[2].empty()) e.SeasonMax = atoi(parts[2].c_str());
+			if (e.id != C4ID_None && e.Weight > 0) Entries.push_back(e);
+		}
+	}
+	else
+	{
+		// Serializer: emit each entry as "C4ID=Weight;SeasonMin;SeasonMax".
+		rawLines.clear();
+		for (const C4SEventEntry &e : Entries)
+		{
+			char buf[48];
+			sprintf(buf, "%s=%d;%d;%d", C4IdText(e.id), e.Weight, e.SeasonMin, e.SeasonMax);
+			rawLines.emplace_back(buf);
+		}
+		pComp->Value(mkNamingAdapt(mkSTLContainerAdapt(rawLines), "Event"));
+	}
+}
+
+C4ID C4SEvents::RollEventForSeason(int32_t iSeason) const
+{
+	if (Entries.empty()) return C4ID_None;
+	int32_t totalWeight = 0;
+	for (const C4SEventEntry &e : Entries)
+	{
+		// Season gate: -1 means "any season".
+		const bool seasonOk =
+			(e.SeasonMin < 0 || iSeason >= e.SeasonMin) &&
+			(e.SeasonMax < 0 || iSeason <= e.SeasonMax);
+		if (seasonOk) totalWeight += e.Weight;
+	}
+	if (totalWeight <= 0) return C4ID_None;
+	int32_t roll = Random(totalWeight);
+	for (const C4SEventEntry &e : Entries)
+	{
+		const bool seasonOk =
+			(e.SeasonMin < 0 || iSeason >= e.SeasonMin) &&
+			(e.SeasonMax < 0 || iSeason <= e.SeasonMax);
+		if (!seasonOk) continue;
+		roll -= e.Weight;
+		if (roll < 0) return e.id;
+	}
+	return Entries.back().id;
 }
 
 bool C4Scenario::Compile(const char *szSource, bool fLoadSection)
