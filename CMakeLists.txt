@@ -308,18 +308,15 @@ if (USE_WINDOWS_RUNTIME)
 		src/C4ToastWinRT.cpp src/C4ToastWinRT.h)
 endif ()
 
-# Engine static library for test linking. Built from the same sources as the
-# clonk executable so that test binaries can link engine translation units
-# (C4Value, C4Aul, C4Game for the Game singleton symbol, etc.) without
-# duplicating source lists.
-#
-# Note: C4WinMain.cpp (which defines `main()`) is included because it also
-# defines the `Game`, `Application`, `Console`, and `FullScreen` globals that
-# the rest of the engine references. The duplicate `main()` clash with
-# Catch2's main() is resolved at link time via --allow-multiple-definition on
-# the test target (see tests/CMakeLists.txt).
+# Engine object library. Built once from ${CLONK_SOURCES} (excluding
+# C4WinMain.cpp, which defines main()) and shared between the clonk
+# executable and the test binaries so engine TUs are compiled exactly
+# once. Test binaries provide the Game/Application/Console/FullScreen/
+# Config globals via a test-only TU (tests/TstEngineGlobals.cpp) instead
+# of pulling in C4WinMain.cpp's main().
 if (USE_TESTS)
-	add_library(clonk_engine STATIC ${CLONK_SOURCES})
+	list(REMOVE_ITEM CLONK_SOURCES src/C4WinMain.cpp)
+	add_library(clonk_engine OBJECT ${CLONK_SOURCES})
 	target_compile_definitions(clonk_engine PRIVATE C4ENGINE)
 	if (USE_CONSOLE)
 		target_compile_definitions(clonk_engine PRIVATE USE_CONSOLE=1)
@@ -328,13 +325,22 @@ if (USE_TESTS)
 	target_compile_features(clonk_engine PUBLIC cxx_std_${LC_CXX_STANDARD_LEVEL})
 endif ()
 
-if (USE_CONSOLE)
-	add_executable(clonk ${CLONK_SOURCES})
-	target_compile_definitions(clonk PRIVATE USE_CONSOLE=1)
+if (USE_TESTS)
+	add_executable(clonk "${CMAKE_CURRENT_SOURCE_DIR}/src/C4WinMain.cpp")
 else ()
-	add_executable(clonk WIN32 MACOSX_BUNDLE ${CLONK_SOURCES})
+	if (USE_CONSOLE)
+		add_executable(clonk ${CLONK_SOURCES})
+	else ()
+		add_executable(clonk WIN32 MACOSX_BUNDLE ${CLONK_SOURCES})
+	endif ()
+endif ()
+if (USE_CONSOLE)
+	target_compile_definitions(clonk PRIVATE USE_CONSOLE=1)
 endif ()
 target_link_libraries(clonk standard)
+if (USE_TESTS)
+	target_link_libraries(clonk clonk_engine)
+endif ()
 target_compile_definitions(clonk PRIVATE C4ENGINE)
 target_compile_features(clonk PRIVATE cxx_std_${LC_CXX_STANDARD_LEVEL})
 
@@ -353,9 +359,10 @@ add_custom_command(
 	VERBATIM
 )
 
-target_sources(clonk PUBLIC ${RES_STR_TABLE_OUTPUT_CPP} ${RES_STR_TABLE_OUTPUT_H})
 if (USE_TESTS)
-	target_sources(clonk_engine PUBLIC ${RES_STR_TABLE_OUTPUT_CPP} ${RES_STR_TABLE_OUTPUT_H})
+	target_sources(clonk_engine PRIVATE ${RES_STR_TABLE_OUTPUT_CPP} ${RES_STR_TABLE_OUTPUT_H})
+else ()
+	target_sources(clonk PRIVATE ${RES_STR_TABLE_OUTPUT_CPP} ${RES_STR_TABLE_OUTPUT_H})
 endif ()
 
 # Add c4group target
@@ -562,6 +569,9 @@ target_link_libraries(standard spdlog::spdlog)
 # Link Windows Imaging Component
 if (USE_WIC)
 	target_link_libraries(clonk windowscodecs)
+	if (USE_TESTS)
+		target_link_libraries(clonk_engine PUBLIC windowscodecs)
+	endif ()
 endif ()
 
 # Link thread library
@@ -602,6 +612,9 @@ if (WIN32)
 
 	if (USE_SDL_MIXER)
 		target_link_libraries(clonk imm32.lib setupapi.lib version.lib)
+		if (USE_TESTS)
+			target_link_libraries(clonk_engine PUBLIC imm32.lib setupapi.lib version.lib)
+		endif ()
 	endif ()
 
 	target_link_libraries(clonk comctl32)
@@ -623,12 +636,21 @@ if (WIN32)
 	execute_process(COMMAND "${CPPWINRT}" ${CPPWINRT_ARGS})
 
 	target_include_directories(clonk PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/generated/cppwinrt")
+	if (USE_TESTS)
+		target_include_directories(clonk_engine PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/generated/cppwinrt")
+	endif ()
 
 	if (USE_WINDOWS_RUNTIME)
 		if ("${TARGET_ARCHITECTURE}" STREQUAL "x86_64")
 			target_link_options(clonk PRIVATE "/alternatename:WINRT_IMPL_GetSystemTimePreciseAsFileTime=Clonk_GetSystemTimePreciseAsFileTime")
+			if (USE_TESTS)
+				target_link_options(clonk_engine PRIVATE "/alternatename:WINRT_IMPL_GetSystemTimePreciseAsFileTime=Clonk_GetSystemTimePreciseAsFileTime")
+			endif ()
 		elseif ("${TARGET_ARCHITECTURE}" STREQUAL "x86")
 			target_link_options(clonk PRIVATE "/alternatename:_WINRT_IMPL_GetSystemTimePreciseAsFileTime@4=_Clonk_GetSystemTimePreciseAsFileTime@4")
+			if (USE_TESTS)
+				target_link_options(clonk_engine PRIVATE "/alternatename:_WINRT_IMPL_GetSystemTimePreciseAsFileTime@4=_Clonk_GetSystemTimePreciseAsFileTime@4")
+			endif ()
 		elseif ("${TARGET_ARCHITECTURE}" STREQUAL "aarch64")
 			# Not needed, because too old Windows versions don’t support ARM
 		endif ()

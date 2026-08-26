@@ -22,6 +22,9 @@
 
 #include "C4Value.h"
 #include "C4Id.h"
+#include "C4StringTable.h"
+#include "C4ValueList.h"
+#include "C4ValueHash.h"
 
 #include <cstdint>
 
@@ -63,14 +66,20 @@ namespace
 		case DirectOld:return !strict; // false in strict, true in non-strict (no-op)
 		case Int2Id:   return true;    // caller must ensure int is in [0, 9999]
 		case Guess:    return sourceIsNil ? true : true; // FnCnvGuess returns true for nil
-		case Deref:    return true;    // FnCnvDeref dereferences and retries; simplified
+		case Deref:    // FnCnvDeref dereferences (to the pointed-to Int 7) and retries
+			return ExpectedCnvResult(C4V_Int, tgt, strict, false);
 		}
 		return false;
 	}
 
 	// Construct a C4Value of the given source type for the matrix sweep.
-	// Returns a nil C4Value for types that require engine objects.
-	C4Value MakeSourceValue(C4V_Type type)
+	// Non-null fixtures are used for every pointer type that can be constructed
+	// without engine state (String, Array, Map, pC4Value). C4V_C4Object is the
+	// sole exception: a real C4Object requires a live C4Section/Game, so it is
+	// constructed with nullptr which collapses to a nil C4V_Any. The sweep uses
+	// the value's *actual* type (val.GetType()) for expected-result lookup, so
+	// the C4V_C4Object row is effectively tested via the C4V_Any (nil) row.
+	C4Value MakeSourceValue(C4V_Type type, C4StringTable &table)
 	{
 		switch (type)
 		{
@@ -79,10 +88,10 @@ namespace
 		case C4V_Bool:      return C4Value{true};
 		case C4V_C4ID:      return C4Value{C4ID{1234}};
 		case C4V_C4Object:  return C4Value{static_cast<C4Object *>(nullptr)};
-		case C4V_String:    return C4Value{static_cast<C4String *>(nullptr)};
-		case C4V_Array:     return C4Value{static_cast<C4ValueArray *>(nullptr)};
-		case C4V_Map:       return C4Value{static_cast<C4ValueHash *>(nullptr)};
-		case C4V_pC4Value:  return C4Value{static_cast<C4Value *>(nullptr)};
+		case C4V_String:    return C4Value{new C4String{"test", &table}};
+		case C4V_Array:     return C4Value{new C4ValueArray{}};
+		case C4V_Map:       return C4Value{new C4ValueHash{}};
+		case C4V_pC4Value:  return C4Value{new C4Value{C4ValueInt{7}}};
 		}
 		return C4Value{};
 	}
@@ -94,23 +103,38 @@ namespace
 
 TEST_CASE("C4Value coercion matrix covers all type pairs", "[C4Value][Coercion]")
 {
-	// Only sweep source types we can construct without engine objects.
-	const C4V_Type sourceTypes[] = {C4V_Any, C4V_Int, C4V_Bool, C4V_C4ID};
+	// Sweep all 9 source types. Non-null fixtures are used for every pointer
+	// type that can be constructed without engine state (String, Array, Map,
+	// pC4Value). C4V_C4Object is constructed with nullptr (collapses to nil
+	// C4V_Any) because a real C4Object requires a live C4Section/Game.
+	const C4V_Type allSourceTypes[] = {
+		C4V_Any, C4V_Int, C4V_Bool, C4V_C4ID,
+		C4V_C4Object, C4V_String, C4V_Array, C4V_Map, C4V_pC4Value
+	};
 	const C4V_Type allTargetTypes[] = {
 		C4V_Any, C4V_Int, C4V_Bool, C4V_C4ID,
 		C4V_C4Object, C4V_String, C4V_Array, C4V_Map, C4V_pC4Value
 	};
 
-	for (C4V_Type src : sourceTypes)
+	C4StringTable table;
+
+	for (C4V_Type src : allSourceTypes)
 	{
 		for (C4V_Type tgt : allTargetTypes)
 		{
 			for (bool strict : {false, true})
 			{
-				C4Value val = MakeSourceValue(src);
+				C4Value val = MakeSourceValue(src, table);
 				bool sourceIsNil = val.IsNil();
 				bool result = val.ConvertTo(tgt, strict);
-				bool expected = ExpectedCnvResult(src, tgt, strict, sourceIsNil);
+				// ConvertTo indexes C4ScriptCnvMap by the value's *raw* Type
+				// field, not the dereferenced type reported by GetType().
+				// C4V_C4Object is constructed with nullptr which collapses to
+				// a nil C4V_Any, so its expected results come from the
+				// C4V_Any row. Every other source type retains its raw Type,
+				// so the requested `src` is the correct table row.
+				C4V_Type tableSrc = (src == C4V_C4Object) ? C4V_Any : src;
+				bool expected = ExpectedCnvResult(tableSrc, tgt, strict, sourceIsNil);
 
 				INFO("src=" << GetC4VName(src) << " tgt=" << GetC4VName(tgt)
 				     << " strict=" << strict << " => got=" << result

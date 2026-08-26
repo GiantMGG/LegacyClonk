@@ -18,16 +18,19 @@ function (add_test_target TEST_NAME)
 	add_executable("${TARGET}" ${ADD_TEST_SOURCES})
 	target_include_directories("${TARGET}" PRIVATE "${CMAKE_SOURCE_DIR}/src" ${ADD_TEST_INCLUDE_DIRS})
 	target_compile_definitions("${TARGET}" PRIVATE C4ENGINE)
+	if (USE_CONSOLE)
+		target_compile_definitions("${TARGET}" PRIVATE USE_CONSOLE=1)
+	endif ()
 	target_link_libraries("${TARGET}" PRIVATE Catch2::Catch2WithMain standard ${ADD_TEST_LIBRARIES})
 
 	if (ADD_TEST_LINK_ENGINE)
 		target_link_libraries("${TARGET}" PRIVATE clonk_engine)
-		# clonk_engine includes C4WinMain.cpp (which defines `main()`) because
-		# that TU also defines the `Game`/`Application` globals. Allow the
-		# duplicate `main()` so Catch2's main() (linked first) wins.
-		if (UNIX AND NOT APPLE)
-			target_link_options("${TARGET}" PRIVATE -Wl,--allow-multiple-definition)
-		endif ()
+		# Provide the Game/Application/Console/FullScreen/Config globals that
+		# C4WinMain.cpp would normally define. C4WinMain.cpp is excluded from
+		# clonk_engine (it also defines main(), which would clash with
+		# Catch2's main() on macOS and Windows), so test binaries link this
+		# test-only TU instead.
+		target_sources("${TARGET}" PRIVATE "${CMAKE_SOURCE_DIR}/tests/TstEngineGlobals.cpp")
 	endif ()
 
 	add_test(NAME "${TEST_NAME}" COMMAND "${TARGET}" WORKING_DIRECTORY "${CMAKE_BINARY_DIR}")
