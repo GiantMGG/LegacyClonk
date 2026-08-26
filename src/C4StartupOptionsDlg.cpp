@@ -19,6 +19,7 @@
 
 #include "C4GuiComboBox.h"
 #include "C4GuiEdit.h"
+#include "C4GuiListBox.h"
 #include "C4GuiResource.h"
 #include "C4GuiTabular.h"
 
@@ -26,6 +27,7 @@
 #include <C4StartupOptionsAdvancedConfigDialog.h>
 
 #include <C4StartupMainDlg.h>
+#include <C4KeyboardInput.h>
 #include <C4Language.h>
 #include <C4GamePadCon.h>
 #include <C4Game.h>
@@ -169,6 +171,42 @@ const char *LoadKeyDescResStr(const int32_t iKeyID)
 	};
 	if (!Inside<int32_t>(iKeyID, 0, C4MaxKey)) return nullptr;
 	return LoadResStr(KeyIDStringIDs[iKeyID]);
+}
+
+static std::string GetKeyDisplayName(const C4CustomKey *pKey)
+{
+	const char *szName = pKey->GetName().getData();
+	const char *pKeyNum = nullptr;
+	if (strncmp(szName, "Kbd", 3) == 0)
+	{
+		pKeyNum = strstr(szName, "Key");
+		if (pKeyNum) pKeyNum += 3;
+	}
+	else if (strncmp(szName, "Joy", 3) == 0)
+	{
+		pKeyNum = strstr(szName, "Btn");
+		if (pKeyNum) pKeyNum += 3;
+	}
+	if (pKeyNum && *pKeyNum)
+	{
+		int32_t iKeyID = atoi(pKeyNum) - 1;
+		const char *szDesc = LoadKeyDescResStr(iKeyID);
+		if (szDesc)
+			return std::string(szName) + " (" + szDesc + ")";
+	}
+	return std::string(szName);
+}
+
+static std::string GetKeyCategory(const C4CustomKey *pKey)
+{
+	const char *szName = pKey->GetName().getData();
+	C4KeyScope scope = pKey->GetScope();
+	if (strncmp(szName, "Dbg", 3) == 0) return "Debug";
+	if (scope & KEYSCOPE_Control) return "Player Controls";
+	if (scope & KEYSCOPE_FullSMenu) return "Fullscreen Menu";
+	if (scope & KEYSCOPE_Console) return "Console";
+	if (scope & (KEYSCOPE_FreeView | KEYSCOPE_FilmView)) return "Free View";
+	return "Generic";
 }
 
 C4StartupOptionsDlg::KeySelDialog::KeySelDialog(int32_t iKeyID, int32_t iCtrlSet, bool fGamepad, bool fAnyKey, const char *szRebindName)
@@ -453,6 +491,176 @@ void C4StartupOptionsDlg::ControlConfigArea::OnGUIGamepadCheckChange(C4GUI::Elem
 	Config.Controls.GamepadGuiControl = fChecked;
 	Game.pGUI->UpdateGamepadGUIControlEnabled();
 	pOptionsDlg->RecreateDialog(false);
+}
+
+// C4StartupOptionsDlg::BindingsTab
+
+C4StartupOptionsDlg::BindingsTab::BindingsTab(const C4Rect &rcArea, C4StartupOptionsDlg *pOptionsDlg)
+	: C4GUI::Window(), pKeyList(nullptr), pOptionsDlg(pOptionsDlg)
+{
+	SetBounds(rcArea);
+	C4GUI::ComponentAligner caMain(rcArea, 2, 2, true);
+
+	// Bottom button area
+	C4GUI::ComponentAligner caBottom(caMain.GetFromBottom(C4GUI_ButtonHgt + 4), 2, 2);
+
+	// Reset All button
+	const char *szResetAll = LoadResStr(C4ResStrTableKey::IDS_BTN_RESETKEYS);
+	int32_t iBtnWdt = 200, iBtnHgt = C4GUI_ButtonHgt;
+	C4GUI::GetRes()->CaptionFont.GetTextExtent(szResetAll, iBtnWdt, iBtnHgt, true);
+	C4GUI::CallbackButton<BindingsTab, SmallButton> *pResetBtn =
+		new C4GUI::CallbackButton<BindingsTab, SmallButton>(szResetAll, caBottom.GetFromRight(iBtnWdt + iBtnHgt * 2), &BindingsTab::OnResetAllBtn, this);
+	pResetBtn->SetToolTip(LoadResStr(C4ResStrTableKey::IDS_MSG_RESETALLKEYS));
+
+	// ListBox for key list
+	pKeyList = new C4GUI::ListBox(caMain.GetAll());
+	pKeyList->SetDecoration(true, nullptr, false, true);
+
+	AddElement(pKeyList);
+	AddElement(pResetBtn);
+
+	PopulateKeyList();
+}
+
+void C4StartupOptionsDlg::BindingsTab::PopulateKeyList()
+{
+	const C4KeyboardInput &ki = Game.KeyboardInput;
+
+	static const char *szCategories[] = {
+		"Player Controls", "Fullscreen Menu", "Generic", "Free View", "Console", "Debug"
+	};
+	static const int iNumCategories = 6;
+
+	std::map<std::string, std::vector<C4CustomKey *>> keysByCategory;
+	for (const auto &pair : ki.GetKeysByName())
+	{
+		std::string cat = GetKeyCategory(pair.second);
+		keysByCategory[cat].push_back(pair.second);
+	}
+
+	for (int iCat = 0; iCat < iNumCategories; ++iCat)
+	{
+		auto it = keysByCategory.find(szCategories[iCat]);
+		if (it == keysByCategory.end()) continue;
+
+		auto &keys = it->second;
+		std::sort(keys.begin(), keys.end(), [](C4CustomKey *a, C4CustomKey *b) {
+			return strcmp(a->GetName().getData(), b->GetName().getData()) < 0;
+		});
+
+		C4GUI::Label *pHeader = new C4GUI::Label(szCategories[iCat], C4Rect(0, 0, 0, 25), ALeft, C4StartupFontClr);
+		pKeyList->AddElement(pHeader);
+
+		for (C4CustomKey *pKey : keys)
+			AddKeyRow(pKey);
+	}
+}
+
+void C4StartupOptionsDlg::BindingsTab::AddKeyRow(C4CustomKey *pKey)
+{
+	const int32_t iRowHgt = 25;
+	C4GUI::Window *pRow = new C4GUI::Window();
+	pRow->SetBounds(C4Rect(0, 0, 0, iRowHgt));
+
+	C4GUI::ComponentAligner caRow(pRow->GetClientRect(), 2, 1);
+	int32_t iTotalWdt = caRow.GetWidth();
+	int32_t iNameWdt = iTotalWdt * 50 / 100;
+	int32_t iBindingWdt = iTotalWdt * 20 / 100;
+	int32_t iRebindWdt = iTotalWdt * 15 / 100;
+	int32_t iResetWdt = iTotalWdt * 15 / 100;
+
+	std::string sName = GetKeyDisplayName(pKey);
+	pRow->AddElement(new C4GUI::Label(sName.c_str(), caRow.GetFromLeft(iNameWdt), ALeft, C4StartupFontClr));
+
+	const C4CustomKey::CodeList &codes = pKey->GetCodes();
+	std::string sBinding;
+	if (codes.empty())
+		sBinding = "";
+	else
+		sBinding = C4KeyCodeEx::KeyCode2String(codes[0].Key, true, false);
+	C4GUI::Label *pBindingLbl = new C4GUI::Label(sBinding.c_str(), caRow.GetFromLeft(iBindingWdt), ALeft, C4StartupFontClr);
+	pRow->AddElement(pBindingLbl);
+
+	C4GUI::CallbackButton<BindingsTab, SmallButton> *pRebindBtn =
+		new C4GUI::CallbackButton<BindingsTab, SmallButton>(LoadResStr(C4ResStrTableKey::IDS_BTN_REBIND), caRow.GetFromLeft(iRebindWdt), &BindingsTab::OnRebindBtn, this);
+	pRow->AddElement(pRebindBtn);
+
+	C4GUI::CallbackButton<BindingsTab, SmallButton> *pResetKeyBtn =
+		new C4GUI::CallbackButton<BindingsTab, SmallButton>(LoadResStr(C4ResStrTableKey::IDS_BTN_RESETKEY), caRow.GetFromLeft(iResetWdt), &BindingsTab::OnResetKeyBtn, this);
+	pRow->AddElement(pResetKeyBtn);
+
+	KeyRow row;
+	row.pKey = pKey;
+	row.pBindingLabel = pBindingLbl;
+	row.pRebindBtn = pRebindBtn;
+	row.pResetKeyBtn = pResetKeyBtn;
+	vKeyRows.push_back(row);
+
+	pKeyList->AddElement(pRow);
+}
+
+void C4StartupOptionsDlg::BindingsTab::UpdateBindingLabel(KeyRow &row)
+{
+	const C4CustomKey::CodeList &codes = row.pKey->GetCodes();
+	std::string sBinding;
+	if (codes.empty())
+		sBinding = "";
+	else
+		sBinding = C4KeyCodeEx::KeyCode2String(codes[0].Key, true, false);
+	row.pBindingLabel->SetText(sBinding.c_str());
+}
+
+void C4StartupOptionsDlg::BindingsTab::OnRebindBtn(C4GUI::Control *btn)
+{
+	for (auto &row : vKeyRows)
+	{
+		if (row.pRebindBtn == btn)
+		{
+			KeySelDialog *pDlg = new KeySelDialog(0, 0, false, true, row.pKey->GetName().getData());
+			pDlg->SetDelOnClose(false);
+			bool fSuccess = GetScreen()->ShowModalDlg(pDlg, false);
+			C4KeyCode key = pDlg->GetKeyCode();
+			delete pDlg;
+			if (!fSuccess) return;
+
+			C4CustomKey::CodeList newCodes;
+			newCodes.push_back(C4KeyCodeEx(key));
+			Game.KeyboardInput.RebindKey(row.pKey, newCodes);
+			UpdateBindingLabel(row);
+			return;
+		}
+	}
+}
+
+void C4StartupOptionsDlg::BindingsTab::OnResetKeyBtn(C4GUI::Control *btn)
+{
+	for (auto &row : vKeyRows)
+	{
+		if (row.pResetKeyBtn == btn)
+		{
+			Game.KeyboardInput.ResetKey(row.pKey);
+			UpdateBindingLabel(row);
+			return;
+		}
+	}
+}
+
+void C4StartupOptionsDlg::BindingsTab::OnResetAllBtn(C4GUI::Control *btn)
+{
+	C4GUI::MessageDialog *pDlg = new C4GUI::MessageDialog(
+		LoadResStr(C4ResStrTableKey::IDS_MSG_RESETALLKEYS),
+		LoadResStr(C4ResStrTableKey::IDS_DLG_OPTIONS),
+		C4GUI::MessageDialog::btnYesNo,
+		C4GUI::Ico_None,
+		C4GUI::MessageDialog::dsRegular);
+	pDlg->SetDelOnClose(false);
+	bool fConfirmed = GetScreen()->ShowModalDlg(pDlg, false);
+	delete pDlg;
+	if (!fConfirmed) return;
+
+	Game.KeyboardInput.ResetAllKeys();
+	for (auto &row : vKeyRows)
+		UpdateBindingLabel(row);
 }
 
 // C4StartupOptionsDlg::NetworkPortConfig

@@ -215,6 +215,34 @@ protected:
 		void OnGUIGamepadCheckChange(C4GUI::Element *pCheckBox);
 	};
 
+	// bindings tab
+	class BindingsTab : public C4GUI::Window
+	{
+	private:
+		C4GUI::ListBox *pKeyList;
+		C4StartupOptionsDlg *pOptionsDlg;
+
+		struct KeyRow
+		{
+			C4CustomKey *pKey;
+			C4GUI::Label *pBindingLabel;
+			C4GUI::CallbackButton<BindingsTab, SmallButton> *pRebindBtn;
+			C4GUI::CallbackButton<BindingsTab, SmallButton> *pResetKeyBtn;
+		};
+		std::vector<KeyRow> vKeyRows;
+
+		void PopulateKeyList();
+		void AddKeyRow(C4CustomKey *pKey);
+		void UpdateBindingLabel(KeyRow &row);
+
+	public:
+		BindingsTab(const C4Rect &rcArea, C4StartupOptionsDlg *pOptionsDlg);
+
+		void OnRebindBtn(C4GUI::Control *btn);
+		void OnResetKeyBtn(C4GUI::Control *btn);
+		void OnResetAllBtn(C4GUI::Control *btn);
+	};
+
 	// network tab
 private:
 	// checkbox to enable protocol and editbox to input port number
