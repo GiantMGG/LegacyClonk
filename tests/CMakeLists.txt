@@ -13,12 +13,22 @@
 
 function (add_test_target TEST_NAME)
 	set(TARGET "test_${TEST_NAME}")
-	cmake_parse_arguments(PARSE_ARGV 1 "ADD_TEST" "" "" "SOURCES;INCLUDE_DIRS;LIBRARIES")
+	cmake_parse_arguments(PARSE_ARGV 1 "ADD_TEST" "LINK_ENGINE" "" "SOURCES;INCLUDE_DIRS;LIBRARIES")
 
 	add_executable("${TARGET}" ${ADD_TEST_SOURCES})
 	target_include_directories("${TARGET}" PRIVATE "${CMAKE_SOURCE_DIR}/src" ${ADD_TEST_INCLUDE_DIRS})
 	target_compile_definitions("${TARGET}" PRIVATE C4ENGINE)
 	target_link_libraries("${TARGET}" PRIVATE Catch2::Catch2WithMain standard ${ADD_TEST_LIBRARIES})
+
+	if (ADD_TEST_LINK_ENGINE)
+		target_link_libraries("${TARGET}" PRIVATE clonk_engine)
+		# clonk_engine includes C4WinMain.cpp (which defines `main()`) because
+		# that TU also defines the `Game`/`Application` globals. Allow the
+		# duplicate `main()` so Catch2's main() (linked first) wins.
+		if (UNIX AND NOT APPLE)
+			target_link_options("${TARGET}" PRIVATE -Wl,--allow-multiple-definition)
+		endif ()
+	endif ()
 
 	add_test(NAME "${TEST_NAME}" COMMAND "${TARGET}" WORKING_DIRECTORY "${CMAKE_BINARY_DIR}")
 endfunction ()
@@ -33,4 +43,13 @@ add_test_target(C4NetIO
 		"${CMAKE_SOURCE_DIR}/src/C4NetIO.cpp"
 		"${CMAKE_SOURCE_DIR}/src/C4Network2Address.cpp"
 		"${CMAKE_SOURCE_DIR}/src/StdSync.cpp"
+)
+
+add_test_target(C4ValueCoercion
+	SOURCES "${CMAKE_SOURCE_DIR}/tests/TstC4ValueCoercion.cpp"
+	LINK_ENGINE
+)
+add_test_target(C4AulParse
+	SOURCES "${CMAKE_SOURCE_DIR}/tests/TstC4AulParse.cpp"
+	LINK_ENGINE
 )
