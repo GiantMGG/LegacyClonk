@@ -65,10 +65,23 @@ jobs:
 
       - name: "Dependencies"
         run: |
+          set -euo pipefail
+          source tools/deps-lock.sh
+          PLATFORM="${{ matrix.os }}-${{ matrix.arch }}"
+          EXPECTED_SHA="$(lock_get tarballs "$PLATFORM")"
+          TARBALL="lc_deps-${PLATFORM}.tar.gz"
+          curl -fL -o "$TARBALL" \
+            "https://github.com/legacyclonk/deps/releases/download/$DEPS_VERSION/$TARBALL"
+          ACTUAL_SHA="$(sha256sum "$TARBALL" | cut -d' ' -f1)"
+          if [ "$ACTUAL_SHA" != "$EXPECTED_SHA" ]; then
+            echo "ERROR: deps tarball SHA-256 mismatch for $PLATFORM" >&2
+            echo "  expected: $EXPECTED_SHA" >&2
+            echo "  actual:   $ACTUAL_SHA" >&2
+            exit 1
+          fi
           mkdir deps
-          cd deps
-          curl -L "https://github.com/legacyclonk/deps/releases/download/$DEPS_VERSION/lc_deps-${{ matrix.os }}-${{ matrix.arch }}.tar.gz" | tar -xz
-          ./fix_paths.sh
+          tar -xzf "$TARBALL" -C deps
+          ( cd deps && ./fix_paths.sh )
 
       - name: Configure
         run: |

@@ -1,0 +1,46 @@
+# LegacyClonk reproducible-build lock file.
+#
+# Pinned dependency tarballs, build-tool versions, and baseline binary hashes.
+# Consumed by tools/verify-repro.sh and the CI Dependencies step
+# (via tools/deps-lock.sh).
+#
+# To bump deps: see "For a maintainer bumping deps" in
+# .opencode/specs/2026-08-26-0745-reproducible-build-pinning.md
+
+[meta]
+release_tag = 2026-07-25
+base_url = https://github.com/legacyclonk/deps/releases/download
+lock_version = 1
+
+[tools]
+cmake = 4.4.2
+gcc = 16.1.0
+llvm = 22
+linuxdeploy = 1-alpha-20251107-1
+windows_toolchain = 0.14.0
+
+[tarballs]
+Linux-aarch64 = 243565d925de9cdba33d1efe5d72cfb409e01fc2c1ab7fa3afdf6c8e4c940459
+Linux-x64 = fe969c1028fd2ee19bf50866b8d10d3283fabf1e48d9193673f5a73919e3e494
+Mac-aarch64 = 67a62d7e3bef80d46f7dc76d1a9a4425d27a95884f8052fb46c3ba3c329364fa
+Mac-x64 = 33cdab6a64425a01660eccbda9a8a7bc6185e7647ccb22e24a6a67c6fb67558c
+Windows-aarch64 = 1f82232be77233fa042e443a642ea250fa6214dd75078179998818769f7053ba
+Windows-x64 = b33b727572da770ba0fc94998510c42a3f1140c8c6bc7fc3fe61b1e1606ed912
+Windows-x86 = 144e80b00599f35065a9ad55deba8376b70428fe929cb0a3dfcad29861194007
+
+[spdlog]
+git_repository = https://github.com/gabime/spdlog.git
+git_tag = v1.14.1
+git_hash = 27cb4c76708608465c413f6d0e6b8d99a4d84302
+
+[baseline.binaries]
+# SHA-256 of the binaries produced by a clean from-scratch build with the
+# above deps and tools, recorded via `tools/verify-repro.sh --update-baseline`.
+# Only the raw clonk + c4group binaries are baselined — AppImage packaging
+# is excluded (linuxdeploy introduces its own nondeterminism).
+#
+# NOTE: Baseline entries are absent in this commit because the engine build
+# is currently broken (glibc conflict). Once the toolchain is fixed, a
+# maintainer should run `tools/verify-repro.sh --update-baseline` on each
+# platform to populate this section. Absent entries cause verify-repro.sh
+# to print SKIP (not a failure) for that platform.

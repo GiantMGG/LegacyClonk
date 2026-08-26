@@ -490,7 +490,10 @@ else ()
 	FetchContent_Declare(
 		spdlog
 		GIT_REPOSITORY https://github.com/gabime/spdlog.git
-		GIT_TAG v1.14.1
+		# Pinned by commit SHA, not the movable v1.14.1 tag.
+		# To bump: git ls-remote https://github.com/gabime/spdlog.git refs/tags/v<X.Y.Z>
+		# then update deps.lock [spdlog] git_hash to match.
+		GIT_TAG 27cb4c76708608465c413f6d0e6b8d99a4d84302
 	)
 
 	set(SPDLOG_BUILD_EXAMPLE OFF)
