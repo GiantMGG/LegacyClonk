@@ -22,6 +22,9 @@
 
 #include <C4Game.h>
 #include <C4Wrappers.h>
+#include <C4Components.h>
+#include <C4Group.h>
+#include <StdCompiler.h>
 
 #ifdef USE_X11
 #include <X11/Xlib.h>
@@ -634,6 +637,54 @@ void C4KeyboardInput::UpdateKeyCodes(C4CustomKey *pKey, const C4CustomKey::CodeL
 		if (std::find(rOldCodes.begin(), rOldCodes.end(), *iCode) != rOldCodes.end()) continue;
 		KeysByCode.insert(std::make_pair(*iCode, pKey));
 	}
+}
+
+void C4KeyboardInput::RebindKey(C4CustomKey *pKey, const C4CustomKey::CodeList &rNewCodes)
+{
+	if (!pKey) return;
+	C4CustomKey::CodeList OldCodes = pKey->GetCodes();
+	pKey->SetCodes(rNewCodes);
+	UpdateKeyCodes(pKey, OldCodes, rNewCodes);
+}
+
+void C4KeyboardInput::ResetKey(C4CustomKey *pKey)
+{
+	if (!pKey) return;
+	C4CustomKey::CodeList OldCodes = pKey->GetCodes();
+	pKey->ResetCodes();
+	UpdateKeyCodes(pKey, OldCodes, pKey->GetCodes());
+}
+
+void C4KeyboardInput::ResetAllKeys()
+{
+	KeysByCode.clear();
+	for (KeyNameMap::const_iterator i = KeysByName.begin(); i != KeysByName.end(); ++i)
+	{
+		C4CustomKey *pKey = i->second;
+		pKey->ResetCodes();
+		const C4CustomKey::CodeList &codes = pKey->GetCodes();
+		for (C4CustomKey::CodeList::const_iterator j = codes.begin(); j != codes.end(); ++j)
+			KeysByCode.insert(std::make_pair(*j, pKey));
+	}
+}
+
+bool C4KeyboardInput::SaveCustomConfig()
+{
+	C4Group GrpExtra;
+	if (!GrpExtra.Open(C4CFN_Extra)) return false;
+	// Remove any existing KeyConfig.txt entry
+	GrpExtra.Delete(C4CFN_KeyConfig);
+	// Serialize all keys to INI
+	StdCompilerINIWrite IniWrite;
+	IniWrite.Decompile(*this);
+	const std::string output = IniWrite.getOutput();
+	StdStrBuf sBuf;
+	sBuf.Copy(output.data(), output.size());
+	// Add to Extra.c4g (fHoldBuffer=true transfers ownership to group)
+	bool fOK = GrpExtra.Add(C4CFN_KeyConfig, sBuf, false, true);
+	if (fOK) GrpExtra.Save(false);
+	GrpExtra.Close();
+	return fOK;
 }
 
 void C4KeyboardInput::RegisterKey(C4CustomKey *pRegKey)

@@ -372,6 +372,9 @@ public:
 	C4KeyScope GetScope() const { return Scope; }
 	unsigned int GetPriority() const { return uiPriority; }
 
+	void SetCodes(const CodeList &rNewCodes) { Codes = rNewCodes; }
+	void ResetCodes() { Codes.clear(); }
+
 	void Update(const C4CustomKey *pByKey); // merge given key into this
 	bool Execute(C4KeyEventType eEv, C4KeyCodeEx key);
 
@@ -392,7 +395,7 @@ public:
 // main keyboard mapping class
 class C4KeyboardInput
 {
-private:
+public:
 	// comparison fn for map
 	struct szLess
 	{
@@ -401,6 +404,8 @@ private:
 
 	typedef std::multimap<C4KeyCodeEx, C4CustomKey *> KeyCodeMap;
 	typedef std::map<const char *, C4CustomKey *, szLess> KeyNameMap;
+
+private:
 	// mapping of all keys by code and name
 	KeyCodeMap KeysByCode;
 	KeyNameMap KeysByName;
@@ -410,6 +415,12 @@ public:
 
 	C4KeyboardInput() { IsValid = true; }
 	~C4KeyboardInput() { Clear(); IsValid = false; }
+
+	const KeyNameMap &GetKeysByName() const { return KeysByName; }
+	void RebindKey(C4CustomKey *pKey, const C4CustomKey::CodeList &rNewCodes);
+	void ResetKey(C4CustomKey *pKey);
+	void ResetAllKeys();
+	bool SaveCustomConfig();
 
 	void Clear(); // empty keyboard maps
 
