@@ -559,8 +559,9 @@ void C4StartupOptionsDlg::BindingsTab::PopulateKeyList()
 void C4StartupOptionsDlg::BindingsTab::AddKeyRow(C4CustomKey *pKey)
 {
 	const int32_t iRowHgt = 25;
+	const int32_t iRowWdt = pKeyList->GetItemWidth();
 	C4GUI::Window *pRow = new C4GUI::Window();
-	pRow->SetBounds(C4Rect(0, 0, 0, iRowHgt));
+	pRow->SetBounds(C4Rect(0, 0, iRowWdt, iRowHgt));
 
 	C4GUI::ComponentAligner caRow(pRow->GetClientRect(), 2, 1);
 	int32_t iTotalWdt = caRow.GetWidth();
