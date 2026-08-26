@@ -67,6 +67,14 @@ void C4Weather::Init(bool fScenario)
 		// gamma?
 		NoGamma = section.C4S.Weather.NoGamma;
 	}
+	// Weather-event state: re-resolve the cached object pointer on load.
+	// If the saved event object is gone, force the state machine back to a
+	// clean cooldown (Edge #1).
+	if (ActiveEventID != C4ID_None)
+	{
+		pActiveEventObj = section.FindObject(ActiveEventID);
+		if (!pActiveEventObj) StopWeatherEvent();
+	}
 	// set gamma
 	SetSeasonGamma();
 }
@@ -147,6 +155,33 @@ void C4Weather::Execute()
 					BoundBy(15 * section.Landscape.Height / 500 + r2, 10, 60));
 			}
 	}
+
+	// --- Weather-event scheduling (data-driven; see [WeatherEvents] block) ---
+	if (!Tick1000)
+	{
+		if (EventDuration <= 0 && EventCooldown > 0)
+		{
+			EventCooldown -= 1000; // Tick1000 fires ~every 1000ms
+			if (EventCooldown < 0) EventCooldown = 0;
+		}
+		else if (ActiveEventID == C4ID_None && EventCooldown <= 0)
+		{
+			// Roll for a new event per the scenario's [WeatherEvents] table.
+			C4ID idRolled = section.C4S.Events.RollEventForSeason(Season);
+			if (idRolled != C4ID_None)
+			{
+				int32_t iIntensity = 25 + Random(75);   // 25..99 — synced Random
+				int32_t iDuration  = 350 + Random(350); // ~35..70s in Tick35 units
+				LaunchWeatherEvent(idRolled, iIntensity, iDuration);
+			}
+		}
+	}
+	// Tick35 drives the active event's countdown.
+	if (Tick35 && EventDuration > 0)
+	{
+		if (--EventDuration <= 0)
+			StopWeatherEvent();
+	}
 }
 
 void C4Weather::Clear() {}
@@ -192,6 +227,11 @@ void C4Weather::Default()
 	TemperatureRange = 30;
 	MeteoriteLevel = VolcanoLevel = EarthquakeLevel = LightningLevel = 0;
 	NoGamma = true;
+	ActiveEventID    = C4ID_None;
+	EventIntensity   = 0;
+	EventDuration    = 0;
+	EventCooldown    = 0;
+	pActiveEventObj  = nullptr;
 }
 
 bool C4Weather::LaunchEarthquake(int32_t iX, int32_t iY)
@@ -213,6 +253,44 @@ bool C4Weather::LaunchCloud(int32_t iX, int32_t iY, int32_t iWidth, int32_t iStr
 			C4VInt(iStrength)}))
 			return true;
 	return false;
+}
+
+bool C4Weather::LaunchWeatherEvent(C4ID idEvent, int32_t iIntensity, int32_t iDuration)
+{
+	// One-event invariant: tear down anything already running first.
+	if (ActiveEventID != C4ID_None)
+		StopWeatherEvent();
+
+	C4Object *pObj = section.CreateObject(idEvent, nullptr, NO_OWNER,
+	                                      section.Landscape.Width / 2, 0);
+	if (!pObj) return false;
+
+	ActiveEventID    = idEvent;
+	EventIntensity   = BoundBy<int32_t>(iIntensity, 1, 100);
+	EventDuration    = std::max<int32_t>(iDuration, 1);
+	EventCooldown    = 0;
+	pActiveEventObj  = pObj;
+
+	// Engine→content contract: the Start callback is the event's hook to
+	// read GetWeatherEventIntensity() / GetWeatherEventDuration() and begin
+	// ramping wind/temperature/etc.
+	pObj->Call("~Start");
+	return true;
+}
+
+void C4Weather::StopWeatherEvent()
+{
+	// Guard against the object having been removed out from under us (Edge #3).
+	if (pActiveEventObj && pActiveEventObj->Status == C4OS_NORMAL)
+	{
+		pActiveEventObj->Call("~Stop");
+		pActiveEventObj->AssignRemoval();
+	}
+	ActiveEventID    = C4ID_None;
+	EventIntensity   = 0;
+	EventDuration    = 0;
+	EventCooldown    = 700 + Random(1400); // ~1.4..3.5s real time before re-roll
+	pActiveEventObj  = nullptr;
 }
 
 void C4Weather::SetWind(int32_t iWind)
@@ -306,6 +384,10 @@ void C4Weather::CompileFunc(StdCompiler *pComp)
 	pComp->Value(mkNamingAdapt(EarthquakeLevel,  "EarthquakeLevel",  0));
 	pComp->Value(mkNamingAdapt(LightningLevel,   "LightningLevel",   0));
 	pComp->Value(mkNamingAdapt(NoGamma,          "NoGamma",          false));
+	pComp->Value(mkNamingAdapt(ActiveEventID,    "ActiveEventID",    C4ID_None));
+	pComp->Value(mkNamingAdapt(EventIntensity,   "EventIntensity",   0));
+	pComp->Value(mkNamingAdapt(EventDuration,    "EventDuration",    0));
+	pComp->Value(mkNamingAdapt(EventCooldown,    "EventCooldown",    0));
 	uint32_t dwGammaDefaults[C4MaxGammaRamps * 3];
 	for (int32_t i = 0; i < C4MaxGammaRamps; ++i)
 	{
