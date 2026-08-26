@@ -1,0 +1,3 @@
+Name = MySword
+Category = 1024
+Picture = 0,0,16,16

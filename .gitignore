@@ -1,1 +1,13 @@
 .repro-work/
+# Docs build artifacts
+site/
+# Auto-generated reference pages (produced by tools/harvest_callbacks.py)
+docs/reference/callbacks/*.md
+!docs/reference/callbacks/_curated.yaml
+docs/reference/functions/*.md
+!docs/reference/functions/_curated.yaml
+docs/reference/constants.md
+docs/reference/defcore.md
+# Harvest synthetic fixtures are committed; no ignore needed.
+__pycache__/
+*.pyc

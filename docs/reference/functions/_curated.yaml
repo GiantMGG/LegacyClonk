@@ -1,0 +1,51 @@
+# Hand-written descriptions + examples for built-in C4Script functions,
+# keyed by the C4Script function name. The harvest script reads this sidecar
+# and never writes to it.
+
+Explode:
+  summary: Blows up the object, dealing damage in a radius.
+  params:
+    iLevel: Explosion strength (radius and damage scale with this).
+    pObj: Object to explode. Defaults to `this`.
+    idEffect: Magic-effect ID to attribute the explosion to.
+    szEffect: Optional custom effect name.
+  returns: Always `true` once the explosion is queued.
+  example: |
+    func Hit() {
+      Explode(20, this);
+    }
+
+Message:
+  summary: Shows a text message above the object.
+  params:
+    szMessage: The text to display.
+    pObj: Object to display above. Defaults to `this`.
+  returns: "`true` if the message was shown."
+  example: |
+    func Initialize() {
+      Message("Hello!", this);
+    }
+
+CreateObject:
+  summary: Creates a new object of the given definition in the world.
+  params:
+    idDef: The definition ID to create.
+    iX: X coordinate. Defaults to caller's X.
+    iY: Y coordinate. Defaults to caller's Y.
+    iOwner: Owner player number. Defaults to caller's owner.
+  returns: The created `object`, or `nil` on failure.
+  example: |
+    func Initialize() {
+      CreateObject(Rock, 100, 50, -1);
+    }
+
+FindObject:
+  summary: Finds the first object matching a set of conditions.
+  params:
+    ...: Variable conditions (id, OCF, action, container, etc.).
+  returns: The first matching `object`, or `nil`.
+  example: |
+    func Hit() {
+      var sword = FindObject(Find_ID(Sword));
+      if (sword) Explode(20, sword);
+    }

@@ -1,0 +1,40 @@
+# Hand-written descriptions for C4Script callbacks, keyed by callback name.
+# The harvest script reads this sidecar and never writes to it.
+
+Initialize:
+  when: Fires once when an object is created in the world.
+  returns: None.
+  description: |
+    `Initialize` is the first callback fired on a freshly created object.
+    Use it to set initial state, spawn components, or queue commands.
+
+Hit:
+  when: Fires when an object collides with the landscape or another object.
+  returns: None.
+
+Damage:
+  when: Fires when an object takes damage.
+  returns: None.
+  description: |
+    `Damage` is called with the damage amount and the cause. Override it to
+    react to damage (e.g. play a sound, break, or explode).
+
+Death:
+  when: Fires when an object's energy reaches zero.
+  returns: None.
+
+Construction:
+  when: Fires when a structure is built (after `Initialize`).
+  returns: None.
+
+Destruction:
+  when: Fires right before an object is removed from the world.
+  returns: None.
+
+Completion:
+  when: Fires when a construction completes.
+  returns: None.
+
+FxStart:
+  when: Fires when an effect starts on an object.
+  returns: int (effect number) or 0 to reject.

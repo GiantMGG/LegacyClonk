@@ -1,0 +1,17 @@
+/* LegacyClonk modder docs — minor Material theme tweaks */
+
+:root {
+  --md-primary-fg-color: #6b4226;
+  --md-primary-fg-color--light: #8a5836;
+  --md-primary-fg-color--dark: #4a2d1a;
+  --md-accent-fg-color: #c4621a;
+}
+
+.md-typeset code {
+  padding: 0.2em 0.4em;
+  font-size: 0.85em;
+}
+
+.md-typeset pre > code {
+  padding: 0.6em 0.8em;
+}

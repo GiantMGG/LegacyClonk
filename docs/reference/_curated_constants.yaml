@@ -1,0 +1,10 @@
+# Hand-written one-line descriptions for global constants, keyed by name.
+
+C4D_All: All category bits set.
+C4D_Structure: Structure category.
+C4D_Vehicle: Vehicle category.
+C4D_Living: Living creature category.
+C4D_Object: Generic object category.
+C4D_Goal: Goal object category.
+OCF_Construct: Object can be constructed.
+COMD_None: No command.

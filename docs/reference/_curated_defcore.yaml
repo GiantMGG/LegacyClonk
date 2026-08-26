@@ -1,0 +1,23 @@
+# Hand-written descriptions for DefCore.txt fields, keyed by the DefCore.txt
+# field name (the quoted second arg of mkNamingAdapt).
+
+Timer:
+  description: Frame interval between TimerCall invocations.
+
+TimerCall:
+  description: Name of the function called every Timer frames.
+
+Mass:
+  description: Object mass; affects physics interactions.
+
+Name:
+  description: Display name of the definition.
+
+Category:
+  description: Bitfield of C4D_* category flags.
+
+Value:
+  description: Default buy/sell value.
+
+Components:
+  description: Default component list (C4ID list).
