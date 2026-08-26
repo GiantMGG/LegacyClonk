@@ -1411,6 +1411,7 @@ bool C4StartupOptionsDlg::SaveConfig(bool fForce, bool fKeepOpen)
 	if (SEqual(Config.Network.Nick.getData(), Config.Network.LocalName.getData())) Config.Network.Nick.Clear();
 	// make sure config is saved, in case the game crashes later on or another instance is started
 	Config.Save();
+	Game.KeyboardInput.SaveCustomConfig();
 	if (!fKeepOpen) fConfigSaved = true;
 	// done; config OK
 	return true;
