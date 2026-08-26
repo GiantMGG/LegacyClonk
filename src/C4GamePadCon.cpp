@@ -292,6 +292,8 @@ C4GamePadControl::C4GamePadControl()
 		throw;
 	}
 	SDL_JoystickEventState(SDL_ENABLE);
+	if (SDL_GameControllerAddMappingsFromFile("gamecontrollerdb.txt") == -1)
+		LogNTr("No gamecontrollerdb.txt found; using default gamepad mappings");
 	if (!SDL_NumJoysticks()) LogNTr("No Gamepad found");
 }
 
