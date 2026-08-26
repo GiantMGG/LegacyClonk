@@ -22,6 +22,8 @@
 
 #include <cstdint>
 
+class C4Object;
+
 class C4Weather
 {
 public:
@@ -38,6 +40,13 @@ public:
 	int32_t MeteoriteLevel, VolcanoLevel, EarthquakeLevel, LightningLevel;
 	bool NoGamma;
 
+	// --- Weather-event state (network-replicated via CompileFunc) ---
+	C4ID     ActiveEventID{C4ID_None};   // C4ID of the running event, or C4ID_None
+	int32_t  EventIntensity{0};          // 1..100, set at LaunchWeatherEvent
+	int32_t  EventDuration{0};           // remaining Tick35 ticks (Tick35 decrements)
+	int32_t  EventCooldown{0};           // ticks to wait before next roll
+	C4Object *pActiveEventObj{nullptr};  // non-serialized cache; re-resolved on load
+
 public:
 	void Default();
 	void Clear();
@@ -51,6 +60,11 @@ public:
 	int32_t GetTemperature();
 	int32_t GetSeason();
 	int32_t GetClimate();
+	bool LaunchWeatherEvent(C4ID idEvent, int32_t iIntensity, int32_t iDuration);
+	void StopWeatherEvent();
+	C4ID  GetActiveWeatherEventID() const { return ActiveEventID; }
+	int32_t GetWeatherEventIntensity() const { return EventIntensity; }
+	int32_t GetWeatherEventDuration() const { return EventDuration; }
 	bool LaunchLightning(int32_t x, int32_t y, int32_t xdir, int32_t xrange, int32_t ydir, int32_t yrange, bool fDoGamma);
 	bool LaunchVolcano(int32_t mat, int32_t x, int32_t y, int32_t size);
 	bool LaunchEarthquake(int32_t iX, int32_t iY);
