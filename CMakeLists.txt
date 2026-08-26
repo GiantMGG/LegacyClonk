@@ -308,6 +308,26 @@ if (USE_WINDOWS_RUNTIME)
 		src/C4ToastWinRT.cpp src/C4ToastWinRT.h)
 endif ()
 
+# Engine static library for test linking. Built from the same sources as the
+# clonk executable so that test binaries can link engine translation units
+# (C4Value, C4Aul, C4Game for the Game singleton symbol, etc.) without
+# duplicating source lists.
+#
+# Note: C4WinMain.cpp (which defines `main()`) is included because it also
+# defines the `Game`, `Application`, `Console`, and `FullScreen` globals that
+# the rest of the engine references. The duplicate `main()` clash with
+# Catch2's main() is resolved at link time via --allow-multiple-definition on
+# the test target (see tests/CMakeLists.txt).
+if (USE_TESTS)
+	add_library(clonk_engine STATIC ${CLONK_SOURCES})
+	target_compile_definitions(clonk_engine PRIVATE C4ENGINE)
+	if (USE_CONSOLE)
+		target_compile_definitions(clonk_engine PRIVATE USE_CONSOLE=1)
+	endif ()
+	target_link_libraries(clonk_engine PUBLIC standard)
+	target_compile_features(clonk_engine PUBLIC cxx_std_${LC_CXX_STANDARD_LEVEL})
+endif ()
+
 if (USE_CONSOLE)
 	add_executable(clonk ${CLONK_SOURCES})
 	target_compile_definitions(clonk PRIVATE USE_CONSOLE=1)
@@ -334,6 +354,9 @@ add_custom_command(
 )
 
 target_sources(clonk PUBLIC ${RES_STR_TABLE_OUTPUT_CPP} ${RES_STR_TABLE_OUTPUT_H})
+if (USE_TESTS)
+	target_sources(clonk_engine PUBLIC ${RES_STR_TABLE_OUTPUT_CPP} ${RES_STR_TABLE_OUTPUT_H})
+endif ()
 
 # Add c4group target
 
@@ -416,6 +439,9 @@ endif ()
 # Link CURL
 find_package(CURL REQUIRED)
 target_link_libraries(clonk CURL::libcurl)
+if (USE_TESTS)
+	target_link_libraries(clonk_engine PUBLIC CURL::libcurl)
+endif ()
 
 # Link fmt
 find_package(fmt REQUIRED)
@@ -426,6 +452,9 @@ list(APPEND PCH_EXTRA <fmt/format.h> <fmt/printf.h>)
 if (NOT USE_CONSOLE)
 	find_package(Freetype REQUIRED)
 	target_link_libraries(clonk Freetype::Freetype)
+	if (USE_TESTS)
+		target_link_libraries(clonk_engine PUBLIC Freetype::Freetype)
+	endif ()
 	set(HAVE_FREETYPE 1)
 endif ()
 
@@ -436,6 +465,10 @@ if (WITH_DEVELOPER_MODE)
 	pkg_check_modules(GTK3 REQUIRED gtk+-3.0>=3.24)
 	target_include_directories(clonk PRIVATE ${GTK3_INCLUDE_DIRS})
 	target_link_libraries(clonk ${GTK3_LIBRARIES})
+	if (USE_TESTS)
+		target_include_directories(clonk_engine PRIVATE ${GTK3_INCLUDE_DIRS})
+		target_link_libraries(clonk_engine PUBLIC ${GTK3_LIBRARIES})
+	endif ()
 	target_compile_definitions(clonk PRIVATE GTK_DISABLE_SINGLE_INCLUDES GDK_DISABLE_DEPRECATED GSEAL_ENABLE)
 endif ()
 
@@ -443,6 +476,9 @@ endif ()
 if (NOT WIN32)
 	find_package(Iconv REQUIRED)
 	target_link_libraries(clonk Iconv::Iconv)
+	if (USE_TESTS)
+		target_link_libraries(clonk_engine PUBLIC Iconv::Iconv)
+	endif ()
 	set(HAVE_ICONV 1)
 endif ()
 
@@ -450,6 +486,9 @@ endif ()
 if (NOT USE_WIC)
 	find_package(JPEG REQUIRED)
 	target_link_libraries(clonk JPEG::JPEG)
+	if (USE_TESTS)
+		target_link_libraries(clonk_engine PUBLIC JPEG::JPEG)
+	endif ()
 endif ()
 
 # Link OpenGL and GLEW
@@ -460,12 +499,18 @@ if (NOT USE_CONSOLE)
 	endif ()
 	find_package(GLEW REQUIRED)
 	target_link_libraries(clonk OpenGL::GL OpenGL::GLU GLEW::GLEW)
+	if (USE_TESTS)
+		target_link_libraries(clonk_engine PUBLIC OpenGL::GL OpenGL::GLU GLEW::GLEW)
+	endif ()
 endif ()
 
 # Link libpng
 if (NOT USE_WIC)
 	find_package(PNG REQUIRED)
 	target_link_libraries(clonk PNG::PNG)
+	if (USE_TESTS)
+		target_link_libraries(clonk_engine PUBLIC PNG::PNG)
+	endif ()
 endif ()
 
 # Link SDL2
@@ -475,12 +520,18 @@ if (USE_SDL_MAINLOOP OR USE_SDL_MIXER)
 		set(USE_SDL_FOR_GAMEPAD ON)
 	endif ()
 	target_link_libraries(clonk SDL2::SDL2)
+	if (USE_TESTS)
+		target_link_libraries(clonk_engine PUBLIC SDL2::SDL2)
+	endif ()
 endif ()
 
 # Link SDL2_mixer
 if (USE_SDL_MIXER)
 	find_package(SDL2_mixer REQUIRED)
 	target_link_libraries(clonk SDL2_mixer::SDL2_mixer)
+	if (USE_TESTS)
+		target_link_libraries(clonk_engine PUBLIC SDL2_mixer::SDL2_mixer)
+	endif ()
 endif ()
 
 # Link spdlog
@@ -518,6 +569,9 @@ set(THREADS_PREFER_PTHREAD_FLAG ON)
 find_package(Threads)
 if (THREADS_FOUND)
 	target_link_libraries(clonk Threads::Threads)
+	if (USE_TESTS)
+		target_link_libraries(clonk_engine PUBLIC Threads::Threads)
+	endif ()
 endif ()
 
 # Link libnotify
@@ -525,17 +579,26 @@ if (USE_LIBNOTIFY)
 	find_package(PkgConfig REQUIRED)
 	pkg_check_modules(libnotify REQUIRED IMPORTED_TARGET libnotify)
 	target_link_libraries(clonk PkgConfig::libnotify)
+	if (USE_TESTS)
+		target_link_libraries(clonk_engine PUBLIC PkgConfig::libnotify)
+	endif ()
 endif ()
 
 # Link miniupnpc
 if (USE_MINIUPNPC)
 	find_package(miniupnpc CONFIG REQUIRED)
 	target_link_libraries(clonk miniupnpc::miniupnpc)
+	if (USE_TESTS)
+		target_link_libraries(clonk_engine PUBLIC miniupnpc::miniupnpc)
+	endif ()
 endif ()
 
 # Link Windows libraries
 if (WIN32)
 	target_link_libraries(clonk dbghelp dwmapi iphlpapi winmm ws2_32)
+	if (USE_TESTS)
+		target_link_libraries(clonk_engine PUBLIC dbghelp dwmapi iphlpapi winmm ws2_32)
+	endif ()
 
 	if (USE_SDL_MIXER)
 		target_link_libraries(clonk imm32.lib setupapi.lib version.lib)
@@ -543,6 +606,9 @@ if (WIN32)
 
 	target_link_libraries(clonk comctl32)
 	target_link_options(clonk PRIVATE "/manifestdependency:type='win32' name='Microsoft.Windows.Common-Controls' version='6.0.0.0' processorArchitecture='*' publicKeyToken='6595b64144ccf1df' language='*'")
+	if (USE_TESTS)
+		target_link_libraries(clonk_engine PUBLIC comctl32)
+	endif ()
 endif ()
 
 # Link C++/WinRT
@@ -572,6 +638,9 @@ endif ()
 if (APPLE)
 	target_link_libraries(clonk "-framework AppKit")
 	target_link_libraries(standard "-framework Foundation")
+	if (USE_TESTS)
+		target_link_libraries(clonk_engine PUBLIC "-framework AppKit")
+	endif ()
 endif ()
 
 # Link X11
@@ -587,6 +656,9 @@ if (USE_X11)
 		message(FATAL_ERROR "XF86VidMode not found.")
 	endif ()
 	target_link_libraries(clonk X11::X11 X11::Xpm X11::Xxf86vm)
+	if (USE_TESTS)
+		target_link_libraries(clonk_engine PUBLIC X11::X11 X11::Xpm X11::Xxf86vm)
+	endif ()
 endif ()
 
 # Link zlib
@@ -722,4 +794,7 @@ if (USE_PCH)
 	foreach(TARGET c4group clonk standard)
 		set_up_pch(${TARGET})
 	endforeach()
+	if (USE_TESTS)
+		set_up_pch(clonk_engine)
+	endif ()
 endif ()
