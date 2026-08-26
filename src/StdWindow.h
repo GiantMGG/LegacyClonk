@@ -61,6 +61,19 @@ public:
 	virtual void Close() = 0;
 	// Keypress(es) translated to a char
 	virtual void CharIn(const char *c) {}
+
+#ifdef _WIN32
+	static constexpr C4Rect DefaultBounds{CW_USEDEFAULT, CW_USEDEFAULT, 0, 0};
+#elif defined(USE_X11)
+	static constexpr C4Rect DefaultBounds{0, 0, 640, 480};
+#elif defined(USE_SDL_MAINLOOP)
+	static constexpr C4Rect DefaultBounds{0, 0, 100, 100};
+#elif defined(USE_CONSOLE)
+	static constexpr C4Rect DefaultBounds{0, 0, 100, 100};
+#else
+	static constexpr C4Rect DefaultBounds{0, 0, 100, 100};
+#endif
+
 	virtual bool Init(CStdApp *app, const char *title, const C4Rect &bounds = DefaultBounds, CStdWindow *parent = nullptr);
 	void StorePosition();
 	void RestorePosition();
@@ -81,8 +94,6 @@ protected:
 #ifdef _WIN32
 
 public:
-	static constexpr C4Rect DefaultBounds{CW_USEDEFAULT, CW_USEDEFAULT, 0, 0};
-
 	HWND hWindow{nullptr};
 	void Maximize();
 	void SetPosition(int x, int y);
@@ -105,9 +116,6 @@ private:
 
 #elif defined(USE_X11)
 
-public:
-	static constexpr C4Rect DefaultBounds{0, 0, 640, 480};
-
 protected:
 	bool FindInfo();
 	virtual bool HideCursor() const { return false; }
@@ -124,9 +132,6 @@ protected:
 
 #elif defined(USE_SDL_MAINLOOP)
 public:
-	static constexpr C4Rect DefaultBounds{0, 0, 100, 100};
-
-public:
 	float GetInputScale();
 
 private:
@@ -138,8 +143,6 @@ protected:
 	SDL_Window *sdlWindow;
 	virtual void HandleMessage(SDL_Event &) {}
 #elif defined(USE_CONSOLE)
-public:
-	static constexpr C4Rect DefaultBounds{0, 0, 100, 100};
 #endif
 
 	friend class CStdDDraw;

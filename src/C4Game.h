@@ -455,6 +455,7 @@ public:
 	void AddDirectoryForMonitoring(const char *directory);
 
 private:
+#ifndef USE_CONSOLE
 	class SectionGLCtx
 	{
 	public:
@@ -472,6 +473,7 @@ private:
 	private:
 		std::unique_ptr<CStdGLCtx> context;
 	};
+#endif // !USE_CONSOLE
 	void SectionLoadProc(std::stop_token stopToken);
 	void CheckLoadedSections();
 

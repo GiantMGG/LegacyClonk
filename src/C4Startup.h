@@ -93,6 +93,8 @@ public:
 
 class C4Startup
 {
+	friend class C4StartupWelcomeDlg;
+
 public:
 	C4Startup();
 	~C4Startup();

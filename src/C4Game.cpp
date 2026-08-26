@@ -1736,7 +1736,7 @@ bool C4Game::Preload()
 		PreloadThread = C4Thread::Create({"PreloadThread"}, []
 		{
 			CStdLock lock{&Game.PreloadMutex};
-			Game.InitGameFirstPart() && Game.InitGameSecondPart(Game.ScenarioFile, nullptr, true, true);
+			Game.InitGameFirstPart() && Game.InitGameSecondPart(Game.ScenarioFile, true, true);
 		});
 #endif
 
@@ -3902,6 +3902,7 @@ bool C4Game::ToggleChat()
 	return C4ChatDlg::ToggleChat();
 }
 
+#ifndef USE_CONSOLE
 C4Game::SectionGLCtx::SectionGLCtx(CStdGLCtx *const context)
 	: context{context}
 {
@@ -3928,3 +3929,4 @@ void C4Game::SectionGLCtx::Select() const
 {
 	context->Select(false, true);
 }
+#endif // !USE_CONSOLE
