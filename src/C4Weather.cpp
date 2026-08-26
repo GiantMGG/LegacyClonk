@@ -22,6 +22,7 @@
 #include <C4Random.h>
 #include "C4SoundSystem.h"
 #include <C4Game.h>
+#include <C4Log.h>
 #include <C4Wrappers.h>
 
 C4Weather::C4Weather(C4Section &section)
@@ -172,7 +173,8 @@ void C4Weather::Execute()
 			{
 				int32_t iIntensity = 25 + Random(75);   // 25..99 — synced Random
 				int32_t iDuration  = 350 + Random(350); // ~35..70s in Tick35 units
-				LaunchWeatherEvent(idRolled, iIntensity, iDuration);
+				if (!LaunchWeatherEvent(idRolled, iIntensity, iDuration))
+					DebugLog(spdlog::level::warn, "Weather: event C4ID {} failed to resolve to a definition; will retry next roll", C4IdText(idRolled));
 			}
 		}
 	}

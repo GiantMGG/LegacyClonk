@@ -22,6 +22,7 @@
 #include <C4Random.h>
 #include <C4Group.h>
 #include <C4Game.h>
+#include <C4Log.h>
 #include <C4Wrappers.h>
 
 #include <iterator>
@@ -477,6 +478,7 @@ void C4SEvents::CompileFunc(StdCompiler *pComp)
 			if (parts.size() >= 2 && !parts[1].empty()) e.SeasonMin = atoi(parts[1].c_str());
 			if (parts.size() >= 3 && !parts[2].empty()) e.SeasonMax = atoi(parts[2].c_str());
 			if (e.id != C4ID_None && e.Weight > 0) Entries.push_back(e);
+			else DebugLog(spdlog::level::warn, "Scenario: dropped malformed [WeatherEvents] entry \"{}\" (id must resolve and Weight must be > 0)", line);
 		}
 	}
 	else
