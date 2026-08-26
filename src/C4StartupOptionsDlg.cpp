@@ -171,11 +171,16 @@ const char *LoadKeyDescResStr(const int32_t iKeyID)
 	return LoadResStr(KeyIDStringIDs[iKeyID]);
 }
 
-C4StartupOptionsDlg::KeySelDialog::KeySelDialog(int32_t iKeyID, int32_t iCtrlSet, bool fGamepad)
-	: C4GUI::MessageDialog(LoadResStrChoice(!fGamepad, C4ResStrTableKey::IDS_MSG_PRESSKEY, C4ResStrTableKey::IDS_MSG_PRESSBTN,
-		LoadKeyDescResStr(iKeyID), iCtrlSet + 1).c_str(), LoadResStr(C4ResStrTableKey::IDS_MSG_DEFINEKEY),
+C4StartupOptionsDlg::KeySelDialog::KeySelDialog(int32_t iKeyID, int32_t iCtrlSet, bool fGamepad, bool fAnyKey, const char *szRebindName)
+	: C4GUI::MessageDialog(
+		(fAnyKey && szRebindName
+			? LoadResStr(C4ResStrTableKey::IDS_MSG_REBINDKEY, szRebindName)
+			: LoadResStrChoice(!fGamepad, C4ResStrTableKey::IDS_MSG_PRESSKEY, C4ResStrTableKey::IDS_MSG_PRESSBTN,
+				LoadKeyDescResStr(iKeyID), iCtrlSet + 1)
+		).c_str(),
+		LoadResStr(C4ResStrTableKey::IDS_MSG_DEFINEKEY),
 		C4GUI::MessageDialog::btnAbort, fGamepad ? C4GUI::Ico_Gamepad : C4GUI::Ico_Keyboard, C4GUI::MessageDialog::dsRegular),
-	key(KEY_Undefined), fGamepad(fGamepad), iCtrlSet(iCtrlSet)
+	key(KEY_Undefined), fGamepad(fGamepad), fAnyKey(fAnyKey), iCtrlSet(iCtrlSet), szRebindName(szRebindName ? strdup(szRebindName) : nullptr)
 {
 	pKeyListener = new C4KeyBinding(C4KeyCodeEx(KEY_Any, KEYS_None), "DefineKey", KEYSCOPE_Gui, new C4GUI::DlgKeyCBPassKey<C4StartupOptionsDlg::KeySelDialog>(*this, &C4StartupOptionsDlg::KeySelDialog::KeyDown), C4CustomKey::PRIO_PlrControl);
 }
@@ -183,10 +188,18 @@ C4StartupOptionsDlg::KeySelDialog::KeySelDialog(int32_t iKeyID, int32_t iCtrlSet
 C4StartupOptionsDlg::KeySelDialog::~KeySelDialog()
 {
 	delete pKeyListener;
+	free(const_cast<char *>(szRebindName));
 }
 
 bool C4StartupOptionsDlg::KeySelDialog::KeyDown(C4KeyCodeEx key)
 {
+	if (fAnyKey)
+	{
+		// In fAnyKey mode: accept any key (keyboard or gamepad)
+		this->key = key.Key;
+		Close(true);
+		return true;
+	}
 	// check if key is valid for this set
 	// do not mix gamepad and keyboard keys
 	if (Key_IsGamepad(key.Key) != fGamepad) return false;

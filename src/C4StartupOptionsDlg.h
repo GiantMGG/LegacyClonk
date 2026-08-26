@@ -151,25 +151,27 @@ protected:
 	bool KeyMusicToggle();
 
 	// keyboard and gamepad control tabs
-private:
-	// dialog shown to user so he can select a key
-	class KeySelDialog : public C4GUI::MessageDialog
-	{
 	private:
-		class C4KeyBinding *pKeyListener;
-		C4KeyCode key;
-		bool fGamepad;
-		int32_t iCtrlSet;
+		// dialog shown to user so he can select a key
+		class KeySelDialog : public C4GUI::MessageDialog
+		{
+		private:
+			class C4KeyBinding *pKeyListener;
+			C4KeyCode key;
+			bool fGamepad;
+			bool fAnyKey;
+			int32_t iCtrlSet;
+			const char *szRebindName;
 
-	protected:
-		bool KeyDown(C4KeyCodeEx key);
+		protected:
+			bool KeyDown(C4KeyCodeEx key);
 
-	public:
-		KeySelDialog(int32_t iKeyID, int32_t iCtrlSet, bool fGamepad);
-		virtual ~KeySelDialog();
+		public:
+			KeySelDialog(int32_t iKeyID, int32_t iCtrlSet, bool fGamepad, bool fAnyKey = false, const char *szRebindName = nullptr);
+			virtual ~KeySelDialog();
 
-		C4KeyCode GetKeyCode() { return key; }
-	};
+			C4KeyCode GetKeyCode() { return key; }
+		};
 
 	// Clonk-key-button with a label showing its key name beside it
 	class KeySelButton : public C4GUI::IconButton
