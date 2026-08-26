@@ -3308,6 +3308,32 @@ static C4ValueInt FnGetSeason(C4AulContext *cthr)
 	return cthr->GetSection().Weather.GetSeason();
 }
 
+static C4Value FnGetActiveWeatherEvent(C4AulContext *cthr)
+{
+	const C4ID id = cthr->GetSection().Weather.GetActiveWeatherEventID();
+	return id == C4ID_None ? C4VNull : C4VID(id);
+}
+
+static C4ValueInt FnGetWeatherEventIntensity(C4AulContext *cthr)
+{
+	return cthr->GetSection().Weather.GetWeatherEventIntensity();
+}
+
+static C4ValueInt FnGetWeatherEventDuration(C4AulContext *cthr)
+{
+	return cthr->GetSection().Weather.GetWeatherEventDuration();
+}
+
+static bool FnLaunchWeatherEvent(C4AulContext *cthr, C4ValueInt id, C4ValueInt intensity, C4ValueInt duration)
+{
+	return cthr->GetSection().Weather.LaunchWeatherEvent(static_cast<C4ID>(id), intensity, duration);
+}
+
+static void FnStopWeatherEvent(C4AulContext *cthr)
+{
+	cthr->GetSection().Weather.StopWeatherEvent();
+}
+
 static void FnSetClimate(C4AulContext *cthr, C4ValueInt iClimate)
 {
 	cthr->GetSection().Weather.SetClimate(iClimate);
@@ -7430,6 +7456,11 @@ void InitFunctionMap(C4AulScriptEngine *pEngine)
 	AddFunc(pEngine, "GetPlrJumpAndRunControl",         FnGetPlrJumpAndRunControl);
 	AddFunc(pEngine, "SetPlrShowCommand",               FnSetPlrShowCommand);
 	AddFunc(pEngine, "GetWind",                         FnGetWind);
+	AddFunc(pEngine, "GetActiveWeatherEvent",           FnGetActiveWeatherEvent);
+	AddFunc(pEngine, "GetWeatherEventIntensity",        FnGetWeatherEventIntensity);
+	AddFunc(pEngine, "GetWeatherEventDuration",         FnGetWeatherEventDuration);
+	AddFunc(pEngine, "LaunchWeatherEvent",              FnLaunchWeatherEvent);
+	AddFunc(pEngine, "StopWeatherEvent",                FnStopWeatherEvent);
 	AddFunc(pEngine, "SetWind",                         FnSetWind);
 	AddFunc(pEngine, "SetSkyFade",                      FnSetSkyFade);
 	AddFunc(pEngine, "SetSkyColor",                     FnSetSkyColor);
