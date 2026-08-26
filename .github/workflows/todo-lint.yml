@@ -1,0 +1,15 @@
+name: TODO/FIXME Lint
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  todo-lint:
+    name: Check TODO/FIXME marker format
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Run TODO/FIXME lint
+        run: python3 tools/check_todos.py src/

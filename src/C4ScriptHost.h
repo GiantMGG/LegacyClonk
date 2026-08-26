@@ -87,7 +87,7 @@ public:
 	C4Value GRBroadcast(const char *szFunction, const C4AulParSet &pPars = C4AulParSet{}, bool fPassError = false, bool fRejectTest = false, bool convertNilToIntBool = true); // call function in scenario script and all goals/rules/environment objects
 
 	// Global script data
-	// FIXME: Move to C4AulScriptEngine
+	// FIXME(legacyclonk/LegacyClonk#000): move Counter/Go globals into C4AulScriptEngine
 	int32_t Counter;
 	bool Go;
 	bool Execute();

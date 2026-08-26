@@ -180,7 +180,7 @@ void C4ValueMapData::OnNameListChanged(const char *const *pOldNames, int32_t iOl
 	int32_t i, j;
 	for (i = 0; i < iOldSize; i++)
 	{
-		// FIXME: This optimization is ugly.
+		// FIXME(legacyclonk/LegacyClonk#000): document or remove the indirect-copy optimization
 		if (i < pNames->iSize && SEqual(pNames->pNames[i], pOldNames[i]))
 		{
 			pOldData[i].Move(&pData[i]);

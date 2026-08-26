@@ -17,7 +17,7 @@
 
 // the ingame-lobby
 
-// TODO: Tab: NickCompletion - and can't do this here, because tab is used to cycle controls!
+// TODO(legacyclonk/LegacyClonk#000): ingame-lobby nick completion blocked by Tab cycling controls
 
 #pragma once
 

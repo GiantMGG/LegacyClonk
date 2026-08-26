@@ -1228,7 +1228,7 @@ C4Value C4AulExec::Exec(C4AulBCC *pCPos, bool fPassErrors)
 				break;
 
 			case AB_CALLNS:
-				// Ignore. TODO: Fix this.
+				// TODO(legacyclonk/LegacyClonk#000): AB_CALLNS exec is a no-op stub; implement namespace-call semantics
 				break;
 
 			case AB_CALL:

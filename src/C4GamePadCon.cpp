@@ -377,7 +377,7 @@ void C4GamePadControl::FeedEvent(SDL_Event &event)
 		C4KeyCode minCode = KEY_Gamepad(event.jaxis.which, KEY_JOY_Axis(event.jaxis.axis, false));
 		C4KeyCode maxCode = KEY_Gamepad(event.jaxis.which, KEY_JOY_Axis(event.jaxis.axis, true));
 
-		// FIXME: This assumes that the axis really rests around (0, 0) if it is not used, which is not always true.
+		// FIXME(legacyclonk/LegacyClonk#000): axis rest assumed (0,0); some controllers need calibration
 		if (event.jaxis.value < -deadZone)
 		{
 			if (PressedAxis.count(minCode) == 0)

@@ -2842,7 +2842,7 @@ void C4Object::CompileFunc(StdCompiler *pComp)
 	pComp->Value(mkNamingAdapt(Alive,                                   "Alive",              false));
 	pComp->Value(mkNamingAdapt(Breath,                                  "Breath",             0));
 	pComp->Value(mkNamingAdapt(FirePhase,                               "FirePhase",          0));
-	pComp->Value(mkNamingAdapt(Color,                                   "Color",              0u)); // TODO: Convert
+	pComp->Value(mkNamingAdapt(Color,                                   "Color",              0u));
 	pComp->Value(mkNamingAdapt(Color,                                   "ColorDw",            0u));
 	pComp->Value(mkNamingAdapt(Local,                                   "Locals",             C4ValueList()));
 	pComp->Value(mkNamingAdapt(fix_x,                                   "FixX",               0));
@@ -3776,7 +3776,7 @@ void C4Object::AutoStopDirectCom(uint8_t byCom, int32_t iData) // By DirecCom
 				AutoStopUpdateComDir();
 			break;
 		case COM_Down:
-			// FIXME: replace constants
+			// FIXME(legacyclonk/LegacyClonk#000): replace magic ComOrder indices 3/11/19 with named constants
 			// ComOrder(3) is COM_Down, ComOrder(11) is COM_Down_S and ComOrder(19) is COM_Down_D
 			if (Action.Target
 				&& !DrawCommandQuery(Controller, Action.Target->Def->Script, Action.Target->Def->Script.ControlMethod, 3)

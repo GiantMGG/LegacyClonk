@@ -1193,7 +1193,7 @@ bool C4Network2Res::OptimizeStandalone(bool fSilent)
 			{
 				if (!fSilent) pParent->logger->error("OptimizeStandalone: could not copy to temporary file!");
 				return false;
-			} /* TODO: Test failure */
+			} /* TODO(legacyclonk/LegacyClonk#000): test the group-copy failure path */
 			SCopy(szNewStandalone, szStandalone, sizeof(szStandalone) - 1);
 		}
 		// open as group
