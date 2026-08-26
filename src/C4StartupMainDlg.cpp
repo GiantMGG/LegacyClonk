@@ -18,6 +18,7 @@
 // Startup screen for non-parameterized engine start (stub)
 
 #include "C4GuiResource.h"
+#include "C4StartupWelcomeDlg.h"
 #include <C4StartupMainDlg.h>
 #include <C4UpdateDlg.h>
 #include <C4Version.h>
@@ -274,11 +275,6 @@ void C4StartupMainDlg::OnShown()
 			C4UpdateDlg::CheckForUpdates(GetScreen(), true);
 	}
 
-	// first start evaluation
-	if (Config.General.FirstStart)
-	{
-		Config.General.FirstStart = false;
-	}
 	// first thing that's needed is a new player, if there's none - independent of first start
 	bool fHasPlayer = false;
 	const char *szFn;
@@ -296,6 +292,13 @@ void C4StartupMainDlg::OnShown()
 		// no player created yet: Create one
 		C4GUI::Dialog *pDlg;
 		GetScreen()->ShowModalDlg(pDlg = new C4StartupPlrPropertiesDlg(nullptr, nullptr), true);
+	}
+
+	// first start evaluation (after player creation, per spec)
+	if (Config.General.FirstStart)
+	{
+		Config.General.FirstStart = false;
+		GetScreen()->ShowModalDlg(new C4StartupWelcomeDlg(), true);
 	}
 	// make sure participants are updated after switching back from player selection
 	UpdateParticipants();
