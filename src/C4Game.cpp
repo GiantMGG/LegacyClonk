@@ -1102,6 +1102,22 @@ bool C4Game::Execute() // Returns true if the game is over
 	EXEC_DR(UpdateRules();
 	GameOverCheck();, "Misc\0")
 
+	// Smoke-run exit (spec headless-scenario-smoke-harness): clean exit on
+	// N ticks reached or GameOver, non-zero on non-empty fatal stack.
+	if (SmokeRunActive())
+	{
+		const bool ticksReached = (FrameCounter >= SmokeRunTicks);
+		const bool gameOverFired = GameOver;
+		if (ticksReached || gameOverFired)
+		{
+			const std::string fatalError{Application.LogSystem.GetFatalErrorString()};
+			if (!fatalError.empty())
+				fQuitWithError = true;   // C4WinMain returns C4XRV_Failure (1)
+			Application.Quit();         // AppState = C4AS_Quit; run loop drains
+			return true;
+		}
+	}
+
 	Control.DoSyncCheck();
 
 	// Evaluation; Game over dlg
