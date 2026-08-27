@@ -480,6 +480,17 @@ bool C4Playback::Open(C4Group &rGrp)
 	return true;
 }
 
+uint32_t C4Playback::GetTotalFrames() const
+{
+	uint32_t iMax = 0;
+	for (const C4RecordChunk &c : chunks)
+	{
+		if (c.Type == RCT_End) { iMax = c.Frame; break; }
+		if (c.Frame > iMax) iMax = c.Frame;
+	}
+	return iMax;
+}
+
 bool C4Playback::ReadBinary(const StdBuf &Buf)
 {
 	// sequential reading: Take over rest from last buffer

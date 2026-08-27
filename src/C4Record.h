@@ -313,6 +313,7 @@ public:
 	~C4Playback();
 
 	bool Open(C4Group &rGrp);
+	uint32_t GetTotalFrames() const; // frame of the RCT_End / last RCT_Frame chunk; 0 if no chunks loaded
 	bool ReadBinary(const StdBuf &Buf);
 	bool ReadText(const StdStrBuf &Buf);
 	void NextChunk(); // point to next prepared chunk in mem or read it
