@@ -427,6 +427,16 @@ else ()
 	message(FATAL_ERROR "Unknown platform")
 endif ()
 
+# FreeBSD: backtrace()/backtrace_symbols_fd() (used in C4WinMain.cpp) live in
+# the separate libexecinfo port, not libc. OpenBSD has them in libc and needs
+# no extra flag. See docs/BSD_PORT.md.
+if (CMAKE_SYSTEM_NAME STREQUAL "FreeBSD")
+	target_link_libraries(clonk execinfo)
+	if (USE_TESTS)
+		target_link_libraries(clonk_engine PUBLIC execinfo)
+	endif ()
+endif ()
+
 # Link OpenSSL crypto library
 if (NOT USE_MSCAPI)
 	find_package(OpenSSL)
