@@ -395,6 +395,7 @@ protected:
 	// commands from stdin (console only)
 	StdStrBuf CmdBuf;
 	bool ReadStdInCommand();
+	bool fStdInEOF{false};
 
 	friend class CStdGL;
 	friend class CStdWindow;

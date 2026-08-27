@@ -412,7 +412,10 @@ C4AppHandleResult CStdApp::HandleMessage(const unsigned int timeout, const bool 
 #endif
 
 #ifdef USE_CONSOLE
-	fds[2].fd = STDIN_FILENO;
+	if (!fStdInEOF)
+	{
+		fds[2].fd = STDIN_FILENO;
+	}
 #endif
 
 	switch (StdSync::Poll(fds, (checkTimer || timeout != StdSync::Infinite) ? tv.tv_usec / 1000 : StdSync::Infinite))
@@ -449,7 +452,7 @@ C4AppHandleResult CStdApp::HandleMessage(const unsigned int timeout, const bool 
 		{
 			if (!ReadStdInCommand())
 			{
-				return HR_Failure;
+				fStdInEOF = true;
 			}
 		}
 #endif
