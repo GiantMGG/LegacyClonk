@@ -38,7 +38,7 @@ public:
 	void OnClosed(bool fFadeOK) override;
 
 	// C4StartupDlg
-	bool DoStart() override { return true; }
+	bool DoStart() { return true; }
 
 private:
 	// The replay list — reuses the C4ScenarioListLoader infrastructure

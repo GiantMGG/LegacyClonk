@@ -279,3 +279,117 @@ TEST_CASE("C4ReplayController::SeekToFrame_end_transitionsToFinished", "[replay]
 	CHECK(fr.ctrl.TickSeek() == true);
 	CHECK(fr.ctrl.GetState() == C4ReplayController::State::Finished);
 }
+
+// ---------------------------------------------------------------------------
+// 13. Speed multiplier round-trip (M-1)
+// ---------------------------------------------------------------------------
+
+TEST_CASE("C4ReplayController::SetSpeed_roundTrip", "[replay]")
+{
+	C4ReplayController ctrl;
+
+	// Default speed is 1.0x.
+	CHECK(ctrl.GetSpeed() == 1.0f);
+
+	// Mid-range value passes through unchanged.
+	ctrl.SetSpeed(2.5f);
+	CHECK(ctrl.GetSpeed() == 2.5f);
+
+	// Boundary values.
+	ctrl.SetSpeed(0.25f);
+	CHECK(ctrl.GetSpeed() == 0.25f);
+	ctrl.SetSpeed(8.0f);
+	CHECK(ctrl.GetSpeed() == 8.0f);
+
+	// Out-of-range values are clamped, not rejected.
+	ctrl.SetSpeed(0.0f);
+	CHECK(ctrl.GetSpeed() == 0.25f);
+	ctrl.SetSpeed(100.0f);
+	CHECK(ctrl.GetSpeed() == 8.0f);
+
+	// Negative values clamp to the low end.
+	ctrl.SetSpeed(-5.0f);
+	CHECK(ctrl.GetSpeed() == 0.25f);
+}
+
+// ---------------------------------------------------------------------------
+// 14. Forward seek leaves no Seeking state after TickSeek (M-3)
+// ---------------------------------------------------------------------------
+
+TEST_CASE("C4ReplayController::ForwardSeek_notStuckInSeeking", "[replay]")
+{
+	FakeReplay fr;
+	fr.currentFrame = 10;
+
+	// Initiate a forward seek.
+	fr.ctrl.SeekToFrame(50);
+	REQUIRE(fr.ctrl.GetState() == C4ReplayController::State::SeekingForward);
+	REQUIRE(fr.ctrl.GetSeekTarget() == 50);
+
+	// Simulate the engine's tight-loop advancing to the target, polling
+	// TickSeek each frame as C4Game::Execute() now does.
+	while (fr.currentFrame < 50)
+	{
+		++fr.currentFrame;
+		if (fr.ctrl.TickSeek())
+			break;
+	}
+
+	// The controller must have transitioned OUT of SeekingForward.
+	CHECK(fr.ctrl.GetState() != C4ReplayController::State::SeekingForward);
+	CHECK(fr.ctrl.GetState() == C4ReplayController::State::Paused);
+}
+
+// ---------------------------------------------------------------------------
+// 15. Backward seek leaves no Seeking state after TickSeek (M-3)
+// ---------------------------------------------------------------------------
+
+TEST_CASE("C4ReplayController::BackwardSeek_notStuckInSeeking", "[replay]")
+{
+	FakeReplay fr;
+	fr.currentFrame = 80;
+
+	// SeekToFrame triggers the soft-restart callback, which in the real
+	// engine fast-forwards to the target. The fake callback records the
+	// target and resets the frame to 0 (simulating soft-restart).
+	fr.ctrl.SeekToFrame(20);
+	REQUIRE(fr.ctrl.GetState() == C4ReplayController::State::SeekingBackward);
+	REQUIRE(fr.softRestartCalled == true);
+	REQUIRE(fr.currentFrame == 0);
+
+	// Simulate the fast-forward landing at the target frame.
+	fr.currentFrame = 20;
+
+	// TickSeek is polled by the engine (and explicitly by
+	// SoftRestartForReplaySeek after FastForwardToFrame) to transition
+	// out of the SeekingBackward state.
+	CHECK(fr.ctrl.TickSeek() == true);
+	CHECK(fr.ctrl.GetState() != C4ReplayController::State::SeekingBackward);
+	CHECK(fr.ctrl.GetState() == C4ReplayController::State::Paused);
+}
+
+// ---------------------------------------------------------------------------
+// 16. Detach resets the controller to Idle (covers M-2's Detach call)
+// ---------------------------------------------------------------------------
+
+TEST_CASE("C4ReplayController::Detach_resetsToIdle", "[replay]")
+{
+	FakeReplay fr;
+	REQUIRE(fr.ctrl.GetState() == C4ReplayController::State::Playing);
+	REQUIRE(fr.ctrl.GetTotalFrames() == 100);
+
+	fr.ctrl.Detach();
+
+	// After Detach, the controller is safely idle — no dangling playback
+	// pointer, no callbacks, zero total frames. This is the state the
+	// engine relies on after a corrupt-replay soft-restart failure (M-2).
+	CHECK(fr.ctrl.GetState() == C4ReplayController::State::Idle);
+	CHECK(fr.ctrl.GetTotalFrames() == 0);
+	CHECK(fr.ctrl.GetCurrentFrame() == 0);
+
+	// Operations on a detached controller are safe no-ops.
+	fr.ctrl.SeekToFrame(50);
+	CHECK(fr.ctrl.GetState() == C4ReplayController::State::Idle);
+	fr.ctrl.StepForward();
+	CHECK(fr.ctrl.GetState() == C4ReplayController::State::Idle);
+}

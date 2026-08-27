@@ -89,6 +89,9 @@ bool C4GameControl::InitReplay(C4Group &rGroup)
 		pPlayback->GetTotalFrames(),
 		[]() { return static_cast<uint32_t>(Game.FrameCounter); },
 		[this](uint32_t target) { SoftRestartForReplaySeek(target); });
+	// M-1: seed the playback speed from the config field (stored in
+	// hundredths: 100 = 1.0x). The scrub viewer may override later.
+	ReplayController.SetSpeed(Config.General.ReplaySpeedMultiplier / 100.0f);
 	// ok
 	return true;
 }
@@ -145,7 +148,9 @@ void C4GameControl::SoftRestartForReplaySeek(uint32_t iTargetFrame)
 		LogFatal(C4ResStrTableKey::IDS_ERR_REPLAYREAD);
 		delete pPlayback;
 		pPlayback = nullptr;
-		ReplayController.CancelSeek();
+		// M-2: Detach (not CancelSeek) so the controller drops its
+		// dangling pPlayback_ pointer and callbacks, going safely idle.
+		ReplayController.Detach();
 		return;
 	}
 
@@ -154,6 +159,11 @@ void C4GameControl::SoftRestartForReplaySeek(uint32_t iTargetFrame)
 
 	// Fast-forward from frame 0 to the target frame.
 	FastForwardToFrame(iTargetFrame);
+
+	// M-3: the tight-loop above landed at (or past) the target frame.
+	// Poll TickSeek so SeekingBackward transitions to Paused / Finished
+	// instead of leaving the controller stuck mid-seek.
+	ReplayController.TickSeek();
 }
 
 void C4GameControl::FastForwardToFrame(uint32_t iTargetFrame)

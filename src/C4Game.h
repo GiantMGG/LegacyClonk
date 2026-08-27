@@ -216,8 +216,8 @@ public:
 	bool GameGo;
 	bool FullSpeed;
 	int32_t FrameSkip; bool DoSkipFrame;
-	bool fReplayPaused{false};          // replay scrub: freeze world when true
-	float fReplaySpeedMultiplier{1.0f}; // replay scrub: speed multiplier (0.25–8.0)
+	bool fInReplaySpeedup{false};          // replay scrub: recursion guard for speed multiplier
+	uint32_t iReplaySkipCounter{0};        // replay scrub: visible-frame counter for slow-motion
 	uint32_t FoWColor; // FoW-color; may contain transparency
 	bool IsRunning; // (NoSave) if set, the game is running; if not, just the startup message board is painted
 	bool PointersDenumerated; // (NoSave) set after object pointers have been denumerated

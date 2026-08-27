@@ -63,13 +63,15 @@ protected:
 
 	C4Record *pRecord;
 	C4Playback *pPlayback;
-	C4ReplayController ReplayController; // replay scrub controller (pause/speed/seek)
 
 	C4Control SyncChecks;
 
 	C4GameControlClient *pClients;
 
 	C4Control *pExecutingControl; // Control that is in the process of being executed - needed by non-initial records
+
+public:
+	C4ReplayController ReplayController; // replay scrub controller (pause/speed/seek)
 
 private:
 	std::shared_ptr<spdlog::logger> logger;

@@ -44,7 +44,7 @@ public:
 	void OnTimelineDrag(uint32_t iTargetFrame);
 	void OnClose();
 
-	void Draw(C4Facet &cgo, float iDrawZ = 0.0f) override;
+	void Draw(C4Facet &cgo, float iDrawZ = 0.0f);
 
 private:
 	C4ReplayController &GetController() const;

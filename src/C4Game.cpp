@@ -62,6 +62,9 @@
 #include <sstream>
 #include <utility>
 
+#include <algorithm>
+#include <cmath>
+
 C4Object *C4Game::MultipleObjectLists::Next()
 {
 	C4Object *value;
@@ -985,14 +988,71 @@ bool C4Game::Execute() // Returns true if the game is over
 	// Let's go
 	GameGo = true;
 
-	// Replay scrub hooks: pause freezes the world; speed multiplier
-	// runs extra control ticks per visible frame.
+	// Replay scrub hooks. The C4ReplayController (held on C4GameControl)
+	// owns pause / speed / seek state; this is where the engine polls it.
 	if (Control.isReplay())
 	{
-		if (fReplayPaused)
-		{
-			// World is frozen but the game loop still runs (camera can pan).
+		auto &rc = Control.ReplayController;
+
+		// H-2: the controller owns pause state. Freeze the world when
+		// paused; the outer loop still runs so the camera can pan.
+		if (rc.IsPaused())
 			return false;
+
+		// Recursion guard: the speed-multiplier / forward-seek blocks
+		// below re-enter Execute() to run extra full frames. While
+		// inside such a re-entry, skip this whole block.
+		if (!fInReplaySpeedup)
+		{
+			// H-1: forward seek. Tight-loop full frames until the
+			// target is reached, then let TickSeek transition state.
+			if (rc.GetState() == C4ReplayController::State::SeekingForward)
+			{
+				fInReplaySpeedup = true;
+				Control.FastForwardToFrame(rc.GetSeekTarget());
+				fInReplaySpeedup = false;
+				rc.TickSeek();
+				// Freeze at the target frame; the controller is now
+				// Paused (or Finished), so subsequent Execute() calls
+				// hit the IsPaused() early-return above.
+				return false;
+			}
+
+			// M-3: backward seek. SoftRestartForReplaySeek already
+			// fast-forwarded to the target; poll TickSeek to transition
+			// SeekingBackward -> Paused / Finished.
+			if (rc.GetState() == C4ReplayController::State::SeekingBackward)
+				rc.TickSeek();
+
+			// M-1: speed multiplier, applied during normal playback.
+			if (rc.GetState() == C4ReplayController::State::Playing)
+			{
+				const float speed = rc.GetSpeed();
+
+				if (speed < 1.0f)
+				{
+					// Slow motion: execute every Nth visible frame.
+					const uint32_t divisor = std::max(
+						1u, static_cast<uint32_t>(std::round(1.0f / speed)));
+					if (++iReplaySkipCounter % divisor != 0)
+						return false;
+				}
+				else if (speed > 1.0f)
+				{
+					// Fast playback: advance extra full frames per
+					// visible frame (capped at 8x => 7 extra).
+					const uint32_t extra = std::min(
+						7u, static_cast<uint32_t>(std::round(speed)) - 1);
+					fInReplaySpeedup = true;
+					for (uint32_t i = 0; i < extra; ++i)
+						if (Execute())
+						{
+							fInReplaySpeedup = false;
+							return true;
+						}
+					fInReplaySpeedup = false;
+				}
+			}
 		}
 	}
 
