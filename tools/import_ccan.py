@@ -138,6 +138,62 @@ def resolve_c4group() -> Path:
 
 
 # ===========================================================================
+# Unpack step (extension dispatch)
+# ===========================================================================
+
+
+def unpack(blob_path: Path, dest_dir: Path, c4group: Path) -> Path:
+    """Unpack a downloaded blob into ``dest_dir``.
+
+    Dispatches on the blob extension:
+      - ``.c4d`` / ``.c4f`` / ``.c4s`` -> ``c4group <blob> -u`` (in-place
+        unpack), then the resulting directory is moved into ``dest_dir``.
+      - ``.zip`` -> ``zipfile.extractall(dest_dir)``.
+      - ``.txt`` -> reject (text-only compilation entry).
+      - anything else -> error.
+
+    Returns the path to the unpacked pack directory inside ``dest_dir``.
+    """
+    suffix = blob_path.suffix.lower()
+    dest_dir.mkdir(parents=True, exist_ok=True)
+
+    if suffix in PACK_EXTENSIONS:
+        # c4group -u unpacks in place next to the blob.
+        proc = subprocess.run(
+            [str(c4group), str(blob_path), "-u"],
+            capture_output=True,
+            text=True,
+        )
+        if proc.returncode != 0:
+            raise RuntimeError(
+                f"c4group unpack failed (exit {proc.returncode}):\n{proc.stderr}"
+            )
+        # The unpacked directory has the blob's stem (e.g. Hazard3D.c4s -> Hazard3D.c4s/).
+        unpacked = blob_path.parent / blob_path.name
+        if not unpacked.is_dir():
+            raise RuntimeError(
+                f"c4group unpack produced no directory at {unpacked}"
+            )
+        target = dest_dir / blob_path.name
+        if target.exists():
+            shutil.rmtree(target)
+        shutil.move(str(unpacked), str(target))
+        return target
+
+    if suffix == ".zip":
+        with zipfile.ZipFile(blob_path) as zf:
+            zf.extractall(dest_dir)
+        return dest_dir
+
+    if suffix == ".txt":
+        raise ValueError(
+            "Text-only compilation entries are not packs; skip."
+        )
+
+    raise ValueError(f"Unsupported download extension: {suffix}")
+
+
+# ===========================================================================
 # HTTP fetch (rate-limited, retrying)
 # ===========================================================================
 
