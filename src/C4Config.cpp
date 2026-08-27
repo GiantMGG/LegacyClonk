@@ -97,6 +97,7 @@ void C4ConfigGeneral::CompileFunc(StdCompiler *pComp)
 #endif
 	pComp->Value(mkNamingAdapt(SaveGameFolder, "SaveGameFolder", "Savegames.c4f", false, true));
 	pComp->Value(mkNamingAdapt(SaveDemoFolder, "SaveDemoFolder", "Records.c4f",   false, true));
+	pComp->Value(mkNamingAdapt(ReplaySpeedMultiplier, "ReplaySpeedMultiplier", 100));
 #ifdef C4ENGINE
 	pComp->Value(mkNamingAdapt(s(MissionAccess), "MissionAccess", "", false, true));
 #endif

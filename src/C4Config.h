@@ -63,6 +63,7 @@ public:
 	char UserPath[CFG_MaxString + 1]; // absolute path; environment variables are stored and only expanded upon evaluation
 	StdStrBuf SaveGameFolder;
 	StdStrBuf SaveDemoFolder;
+	int32_t ReplaySpeedMultiplier{100}; // default replay scrub speed in hundredths (100 = 1.0x; range 25–800)
 	StdStrBuf ScreenshotFolder;
 	char MissionAccess[CFG_MaxString + 1];
 	bool FPS;
