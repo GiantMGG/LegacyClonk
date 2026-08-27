@@ -84,6 +84,11 @@ bool C4GameControl::InitReplay(C4Group &rGroup)
 	ControlRate = Game.Parameters.ControlRate;
 	// just in case
 	StopRecord();
+	// Attach the replay controller so the scrub viewer can drive it.
+	ReplayController.Attach(pPlayback,
+		pPlayback->GetTotalFrames(),
+		[]() { return static_cast<uint32_t>(Game.FrameCounter); },
+		[this](uint32_t target) { SoftRestartForReplaySeek(target); });
 	// ok
 	return true;
 }
@@ -110,6 +115,7 @@ void C4GameControl::ChangeToLocal()
 	else if (eMode == CM_Replay)
 	{
 		delete pPlayback; pPlayback = nullptr;
+		ReplayController.Detach();
 	}
 
 	// we're now managing our own player info list; make sure counter works
@@ -122,6 +128,46 @@ void C4GameControl::ChangeToLocal()
 	// set status
 	eMode = CM_Local; fHost = true;
 	ControlRate = 1;
+}
+
+void C4GameControl::SoftRestartForReplaySeek(uint32_t iTargetFrame)
+{
+	// Close the current playback.
+	delete pPlayback;
+	pPlayback = nullptr;
+
+	// Re-open the same .c4s replay group. Game.ScenarioFile holds the
+	// replay's scenario file; the .c4s *is* a C4GameSaveRecord of the
+	// initial state with the CtrlRec.c4b control stream appended.
+	pPlayback = new C4Playback(Application.LogSystem.CreateLogger(Config.Logging.Playback));
+	if (!pPlayback->Open(Game.ScenarioFile))
+	{
+		LogFatal(C4ResStrTableKey::IDS_ERR_REPLAYREAD);
+		delete pPlayback;
+		pPlayback = nullptr;
+		ReplayController.CancelSeek();
+		return;
+	}
+
+	// Re-attach the controller with the fresh playback.
+	ReplayController.SetPlayback(pPlayback, pPlayback->GetTotalFrames());
+
+	// Fast-forward from frame 0 to the target frame.
+	FastForwardToFrame(iTargetFrame);
+}
+
+void C4GameControl::FastForwardToFrame(uint32_t iTargetFrame)
+{
+	// Tight-loop fast-forward: call Game.Execute() repeatedly without
+	// returning to the outer main loop (which does rendering). This
+	// advances the full game simulation — objects, physics, scripts —
+	// deterministically from the replay's control stream, reaching the
+	// target frame as fast as the CPU can go. No rendering happens
+	// because rendering is in the outer loop, not in Game.Execute().
+	while (static_cast<uint32_t>(Game.FrameCounter) < iTargetFrame && pPlayback)
+	{
+		if (Game.Execute()) break; // game over
+	}
 }
 
 void C4GameControl::OnGameSynchronizing()
@@ -206,6 +252,7 @@ bool C4GameControl::RecAddFile(const char *szLocalFilename, const char *szAddAs)
 void C4GameControl::Clear()
 {
 	StopRecord();
+	ReplayController.Detach();
 	ChangeToLocal();
 	Default();
 }

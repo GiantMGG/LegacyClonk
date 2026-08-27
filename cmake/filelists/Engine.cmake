@@ -247,6 +247,8 @@ src/C4RankSystem.cpp
 src/C4RankSystem.h
 src/C4Record.cpp
 src/C4Record.h
+src/C4Replay.cpp
+src/C4Replay.h
 src/C4Rect.cpp
 src/C4Rect.h
 src/C4Region.cpp

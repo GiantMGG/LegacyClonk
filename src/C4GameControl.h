@@ -23,6 +23,7 @@
 #include "C4Log.h"
 #include "C4Network2Client.h"
 #include "C4Record.h"
+#include "C4Replay.h"
 
 enum C4ControlMode
 {
@@ -62,6 +63,7 @@ protected:
 
 	C4Record *pRecord;
 	C4Playback *pPlayback;
+	C4ReplayController ReplayController; // replay scrub controller (pause/speed/seek)
 
 	C4Control SyncChecks;
 
@@ -98,6 +100,10 @@ public:
 	bool InitReplay(C4Group &rGroup);
 
 	void ChangeToLocal();
+
+	// Replay scrubbing: soft-restart for backward seek + fast-forward helper.
+	void SoftRestartForReplaySeek(uint32_t iTargetFrame);
+	void FastForwardToFrame(uint32_t iTargetFrame);
 
 	void Clear();
 	void Default();
