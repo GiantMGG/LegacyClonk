@@ -246,3 +246,107 @@ def test_verify_manifest_detects_duplicate_destinations(tmp_path: Path):
 	with pytest.raises(SystemExit) as exc:
 		I.load_manifest(p)
 	assert "Duplicate destination" in str(exc.value)
+
+
+# ---------------------------------------------------------------------------
+# Tier 2 — Offline integration test (vendored sample, no network, real c4group)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.integration
+def test_integration_import_sample_pack_end_to_end(
+	tmp_path: Path,
+	sample_manifest_entry: I.ManifestEntry,
+	sample_metadata: I.CcanMetadata,
+	monkeypatch,
+):
+	"""End-to-end import of the vendored Sample.c4d fixture, no network."""
+	# Resolve the real c4group binary.
+	c4group = I.resolve_c4group()
+
+	# Mock the network: serve meta.html and the packed Sample.c4d from disk.
+	# IMPORTANT: fetch_pack must COPY the fixture into a per-test cache dir and
+	# return that copy's path. Returning the fixture path directly would let
+	# `unpack`'s `c4group -u` consume/transform the packed file in-place and
+	# destroy the fixture for subsequent test runs.
+	cache_dir = tmp_path / "cache"
+	cache_dir.mkdir()
+	import shutil as _shutil
+
+	def fake_fetch_pack(entry, cache_dir, rate_limit=I.DEFAULT_RATE_LIMIT):
+		dest_dir = cache_dir / str(entry.ccan_id)
+		dest_dir.mkdir(parents=True, exist_ok=True)
+		dest = dest_dir / entry.filename
+		_shutil.copy(str(FIX / "Sample.c4d"), str(dest))
+		return dest
+
+	monkeypatch.setattr(I, "fetch_metadata_html", lambda e, rate_limit=I.DEFAULT_RATE_LIMIT: (FIX / "meta.html").read_text(encoding="utf-8"))
+	monkeypatch.setattr(I, "fetch_pack", fake_fetch_pack)
+	monkeypatch.setattr(I, "CACHE_DIR", cache_dir)
+
+	# Build a one-entry manifest.
+	manifest = tmp_path / "manifest.toml"
+	e = sample_manifest_entry
+	manifest.write_text(
+		f"[entry.{e.ccan_id}]\n"
+		f'title = "{e.title}"\n'
+		f"ccan_id = {e.ccan_id}\n"
+		f'author_nick = "{e.author_nick}"\n'
+		f"author_uid = {e.author_uid}\n"
+		f'uploaded = "{e.uploaded}"\n'
+		f'engine = "{e.engine}"\n'
+		f'license = "{e.license}"\n'
+		f'license_rationale = "{e.license_rationale}"\n'
+		f'filename = "{e.filename}"\n'
+		f'destination = "{e.destination}"\n'
+		f'notes = "{e.notes}"\n',
+		encoding="utf-8",
+	)
+
+	content_community = tmp_path / "cc"
+	content_community.mkdir()
+
+	# Drive the import via cmd_import's internals: call _import_one directly.
+	I._import_one(
+		entry=sample_manifest_entry,
+		content_community=content_community,
+		c4group=c4group,
+		force=False,
+		rate_limit=0,
+	)
+
+	# 1. The unpacked pack directory exists at content-community/Sample/Sample.c4d.
+	pack_dir = content_community / "Sample"
+	assert pack_dir.is_dir(), f"destination not created: {pack_dir}"
+	assert (pack_dir / "Sample.c4d").is_dir(), "unpacked pack missing"
+
+	# 2. The three normalized files exist and match expected (modulo date footer).
+	copying = (pack_dir / "COPYING").read_text(encoding="utf-8")
+	assert copying == (FIX / "expected" / "COPYING").read_text(encoding="utf-8")
+	attr = (pack_dir / "ATTRIBUTION.txt").read_text(encoding="utf-8")
+	expected_attr = (FIX / "expected" / "ATTRIBUTION.txt").read_text(encoding="utf-8")
+	# Strip the date-stamped footer for comparison: keep everything up to the
+	# "Imported by" line.
+	attr_body = attr[: attr.index("Imported by")]
+	expected_body = expected_attr[: expected_attr.index("Imported by")]
+	assert attr_body == expected_body
+	assert "Imported by LegacyClonk import_ccan.py on" in attr
+	assert (pack_dir / "ChangesLE.txt").read_text(encoding="utf-8") == ""
+
+	# 3. c4group -l succeeds on the imported pack (the unpacked pack dir,
+	#    not the destination root — matches spec Tier 3 canary verification).
+	ok, _ = I.validate(pack_dir / "Sample.c4d", c4group)
+	assert ok, "c4group -l failed on the imported pack"
+
+	# 4. Idempotency: re-import is a no-op.
+	assert I.is_already_imported(sample_manifest_entry, content_community) is True
+
+	# 5. --force re-imports.
+	I._import_one(
+		entry=sample_manifest_entry,
+		content_community=content_community,
+		c4group=c4group,
+		force=True,
+		rate_limit=0,
+	)
+	assert (pack_dir / "Sample.c4d").is_dir(), "force re-import lost the pack"
