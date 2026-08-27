@@ -138,6 +138,89 @@ def resolve_c4group() -> Path:
 
 
 # ===========================================================================
+# Manifest loading + validation
+# ===========================================================================
+
+
+def load_manifest(path: Path) -> list[ManifestEntry]:
+    """Load and validate the curated manifest.
+
+    Exits non-zero with a clear message on any of:
+      - TOML parse error
+      - Missing required field in an ``[entry.<id>]`` block
+      - ``license = "unknown"``
+      - Duplicate ``destination`` across entries
+      - Entry block whose table key does not match its ``ccan_id`` field
+    """
+    try:
+        data = tomllib.loads(path.read_text(encoding="utf-8"))
+    except tomllib.TOMLDecodeError as e:
+        sys.exit(f"Manifest parse error: {e}. Check `{path}` syntax.")
+    except FileNotFoundError:
+        sys.exit(f"Manifest not found: {path}")
+
+    raw_entries = data.get("entry", {})
+    if not raw_entries:
+        sys.exit(f"Manifest `{path}` has no [entry.<id>] blocks.")
+
+    entries: list[ManifestEntry] = []
+    for block_key, block in raw_entries.items():
+        if not isinstance(block, dict):
+            sys.exit(f"Manifest entry `{block_key}` is not a table.")
+        missing = [f for f in REQUIRED_FIELDS if f not in block]
+        if missing:
+            sys.exit(
+                f"Manifest entry `{block_key}` is missing required field(s): "
+                f"{', '.join(missing)}"
+            )
+        license_val = block["license"]
+        if license_val == "unknown":
+            sys.exit(
+                f"Manifest entry `{block_key}` has license = \"unknown\". "
+                f"Set a concrete license before importing."
+            )
+        try:
+            entry = ManifestEntry(
+                ccan_id=int(block["ccan_id"]),
+                title=str(block["title"]),
+                author_nick=str(block["author_nick"]),
+                author_uid=int(block["author_uid"]),
+                uploaded=str(block["uploaded"]),
+                engine=str(block["engine"]),
+                license=str(block["license"]),
+                license_rationale=str(block["license_rationale"]),
+                filename=str(block["filename"]),
+                destination=str(block["destination"]),
+                notes=str(block["notes"]),
+            )
+        except (ValueError, TypeError) as e:
+            sys.exit(f"Manifest entry `{block_key}` has a typed-field error: {e}")
+
+        # Block key must match the ccan_id (curator-consistency check).
+        if str(block_key) != str(entry.ccan_id):
+            sys.exit(
+                f"Manifest entry table key `{block_key}` does not match its "
+                f"`ccan_id = {entry.ccan_id}`."
+            )
+        entries.append(entry)
+
+    check_duplicate_destinations(entries)
+    return entries
+
+
+def check_duplicate_destinations(entries: list[ManifestEntry]) -> None:
+    """Exit non-zero if any two entries share a `destination`."""
+    seen: dict[str, int] = {}
+    for e in entries:
+        if e.destination in seen:
+            sys.exit(
+                f"Duplicate destination `{e.destination}` in manifest: "
+                f"entries {seen[e.destination]} and {e.ccan_id} both target it."
+            )
+        seen[e.destination] = e.ccan_id
+
+
+# ===========================================================================
 # Subcommand stubs (implemented in later tasks)
 # ===========================================================================
 
@@ -153,8 +236,12 @@ def cmd_import(args: argparse.Namespace) -> int:
 
 
 def cmd_verify_manifest(args: argparse.Namespace) -> int:
-    # Implemented in Task 10.
-    raise NotImplementedError
+    """Validate manifest syntax + required fields + duplicate destinations."""
+    entries = load_manifest(args.manifest)
+    print(f"Manifest OK: {len(entries)} entr{'y' if len(entries) == 1 else 'ies'}.")
+    for e in entries:
+        print(f"  [{e.ccan_id}] {e.title} -> content-community/{e.destination}/")
+    return 0
 
 
 def build_parser() -> argparse.ArgumentParser:
