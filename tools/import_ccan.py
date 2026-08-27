@@ -138,6 +138,22 @@ def resolve_c4group() -> Path:
 
 
 # ===========================================================================
+# Validate step (c4group <pack> -l integrity probe)
+# ===========================================================================
+
+
+def validate(pack_dir: Path, c4group: Path) -> tuple[bool, str]:
+    """Run ``c4group <pack_dir> -l``. Returns (ok, combined_output)."""
+    proc = subprocess.run(
+        [str(c4group), str(pack_dir), "-l"],
+        capture_output=True,
+        text=True,
+    )
+    output = proc.stdout + proc.stderr
+    return proc.returncode == 0, output
+
+
+# ===========================================================================
 # Normalize step (COPYING / ATTRIBUTION.txt / ChangesLE.txt)
 # ===========================================================================
 
