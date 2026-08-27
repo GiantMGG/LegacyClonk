@@ -38,7 +38,7 @@
 
 #ifdef _WIN32
 #include "StdRegistry.h"
-#elif defined(__linux__)
+#elif defined(__linux__) || defined(__FreeBSD__) || defined(__OpenBSD__)
 #include <clocale>
 #endif
 
@@ -64,7 +64,7 @@ bool isGermanSystem()
 #elif defined(__APPLE__) and defined(C4ENGINE)
 	extern bool isGerman();
 	if (isGerman()) return true;
-#elif defined(__linux__)
+#elif defined(__linux__) || defined(__FreeBSD__) || defined(__OpenBSD__)
 	if (strstr(std::setlocale(LC_MESSAGES, nullptr), "de")) return true;
 #endif
 	return false;
@@ -90,7 +90,7 @@ void C4ConfigGeneral::CompileFunc(StdCompiler *pComp)
 	pComp->Value(mkNamingAdapt(s(DefinitionPath),  "DefinitionPath", "",  false, true));
 #ifdef _WIN32
 	pComp->Value(mkNamingAdapt(s(UserPath), "UserPath", "%APPDATA%\\LegacyClonk",                        false, true));
-#elif defined(__linux__)
+#elif defined(__linux__) || defined(__FreeBSD__) || defined(__OpenBSD__)
 	pComp->Value(mkNamingAdapt(s(UserPath), "UserPath", "$HOME/.legacyclonk",                            false, true));
 #elif defined(__APPLE__)
 	pComp->Value(mkNamingAdapt(s(UserPath), "UserPath", "$HOME/Library/Application Support/LegacyClonk", false, true));
@@ -494,7 +494,7 @@ bool C4Config::Load(bool forceWorkingDirectory, const char *szConfigFile)
 			if (buf.isNull())
 			{
 				// Config file not present?
-#ifdef __linux__
+#if defined(__linux__) || defined(__FreeBSD__) || defined(__OpenBSD__)
 				if (!szConfigFile)
 				{
 					StdStrBuf filename(getenv("HOME"), false);
@@ -630,7 +630,7 @@ void C4ConfigGeneral::DeterminePaths(bool forceWorkingDirectory)
 	// Temp path
 	GetTempPathA(CFG_MaxString, TempPath);
 	if (TempPath[0]) AppendBackslash(TempPath);
-#elif defined(__linux__)
+#elif defined(__linux__) || defined(__FreeBSD__) || defined(__OpenBSD__)
 #ifdef C4ENGINE
 	GetParentPath(Application.Location, ExePath);
 #else

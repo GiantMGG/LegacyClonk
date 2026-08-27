@@ -1490,7 +1490,7 @@ bool C4Group::AddEntryOnDisk(const char *szFilename,
 
 	// Determine executable bit (linux only)
 	bool fExecutable = false;
-#ifdef __linux__
+#if defined(__linux__) || defined(__FreeBSD__) || defined(__OpenBSD__)
 	fExecutable = (access(szFilename, X_OK) == 0);
 #endif
 

@@ -33,8 +33,10 @@ void C4Thread::SetCurrentThreadName(const std::string_view name)
 	{
 		setThreadDescription(GetCurrentThread(), StdStringEncodingConverter::WinAcpToUtf16(name).c_str());
 	}
-#elif defined(__linux__)
+#elif defined(__linux__) || defined(__FreeBSD__)
 	pthread_setname_np(pthread_self(), std::string{name, 0, 15}.c_str());
+#elif defined(__OpenBSD__)
+	pthread_setname_np(std::string{name}.c_str());
 #elif defined(__APPLE__)
 	pthread_setname_np(std::string{name}.c_str());
 #endif

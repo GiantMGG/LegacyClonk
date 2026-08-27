@@ -127,7 +127,7 @@ std::string CStdOSVersion::GetFriendlyOSName()
 	return "Windows";
 }
 
-#elif defined(__linux__)
+#elif defined(__linux__) || defined(__FreeBSD__) || defined(__OpenBSD__)
 
 #include <sys/utsname.h>
 
