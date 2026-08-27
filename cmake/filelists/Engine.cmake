@@ -294,6 +294,8 @@ src/C4StartupOptionsDlg.cpp
 src/C4StartupOptionsDlg.h
 src/C4StartupPlrSelDlg.cpp
 src/C4StartupPlrSelDlg.h
+src/C4StartupReplaySelDlg.cpp
+src/C4StartupReplaySelDlg.h
 src/C4StartupScenSelDlg.cpp
 src/C4StartupScenSelDlg.h
 src/C4Stat.cpp
