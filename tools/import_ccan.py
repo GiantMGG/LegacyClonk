@@ -138,6 +138,111 @@ def resolve_c4group() -> Path:
 
 
 # ===========================================================================
+# CCAN metadata HTML parser
+# ===========================================================================
+
+
+class CcanMetadataParser(html.parser.HTMLParser):
+    """Best-effort scraper for a CCAN per-entry metadata page.
+
+    The CCAN metadata page is a table where each row is ``<th>Label</th><td>value</td>``.
+    We capture the text of each ``<td>`` keyed by the preceding ``<th>`` label,
+    plus the ``<title>`` tag for the page title.
+    """
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.fields: dict[str, str] = {}
+        self._current_th: Optional[str] = None
+        self._in_td: bool = False
+        self._in_title: bool = False
+        self._title_parts: list[str] = []
+        self._td_parts: list[str] = []
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        if tag == "th":
+            self._current_th = ""  # will be filled by handle_data
+        elif tag == "td":
+            self._in_td = True
+            self._td_parts = []
+        elif tag == "title":
+            self._in_title = True
+
+    def handle_endtag(self, tag: str) -> None:
+        if tag == "th":
+            pass  # _current_th stays set until the td closes
+        elif tag == "td" and self._current_th is not None:
+            value = " ".join("".join(self._td_parts).split())
+            self.fields[self._current_th] = value
+            self._current_th = None
+            self._in_td = False
+        elif tag == "td":
+            self._in_td = False
+        elif tag == "title":
+            self._in_title = False
+
+    def handle_data(self, data: str) -> None:
+        if self._in_title:
+            self._title_parts.append(data)
+        elif self._current_th is not None and not self._in_td:
+            # th text accumulates into _current_th
+            self._current_th += data
+        elif self._in_td:
+            self._td_parts.append(data)
+
+
+def parse_ccan_metadata(html_text: str, ccan_id: int) -> CcanMetadata:
+    """Parse a CCAN metadata HTML page into a ``CcanMetadata`` struct."""
+    parser = CcanMetadataParser()
+    parser.feed(html_text)
+    f = parser.fields
+
+    def get(*keys: str) -> str:
+        for k in keys:
+            if k in f:
+                return f[k]
+        return ""
+
+    title = " ".join("".join(parser._title_parts).split()).removeprefix("CCAN - ").strip()
+    if not title:
+        title = get("Titel", "Title")
+
+    author_raw = get("Autor", "Author")
+    author_nick = author_raw
+    author_uid = 0
+    # Author UID often appears as "Nick (UID: 4711)" or a link to user.pl?i=4711.
+    import re
+    m = re.search(r"i=(\d+)", author_raw)
+    if m:
+        author_uid = int(m.group(1))
+        author_nick = re.sub(r"\s*\(?\s*UID:?\s*\d+\s*\)?", "", author_raw).strip()
+    else:
+        m = re.search(r"\(?\s*UID:?\s*(\d+)\s*\)?", author_raw)
+        if m:
+            author_uid = int(m.group(1))
+            author_nick = re.sub(r"\s*\(?\s*UID:?\s*\d+\s*\)?", "", author_raw).strip()
+
+    uploaded = get("Zeit", "Datum", "Date", "Uploaded")
+    engine = get("Engine-Version", "Engine")
+    filename = get("Download", "Dateiname", "Filename")
+
+    desc_de = get("Beschreibung", "Description (DE)", "Beschreibung (DE)")
+    desc_us = get("Description (US)", "Description", "Beschreibung (US)")
+
+    return CcanMetadata(
+        ccan_id=ccan_id,
+        title=title,
+        author_nick=author_nick,
+        author_uid=author_uid,
+        uploaded=uploaded,
+        engine=engine,
+        filename=filename,
+        description_de=desc_de,
+        description_us=desc_us,
+    )
+
+
+# ===========================================================================
 # Manifest loading + validation
 # ===========================================================================
 
