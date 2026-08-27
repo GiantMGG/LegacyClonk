@@ -138,6 +138,61 @@ def resolve_c4group() -> Path:
 
 
 # ===========================================================================
+# Normalize step (COPYING / ATTRIBUTION.txt / ChangesLE.txt)
+# ===========================================================================
+
+
+def _license_copying_text(entry: ManifestEntry) -> str:
+    if entry.license == "CC-BY-NC-4.0":
+        return CC_BY_NC_40_TEXT
+    return (
+        f"License: {entry.license}\n"
+        f"\n"
+        f"Rationale: {entry.license_rationale}\n"
+        f"\n"
+        f"The curator is responsible for ensuring the full license text is\n"
+        f"reproduced here for any license other than CC-BY-NC-4.0.\n"
+    )
+
+
+def render_attribution(entry: ManifestEntry, metadata: CcanMetadata) -> str:
+    """Render the per-pack ATTRIBUTION.txt content (spec section 'How attribution')."""
+    return (
+        f"Title:    {metadata.title or entry.title}\n"
+        f"Author:   {metadata.author_nick or entry.author_nick} "
+        f"(CCAN user ID {metadata.author_uid or entry.author_uid})\n"
+        f"Uploaded: {metadata.uploaded or entry.uploaded}\n"
+        f"Source:   {entry.view_url}\n"
+        f"License:  {entry.license} (see COPYING)\n"
+        f"\n"
+        f"Description (DE):\n"
+        f"{metadata.description_de or '(not captured)'}\n"
+        f"\n"
+        f"Description (US):\n"
+        f"{metadata.description_us or '(not captured)'}\n"
+        f"\n"
+        f"License rationale:\n"
+        f"{entry.license_rationale}\n"
+        f"\n"
+        f"Imported by LegacyClonk import_ccan.py on "
+        f"{time.strftime('%Y-%m-%d', time.gmtime())}.\n"
+    )
+
+
+def normalize(
+    entry: ManifestEntry,
+    metadata: CcanMetadata,
+    pack_dir: Path,
+) -> None:
+    """Write COPYING, ATTRIBUTION.txt, and ChangesLE.txt into ``pack_dir``."""
+    (pack_dir / "COPYING").write_text(_license_copying_text(entry), encoding="utf-8")
+    (pack_dir / "ATTRIBUTION.txt").write_text(
+        render_attribution(entry, metadata), encoding="utf-8"
+    )
+    (pack_dir / "ChangesLE.txt").write_text("", encoding="utf-8")
+
+
+# ===========================================================================
 # Unpack step (extension dispatch)
 # ===========================================================================
 
