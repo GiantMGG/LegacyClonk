@@ -34,4 +34,5 @@ protected:
 private:
 	void OnPlayTutorialBtn(C4GUI::Control *btn);
 	void OnSkipBtn(C4GUI::Control *btn);
+	void OnReadGuideBtn(C4GUI::Control *btn);
 };

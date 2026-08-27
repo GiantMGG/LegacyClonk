@@ -19,6 +19,7 @@
 #include "C4StartupWelcomeDlg.h"
 
 #include "C4Game.h"
+#include "C4OpenURL.h"
 #include "C4Startup.h"
 #include "C4Gui.h"
 
@@ -40,6 +41,9 @@ constexpr const char *kWelcomeBody =
 	"Would you like to play the voiced tutorial?";
 constexpr const char *kWelcomePlayBtn = "Play tutorial";
 constexpr const char *kWelcomeSkipBtn = "Skip for now";
+constexpr const char *kWelcomeReadGuideBtn = "Read the 5-minute quickstart";
+constexpr const char *kFirstGameGuideURL =
+	"https://legacyclonk.github.io/LegacyClonk/players/first-game/";
 
 // Hardcoded scenario path for the first tutorial.
 constexpr const char *kTutorial01Path = "Tutorial.c4f\\Tutorial01.c4s";
@@ -54,11 +58,24 @@ C4StartupWelcomeDlg::C4StartupWelcomeDlg()
 	C4GUI::Label *pBody = new C4GUI::Label(kWelcomeBody, rcBody, ALeft, C4StartupFontClr, &C4GUI::GetRes()->TextFont, false, false);
 	AddElement(pBody);
 
-	// Two buttons centered at the bottom.
+	// Two buttons centered at the bottom, plus a third "Read the 5-minute
+	// quickstart" button stacked above them.
 	const int32_t iTotalBtnWdt = 2 * kWelcomeBtnWdt + kWelcomeBtnGap;
 	const int32_t iBtnY = GetClientRect().Hgt - kWelcomeBtnHgt - 20;
 
 	C4GUI::CallbackButton<C4StartupWelcomeDlg> *pBtn;
+
+	// Guide button: full dialog width, stacked above the play/skip pair.
+	const int32_t iGuideBtnY = iBtnY - kWelcomeBtnHgt - 10;
+	const C4Rect rcGuideBtn(
+		GetClientRect().Wdt / 2 - kWelcomeBtnWdt / 2,
+		iGuideBtnY,
+		kWelcomeBtnWdt,
+		kWelcomeBtnHgt);
+	pBtn = new C4GUI::CallbackButton<C4StartupWelcomeDlg>(
+		kWelcomeReadGuideBtn, rcGuideBtn,
+		&C4StartupWelcomeDlg::OnReadGuideBtn);
+	AddElement(pBtn);
 	const C4Rect rcPlayBtn(GetClientRect().Wdt / 2 - iTotalBtnWdt / 2, iBtnY, kWelcomeBtnWdt, kWelcomeBtnHgt);
 	pBtn = new C4GUI::CallbackButton<C4StartupWelcomeDlg>(kWelcomePlayBtn, rcPlayBtn, &C4StartupWelcomeDlg::OnPlayTutorialBtn);
 	AddElement(pBtn);
@@ -89,5 +106,15 @@ void C4StartupWelcomeDlg::OnSkipBtn(C4GUI::Control *btn)
 {
 	// Dismiss the dialog; main menu remains.
 	(void)btn;
+	Close(false);
+}
+
+void C4StartupWelcomeDlg::OnReadGuideBtn(C4GUI::Control *btn)
+{
+	// Open the published first-game guide in the player's default browser,
+	// then dismiss the welcome dialog so the player lands on the main menu.
+	// Mirrors the label-hyperlink precedent at C4GuiLabels.cpp:89.
+	(void)btn;
+	OpenURL(kFirstGameGuideURL);
 	Close(false);
 }
