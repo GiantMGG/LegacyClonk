@@ -249,6 +249,8 @@ src/C4Record.cpp
 src/C4Record.h
 src/C4Replay.cpp
 src/C4Replay.h
+src/C4ReplayViewerDlg.cpp
+src/C4ReplayViewerDlg.h
 src/C4Rect.cpp
 src/C4Rect.h
 src/C4Region.cpp
