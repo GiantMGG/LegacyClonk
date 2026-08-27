@@ -562,8 +562,12 @@ def check_duplicate_destinations(entries: list[ManifestEntry]) -> None:
 
 
 def cmd_list(args: argparse.Namespace) -> int:
-    # Implemented in Task 10.
-    raise NotImplementedError
+    entries = load_manifest(args.manifest)
+    print(f"{len(entries)} curated entr{'y' if len(entries) == 1 else 'ies'}:")
+    for e in entries:
+        print(f"  [{e.ccan_id}] {e.title}  ->  content-community/{e.destination}/")
+        print(f"      engine={e.engine}  license={e.license}")
+    return 0
 
 
 def _import_one(
@@ -678,6 +682,12 @@ def build_parser() -> argparse.ArgumentParser:
         type=Path,
         default=DEFAULT_CONTENT_COMMUNITY,
         help="Destination repo root (default: ../content-community).",
+    )
+    p_imp.add_argument(
+        "--rate-limit",
+        type=float,
+        default=DEFAULT_RATE_LIMIT,
+        help=f"Seconds between CCAN requests (default: {DEFAULT_RATE_LIMIT}).",
     )
     p_imp.set_defaults(func=cmd_import)
 
