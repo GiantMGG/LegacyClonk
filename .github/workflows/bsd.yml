@@ -75,3 +75,63 @@ jobs:
             fi
             cmake --build build
             ctest --test-dir build --output-on-failure --no-tests=error
+
+  openbsd:
+    name: OpenBSD 7.9 (console-only, best-effort)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: "OpenBSD VM: pkg_add + build + test"
+        uses: vmactions/openbsd-vm@86cdc08415d9d0865267e686561e276c52d62530 # v1.4.7
+        with:
+          mem: 4096
+          cpus: 2
+          usesh: bash
+          cache-after-prepare: true
+          prepare: |
+            set -euo pipefail
+            # OpenBSD's package manager is pkg_add; packages live under /usr/local.
+            # The base-OS Clang has incomplete C++23 support — see docs/BSD_PORT.md.
+            pkg_add -I -v \
+              cmake \
+              ninja \
+              git \
+              pkgconf \
+              openssl \
+              curl \
+              zlib \
+              fmtlib \
+              libiconv \
+              miniupnpc \
+              spdlog \
+              catch2
+          run: |
+            set -euo pipefail
+            cd "$GITHUB_WORKSPACE"
+            # Same configure-and-retry fallback as the FreeBSD lane.
+            if cmake -B build -G Ninja \
+                  -DCMAKE_BUILD_TYPE=RelWithDebInfo \
+                  -DUSE_CONSOLE=ON \
+                  -DUSE_TESTS=ON \
+                  -DUSE_LTO=OFF \
+                  -DCMAKE_PREFIX_PATH=/usr/local \
+                  -DCMAKE_CTEST_ARGUMENTS='--output-on-failure;--no-tests=error'; then
+              :
+            else
+              echo "Initial configure failed; retrying with -DUSE_MINIUPNPC=OFF"
+              cmake -B build -G Ninja \
+                -DCMAKE_BUILD_TYPE=RelWithDebInfo \
+                -DUSE_CONSOLE=ON \
+                -DUSE_TESTS=ON \
+                -DUSE_LTO=OFF \
+                -DUSE_MINIUPNPC=OFF \
+                -DCMAKE_PREFIX_PATH=/usr/local \
+                -DCMAKE_CTEST_ARGUMENTS='--output-on-failure;--no-tests=error'
+            fi
+            cmake --build build
+            ctest --test-dir build --output-on-failure --no-tests=error
