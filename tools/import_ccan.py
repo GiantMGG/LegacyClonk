@@ -138,6 +138,71 @@ def resolve_c4group() -> Path:
 
 
 # ===========================================================================
+# HTTP fetch (rate-limited, retrying)
+# ===========================================================================
+
+
+_LAST_REQUEST_TIME: float = 0.0
+
+
+def _rate_limit_sleep(rate_limit: float) -> None:
+    global _LAST_REQUEST_TIME
+    now = time.monotonic()
+    wait = rate_limit - (now - _LAST_REQUEST_TIME)
+    if wait > 0:
+        time.sleep(wait)
+    _LAST_REQUEST_TIME = time.monotonic()
+
+
+def fetch_url(
+    url: str,
+    rate_limit: float = DEFAULT_RATE_LIMIT,
+    max_retries: int = 3,
+) -> bytes:
+    """Fetch a URL with rate limiting + exponential backoff on HTTP 429."""
+    attempt = 0
+    backoff = 1.0
+    while True:
+        _rate_limit_sleep(rate_limit)
+        req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
+        try:
+            with urllib.request.urlopen(req, timeout=30) as resp:
+                return resp.read()
+        except urllib.error.HTTPError as e:
+            if e.code == 429 and attempt < max_retries:
+                time.sleep(backoff)
+                backoff = min(backoff * 2, 60.0)
+                attempt += 1
+                continue
+            if e.code == 404:
+                sys.exit(f"CCAN entry not found (HTTP 404): {url}")
+            sys.exit(f"CCAN HTTP error {e.code}: {e.reason} ({url})")
+        except urllib.error.URLError as e:
+            raise ConnectionError(f"CCAN unreachable: {e.reason}") from e
+
+
+def fetch_pack(
+    entry: ManifestEntry,
+    cache_dir: Path,
+    rate_limit: float = DEFAULT_RATE_LIMIT,
+) -> Path:
+    """Download the pack blob to the cache dir. Returns the cached blob path."""
+    dest_dir = cache_dir / str(entry.ccan_id)
+    dest_dir.mkdir(parents=True, exist_ok=True)
+    blob_path = dest_dir / entry.filename
+    blob_path.write_bytes(fetch_url(entry.download_url, rate_limit=rate_limit))
+    return blob_path
+
+
+def fetch_metadata_html(
+    entry: ManifestEntry,
+    rate_limit: float = DEFAULT_RATE_LIMIT,
+) -> str:
+    """Fetch the CCAN metadata page HTML for the entry."""
+    return fetch_url(entry.view_url, rate_limit=rate_limit).decode("utf-8", errors="replace")
+
+
+# ===========================================================================
 # CCAN metadata HTML parser
 # ===========================================================================
 
