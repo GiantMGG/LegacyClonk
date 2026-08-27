@@ -566,9 +566,83 @@ def cmd_list(args: argparse.Namespace) -> int:
     raise NotImplementedError
 
 
+def _import_one(
+    entry: ManifestEntry,
+    content_community: Path,
+    c4group: Path,
+    force: bool,
+    rate_limit: float,
+) -> None:
+    """Import a single manifest entry. Raises on failure (caller exits)."""
+    dest_dir = content_community / entry.destination
+
+    if not force and is_already_imported(entry, content_community):
+        print(f"[{entry.ccan_id}] already imported, skipping "
+              f"(use --force to override).")
+        return
+
+    if force and dest_dir.is_dir():
+        rollback_import(dest_dir)
+
+    if dest_dir.exists():
+        sys.exit(
+            f"Destination {dest_dir} already exists and is not a recognized "
+            f"import. Remove it manually or use --force."
+        )
+
+    # 1. Fetch metadata + parse.
+    print(f"[{entry.ccan_id}] fetching metadata...")
+    metadata = parse_ccan_metadata(
+        fetch_metadata_html(entry, rate_limit=rate_limit),
+        entry.ccan_id,
+    )
+
+    # 2. Fetch pack blob.
+    print(f"[{entry.ccan_id}] downloading {entry.filename}...")
+    blob_path = fetch_pack(entry, CACHE_DIR, rate_limit=rate_limit)
+
+    # 3. Unpack into the destination.
+    print(f"[{entry.ccan_id}] unpacking...")
+    dest_dir.mkdir(parents=True, exist_ok=False)
+    try:
+        unpack(blob_path, dest_dir, c4group)
+        # 4. Normalize.
+        normalize(entry, metadata, dest_dir)
+        # 5. Validate the unpacked pack dir (not the destination root).
+        #    Matches the spec Tier 3 canary verification:
+        #    `c4group .../Hazard3D/Hazard3D.c4s -l`.
+        print(f"[{entry.ccan_id}] validating (c4group -l)...")
+        pack_path = dest_dir / entry.filename
+        ok, output = validate(pack_path, c4group)
+        if not ok:
+            rollback_import(dest_dir)
+            sys.exit(
+                f"[{entry.ccan_id}] validation failed (c4group -l):\n{output}"
+            )
+    except (OSError, RuntimeError, ValueError) as e:
+        rollback_import(dest_dir)
+        sys.exit(f"[{entry.ccan_id}] import failed: {e}")
+
+    print(f"[{entry.ccan_id}] imported -> {dest_dir}")
+
+
 def cmd_import(args: argparse.Namespace) -> int:
-    # Implemented in Task 9.
-    raise NotImplementedError
+    entries = load_manifest(args.manifest)
+    by_id = {e.ccan_id: e for e in entries}
+    c4group = resolve_c4group()
+    rate_limit = getattr(args, "rate_limit", DEFAULT_RATE_LIMIT)
+
+    for requested_id in args.entry_ids:
+        if requested_id not in by_id:
+            sys.exit(f"Entry ID {requested_id} not in manifest.")
+        _import_one(
+            by_id[requested_id],
+            args.content_community,
+            c4group,
+            args.force,
+            rate_limit,
+        )
+    return 0
 
 
 def cmd_verify_manifest(args: argparse.Namespace) -> int:
