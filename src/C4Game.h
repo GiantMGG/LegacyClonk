@@ -206,6 +206,11 @@ public:
 	bool TempScenarioFile;
 	bool fPreinited; // set after PreInit has been called; unset by Clear and Default
 	int32_t FrameCounter;
+
+	// Smoke-run bound: > 0 ⇒ exit when FrameCounter >= this (see spec
+	// headless-scenario-smoke-harness). Not serialized — process-lifetime flag.
+	int32_t SmokeRunTicks{0};
+	bool SmokeRunActive() const { return SmokeRunTicks > 0; }
 	int32_t iTick2, iTick3, iTick5, iTick10, iTick35, iTick255, iTick500, iTick1000;
 	bool TimeGo;
 	int32_t Time;
