@@ -103,6 +103,21 @@ foreach(scenario ${SMOKE_SCENARIOS})
     FAIL_REGULAR_EXPRESSION "FatalError|\\[error\\]|\\[fatal\\]")
 endforeach()
 
+# Symlink content packs into the build directory so the engine (CWD=build/
+# after chdir) can resolve bare definition names like "WeatherEvents.c4d"
+# during smoke runs.
+file(GLOB CONTENT_PACKS
+  "${LEGACYCLONK_CONTENT_DIR}/*.c4d"
+  "${LEGACYCLONK_CONTENT_DIR}/*.c4f"
+  "${LEGACYCLONK_CONTENT_DIR}/*.c4g")
+foreach(pack ${CONTENT_PACKS})
+  get_filename_component(pack_name "${pack}" NAME)
+  set(link_target "${CMAKE_BINARY_DIR}/${pack_name}")
+  if(NOT EXISTS "${link_target}")
+    file(CREATE_LINK "${pack}" "${link_target}" SYMBOLIC)
+  endif()
+endforeach()
+
 # --- Engine unit tests for the SmokeRunTicks state semantics -------------
 add_test_target(SmokeRunFlag
 	SOURCES "${CMAKE_SOURCE_DIR}/tests/TstSmokeRunFlag.cpp"
