@@ -117,10 +117,15 @@ int ClonkMain(const HINSTANCE instance, const int cmdShow, const int argc, char 
 
 	// Run it
 	Application.Run();
+	// Snapshot the fatal-error stack + fQuitWithError BEFORE Clear() (which
+	// may reset LogSystem); spec headless-scenario-smoke-harness §3.
+	const std::string fatalError{Application.LogSystem.GetFatalErrorString()};
+	const bool quitWithError = Game.fQuitWithError || !fatalError.empty();
 	Application.Clear();
 
-	// Return exit code
-	return C4XRV_Completed;
+	// Return exit code: non-zero if the game shut down irregularly or the
+	// fatal-error stack is non-empty. C4XRV_Failure == 1, C4XRV_Completed == 0.
+	return quitWithError ? C4XRV_Failure : C4XRV_Completed;
 }
 
 int WINAPI WinMain(HINSTANCE hInst,
@@ -290,11 +295,16 @@ int main(int argc, char *argv[])
 
 	// Execute application
 	Application.Run();
+	// Snapshot the fatal-error stack + fQuitWithError BEFORE Clear() (which
+	// may reset LogSystem); spec headless-scenario-smoke-harness §3.
+	const std::string fatalError{Application.LogSystem.GetFatalErrorString()};
+	const bool quitWithError = Game.fQuitWithError || !fatalError.empty();
 	// free app stuff
 	Application.Clear();
 	if (Application.restartAtEnd) restart(argv);
-	// Return exit code
-	return C4XRV_Completed;
+	// Return exit code: non-zero if the game shut down irregularly or the
+	// fatal-error stack is non-empty. C4XRV_Failure == 1, C4XRV_Completed == 0.
+	return quitWithError ? C4XRV_Failure : C4XRV_Completed;
 }
 
 #endif
