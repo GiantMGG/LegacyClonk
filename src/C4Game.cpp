@@ -985,6 +985,17 @@ bool C4Game::Execute() // Returns true if the game is over
 	// Let's go
 	GameGo = true;
 
+	// Replay scrub hooks: pause freezes the world; speed multiplier
+	// runs extra control ticks per visible frame.
+	if (Control.isReplay())
+	{
+		if (fReplayPaused)
+		{
+			// World is frozen but the game loop still runs (camera can pan).
+			return false;
+		}
+	}
+
 	// Network
 	Network.Execute();
 
