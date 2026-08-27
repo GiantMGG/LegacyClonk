@@ -76,11 +76,9 @@ REQUIRED_FIELDS = (
 
 PACK_EXTENSIONS = (".c4d", ".c4f", ".c4s")
 
-
 # ===========================================================================
 # Data classes
 # ===========================================================================
-
 
 @dataclass
 class ManifestEntry:
@@ -104,7 +102,6 @@ class ManifestEntry:
     def download_url(self) -> str:
         return CCAN_DOWNLOAD_URL.format(id=self.ccan_id, filename=self.filename)
 
-
 @dataclass
 class CcanMetadata:
     ccan_id: int
@@ -117,11 +114,9 @@ class CcanMetadata:
     description_de: str
     description_us: str
 
-
 # ===========================================================================
 # c4group resolution
 # ===========================================================================
-
 
 def resolve_c4group() -> Path:
     """Resolve the c4group binary path or exit with a clear message."""
@@ -136,11 +131,9 @@ def resolve_c4group() -> Path:
         "c4group not found. Set $C4GROUP or build it via `cmake --build build`."
     )
 
-
 # ===========================================================================
 # Idempotency + rollback
 # ===========================================================================
-
 
 def _parse_attribution_id_and_uploaded(attr_text: str) -> tuple[Optional[int], Optional[str]]:
     """Extract ccan_id (from the Source URL) and uploaded date from ATTRIBUTION.txt."""
@@ -150,7 +143,6 @@ def _parse_attribution_id_and_uploaded(attr_text: str) -> tuple[Optional[int], O
     up_match = re.search(r"^Uploaded:\s*(.+)$", attr_text, re.MULTILINE)
     uploaded = up_match.group(1).strip() if up_match else None
     return ccan_id, uploaded
-
 
 def is_already_imported(
     entry: ManifestEntry,
@@ -169,17 +161,14 @@ def is_already_imported(
         and existing_uploaded == entry.uploaded
     )
 
-
 def rollback_import(dest_dir: Path) -> None:
     """Delete a partial destination directory on failure."""
     if dest_dir.is_dir():
         shutil.rmtree(dest_dir)
 
-
 # ===========================================================================
 # Validate step (c4group <pack> -l integrity probe)
 # ===========================================================================
-
 
 def validate(pack_dir: Path, c4group: Path) -> tuple[bool, str]:
     """Run ``c4group <pack_dir> -l``. Returns (ok, combined_output)."""
@@ -191,11 +180,9 @@ def validate(pack_dir: Path, c4group: Path) -> tuple[bool, str]:
     output = proc.stdout + proc.stderr
     return proc.returncode == 0, output
 
-
 # ===========================================================================
 # Normalize step (COPYING / ATTRIBUTION.txt / ChangesLE.txt)
 # ===========================================================================
-
 
 def _license_copying_text(entry: ManifestEntry) -> str:
     if entry.license == "CC-BY-NC-4.0":
@@ -208,7 +195,6 @@ def _license_copying_text(entry: ManifestEntry) -> str:
         f"The curator is responsible for ensuring the full license text is\n"
         f"reproduced here for any license other than CC-BY-NC-4.0.\n"
     )
-
 
 def render_attribution(entry: ManifestEntry, metadata: CcanMetadata) -> str:
     """Render the per-pack ATTRIBUTION.txt content (spec section 'How attribution')."""
@@ -233,7 +219,6 @@ def render_attribution(entry: ManifestEntry, metadata: CcanMetadata) -> str:
         f"{time.strftime('%Y-%m-%d', time.gmtime())}.\n"
     )
 
-
 def normalize(
     entry: ManifestEntry,
     metadata: CcanMetadata,
@@ -246,11 +231,9 @@ def normalize(
     )
     (pack_dir / "ChangesLE.txt").write_text("", encoding="utf-8")
 
-
 # ===========================================================================
 # Unpack step (extension dispatch)
 # ===========================================================================
-
 
 def unpack(blob_path: Path, dest_dir: Path, c4group: Path) -> Path:
     """Unpack a downloaded blob into ``dest_dir``.
@@ -302,14 +285,11 @@ def unpack(blob_path: Path, dest_dir: Path, c4group: Path) -> Path:
 
     raise ValueError(f"Unsupported download extension: {suffix}")
 
-
 # ===========================================================================
 # HTTP fetch (rate-limited, retrying)
 # ===========================================================================
 
-
 _LAST_REQUEST_TIME: float = 0.0
-
 
 def _rate_limit_sleep(rate_limit: float) -> None:
     global _LAST_REQUEST_TIME
@@ -318,7 +298,6 @@ def _rate_limit_sleep(rate_limit: float) -> None:
     if wait > 0:
         time.sleep(wait)
     _LAST_REQUEST_TIME = time.monotonic()
-
 
 def fetch_url(
     url: str,
@@ -346,7 +325,6 @@ def fetch_url(
         except urllib.error.URLError as e:
             raise ConnectionError(f"CCAN unreachable: {e.reason}") from e
 
-
 def fetch_pack(
     entry: ManifestEntry,
     cache_dir: Path,
@@ -359,7 +337,6 @@ def fetch_pack(
     blob_path.write_bytes(fetch_url(entry.download_url, rate_limit=rate_limit))
     return blob_path
 
-
 def fetch_metadata_html(
     entry: ManifestEntry,
     rate_limit: float = DEFAULT_RATE_LIMIT,
@@ -367,11 +344,9 @@ def fetch_metadata_html(
     """Fetch the CCAN metadata page HTML for the entry."""
     return fetch_url(entry.view_url, rate_limit=rate_limit).decode("utf-8", errors="replace")
 
-
 # ===========================================================================
 # CCAN metadata HTML parser
 # ===========================================================================
-
 
 class CcanMetadataParser(html.parser.HTMLParser):
     """Best-effort scraper for a CCAN per-entry metadata page.
@@ -420,7 +395,6 @@ class CcanMetadataParser(html.parser.HTMLParser):
             self._current_th += data
         elif self._in_td:
             self._td_parts.append(data)
-
 
 def parse_ccan_metadata(html_text: str, ccan_id: int) -> CcanMetadata:
     """Parse a CCAN metadata HTML page into a ``CcanMetadata`` struct."""
@@ -472,11 +446,9 @@ def parse_ccan_metadata(html_text: str, ccan_id: int) -> CcanMetadata:
         description_us=desc_us,
     )
 
-
 # ===========================================================================
 # Manifest loading + validation
 # ===========================================================================
-
 
 def load_manifest(path: Path) -> list[ManifestEntry]:
     """Load and validate the curated manifest.
@@ -543,7 +515,6 @@ def load_manifest(path: Path) -> list[ManifestEntry]:
     check_duplicate_destinations(entries)
     return entries
 
-
 def check_duplicate_destinations(entries: list[ManifestEntry]) -> None:
     """Exit non-zero if any two entries share a `destination`."""
     seen: dict[str, int] = {}
@@ -555,11 +526,9 @@ def check_duplicate_destinations(entries: list[ManifestEntry]) -> None:
             )
         seen[e.destination] = e.ccan_id
 
-
 # ===========================================================================
 # Subcommand stubs (implemented in later tasks)
 # ===========================================================================
-
 
 def cmd_list(args: argparse.Namespace) -> int:
     entries = load_manifest(args.manifest)
@@ -568,7 +537,6 @@ def cmd_list(args: argparse.Namespace) -> int:
         print(f"  [{e.ccan_id}] {e.title}  ->  content-community/{e.destination}/")
         print(f"      engine={e.engine}  license={e.license}")
     return 0
-
 
 def _import_one(
     entry: ManifestEntry,
@@ -629,7 +597,6 @@ def _import_one(
 
     print(f"[{entry.ccan_id}] imported -> {dest_dir}")
 
-
 def cmd_import(args: argparse.Namespace) -> int:
     entries = load_manifest(args.manifest)
     by_id = {e.ccan_id: e for e in entries}
@@ -648,7 +615,6 @@ def cmd_import(args: argparse.Namespace) -> int:
         )
     return 0
 
-
 def cmd_verify_manifest(args: argparse.Namespace) -> int:
     """Validate manifest syntax + required fields + duplicate destinations."""
     entries = load_manifest(args.manifest)
@@ -656,7 +622,6 @@ def cmd_verify_manifest(args: argparse.Namespace) -> int:
     for e in entries:
         print(f"  [{e.ccan_id}] {e.title} -> content-community/{e.destination}/")
     return 0
-
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
@@ -696,11 +661,9 @@ def build_parser() -> argparse.ArgumentParser:
 
     return parser
 
-
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     return args.func(args)
-
 
 if __name__ == "__main__":
     raise SystemExit(main())

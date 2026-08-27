@@ -22,11 +22,9 @@ import import_ccan as I
 HERE = Path(__file__).parent
 FIX = HERE / "fixtures" / "ccan_sample"
 
-
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
-
 
 @pytest.fixture
 def sample_manifest_entry() -> I.ManifestEntry:
@@ -44,7 +42,6 @@ def sample_manifest_entry() -> I.ManifestEntry:
 		notes="Test fixture.",
 	)
 
-
 @pytest.fixture
 def sample_metadata() -> I.CcanMetadata:
 	return I.CcanMetadata(
@@ -58,7 +55,6 @@ def sample_metadata() -> I.CcanMetadata:
 		description_de="Sample DE description for offline integration test.",
 		description_us="Sample US description for offline integration test.",
 	)
-
 
 @pytest.fixture
 def sample_manifest(tmp_path: Path, sample_manifest_entry: I.ManifestEntry) -> Path:
@@ -81,11 +77,9 @@ def sample_manifest(tmp_path: Path, sample_manifest_entry: I.ManifestEntry) -> P
 	)
 	return p
 
-
 # ---------------------------------------------------------------------------
 # Tier 1 — Unit tests
 # ---------------------------------------------------------------------------
-
 
 def test_parse_ccan_metadata_from_synthetic_fixture():
 	html = (FIX / "meta.html").read_text(encoding="utf-8")
@@ -98,7 +92,6 @@ def test_parse_ccan_metadata_from_synthetic_fixture():
 	assert m.filename == "Sample.c4d"
 	assert "Sample DE description" in m.description_de
 	assert "Sample US description" in m.description_us
-
 
 def test_load_manifest_validates_required_fields(tmp_path: Path):
 	# Missing `filename` field.
@@ -122,7 +115,6 @@ def test_load_manifest_validates_required_fields(tmp_path: Path):
 		I.load_manifest(p)
 	assert "filename" in str(exc.value)
 
-
 def test_load_manifest_rejects_unknown_license(tmp_path: Path):
 	p = tmp_path / "bad.toml"
 	p.write_text(
@@ -143,7 +135,6 @@ def test_load_manifest_rejects_unknown_license(tmp_path: Path):
 	with pytest.raises(SystemExit) as exc:
 		I.load_manifest(p)
 	assert "unknown" in str(exc.value)
-
 
 def test_normalize_generates_attribution_copying_changesle(
 	tmp_path: Path,
@@ -170,7 +161,6 @@ def test_normalize_generates_attribution_copying_changesle(
 	assert "Description (US):\nSample US description" in attr
 	assert "License rationale:\nSynthetic fixture" in attr
 
-
 def test_idempotency_check_skips_already_imported(
 	tmp_path: Path,
 	sample_manifest_entry: I.ManifestEntry,
@@ -187,7 +177,6 @@ def test_idempotency_check_skips_already_imported(
 	# A different uploaded date -> not idempotent.
 	e2 = I.ManifestEntry(**{**sample_manifest_entry.__dict__, "uploaded": "2025-01-01"})
 	assert I.is_already_imported(e2, tmp_path) is False
-
 
 def test_validate_runs_c4group_l_and_checks_exit_code(monkeypatch):
 	# Mock subprocess.run: first call returns exit 0 (ok), second call exit 1 (fail).
@@ -211,7 +200,6 @@ def test_validate_runs_c4group_l_and_checks_exit_code(monkeypatch):
 	ok2, out2 = I.validate(Path("/fake/pack"), Path("/fake/c4group"))
 	assert ok2 is False and "boom" in out2
 
-
 def test_unpack_dispatches_on_extension(tmp_path: Path):
 	# .txt rejection.
 	txt = tmp_path / "x.txt"
@@ -226,7 +214,6 @@ def test_unpack_dispatches_on_extension(tmp_path: Path):
 	out = tmp_path / "out_zip"
 	ret = I.unpack(z, out, Path("/bin/true"))
 	assert (ret / "inside" / "a.txt").read_text() == "hello"
-
 
 def test_verify_manifest_detects_duplicate_destinations(tmp_path: Path):
 	p = tmp_path / "dup.toml"
@@ -247,11 +234,9 @@ def test_verify_manifest_detects_duplicate_destinations(tmp_path: Path):
 		I.load_manifest(p)
 	assert "Duplicate destination" in str(exc.value)
 
-
 # ---------------------------------------------------------------------------
 # Tier 2 — Offline integration test (vendored sample, no network, real c4group)
 # ---------------------------------------------------------------------------
-
 
 @pytest.mark.integration
 def test_integration_import_sample_pack_end_to_end(
