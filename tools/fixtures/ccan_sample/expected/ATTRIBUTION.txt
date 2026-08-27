@@ -1,0 +1,16 @@
+Title:    Sample
+Author:   SampleAuthor (CCAN user ID 9999)
+Uploaded: 2026-08-27
+Source:   https://ccan.de/cgi-bin/ccan/ccan-view.pl?a=view&i=4242
+License:  CC-BY-NC-4.0 (see COPYING)
+
+Description (DE):
+Sample DE description for offline integration test.
+
+Description (US):
+Sample US description for offline integration test.
+
+License rationale:
+Synthetic fixture for offline integration test.
+
+Imported by LegacyClonk import_ccan.py on <DATE>.
