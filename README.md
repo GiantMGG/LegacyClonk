@@ -118,6 +118,16 @@ walks you through the shipped Colony Bay scenario: clear the ruins,
 rebuild the wood–stone–tools chain, and light the lighthouse beacon
 at night to attract a trade ship.
 
+## Engine architecture
+
+New to the engine source? The
+[Engine architecture](https://legacyclonk.github.io/LegacyClonk/contributors/architecture/)
+page walks through the `C4*` subsystem layout, the main loop in
+`C4Game::Execute()`, the C4Aul parse→exec pipeline, the network lockstep
+loop, and the rendering pipeline. Start at the
+[Contributors overview](https://legacyclonk.github.io/LegacyClonk/contributors/)
+for a one-paragraph-per-subsystem map.
+
 ## Contact
 
 - IRC: [irc://irc.euirc.net/#legacyclonk](irc://irc.euirc.net/#legacyclonk)

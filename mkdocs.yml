@@ -64,6 +64,9 @@ nav:
       - Scenario objective: cookbook/scenario-objective.md
       - Wire a menu: cookbook/wire-a-menu.md
       - Make a scenario: cookbook/make-a-scenario.md
+  - Contributors:
+      - Overview: contributors/index.md
+      - Architecture: contributors/architecture.md
   - Players:
       - First game: players/first-game.md
   - Porting:
