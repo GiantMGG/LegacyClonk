@@ -138,6 +138,45 @@ def resolve_c4group() -> Path:
 
 
 # ===========================================================================
+# Idempotency + rollback
+# ===========================================================================
+
+
+def _parse_attribution_id_and_uploaded(attr_text: str) -> tuple[Optional[int], Optional[str]]:
+    """Extract ccan_id (from the Source URL) and uploaded date from ATTRIBUTION.txt."""
+    import re
+    id_match = re.search(r"i=(\d+)", attr_text)
+    ccan_id = int(id_match.group(1)) if id_match else None
+    up_match = re.search(r"^Uploaded:\s*(.+)$", attr_text, re.MULTILINE)
+    uploaded = up_match.group(1).strip() if up_match else None
+    return ccan_id, uploaded
+
+
+def is_already_imported(
+    entry: ManifestEntry,
+    content_community: Path,
+) -> bool:
+    """True if content-community/<destination>/ATTRIBUTION.txt exists and
+    its ccan_id + uploaded match the manifest entry."""
+    attr = content_community / entry.destination / "ATTRIBUTION.txt"
+    if not attr.is_file():
+        return False
+    existing_id, existing_uploaded = _parse_attribution_id_and_uploaded(
+        attr.read_text(encoding="utf-8", errors="replace")
+    )
+    return (
+        existing_id == entry.ccan_id
+        and existing_uploaded == entry.uploaded
+    )
+
+
+def rollback_import(dest_dir: Path) -> None:
+    """Delete a partial destination directory on failure."""
+    if dest_dir.is_dir():
+        shutil.rmtree(dest_dir)
+
+
+# ===========================================================================
 # Validate step (c4group <pack> -l integrity probe)
 # ===========================================================================
 
