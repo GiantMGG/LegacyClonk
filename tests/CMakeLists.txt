@@ -48,6 +48,14 @@ add_test_target(C4NetIO
 		"${CMAKE_SOURCE_DIR}/src/StdSync.cpp"
 )
 
+add_test_target(C4NetIOIPv6Loopback
+	SOURCES
+		"${CMAKE_SOURCE_DIR}/tests/TstC4NetIOIPv6Loopback.cpp"
+		"${CMAKE_SOURCE_DIR}/src/C4NetIO.cpp"
+		"${CMAKE_SOURCE_DIR}/src/C4Network2Address.cpp"
+		"${CMAKE_SOURCE_DIR}/src/StdSync.cpp"
+)
+
 add_test_target(C4ValueCoercion
 	SOURCES "${CMAKE_SOURCE_DIR}/tests/TstC4ValueCoercion.cpp"
 	LINK_ENGINE
