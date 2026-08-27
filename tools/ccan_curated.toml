@@ -1,0 +1,23 @@
+# Curated CCAN entries for LegacyClonk's content-community archive.
+# Each [entry.<id>] block is one CCAN entry. The curator hand-picks
+# entries and records the license verdict per entry.
+#
+# Required fields (load_manifest fails fast on any missing):
+#   title, ccan_id, author_nick, author_uid, uploaded, engine, license,
+#   license_rationale, filename, destination, notes.
+#
+# `license = "unknown"` is rejected at load time. Set a concrete license
+# (CC-BY-NC-4.0, CC0, BSD, MIT, ...) before the entry can be imported.
+
+[entry.6421]  # Hazard 3D v2
+title             = "Hazard 3D"
+ccan_id           = 6421
+author_nick       = "Kodenith"
+author_uid        = 4711             # confirm at canary time
+uploaded          = "2025-03-14"     # confirm at canary time
+engine            = "LC"             # CR | LC | both
+license           = "CC-BY-NC-4.0"
+license_rationale = "Description explicitly grants reuse: 'Feel free to use this if you wanna make your own 3D scenarios'. Default Clonk content license (CC BY-NC 4.0) applies."
+filename          = "Hazard3D.c4s"
+destination       = "Hazard3D"
+notes             = "16.7 MB tech-demo 3D scenario. Requires LegacyClonk. Single .c4s, no .zip wrapper."
