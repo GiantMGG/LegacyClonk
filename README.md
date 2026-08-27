@@ -7,6 +7,8 @@ LegacyClonk continues to receive updates and ensures compatibility with existing
 
 The goal is to fix as many bugs and inelegances as possible, improving quality-of-life and adding nice-to-have features while not impacting the gameplay we’re all used to.
 
+New player? Read the [5-minute first-game guide](https://legacyclonk.github.io/LegacyClonk/players/first-game/).
+
 ## Installation
 Please refer to the [English](https://clonkspot.org/lc-en#installation-1) or [German](https://clonkspot.org/lc#installation-1) installation manual if you simply want to play the game.
 
@@ -104,6 +106,14 @@ The guide assumes the directory path to be `~/clonk`.
 - Enter your game folder, e.g. `~/clonk`.
 - Launch `clonk.exe`/`clonk.app`/the `clonk` binary.
 - Enjoy
+
+## Your first game
+
+Never played Clonk before? The
+[5-minute first-game guide](https://legacyclonk.github.io/LegacyClonk/players/first-game/)
+walks you through the shipped Colony Bay scenario: clear the ruins,
+rebuild the wood–stone–tools chain, and light the lighthouse beacon
+at night to attract a trade ship.
 
 Remark: In order to join network games with other players (who use release binaries) your `System.c4g` needs to match the one from the host. It can be obtained from [Releases](https://github.com/legacyclonk/LegacyClonk/releases/latest).
 
