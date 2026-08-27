@@ -1565,6 +1565,7 @@ void C4Game::Default()
 	PointersDenumerated = false;
 	IsRunning = false;
 	FrameCounter = 0;
+	SmokeRunTicks = 0;  // reset on Clear()->Default() (spec headless-scenario-smoke-harness)
 	GameOver = GameOverDlgShown = false;
 	ScenarioFilename[0] = 0;
 	PlayerFilenames[0] = 0;
@@ -2772,6 +2773,25 @@ void C4Game::ParseCommandLine(const char *szCmdLine)
 		// startup start screen
 		if (SEqual2NoCase(szParameter, "/startup:"))
 			C4Startup::SetStartScreen(szParameter + 9);
+		// Smoke-run bound (spec headless-scenario-smoke-harness).
+		// Colon form: "--smoke-run:350" / "/smoke-run:350".
+		if (SEqual2NoCase(szParameter, "/smoke-run:")
+		 || SEqual2NoCase(szParameter, "--smoke-run:"))
+		{
+			const char *colon = std::strchr(szParameter, ':');
+			SmokeRunTicks = colon ? std::atol(colon + 1) : 0;
+		}
+		// Two-arg form: "--smoke-run 350" / "/smoke-run 350".
+		if (SEqualNoCase(szParameter, "/smoke-run")
+		 || SEqualNoCase(szParameter, "--smoke-run"))
+		{
+			char szValue[_MAX_PATH + 1];
+			if (SGetParameter(szCmdLine, iPar + 1, szValue, _MAX_PATH))
+			{
+				SmokeRunTicks = std::atol(szValue);
+				++iPar;  // consume the value token
+			}
+		}
 		// Network
 		if (SEqualNoCase(szParameter, "/network"))
 			NetworkActive = true;
