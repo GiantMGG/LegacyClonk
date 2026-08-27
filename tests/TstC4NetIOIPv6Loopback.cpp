@@ -19,17 +19,17 @@
 //   4. TCP loopback on ::1 (C4NetIOTCP listener + client).
 //
 // All socket I/O is on the loopback interface (::1). No external network,
-// no master server, no netpuncher. An alarm(5) watchdog prevents hangs.
+// no master server, no netpuncher. Hang protection is provided by the
+// CTest TIMEOUT property (see tests/CMakeLists.txt) rather than an
+// in-process alarm() watchdog, keeping the test portable to Windows.
 
 #include <catch2/catch_all.hpp>
 
 #include "C4NetIO.h"
 #include "C4Network2Address.h"
 
-#include <csignal>
 #include <cstddef>
 #include <cstdint>
-#include <cstdlib>
 #include <cstring>
 #include <string>
 #include <vector>
@@ -47,41 +47,45 @@
 
 namespace
 {
+	// RAII socket guard: closes the FD on destruction via closesocket()
+	// (Windows) or close() (POSIX). Ensures the probe socket in
+	// find_free_ipv6_port() is released even when a REQUIRE throws.
+	struct SocketGuard
+	{
+		const int fd;
+		explicit SocketGuard(int s) : fd(s) {}
+		~SocketGuard()
+		{
+#ifdef _WIN32
+			::closesocket(fd);
+#else
+			::close(fd);
+#endif
+		}
+		SocketGuard(const SocketGuard &) = delete;
+		SocketGuard &operator=(const SocketGuard &) = delete;
+	};
+
 	// Find a free ephemeral IPv6 port by binding a temporary TCP socket to
 	// ::1:0, calling getsockname, then closing. Avoids hardcoding ports.
 	std::uint16_t find_free_ipv6_port()
 	{
 		const int s = ::socket(AF_INET6, SOCK_STREAM, IPPROTO_TCP);
 		REQUIRE(s != INVALID_SOCKET);
+		SocketGuard guard{s};
+
 		sockaddr_in6 addr{};
 		addr.sin6_family = AF_INET6;
 		addr.sin6_port = 0;
 		addr.sin6_addr = in6addr_loopback;
 		REQUIRE(::bind(s, reinterpret_cast<sockaddr *>(&addr), sizeof(addr)) == 0);
+
 		sockaddr_in6 bound{};
 		socklen_t len = sizeof(bound);
 		REQUIRE(::getsockname(s, reinterpret_cast<sockaddr *>(&bound), &len) == 0);
-		const std::uint16_t port = ntohs(bound.sin6_port);
-#ifdef _WIN32
-		::closesocket(s);
-#else
-		::close(s);
-#endif
-		return port;
-	}
 
-	// RAII watchdog: alarm(seconds) in ctor, alarm(0) in dtor.
-	// If the test hangs beyond the timeout, SIGALRM kills the process.
-	class Watchdog
-	{
-	public:
-		explicit Watchdog(unsigned int seconds)
-		{
-		std::signal(SIGALRM, [](int) { std::_Exit(1); });
-		::alarm(seconds);
-		}
-		~Watchdog() { ::alarm(0); }
-	};
+		return ntohs(bound.sin6_port);
+	}
 }
 
 // ---------------------------------------------------------------------------
@@ -152,8 +156,6 @@ TEST_CASE("C4Network2EndpointAddress round-trips pure IPv6 through ToString/SetA
 
 TEST_CASE("C4NetIOSimpleUDP round-trips a packet over IPv6 loopback", "[C4NetIO][IPv6][UDP]")
 {
-	Watchdog wd{5};
-
 	const std::uint16_t portA = find_free_ipv6_port();
 	const std::uint16_t portB = find_free_ipv6_port();
 
@@ -193,8 +195,6 @@ TEST_CASE("C4NetIOSimpleUDP round-trips a packet over IPv6 loopback", "[C4NetIO]
 
 TEST_CASE("C4NetIOTCP round-trips a packet over IPv6 loopback", "[C4NetIO][IPv6][TCP]")
 {
-	Watchdog wd{5};
-
 	const std::uint16_t port = find_free_ipv6_port();
 
 	Recorder serverRec, clientRec;

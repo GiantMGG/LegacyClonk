@@ -55,6 +55,7 @@ add_test_target(C4NetIOIPv6Loopback
 		"${CMAKE_SOURCE_DIR}/src/C4Network2Address.cpp"
 		"${CMAKE_SOURCE_DIR}/src/StdSync.cpp"
 )
+set_tests_properties(C4NetIOIPv6Loopback PROPERTIES TIMEOUT 30)
 
 add_test_target(C4ValueCoercion
 	SOURCES "${CMAKE_SOURCE_DIR}/tests/TstC4ValueCoercion.cpp"
