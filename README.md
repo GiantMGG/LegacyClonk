@@ -24,6 +24,7 @@ Essential dependencies:
 	- Linux: **g++ ≥ 15.1** or **clang++ ≥ 22.1**
 	- macOS: **open source clang++ ≥ 22.1** - e.g. `brew install llvm@22 ninja`
 - Make or Ninja
+- FreeBSD/OpenBSD: console-only build is community-supported — see [BSD port](docs/BSD_PORT.md)
 
 Extract the [latest pre-built dependencies](https://github.com/legacyclonk/deps/releases/latest) for your platform into a folder called `deps`.
 Make sure that besides the `CMakeLists.txt` of LegacyClonk there are folders `deps/include`, `deps/lib`, etc. as extracted from the binary package.

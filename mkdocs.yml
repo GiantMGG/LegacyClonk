@@ -66,6 +66,8 @@ nav:
       - Make a scenario: cookbook/make-a-scenario.md
   - Players:
       - First game: players/first-game.md
+  - Porting:
+      - BSD port: BSD_PORT.md
   - Reference:
       - Object lifecycle callbacks: reference/callbacks/object-lifecycle.md
       - Combat callbacks: reference/callbacks/combat.md
