@@ -107,6 +107,8 @@ The guide assumes the directory path to be `~/clonk`.
 - Launch `clonk.exe`/`clonk.app`/the `clonk` binary.
 - Enjoy
 
+Remark: In order to join network games with other players (who use release binaries) your `System.c4g` needs to match the one from the host. It can be obtained from [Releases](https://github.com/legacyclonk/LegacyClonk/releases/latest).
+
 ## Your first game
 
 Never played Clonk before? The
@@ -114,8 +116,6 @@ Never played Clonk before? The
 walks you through the shipped Colony Bay scenario: clear the ruins,
 rebuild the wood–stone–tools chain, and light the lighthouse beacon
 at night to attract a trade ship.
-
-Remark: In order to join network games with other players (who use release binaries) your `System.c4g` needs to match the one from the host. It can be obtained from [Releases](https://github.com/legacyclonk/LegacyClonk/releases/latest).
 
 ## Contact
 
