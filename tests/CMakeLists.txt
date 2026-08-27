@@ -93,3 +93,9 @@ foreach(scenario ${SMOKE_SCENARIOS})
     PASS_REGULAR_EXPRESSION "${scenario_name} PASS"
     FAIL_REGULAR_EXPRESSION "FatalError|\\[error\\]|\\[fatal\\]")
 endforeach()
+
+# --- Engine unit tests for the SmokeRunTicks state semantics -------------
+add_test_target(SmokeRunFlag
+	SOURCES "${CMAKE_SOURCE_DIR}/tests/TstSmokeRunFlag.cpp"
+	LINK_ENGINE
+)
