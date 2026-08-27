@@ -23,9 +23,9 @@ relative to this script's parent's parent.
 from __future__ import annotations
 
 import argparse
-import hashlib
 import html.parser
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -34,7 +34,7 @@ import tomllib
 import urllib.error
 import urllib.request
 import zipfile
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
 
@@ -202,7 +202,7 @@ def render_attribution(entry: ManifestEntry, metadata: CcanMetadata) -> str:
         f"Title:    {metadata.title or entry.title}\n"
         f"Author:   {metadata.author_nick or entry.author_nick} "
         f"(CCAN user ID {metadata.author_uid or entry.author_uid})\n"
-        f"Uploaded: {metadata.uploaded or entry.uploaded}\n"
+        f"Uploaded: {entry.uploaded}\n"
         f"Source:   {entry.view_url}\n"
         f"License:  {entry.license} (see COPYING)\n"
         f"\n"
@@ -342,7 +342,11 @@ def fetch_metadata_html(
     rate_limit: float = DEFAULT_RATE_LIMIT,
 ) -> str:
     """Fetch the CCAN metadata page HTML for the entry."""
-    return fetch_url(entry.view_url, rate_limit=rate_limit).decode("utf-8", errors="replace")
+    raw = fetch_url(entry.view_url, rate_limit=rate_limit)
+    try:
+        return raw.decode("utf-8")
+    except UnicodeDecodeError:
+        return raw.decode("cp1252", errors="replace")
 
 # ===========================================================================
 # CCAN metadata HTML parser
@@ -351,15 +355,19 @@ def fetch_metadata_html(
 class CcanMetadataParser(html.parser.HTMLParser):
     """Best-effort scraper for a CCAN per-entry metadata page.
 
-    The CCAN metadata page is a table where each row is ``<th>Label</th><td>value</td>``.
-    We capture the text of each ``<td>`` keyed by the preceding ``<th>`` label,
-    plus the ``<title>`` tag for the page title.
+    The CCAN metadata page is a table where each row is either
+    ``<th>Label</th><td>value</td>`` (synthetic fixture) or
+    ``<td>Label:</td><td>value</td>`` (live CCAN page). We capture the
+    text of each value ``<td>`` keyed by the preceding label, plus the
+    ``<title>`` tag for the page title.
     """
 
     def __init__(self) -> None:
         super().__init__()
         self.fields: dict[str, str] = {}
-        self._current_th: Optional[str] = None
+        self._label: Optional[str] = None
+        self._collecting_label: bool = False
+        self._expecting_value: bool = False
         self._in_td: bool = False
         self._in_title: bool = False
         self._title_parts: list[str] = []
@@ -367,22 +375,29 @@ class CcanMetadataParser(html.parser.HTMLParser):
 
     def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
         if tag == "th":
-            self._current_th = ""  # will be filled by handle_data
+            self._label = ""
+            self._collecting_label = True
         elif tag == "td":
             self._in_td = True
             self._td_parts = []
+        elif tag == "br" and self._in_td:
+            self._td_parts.append("\n")
         elif tag == "title":
             self._in_title = True
 
     def handle_endtag(self, tag: str) -> None:
         if tag == "th":
-            pass  # _current_th stays set until the td closes
-        elif tag == "td" and self._current_th is not None:
-            value = " ".join("".join(self._td_parts).split())
-            self.fields[self._current_th] = value
-            self._current_th = None
-            self._in_td = False
+            self._collecting_label = False
+            self._expecting_value = True
         elif tag == "td":
+            td_text = "".join(self._td_parts)
+            if self._expecting_value and self._label is not None:
+                self.fields[self._label] = td_text
+                self._label = None
+                self._expecting_value = False
+            elif td_text.strip().endswith(":"):
+                self._label = td_text.strip().rstrip(":").strip()
+                self._expecting_value = True
             self._in_td = False
         elif tag == "title":
             self._in_title = False
@@ -390,11 +405,31 @@ class CcanMetadataParser(html.parser.HTMLParser):
     def handle_data(self, data: str) -> None:
         if self._in_title:
             self._title_parts.append(data)
-        elif self._current_th is not None and not self._in_td:
-            # th text accumulates into _current_th
-            self._current_th += data
+        elif self._collecting_label:
+            self._label += data
         elif self._in_td:
             self._td_parts.append(data)
+
+def _extract_descriptions(fields: dict[str, str]) -> tuple[str, str]:
+    raw_de = (
+        fields.get("Beschreibung")
+        or fields.get("Description (DE)")
+        or fields.get("Beschreibung (DE)")
+        or ""
+    )
+    raw_us = (
+        fields.get("Description (US)")
+        or fields.get("Description")
+        or fields.get("Beschreibung (US)")
+        or ""
+    )
+    if "[US]" in raw_de or "[DE]" in raw_de:
+        parts = {"DE": "", "US": ""}
+        pattern = r"\[(DE|US)\](.*?)(?=\[(?:DE|US)\]|$)"
+        for m in re.finditer(pattern, raw_de, re.DOTALL):
+            parts[m.group(1)] = m.group(2).strip()
+        return parts["DE"], parts["US"]
+    return raw_de.strip(), raw_us.strip()
 
 def parse_ccan_metadata(html_text: str, ccan_id: int) -> CcanMetadata:
     """Parse a CCAN metadata HTML page into a ``CcanMetadata`` struct."""
@@ -405,18 +440,20 @@ def parse_ccan_metadata(html_text: str, ccan_id: int) -> CcanMetadata:
     def get(*keys: str) -> str:
         for k in keys:
             if k in f:
-                return f[k]
+                return " ".join(f[k].split())
         return ""
 
-    title = " ".join("".join(parser._title_parts).split()).removeprefix("CCAN - ").strip()
+    title = " ".join("".join(parser._title_parts).split())
+    for prefix in ("CCAN : Info zu ", "CCAN - ", "CCAN : ", "Info zu "):
+        if title.startswith(prefix):
+            title = title[len(prefix):].strip()
+            break
     if not title:
         title = get("Titel", "Title")
 
     author_raw = get("Autor", "Author")
     author_nick = author_raw
     author_uid = 0
-    # Author UID often appears as "Nick (UID: 4711)" or a link to user.pl?i=4711.
-    import re
     m = re.search(r"i=(\d+)", author_raw)
     if m:
         author_uid = int(m.group(1))
@@ -425,14 +462,17 @@ def parse_ccan_metadata(html_text: str, ccan_id: int) -> CcanMetadata:
         m = re.search(r"\(?\s*UID:?\s*(\d+)\s*\)?", author_raw)
         if m:
             author_uid = int(m.group(1))
-            author_nick = re.sub(r"\s*\(?\s*UID:?\s*\d+\s*\)?", "", author_raw).strip()
+            author_nick = re.sub(
+                r"\s*\(?\s*UID:?\s*\d+\s*\)?", "", author_raw
+            ).strip()
+        else:
+            author_nick = re.sub(r"\s*/\s*n/a\s*$", "", author_raw).strip()
 
     uploaded = get("Zeit", "Datum", "Date", "Uploaded")
     engine = get("Engine-Version", "Engine")
     filename = get("Download", "Dateiname", "Filename")
 
-    desc_de = get("Beschreibung", "Description (DE)", "Beschreibung (DE)")
-    desc_us = get("Description (US)", "Description", "Beschreibung (US)")
+    desc_de, desc_us = _extract_descriptions(f)
 
     return CcanMetadata(
         ccan_id=ccan_id,
@@ -577,20 +617,16 @@ def _import_one(
     print(f"[{entry.ccan_id}] unpacking...")
     dest_dir.mkdir(parents=True, exist_ok=False)
     try:
-        unpack(blob_path, dest_dir, c4group)
-        # 4. Normalize.
+        unpack_path = unpack(blob_path, dest_dir, c4group)
         normalize(entry, metadata, dest_dir)
-        # 5. Validate the unpacked pack dir (not the destination root).
-        #    Matches the spec Tier 3 canary verification:
-        #    `c4group .../Hazard3D/Hazard3D.c4s -l`.
-        print(f"[{entry.ccan_id}] validating (c4group -l)...")
-        pack_path = dest_dir / entry.filename
-        ok, output = validate(pack_path, c4group)
-        if not ok:
-            rollback_import(dest_dir)
-            sys.exit(
-                f"[{entry.ccan_id}] validation failed (c4group -l):\n{output}"
-            )
+        if unpack_path.suffix.lower() in PACK_EXTENSIONS:
+            print(f"[{entry.ccan_id}] validating (c4group -l)...")
+            ok, output = validate(unpack_path, c4group)
+            if not ok:
+                rollback_import(dest_dir)
+                sys.exit(
+                    f"[{entry.ccan_id}] validation failed (c4group -l):\n{output}"
+                )
     except (OSError, RuntimeError, ValueError) as e:
         rollback_import(dest_dir)
         sys.exit(f"[{entry.ccan_id}] import failed: {e}")
@@ -615,12 +651,62 @@ def cmd_import(args: argparse.Namespace) -> int:
         )
     return 0
 
+def _compare_entry_to_metadata(
+    entry: ManifestEntry,
+    metadata: CcanMetadata,
+) -> list[str]:
+    diffs: list[str] = []
+    if metadata.title and metadata.title != entry.title:
+        diffs.append(
+            f"title: manifest='{entry.title}' vs live='{metadata.title}'"
+        )
+    if metadata.author_nick and metadata.author_nick != entry.author_nick:
+        diffs.append(
+            f"author_nick: manifest='{entry.author_nick}' vs live='{metadata.author_nick}'"
+        )
+    if metadata.author_uid and metadata.author_uid != entry.author_uid:
+        diffs.append(
+            f"author_uid: manifest={entry.author_uid} vs live={metadata.author_uid}"
+        )
+    if metadata.uploaded and metadata.uploaded != entry.uploaded:
+        diffs.append(
+            f"uploaded: manifest='{entry.uploaded}' vs live='{metadata.uploaded}'"
+        )
+    if metadata.engine and metadata.engine != entry.engine:
+        diffs.append(
+            f"engine: manifest='{entry.engine}' vs live='{metadata.engine}'"
+        )
+    if metadata.filename and metadata.filename != entry.filename:
+        diffs.append(
+            f"filename: manifest='{entry.filename}' vs live='{metadata.filename}'"
+        )
+    return diffs
+
 def cmd_verify_manifest(args: argparse.Namespace) -> int:
-    """Validate manifest syntax + required fields + duplicate destinations."""
+    """Validate manifest syntax + re-fetch live CCAN metadata to detect upstream changes."""
     entries = load_manifest(args.manifest)
     print(f"Manifest OK: {len(entries)} entr{'y' if len(entries) == 1 else 'ies'}.")
+    rate_limit = getattr(args, "rate_limit", DEFAULT_RATE_LIMIT)
+    discrepancies = 0
     for e in entries:
-        print(f"  [{e.ccan_id}] {e.title} -> content-community/{e.destination}/")
+        print(f"[{e.ccan_id}] {e.title} -> content-community/{e.destination}/")
+        try:
+            html = fetch_metadata_html(e, rate_limit=rate_limit)
+            m = parse_ccan_metadata(html, e.ccan_id)
+            diffs = _compare_entry_to_metadata(e, m)
+            if diffs:
+                discrepancies += len(diffs)
+                for d in diffs:
+                    print(f"  WARNING: {d}")
+            else:
+                print("  OK (matches live CCAN metadata)")
+        except (ConnectionError, OSError) as ex:
+            print(f"  WARNING: could not fetch live metadata: {ex}")
+            discrepancies += 1
+    if discrepancies:
+        print(f"\n{discrepancies} discrepancy/discrepancies found.")
+        return 1
+    print(f"\nAll {len(entries)} entries match live CCAN metadata.")
     return 0
 
 def build_parser() -> argparse.ArgumentParser:
@@ -656,7 +742,16 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p_imp.set_defaults(func=cmd_import)
 
-    p_ver = sub.add_parser("verify-manifest", help="Validate manifest + detect duplicate destinations.")
+    p_ver = sub.add_parser(
+        "verify-manifest",
+        help="Validate manifest + re-fetch live CCAN metadata to detect upstream changes.",
+    )
+    p_ver.add_argument(
+        "--rate-limit",
+        type=float,
+        default=DEFAULT_RATE_LIMIT,
+        help=f"Seconds between CCAN requests (default: {DEFAULT_RATE_LIMIT}).",
+    )
     p_ver.set_defaults(func=cmd_verify_manifest)
 
     return parser
