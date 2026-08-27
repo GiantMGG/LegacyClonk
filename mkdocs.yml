@@ -31,12 +31,16 @@ plugins:
   - mike:
       version_selector: true
       alias_type: redirect
+  - glightbox
 
 markdown_extensions:
   - admonition
   - pymdownx.details
   - pymdownx.superfences
   - pymdownx.snippets
+  - attr_list
+  - md_in_html
+  - pymdownx.blocks.caption
   - toc:
       permalink: true
 
@@ -60,6 +64,8 @@ nav:
       - Scenario objective: cookbook/scenario-objective.md
       - Wire a menu: cookbook/wire-a-menu.md
       - Make a scenario: cookbook/make-a-scenario.md
+  - Players:
+      - First game: players/first-game.md
   - Reference:
       - Object lifecycle callbacks: reference/callbacks/object-lifecycle.md
       - Combat callbacks: reference/callbacks/combat.md
