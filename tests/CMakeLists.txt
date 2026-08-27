@@ -66,3 +66,30 @@ add_test_target(C4ReplayController
 	SOURCES "${CMAKE_SOURCE_DIR}/tests/TstC4ReplayController.cpp"
 	LINK_ENGINE
 )
+
+# --- Headless scenario smoke harness -------------------------------------
+# Discovers content/**/Tests.c4f/*Smoke.c4s scenarios and registers one
+# CTest entry per scenario. See spec headless-scenario-smoke-harness.
+#
+# The glob is anchored at the workspace content/ directory (sibling of
+# LegacyClonk/). New content packs add Tests.c4f/*Smoke.c4s scenarios and
+# the glob picks them up at configure time — no edits to this file needed.
+
+set(LEGACYCLONK_CONTENT_DIR "${CMAKE_SOURCE_DIR}/../content")
+
+file(GLOB SMOKE_SCENARIOS
+  "${LEGACYCLONK_CONTENT_DIR}/**/Tests.c4f/*Smoke.c4s")
+
+foreach(scenario ${SMOKE_SCENARIOS})
+  get_filename_component(scenario_name "${scenario}" NAME_WE)  # e.g. EventSmoke
+  add_test(NAME "smoke_${scenario_name}"
+    COMMAND "$<TARGET_FILE:clonk>"
+            --console --smoke-run 350
+            -s "${scenario}"
+    WORKING_DIRECTORY "${CMAKE_BINARY_DIR}")
+  set_tests_properties("smoke_${scenario_name}" PROPERTIES
+    TIMEOUT 60
+    LABELS "smoke"
+    PASS_REGULAR_EXPRESSION "${scenario_name} PASS"
+    FAIL_REGULAR_EXPRESSION "FatalError|\\[error\\]|\\[fatal\\]")
+endforeach()
