@@ -111,7 +111,10 @@ add_test_target(C4RecordRoundtrip
 set(LEGACYCLONK_CONTENT_DIR "${CMAKE_SOURCE_DIR}/../content")
 
 file(GLOB SMOKE_SCENARIOS
-  "${LEGACYCLONK_CONTENT_DIR}/**/Tests.c4f/*Smoke.c4s")
+  "${LEGACYCLONK_CONTENT_DIR}/*/Tests.c4f/*Smoke.c4s"
+  "${LEGACYCLONK_CONTENT_DIR}/*/*/Tests.c4f/*Smoke.c4s"
+  "${LEGACYCLONK_CONTENT_DIR}/*/*/*/Tests.c4f/*Smoke.c4s"
+  "${LEGACYCLONK_CONTENT_DIR}/*/*/*/*/Tests.c4f/*Smoke.c4s")
 
 foreach(scenario ${SMOKE_SCENARIOS})
   get_filename_component(scenario_name "${scenario}" NAME_WE)  # e.g. EventSmoke
