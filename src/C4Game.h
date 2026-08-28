@@ -140,6 +140,8 @@ public:
 	C4Game();
 	~C4Game();
 
+	friend class C4GameSave;
+
 public:
 	C4DefList Defs;
 	C4ObjectList ObjectsInAllSections;
