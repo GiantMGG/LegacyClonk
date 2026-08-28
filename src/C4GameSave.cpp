@@ -719,6 +719,18 @@ void C4GameSaveNetwork::AdjustCore(C4Scenario &rC4S)
 // delta-snapshot optimisation (Idea 3) is the XL follow-up.
 // ---------------------------------------------------------------------------
 
+namespace
+{
+class C4GameSaveRollback : public C4GameSaveSavegame
+{
+public:
+	C4GameSaveRollback() : C4GameSaveSavegame() {}
+
+protected:
+	virtual bool GetCopyScenario() override { return false; }
+};
+}
+
 bool C4GameSave::SaveRuntimeDataToBuffer(StdBuf &outBuf)
 {
 	// Pick a unique temp path. Use a counter to avoid collisions when
@@ -727,9 +739,11 @@ bool C4GameSave::SaveRuntimeDataToBuffer(StdBuf &outBuf)
 	const std::string tmpName = std::format("c4rollback_{}.c4g", counter.fetch_add(1));
 	const std::string tmpPath = Config.AtTempPath(tmpName.c_str());
 
-	// Save via the existing savegame path. C4GameSaveSavegame uses
-	// SyncSavegame, which captures the full runtime state.
-	C4GameSaveSavegame save;
+	// Save via the existing savegame path. C4GameSaveRollback is a
+	// C4GameSaveSavegame that does not copy the scenario file — the
+	// rollback snapshot only needs the runtime data (Game.txt +
+	// SaveSect*.c4g), not the full scenario directory copy.
+	C4GameSaveRollback save;
 	if (!save.Save(tmpPath.c_str()))
 	{
 		EraseItem(tmpPath.c_str());
@@ -797,12 +811,14 @@ bool C4GameSave::LoadRuntimeDataFromBuffer(const StdBuf &inBuf)
 	}
 
 	// Compile runtime data from Game.txt. The mainSectionProvider
-	// creates the main section from the savegame.
-	auto mainSectionProvider = [&savegame](StdCompiler &comp) -> C4Section &
+	// creates the main section from the original scenario file (the
+	// savegame produced by SaveRuntimeDataToBuffer does not contain
+	// the scenario files because GetCopyScenario() is false).
+	auto mainSectionProvider = [](StdCompiler &comp) -> C4Section &
 	{
 		auto section = std::make_unique<C4Section>(C4Section::Main,
 			C4Section::FirstSectionEnumerationIndex);
-		if (!section->InitFromTemplate(savegame) ||
+		if (!section->InitFromTemplate(Game.ScenarioFile) ||
 			!section->AssumeGroupAsSaveGameGroup())
 		{
 			comp.excCorrupt("Failed to open savegame group");

@@ -1046,7 +1046,7 @@ bool C4Group::Save(bool fReOpen)
 	Clear();
 
 	// Delete old group file, rename new file
-	if (!EraseFile(szGrpFileName))
+	if (!EraseItem(szGrpFileName))
 		return Error("Close: Cannot erase temp file");
 	if (!RenameFile(szTempFileName, szGrpFileName))
 		return Error("Close: Cannot rename group file");
