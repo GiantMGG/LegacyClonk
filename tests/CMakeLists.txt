@@ -140,3 +140,30 @@ add_test_target(SmokeRunFlag
 	SOURCES "${CMAKE_SOURCE_DIR}/tests/TstSmokeRunFlag.cpp"
 	LINK_ENGINE
 )
+
+# --- Network desync CI smoke ---------------------------------------------
+# See spec network-desync-ci-smoke. Runs two headless engine instances on
+# localhost with tc netem impairment (Linux only), asserting no desync fatal
+# errors over N ticks.
+find_program(TC tc)
+find_program(PYTHON3 python3)
+
+if (PYTHON3)
+	set(tc_args "")
+	if (TC)
+		list(APPEND tc_args "--tc-program" "${TC}")
+	endif()
+	add_test(NAME net_desync_smoke
+		COMMAND "${PYTHON3}"
+			"${CMAKE_SOURCE_DIR}/tools/net_desync_smoke.py"
+			--engine "$<TARGET_FILE:clonk>"
+			--scenario "${CMAKE_SOURCE_DIR}/tests/fixtures/NetSyncSmoke.c4s"
+			--ticks 2000
+			--timeout 120
+			${tc_args}
+		WORKING_DIRECTORY "${CMAKE_BINARY_DIR}")
+	set_tests_properties(net_desync_smoke PROPERTIES
+		TIMEOUT 180
+		LABELS "network;smoke"
+		RUN_SERIAL TRUE)
+endif()
