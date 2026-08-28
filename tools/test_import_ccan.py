@@ -335,3 +335,69 @@ def test_integration_import_sample_pack_end_to_end(
 		rate_limit=0,
 	)
 	assert (pack_dir / "Sample.c4d").is_dir(), "force re-import lost the pack"
+
+
+def test_load_manifest_parses_requires_field(tmp_path: Path):
+	p = tmp_path / "manifest.toml"
+	p.write_text(
+		"[entry.100]\n"
+		'title = "A"\nccan_id = 100\nauthor_nick = "x"\nauthor_uid = 1\n'
+		'uploaded = "2026-01-01"\nengine = "LC"\n'
+		'license = "CC-BY-NC-4.0"\nlicense_rationale = "r"\n'
+		'filename = "a.c4s"\ndestination = "A"\nnotes = "n"\n'
+		'requires = ["B", "C"]\n',
+		encoding="utf-8",
+	)
+	entries = I.load_manifest(p)
+	assert entries[0].requires == ["B", "C"]
+
+
+def test_load_manifest_requires_defaults_to_empty(tmp_path: Path):
+	p = tmp_path / "manifest.toml"
+	p.write_text(
+		"[entry.100]\n"
+		'title = "A"\nccan_id = 100\nauthor_nick = "x"\nauthor_uid = 1\n'
+		'uploaded = "2026-01-01"\nengine = "LC"\n'
+		'license = "CC-BY-NC-4.0"\nlicense_rationale = "r"\n'
+		'filename = "a.c4s"\ndestination = "A"\nnotes = "n"\n',
+		encoding="utf-8",
+	)
+	entries = I.load_manifest(p)
+	assert entries[0].requires == []
+
+
+def test_load_manifest_parses_smoke_subtable(tmp_path: Path):
+	p = tmp_path / "manifest.toml"
+	p.write_text(
+		"[entry.100]\n"
+		'title = "A"\nccan_id = 100\nauthor_nick = "x"\nauthor_uid = 1\n'
+		'uploaded = "2026-01-01"\nengine = "LC"\n'
+		'license = "CC-BY-NC-4.0"\nlicense_rationale = "r"\n'
+		'filename = "a.c4s"\ndestination = "A"\nnotes = "n"\n'
+		'[entry.100.smoke]\n'
+		'ticks = 500\n'
+		'skip = true\n'
+		'curator_script = true\n',
+		encoding="utf-8",
+	)
+	entries = I.load_manifest(p)
+	assert entries[0].smoke.ticks == 500
+	assert entries[0].smoke.skip is True
+	assert entries[0].smoke.curator_script is True
+
+
+def test_load_manifest_smoke_defaults(tmp_path: Path):
+	p = tmp_path / "manifest.toml"
+	p.write_text(
+		"[entry.100]\n"
+		'title = "A"\nccan_id = 100\nauthor_nick = "x"\nauthor_uid = 1\n'
+		'uploaded = "2026-01-01"\nengine = "LC"\n'
+		'license = "CC-BY-NC-4.0"\nlicense_rationale = "r"\n'
+		'filename = "a.c4s"\ndestination = "A"\nnotes = "n"\n'
+		'[entry.100.smoke]\n',
+		encoding="utf-8",
+	)
+	entries = I.load_manifest(p)
+	assert entries[0].smoke.ticks == 350
+	assert entries[0].smoke.skip is False
+	assert entries[0].smoke.curator_script is False

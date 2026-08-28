@@ -538,6 +538,26 @@ def load_manifest(path: Path) -> list[ManifestEntry]:
                 f"Set a concrete license before importing."
             )
         try:
+            # Parse requires (optional, default []).
+            requires_raw = block.get("requires", [])
+            if not isinstance(requires_raw, list):
+                sys.exit(
+                    f"Manifest entry `{block_key}`: `requires` must be a list of strings."
+                )
+            requires = [str(r) for r in requires_raw]
+
+            # Parse smoke sub-table (optional, defaults via SmokeConfig).
+            smoke_block = block.get("smoke", {})
+            if not isinstance(smoke_block, dict):
+                sys.exit(
+                    f"Manifest entry `{block_key}`: `[entry.<id>.smoke]` must be a table."
+                )
+            smoke = SmokeConfig(
+                ticks=int(smoke_block.get("ticks", 350)),
+                skip=bool(smoke_block.get("skip", False)),
+                curator_script=bool(smoke_block.get("curator_script", False)),
+            )
+
             entry = ManifestEntry(
                 ccan_id=int(block["ccan_id"]),
                 title=str(block["title"]),
@@ -550,6 +570,8 @@ def load_manifest(path: Path) -> list[ManifestEntry]:
                 filename=str(block["filename"]),
                 destination=str(block["destination"]),
                 notes=str(block["notes"]),
+                requires=requires,
+                smoke=smoke,
             )
         except (ValueError, TypeError) as e:
             sys.exit(f"Manifest entry `{block_key}` has a typed-field error: {e}")
