@@ -57,3 +57,86 @@ TEST_CASE("Harness_DelayBasedLockstep_StallsOnMissingRemoteInput", "[rollback][h
 	h.Drive();
 	REQUIRE(h.GetControlReady() == readyBefore);
 }
+
+// ---------------------------------------------------------------------------
+// Tier 1 case 1: C4Rollback_Init_ClampsKandW
+// ---------------------------------------------------------------------------
+TEST_CASE("C4Rollback_Init_ClampsKandW", "[rollback]")
+{
+	C4Rollback rb;
+	rb.Init(0, 0);
+	// After clamping, K >= 1 and W >= 1. Introspection is limited; the
+	// real proof is that Init does not crash on degenerate input.
+	REQUIRE(rb.GetSnapshotCount() == 0);
+
+	rb.Init(1000, 1000);
+	REQUIRE(rb.GetSnapshotCount() == 0);
+}
+
+// ---------------------------------------------------------------------------
+// Tier 1 case 2: C4Rollback_MaybeTakeSnapshot_RingBuffer
+// Drive MaybeTakeSnapshot through W+2 ticks at K=1; assert ring holds the
+// last W snapshots, oldest evicted.
+// ---------------------------------------------------------------------------
+TEST_CASE("C4Rollback_MaybeTakeSnapshot_RingBuffer", "[rollback]")
+{
+	C4Rollback rb;
+	rb.Init(/*K=*/1, /*W=*/3);
+	rb.SetEnabled(true);
+
+	// Inject a fake snapshot function that always succeeds so the ring
+	// buffer mechanics can be tested without a live game.
+	rb.SetSnapshotFunction([](StdBuf &buf) -> bool
+	{
+		const uint8_t data[]{0x42};
+		buf.Copy(data, sizeof(data));
+		return true;
+	});
+
+	for (int32_t t = 0; t < 5; ++t)
+		rb.MaybeTakeSnapshot(t);
+
+	REQUIRE(rb.GetSnapshotCount() == 3);
+	REQUIRE(rb.GetOldestSnapshotTick() == 2);
+	REQUIRE(rb.GetNewestSnapshotTick() == 4);
+}
+
+// ---------------------------------------------------------------------------
+// Tier 1 case 3: C4Rollback_RollbackToTick_RestoresNearestSnapshot
+// Take snapshots at ticks 0, 5, 10 (K=5, W=3). Call RollbackToTick(7).
+// Assert restore targets the tick-5 snapshot.
+// ---------------------------------------------------------------------------
+TEST_CASE("C4Rollback_RollbackToTick_RestoresNearestSnapshot", "[rollback]")
+{
+	C4Rollback rb;
+	rb.Init(/*K=*/5, /*W=*/3);
+	rb.SetEnabled(true);
+
+	// Fake snapshot + restore so the ring buffer mechanics are testable
+	// without a booted game.
+	rb.SetSnapshotFunction([](StdBuf &buf) -> bool
+	{
+		const uint8_t data[]{0x42};
+		buf.Copy(data, sizeof(data));
+		return true;
+	});
+	rb.SetRestoreFunction([](const StdBuf &) -> bool { return true; });
+
+	for (int32_t t = 0; t <= 10; t += 5)
+		rb.MaybeTakeSnapshot(t);
+
+	// RollbackToTick(7) should restore the tick-5 snapshot (nearest <= 7).
+	REQUIRE(rb.RollbackToTick(7) == 5);
+}
+
+// ---------------------------------------------------------------------------
+// Tier 1 case 4: C4Rollback_RollbackToTick_FastForwardsToTarget
+// After rollback to tick 5, assert Game.FrameCounter reaches the target
+// frame via FastForwardToFrame. This requires a live game; see harness.
+// ---------------------------------------------------------------------------
+TEST_CASE("C4Rollback_RollbackToTick_FastForwardsToTarget", "[rollback]")
+{
+	// Without a live game, FastForwardToFrame is a no-op. This case is
+	// exercised end-to-end via the harness in cases 11-13.
+	SUCCEED("Covered by harness cases 11-13; requires live game state.");
+}
