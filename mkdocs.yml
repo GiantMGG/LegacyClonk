@@ -67,6 +67,9 @@ nav:
   - Contributors:
       - Overview: contributors/index.md
       - Architecture: contributors/architecture.md
+      - C4Aul deep dive: contributors/c4aul.md
+      - Network lockstep deep dive: contributors/network.md
+      - Rendering pipeline deep dive: contributors/rendering.md
   - Players:
       - First game: players/first-game.md
   - Porting:
