@@ -80,29 +80,29 @@ PACK_EXTENSIONS = (".c4d", ".c4f", ".c4s")
 # Literal braces are doubled ({{ }}) so str.format() leaves them intact; only
 # {pack_name} is a real substitution placeholder.
 SMOKE_SCRIPT_TEMPLATE = (
-	"#strict 2\n"
-	"\n"
-	"static g_iStep;\n"
-	"\n"
-	"protected func Initialize()\n"
-	"{{\n"
-	"\tg_iStep = 0;\n"
-	"\tAddEffect(\"RunTest\", this, 1, 35, this);\n"
-	"\treturn true;\n"
-	"}}\n"
-	"\n"
-	"func FxRunTestStart(target, effect) {{ return 1; }}\n"
-	"\n"
-	"func FxRunTestTimer(object target, int effect, int timer)\n"
-	"{{\n"
-	"\tif (g_iStep == 0)\n"
-	"\t{{\n"
-	"\t\tLog(\"{pack_name} PASS\");\n"
-	"\t\tGameOver();\n"
-	"\t}}\n"
-	"\t++g_iStep;\n"
-	"\treturn 1;\n"
-	"}}\n"
+    "#strict 2\n"
+    "\n"
+    "static g_iStep;\n"
+    "\n"
+    "protected func Initialize()\n"
+    "{{\n"
+    "\tg_iStep = 0;\n"
+    "\tAddEffect(\"RunTest\", this, 1, 35, this);\n"
+    "\treturn true;\n"
+    "}}\n"
+    "\n"
+    "func FxRunTestStart(target, effect) {{ return 1; }}\n"
+    "\n"
+    "func FxRunTestTimer(object target, int effect, int timer)\n"
+    "{{\n"
+    "\tif (g_iStep == 0)\n"
+    "\t{{\n"
+    "\t\tLog(\"{pack_name} PASS\");\n"
+    "\t\tGameOver();\n"
+    "\t}}\n"
+    "\t++g_iStep;\n"
+    "\treturn 1;\n"
+    "}}\n"
 )
 
 # ===========================================================================
@@ -111,10 +111,10 @@ SMOKE_SCRIPT_TEMPLATE = (
 
 @dataclass
 class SmokeConfig:
-	"""Per-entry smoke gate configuration (the [entry.<id>.smoke] sub-table)."""
-	ticks: int = 350
-	skip: bool = False
-	curator_script: bool = False
+    """Per-entry smoke gate configuration (the [entry.<id>.smoke] sub-table)."""
+    ticks: int = 350
+    skip: bool = False
+    curator_script: bool = False
 
 
 @dataclass
@@ -676,140 +676,140 @@ def resolve_requires(
 # ===========================================================================
 
 def _minimal_bmp() -> bytes:
-	"""Return a minimal 1x1 24-bit BMP file (58 bytes)."""
-	width, height = 1, 1
-	row = b"\x00\x00\x00"  # 1 pixel, BGR
-	padded_row = row + b"\x00"  # pad to 4-byte boundary
-	pixel_data = padded_row * height
-	file_size = 54 + len(pixel_data)
-	return (
-		b"BM"
-		+ file_size.to_bytes(4, "little")
-		+ b"\x00\x00\x00\x00"
-		+ (54).to_bytes(4, "little")
-		+ (40).to_bytes(4, "little")
-		+ width.to_bytes(4, "little", signed=True)
-		+ height.to_bytes(4, "little", signed=True)
-		+ (1).to_bytes(2, "little")
-		+ (24).to_bytes(2, "little")
-		+ (0).to_bytes(4, "little")
-		+ len(pixel_data).to_bytes(4, "little")
-		+ (2835).to_bytes(4, "little")
-		+ (2835).to_bytes(4, "little")
-		+ (0).to_bytes(4, "little")
-		+ (0).to_bytes(4, "little")
-		+ pixel_data
-	)
+    """Return a minimal 1x1 24-bit BMP file (58 bytes)."""
+    width, height = 1, 1
+    row = b"\x00\x00\x00"  # 1 pixel, BGR
+    padded_row = row + b"\x00"  # pad to 4-byte boundary
+    pixel_data = padded_row * height
+    file_size = 54 + len(pixel_data)
+    return (
+        b"BM"
+        + file_size.to_bytes(4, "little")
+        + b"\x00\x00\x00\x00"
+        + (54).to_bytes(4, "little")
+        + (40).to_bytes(4, "little")
+        + width.to_bytes(4, "little", signed=True)
+        + height.to_bytes(4, "little", signed=True)
+        + (1).to_bytes(2, "little")
+        + (24).to_bytes(2, "little")
+        + (0).to_bytes(4, "little")
+        + len(pixel_data).to_bytes(4, "little")
+        + (2835).to_bytes(4, "little")
+        + (2835).to_bytes(4, "little")
+        + (0).to_bytes(4, "little")
+        + (0).to_bytes(4, "little")
+        + pixel_data
+    )
 
 
 def _collect_pack_definitions(directory: Path) -> list[str]:
-	"""Return bare filenames of .c4d/.c4f/.c4s packs directly inside directory.
+    """Return bare filenames of .c4d/.c4f/.c4s packs directly inside directory.
 
-	Skips ``Tests.c4f`` (the test folder, not a loadable definition).
-	"""
-	defs = []
-	for entry in sorted(directory.iterdir()):
-		if entry.name == "Tests.c4f":
-			continue
-		if entry.suffix.lower() in PACK_EXTENSIONS:
-			defs.append(entry.name)
-	return defs
+    Skips ``Tests.c4f`` (the test folder, not a loadable definition).
+    """
+    defs = []
+    for entry in sorted(directory.iterdir()):
+        if entry.name == "Tests.c4f":
+            continue
+        if entry.suffix.lower() in PACK_EXTENSIONS:
+            defs.append(entry.name)
+    return defs
 
 
 def _build_smoke_definitions(
-	unpack_path: Path,
-	requires_closure: list[str],
-	content_community: Path,
+    unpack_path: Path,
+    requires_closure: list[str],
+    content_community: Path,
 ) -> list[str]:
-	"""Build the list of definition pack filenames for the smoke scenario's
-	[Definitions] block.
+    """Build the list of definition pack filenames for the smoke scenario's
+    [Definitions] block.
 
-	- For a .c4d/.c4f pack: the pack itself.
-	- For a .c4s pack: the .c4d/.c4f sub-defs inside it.
-	- Plus each required dep's top-level packs.
-	"""
-	defs: list[str] = []
-	suffix = unpack_path.suffix.lower()
-	if suffix in (".c4d", ".c4f"):
-		defs.append(unpack_path.name)
-	elif suffix == ".c4s":
-		defs.extend(_collect_pack_definitions(unpack_path))
-	for dep in requires_closure:
-		dep_dir = content_community / dep
-		defs.extend(_collect_pack_definitions(dep_dir))
-	return defs
+    - For a .c4d/.c4f pack: the pack itself.
+    - For a .c4s pack: the .c4d/.c4f sub-defs inside it.
+    - Plus each required dep's top-level packs.
+    """
+    defs: list[str] = []
+    suffix = unpack_path.suffix.lower()
+    if suffix in (".c4d", ".c4f"):
+        defs.append(unpack_path.name)
+    elif suffix == ".c4s":
+        defs.extend(_collect_pack_definitions(unpack_path))
+    for dep in requires_closure:
+        dep_dir = content_community / dep
+        defs.extend(_collect_pack_definitions(dep_dir))
+    return defs
 
 
 def emit_smoke_artefacts(
-	entry: ManifestEntry,
-	dest_dir: Path,
-	unpack_path: Path,
-	requires_closure: list[str],
-	content_community: Path,
+    entry: ManifestEntry,
+    dest_dir: Path,
+    unpack_path: Path,
+    requires_closure: list[str],
+    content_community: Path,
 ) -> None:
-	"""Emit tier-A struct marker + tier-B smoke scenario into Tests.c4f/.
+    """Emit tier-A struct marker + tier-B smoke scenario into Tests.c4f/.
 
-	No-ops when ``entry.smoke.skip`` is True. Preserves an existing
-	Script.c when ``entry.smoke.curator_script`` is True.
-	"""
-	if entry.smoke.skip:
-		return
+    No-ops when ``entry.smoke.skip`` is True. Preserves an existing
+    Script.c when ``entry.smoke.curator_script`` is True.
+    """
+    if entry.smoke.skip:
+        return
 
-	tests_dir = dest_dir / "Tests.c4f"
-	tests_dir.mkdir(parents=True, exist_ok=True)
+    tests_dir = dest_dir / "Tests.c4f"
+    tests_dir.mkdir(parents=True, exist_ok=True)
 
-	pack_name = entry.destination  # e.g. "Hazard3D"
+    pack_name = entry.destination  # e.g. "Hazard3D"
 
-	# Tier A: struct marker (absolute pack path).
-	marker = tests_dir / f"{pack_name}Struct.txt"
-	marker.write_text(
-		str(unpack_path.resolve()) + "\n", encoding="utf-8"
-	)
+    # Tier A: struct marker (absolute pack path).
+    marker = tests_dir / f"{pack_name}Struct.txt"
+    marker.write_text(
+        str(unpack_path.resolve()) + "\n", encoding="utf-8"
+    )
 
-	# Tier B: smoke scenario directory.
-	smoke_dir = tests_dir / f"{pack_name}Smoke.c4s"
-	smoke_dir.mkdir(parents=True, exist_ok=True)
+    # Tier B: smoke scenario directory.
+    smoke_dir = tests_dir / f"{pack_name}Smoke.c4s"
+    smoke_dir.mkdir(parents=True, exist_ok=True)
 
-	# [Definitions] block.
-	defs = _build_smoke_definitions(
-		unpack_path, requires_closure, content_community
-	)
-	defs_block = "".join(
-		f"Definition{i + 1}={d}\n" for i, d in enumerate(defs)
-	)
+    # [Definitions] block.
+    defs = _build_smoke_definitions(
+        unpack_path, requires_closure, content_community
+    )
+    defs_block = "".join(
+        f"Definition{i + 1}={d}\n" for i, d in enumerate(defs)
+    )
 
-	# Scenario.txt.
-	scenario_txt = (
-		f"[Head]\n"
-		f"Title={pack_name} Smoke\n"
-		f"Icon=43\n"
-		f"\n"
-		f"[Definitions]\n"
-		f"{defs_block}"
-		f"\n"
-		f"[Game]\n"
-		f"Timeout={entry.smoke.ticks}\n"
-	)
-	(smoke_dir / "Scenario.txt").write_text(
-		scenario_txt, encoding="utf-8"
-	)
+    # Scenario.txt.
+    scenario_txt = (
+        f"[Head]\n"
+        f"Title={pack_name} Smoke\n"
+        f"Icon=43\n"
+        f"\n"
+        f"[Definitions]\n"
+        f"{defs_block}"
+        f"\n"
+        f"[Game]\n"
+        f"Timeout={entry.smoke.ticks}\n"
+    )
+    (smoke_dir / "Scenario.txt").write_text(
+        scenario_txt, encoding="utf-8"
+    )
 
-	# Title.txt.
-	(smoke_dir / "Title.txt").write_text(
-		f"{pack_name} Smoke\n", encoding="utf-8"
-	)
+    # Title.txt.
+    (smoke_dir / "Title.txt").write_text(
+        f"{pack_name} Smoke\n", encoding="utf-8"
+    )
 
-	# Map.bmp — minimal 1x1 BMP.
-	(smoke_dir / "Map.bmp").write_bytes(_minimal_bmp())
+    # Map.bmp — minimal 1x1 BMP.
+    (smoke_dir / "Map.bmp").write_bytes(_minimal_bmp())
 
-	# Script.c — generic template, or curator-preserved.
-	script_path = smoke_dir / "Script.c"
-	if entry.smoke.curator_script and script_path.exists():
-		return  # preserve curator's Script.c
-	script_path.write_text(
-		SMOKE_SCRIPT_TEMPLATE.format(pack_name=pack_name),
-		encoding="utf-8",
-	)
+    # Script.c — generic template, or curator-preserved.
+    script_path = smoke_dir / "Script.c"
+    if entry.smoke.curator_script and script_path.exists():
+        return  # preserve curator's Script.c
+    script_path.write_text(
+        SMOKE_SCRIPT_TEMPLATE.format(pack_name=pack_name),
+        encoding="utf-8",
+    )
 
 # ===========================================================================
 # Subcommand stubs (implemented in later tasks)
