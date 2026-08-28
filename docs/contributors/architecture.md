@@ -143,36 +143,11 @@ sequenceDiagram
 ## Reader's guide: C4Aul
 
 C4Aul is the C4Script interpreter. The pipeline is **parse → bytecode →
-interpret**, with an ad-hoc `DirectExec` path that re-enters the parse stage
-at runtime for uncompiled scripts.
+interpret**, with an ad-hoc `DirectExec` path that re-enters the parse
+stage at runtime for uncompiled scripts.
 
-**Engine→script entry.** `C4Value C4AulExec::Exec(C4AulScriptFunc*,
-C4Section&, C4Object*, const C4Value*, bool, bool)` in
-`src/C4AulExec.cpp` (definition at `src/C4AulExec.cpp:339`; the declaration
-sits in the class body at `:137`). This is the single hop the engine makes
-to run a script function — every `Object->~Callback()` ultimately lands
-here. The function name is the durable pointer; the `:339` line is a
-convenience jump target.
-
-**Parse → bytecode.** `C4AulParse` (`src/C4AulParse.cpp`) walks the C4Script
-source and emits `C4AulBCC` bytecode opcodes (`src/C4AulBCC.h`). The
-bytecode is laid out per-`C4AulScriptFunc`; `C4AulFuncMap` registers each
-function for lookup by name.
-
-**Interpret.** `C4AulExec::Exec(C4AulBCC*, bool)` (`src/C4AulExec.cpp:376`)
-is the bytecode interpreter loop. It dispatches on `C4AulBCC` opcode,
-materialises `C4Value` arguments from the value stack, and calls back into
-`C4AulFunc::Exec` for script→script calls.
-
-**Ad-hoc `DirectExec` path.** `C4Aul::DirectExec` (`src/C4Aul.h:529`)
-parses and runs an uncompiled script string at runtime — used by the `~`
-console and the cycle-25 `--smoke-run` smoke harness (which injects test
-assertions via `FatalError(...)`). `DirectExec` re-enters the parser, so it
-is slow and is explicitly not re-entrant-safe across cycles (see the
-`Temporary` flag at `src/C4Aul.h:516`).
-
-The Mermaid `flowchart TD` below shows the two paths (compiled vs
-`DirectExec`) and where they converge on the interpreter.
+→ **Full deep dive**: [c4aul.md](c4aul.md) — expanded call-graph tour,
+error paths, and a worked example tracing an `Initialize()` callback.
 
 ```mermaid
 flowchart TD
@@ -204,47 +179,15 @@ flowchart TD
 
 ## Reader's guide: Network lockstep
 
-LegacyClonk's network model is **lockstep with a determinism gate**. Every
-client runs the same simulation; the gate (`C4ControlSyncCheck`) verifies
-per-tick that all clients reached the same state by comparing a hash of the
-game state. A diverging hash is a desync — fatal.
+LegacyClonk's network model is **lockstep with a determinism gate**.
+Every client runs the same simulation; the gate (`C4ControlSyncCheck`)
+verifies per-tick that all clients reached the same state by comparing
+a hash of the game state. A diverging hash is a desync — fatal.
 
-**`C4GameControl` modes.** `class C4GameControl` (`src/C4GameControl.h:43`)
-has three modes selected at startup:
-
-- `CM_Local` — single-player or hot-seat; no network, no replay.
-- `CM_Network` — online play; inputs are queued, ordered, and broadcast by
-  the host via `C4GameControlNetwork` (`src/C4GameControlNetwork.h`).
-- `CM_Replay` — replay playback; the control queue is fed from
-  `C4Record`/`C4Playback` (`src/C4Record.{h,cpp}`). The cycle-22
-  `C4ReplayController` sits on top and owns pause / speed / seek state
-  (polled from `C4Game::Execute()`; see §2 step 1).
-
-**The control tick.** In source order:
-
-1. **`DoInput(C4PacketType, C4ControlPacket*, C4ControlDeliveryType)`**
-   (`src/C4GameControl.cpp:435`) — local input enters the control queue as a
-   `C4ControlPacket`. In `CM_Network` the packet is also sent to the host.
-2. **`Prepare()`** (`src/C4GameControl.cpp:288`) — collect inputs from all
-   clients for the next frame. Returns `false` if not all inputs have
-   arrived yet (the frame waits). This is the lockstep sync point.
-3. **`Execute()`** (`src/C4GameControl.cpp:328`) — apply the queued control
-   packets in deterministic order: movement, commands, object creation, etc.
-4. **`DoSyncCheck()`** (`src/C4GameControl.cpp:494`) — emit a
-   `C4ControlSyncCheck` packet (`C4ControlSyncCheck::Set` at
-   `src/C4Control.cpp:460`, `Execute` at `:493`). Every client computes the
-   same hash; if any client's hash differs, the gate fires a fatal log and
-   the engine exits non-zero.
-
-**Network I/O.** `C4Network2` (`src/C4Network2.h:134`) is the network
-controller: lobby, league, client/host handshake, reference discovery.
-`C4Network2IO` (`src/C4Network2IO.{h,cpp}`) is the low-level I/O layer
-(TCP/UDP, packet framing). `C4GameControlNetwork` is the bridge between
-`C4GameControl` and `C4Network2`: it serialises `C4ControlPacket`s onto the
-wire and deserialises them back into the control queue.
-
-The Mermaid `sequenceDiagram` below shows one control tick across one host
-and two clients. The `DoSyncCheck` arrow is the determinism gate.
+→ **Full deep dive**: [network.md](network.md) — expanded call-graph
+tour of `C4GameControl` modes, the control tick, network I/O, the
+determinism gate, and a worked example tracing a player's movement
+input.
 
 ```mermaid
 sequenceDiagram
@@ -270,73 +213,36 @@ sequenceDiagram
 ```
 
 !!! note "Modder-facing reference"
-    Network play is transparent to C4Script — the same callbacks fire in
-    `CM_Local`, `CM_Network`, and `CM_Replay`. The determinism constraint
-    means modders must avoid non-deterministic operations (e.g. unsynchronised
-    `Random()` calls outside engine-provided helpers). See
-    [Callback convention](../c4script/callbacks-convention.md) and the
-    [control callbacks reference](../reference/callbacks/control.md).
+    Network play is transparent to C4Script — the same callbacks fire
+    in `CM_Local`, `CM_Network`, and `CM_Replay`. The determinism
+    constraint means modders must avoid non-deterministic operations
+    (e.g. unsynchronised `Random()` calls outside engine-provided
+    helpers). See [Callback convention](../c4script/callbacks-convention.md)
+    and the [control callbacks reference](../reference/callbacks/control.md).
 
 ---
 
 ## Reader's guide: Rendering pipeline
 
-Rendering is driven from `C4GraphicsSystem::Execute()`
-(`src/C4GraphicsSystem.cpp:118`). The function is called once per frame from
-the render path (not from `C4Game::Execute()`); it short-circuits via
+Rendering is driven from `C4GraphicsSystem::Execute()` at
+`src/C4GraphicsSystem.cpp:118`. The function short-circuits via
 `StartDrawing()` if there is nothing to draw, then branches on
-lobby/fullscreen-GUI state before reaching the viewport loop at line 169.
+lobby/fullscreen-GUI state before reaching the viewport loop at line
+169. Each viewport draws through a fixed sequence of `C4Facet` blits.
 
-**Per-frame draw composition.** In source order:
-
-1. **`StartDrawing()`** — activity check; returns early if the graphics
-   system is idle.
-2. **Lobby / message-board branch** — if `Network.isLobbyActive()` or the
-   game is not running, draw the message board and return.
-3. **Fullscreen-GUI branch** — if a fullscreen dialog is active, render
-   `Game.pGUI` and return.
-4. **Background redraw + screen-rate frame skip.**
-5. **`Game.ResetAudibility()`** — reset per-frame audio audibility.
-6. **Viewport loop** (`src/C4GraphicsSystem.cpp:169`):
-   `for (const auto &cvp : Viewports) cvp->Execute();`. Each
-   `C4Viewport::Execute()` eventually calls
-   `C4Viewport::Draw(C4FacetEx&, bool)` (`src/C4Viewport.cpp:1016`).
-7. **Message board / upper board / help / hold-messages / flash-message**
-   (fullscreen only).
-8. **In-game GUI** (`Game.pGUI->Render()`).
-
-**`C4Viewport::Draw` call sequence** (the per-viewport draw primitive;
-`src/C4Viewport.cpp:1016`):
-
-- Sky (`C4ST_STARTNEW(SkyStat, ...)`)
-- `DrawOverlay` (`src/C4Viewport.cpp:841`) — cursor info, player info, menu,
-  messages, mouse
-- `DrawSection` (`src/C4Viewport.cpp:1090`) — landscape, PXS, objects,
-  particles (per visible section)
-- `DrawParallaxObjects` (`src/C4Viewport.cpp:1150`)
-- `DrawPlayerInfo` (`src/C4Viewport.cpp:1405`)
-
-Every leaf blit goes through `C4Facet` (`src/C4Facet.h`) — a sub-rect of a
-`C4Surface` (`src/C4Surface.h`). `C4FacetEx` (`src/C4FacetEx.h`) extends it
-with zoom/offset for viewport-relative drawing.
-
-**Backends.** The `Std*` rendering layer has two backends:
-
-- `StdDDraw2` (`src/StdDDraw2.cpp`) — DirectDraw on Windows.
-- `StdSurface8` (`src/StdSurface8.cpp`) — SDL surface path used on Linux,
-  macOS, and BSD. See `docs/BSD_PORT.md` for the SDL-only lane.
-
-The Mermaid `flowchart TD` below shows one frame's draw composition from
-`C4GraphicsSystem::Execute` down to the `C4Facet` blit leaves.
+→ **Full deep dive**: [rendering.md](rendering.md) — expanded
+call-graph tour of `C4GraphicsSystem::Execute`, `C4Viewport::Draw`,
+the draw call sequence, `C4Facet` blit primitive, and a worked example
+tracing a single frame's viewport draw.
 
 ```mermaid
 flowchart TD
     GS["C4GraphicsSystem::Execute()<br/>src/C4GraphicsSystem.cpp:118"]
-    Lobby{Lobby or<br/>not running?}
-    FullGUI{Fullscreen<br/>GUI dialog?}
+    Lobby{"Lobby or<br/>not running?"}
+    FullGUI{"Fullscreen<br/>GUI dialog?"}
     VPLoop["Viewport loop<br/>src/C4GraphicsSystem.cpp:169"]
     VDraw["C4Viewport::Draw(C4FacetEx&, bool)<br/>src/C4Viewport.cpp:1016"]
-    Sky[Sky draw]
+    Sky["Sky draw"]
     Ovr["DrawOverlay<br/>:841 — cursor/player/menu/messages/mouse"]
     Sec["DrawSection<br/>:1090 — landscape/PXS/objects/particles"]
     Par["DrawParallaxObjects<br/>:1150"]
@@ -345,9 +251,9 @@ flowchart TD
     Backend["Backend: StdDDraw2 (Win) / StdSurface8 (SDL)<br/>src/StdDDraw2.cpp / src/StdSurface8.cpp"]
 
     GS --> Lobby
-    Lobby -- yes --> MsgBoard[Message board] --> Done([return])
+    Lobby -- yes --> MsgBoard["Message board"] --> Done(["return"])
     Lobby -- no --> FullGUI
-    FullGUI -- yes --> GUIRender[Game.pGUI->Render] --> Done
+    FullGUI -- yes --> GUIRender["Game.pGUI->Render"] --> Done
     FullGUI -- no --> VPLoop --> VDraw
     VDraw --> Sky --> Ovr --> Sec --> Par --> Plr
     Sky --> Facet
@@ -359,9 +265,9 @@ flowchart TD
 ```
 
 !!! note "Modder-facing reference"
-    Rendering is almost entirely engine-internal; modders interact with it
-    via `C4Object` graphics properties (Action, Picture, Color, Overlay)
-    documented in the [DefCore.txt fields reference](../reference/defcore.md)
+    Rendering is almost entirely engine-internal; modders interact with
+    it via `C4Object` graphics properties (Action, Picture, Color,
+    Overlay) documented in the [DefCore.txt fields reference](../reference/defcore.md)
     and the [Actions guide](../c4script/actions.md). The
     [BSD port doc](../BSD_PORT.md) covers the SDL-only rendering lane.
 
@@ -399,9 +305,11 @@ then follow the entry point from the inventory table in §1.
 
 ## Out of scope for this page
 
-The four split deep-dive pages (`c4aul-internals.md`,
-`network-lockstep.md`, `rendering-pipeline.md`, `adding-a-callback.md`)
-are deferred to follow-up cycles — one per page, gated on a real reader
-need. The reader's-guide summaries above carry the roadmap-named topics
-(main loop, C4Aul, network lockstep, rendering) at a depth sufficient for
-onboarding. See the spec's *Out of scope* section for the full list.
+The three subsystem deep dives — [C4Aul](c4aul.md),
+[network lockstep](network.md), and [rendering pipeline](rendering.md)
+— now exist as standalone pages. The fourth split page
+(`adding-a-callback.md`) remains deferred to a follow-up cycle, gated
+on a real reader need. The reader's-guide summaries above carry the
+roadmap-named topics (main loop, C4Aul, network lockstep, rendering)
+at a depth sufficient for onboarding. See the spec's *Out of scope*
+section for the full list.
