@@ -72,7 +72,7 @@ def run_tc(tc_program: str, args: list[str], use_sudo: bool) -> subprocess.Compl
         cmd.append("sudo")
     cmd.append(tc_program)
     cmd.extend(args)
-    return subprocess.run(cmd, capture_output=True, text=True)
+    return subprocess.run(cmd, capture_output=True, text=True, stdin=subprocess.DEVNULL)
 
 
 def apply_impairment(tc_program: str, delay: int, jitter: int, loss: int,
