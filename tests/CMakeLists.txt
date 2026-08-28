@@ -135,6 +135,78 @@ foreach(pack ${CONTENT_PACKS})
   endif()
 endforeach()
 
+# --- CCAN smoke gate -------------------------------------------------------
+# Two-tier gate for curated CCAN packs (see spec ccan-smoke-gate).
+# Tier A: structural probe via `c4group <pack> -l` (sub-second).
+# Tier B: engine-load smoke via `clonk --smoke-run 350` (seconds).
+
+# Resolve c4group: $C4GROUP env, then ${CMAKE_BINARY_DIR}/c4group.
+set(_c4group_candidate "$ENV{C4GROUP}")
+if(NOT _c4group_candidate OR NOT EXISTS "${_c4group_candidate}")
+  set(_c4group_candidate "${CMAKE_BINARY_DIR}/c4group")
+endif()
+
+if(EXISTS "${_c4group_candidate}")
+  set(CCAN_C4GROUP "${_c4group_candidate}")
+else()
+  message(WARNING "c4group not found; skipping tier-A (ccan_struct_*) registration. Build c4group via `cmake --build build` before running tier A.")
+  set(CCAN_C4GROUP "")
+endif()
+
+# Tier A — structural probe (c4group -l)
+file(GLOB CCAN_STRUCT_MARKERS
+  "${CMAKE_SOURCE_DIR}/../content-community/*/Tests.c4f/*Struct.txt")
+foreach(marker ${CCAN_STRUCT_MARKERS})
+  file(READ "${marker}" _pack_path)
+  string(STRIP "${_pack_path}" _pack_path)
+  get_filename_component(_struct_name "${marker}" NAME_WE)
+  string(REPLACE "Struct" "" _pack_name "${_struct_name}")
+  if(CCAN_C4GROUP)
+    add_test(NAME "ccan_struct_${_pack_name}"
+      COMMAND "${CCAN_C4GROUP}" "${_pack_path}" "-l"
+      WORKING_DIRECTORY "${CMAKE_BINARY_DIR}")
+    set_tests_properties("ccan_struct_${_pack_name}" PROPERTIES
+      TIMEOUT 30
+      LABELS "ccan;ccan_struct")
+  endif()
+endforeach()
+
+# Tier B — engine-load smoke (clonk --smoke-run 350)
+file(GLOB CCAN_SMOKE_SCENARIOS
+  "${CMAKE_SOURCE_DIR}/../content-community/*/Tests.c4f/*Smoke.c4s")
+foreach(scenario ${CCAN_SMOKE_SCENARIOS})
+  get_filename_component(scenario_name "${scenario}" NAME_WE)
+  string(REPLACE "Smoke" "" pack_name "${scenario_name}")
+  add_test(NAME "ccan_smoke_${pack_name}"
+    COMMAND "$<TARGET_FILE:clonk>"
+            --console --smoke-run 350
+            -s "${scenario}"
+    WORKING_DIRECTORY "${CMAKE_BINARY_DIR}")
+  set_tests_properties("ccan_smoke_${pack_name}" PROPERTIES
+    TIMEOUT 60
+    LABELS "ccan;ccan_smoke;smoke"
+    PASS_REGULAR_EXPRESSION "${pack_name} PASS"
+    FAIL_REGULAR_EXPRESSION "FatalError|\\[error\\]|\\[fatal\\]")
+endforeach()
+
+# Symlink content-community packs into the build dir so bare definition
+# names like "DWMedalSystem.c4d" resolve during smoke runs. Covers
+# top-level packs and sub-defs inside .c4s/.c4f packs.
+file(GLOB CCAN_COMMUNITY_PACKS
+  "${CMAKE_SOURCE_DIR}/../content-community/*/*.c4d"
+  "${CMAKE_SOURCE_DIR}/../content-community/*/*.c4f"
+  "${CMAKE_SOURCE_DIR}/../content-community/*/*.c4s"
+  "${CMAKE_SOURCE_DIR}/../content-community/*/*/*.c4d"
+  "${CMAKE_SOURCE_DIR}/../content-community/*/*/*.c4f"
+  "${CMAKE_SOURCE_DIR}/../content-community/*/*/*.c4s")
+foreach(pack ${CCAN_COMMUNITY_PACKS})
+  get_filename_component(pack_name "${pack}" NAME)
+  set(link_target "${CMAKE_BINARY_DIR}/${pack_name}")
+  if(NOT EXISTS "${link_target}")
+    file(CREATE_LINK "${pack}" "${link_target}" SYMBOLIC)
+  endif()
+endforeach()
+
 # --- Engine unit tests for the SmokeRunTicks state semantics -------------
 add_test_target(SmokeRunFlag
 	SOURCES "${CMAKE_SOURCE_DIR}/tests/TstSmokeRunFlag.cpp"
