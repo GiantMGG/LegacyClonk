@@ -34,7 +34,7 @@ import tomllib
 import urllib.error
 import urllib.request
 import zipfile
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Optional
 
@@ -81,6 +81,14 @@ PACK_EXTENSIONS = (".c4d", ".c4f", ".c4s")
 # ===========================================================================
 
 @dataclass
+class SmokeConfig:
+	"""Per-entry smoke gate configuration (the [entry.<id>.smoke] sub-table)."""
+	ticks: int = 350
+	skip: bool = False
+	curator_script: bool = False
+
+
+@dataclass
 class ManifestEntry:
     ccan_id: int
     title: str
@@ -93,6 +101,8 @@ class ManifestEntry:
     filename: str
     destination: str
     notes: str
+    requires: list[str] = field(default_factory=list)
+    smoke: SmokeConfig = field(default_factory=SmokeConfig)
 
     @property
     def view_url(self) -> str:
