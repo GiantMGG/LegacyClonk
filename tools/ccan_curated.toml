@@ -21,3 +21,7 @@ license_rationale = "Description explicitly grants reuse: 'Feel free to use this
 filename          = "Hazard3D.c4s"
 destination       = "Hazard3D"
 notes             = "16.7 MB tech-demo 3D scenario. Requires LegacyClonk. Single .c4s, no .zip wrapper."
+requires          = ["Medaillensystem"]
+
+[entry.6421.smoke]
+ticks             = 350
