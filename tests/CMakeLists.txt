@@ -70,9 +70,16 @@ add_test_target(C4WeatherEvents
 	SOURCES "${CMAKE_SOURCE_DIR}/tests/TstC4WeatherEvents.cpp"
 	LINK_ENGINE
 )
-
 add_test_target(C4ReplayController
-	SOURCES "${CMAKE_SOURCE_DIR}/tests/TstC4ReplayController.cpp"
+	SOURCES
+		"${CMAKE_SOURCE_DIR}/tests/TstC4ReplayController.cpp"
+	LINK_ENGINE
+)
+
+add_test_target(C4Rollback
+	SOURCES
+		"${CMAKE_SOURCE_DIR}/tests/TstC4Rollback.cpp"
+		"${CMAKE_SOURCE_DIR}/tests/C4RollbackHarness.hpp"
 	LINK_ENGINE
 )
 
