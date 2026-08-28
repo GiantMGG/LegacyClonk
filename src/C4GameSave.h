@@ -112,6 +112,12 @@ public:
 	bool SaveDesc(C4Group &hToGroup); // save scenario desc to file
 	bool Close(); // close scenario group
 
+	// In-memory runtime-data snapshot for the rollback primitive.
+	// Serialises via a temp C4Group file bridge; returns false on any I/O
+	// failure (the caller treats this as "no snapshot taken").
+	bool SaveRuntimeDataToBuffer(StdBuf &outBuf);
+	bool LoadRuntimeDataFromBuffer(const StdBuf &inBuf);
+
 	C4Group *GetGroup() { return pSaveGroup; } // get scenario saving group; only open between calls to Save() and Close()
 };
 

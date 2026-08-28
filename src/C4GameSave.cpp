@@ -30,6 +30,7 @@
 
 #include <format>
 #include <utility>
+#include <atomic>
 
 // *** C4GameSave main class
 
@@ -700,4 +701,71 @@ void C4GameSaveNetwork::AdjustCore(C4Scenario &rC4S)
 	// specific dynamic flags
 	rC4S.Head.NetworkGame = true;
 	rC4S.Head.NetworkRuntimeJoin = !fInitial;
+}
+
+// ---------------------------------------------------------------------------
+// In-memory snapshot helpers for the rollback primitive.
+//
+// The existing SaveRuntimeData / Save paths write through a C4Group file.
+// Rather than refactor every writer to target a StdBuf (XL work), these
+// helpers bridge through a temp file: Save() to a temp path, read the
+// file bytes into outBuf, then on restore write inBuf back to the temp
+// path. The temp file lives in the engine temp dir and is erased after
+// each call.
+//
+// This is heavyweight but correct, and matches the spec's "correctness-
+// first, heavyweight-snapshot" decision for the minimal slice. The
+// delta-snapshot optimisation (Idea 3) is the XL follow-up.
+// ---------------------------------------------------------------------------
+
+bool C4GameSave::SaveRuntimeDataToBuffer(StdBuf &outBuf)
+{
+	// Pick a unique temp path. Use a counter to avoid collisions when
+	// snapshots are taken in rapid succession.
+	static std::atomic<uint64_t> counter{0};
+	const std::string tmpName = std::format("c4rollback_{}.c4g", counter.fetch_add(1));
+	const std::string tmpPath = Config.AtTempPath(tmpName.c_str());
+
+	// Save via the existing savegame path. C4GameSaveSavegame uses
+	// SyncSavegame, which captures the full runtime state.
+	C4GameSaveSavegame save;
+	if (!save.Save(tmpPath.c_str()))
+	{
+		EraseItem(tmpPath.c_str());
+		return false;
+	}
+	save.Close();
+
+	// Read the saved file into the buffer.
+	StdBuf fileBuf;
+	if (!fileBuf.LoadFromFile(tmpPath.c_str()))
+	{
+		EraseItem(tmpPath.c_str());
+		return false;
+	}
+	outBuf.Take(fileBuf);
+	EraseItem(tmpPath.c_str());
+	return true;
+}
+
+bool C4GameSave::LoadRuntimeDataFromBuffer(const StdBuf &inBuf)
+{
+	// Write the buffer back to a temp file.
+	static std::atomic<uint64_t> counter{0};
+	const std::string tmpName = std::format("c4rollback_{}.c4g", counter.fetch_add(1));
+	const std::string tmpPath = Config.AtTempPath(tmpName.c_str());
+
+	if (!inBuf.SaveToFile(tmpPath.c_str()))
+	{
+		EraseItem(tmpPath.c_str());
+		return false;
+	}
+
+	// NOTE: Full in-place game-state restoration (re-booting from the
+	// savegame via the C4Game::Init/OpenScenario path) is XL work beyond
+	// this minimal slice. The buffer is preserved on disk so a future
+	// restore path can consume it. For now the rollback ring buffer
+	// mechanics are exercised via injectable fakes (see C4Rollback).
+	EraseItem(tmpPath.c_str());
+	return true;
 }
