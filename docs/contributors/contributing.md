@@ -284,19 +284,142 @@ Expected: `1/1 MyFeature ... Passed` and `100% tests passed`.
 
 ## 50–60 min — Open a PR
 
-*(Stub — content added in Task 4.)*
+### Fork and branch
+
+1. Fork `legacyclonk/LegacyClonk` on GitHub (top-right **Fork** button).
+2. Add your fork as a remote and create a feature branch off `main`:
+
+```bash
+git remote add fork git@github.com:<you>/LegacyClonk.git
+git checkout -b feat/my-feature
+```
+
+### Run the style gate before every commit
+
+`tools/auto_format.py` is the project's style gate. Run it in **write** mode on
+the `LegacyClonk/` directory before staging:
+
+```bash
+python3 tools/auto_format.py LegacyClonk -w
+```
+
+(Omit `-w` for a dry run that only reports what it would change.) See the
+[Style gate](#style-gate) appendix for exactly which files it formats and
+which rules it enforces.
+
+### Commit conventions
+
+- One logical change per commit.
+- Subject line ≤ 72 chars, imperative mood: `feat: add BoundClamp test`,
+  `fix: handle negative exponent in Pow`, `docs: clarify deps symlink`.
+  Match the existing repo history's prefix style when in doubt.
+- Body wraps at ~72 cols, explains *why*, not *what*.
+
+### Push and open the PR
+
+```bash
+git push -u fork feat/my-feature
+```
+
+Open the PR against `legacyclonk/LegacyClonk:main`. Paste the
+[TL;DR checklist](#tldr-new-contributor-checklist) into the PR description as
+your self-review. CI kicks off automatically — see the next section for what
+runs.
+
+### What CI runs on your PR
+
+CI is driven by `autobuild/ci.toml` and the workflows in `.github/workflows/`.
+The matrix distils to:
+
+| OS | Lanes | Builds? | Publishes? |
+|---|---|---|---|
+| Windows | x86, x64, aarch64, debugrec | yes | x64 only |
+| Linux | x64, aarch64, debugrec, cxx26 | yes | (release pipeline) |
+| macOS | x64, aarch64, universal | yes | universal only |
+
+Every lane runs `cmake --build` and `ctest`. The `debugrec` lanes build with
+`DEBUGREC=On -DUSE_PCH=Off`. The `cxx26` lane builds with `-DUSE_CXX_26=ON`
+and is the one that catches C++26-incompatible code early. See the
+[CI matrix](#ci-matrix) appendix for the full per-lane table.
 
 ## CI matrix
 
-*(Stub — content added in Task 4.)*
+Distilled from `autobuild/ci.toml` (Windows `:60-90`, Linux `:92-122`,
+macOS `:124-145`). Workflow files live in `.github/workflows/` — `c-cpp.yml`
+is the main build matrix.
+
+| OS family | Arch | Lane name | Publish? | Notes |
+|---|---|---|---|---|
+| Windows | x86 | (default) | no | `vs_arch = X86` |
+| Windows | x64 | (default) | **yes** | `include-groups` + `publish-groups` |
+| Windows | aarch64 | (default) | no | `windows-11-arm` runner |
+| Windows | x86 | `debugrec` | no | `exclude-release`, `DEBUGREC=On` |
+| Linux | x64 | (default) | release pipeline | `gcc_arch = x86_64` |
+| Linux | aarch64 | (default) | release pipeline | `ubuntu-22.04-arm` runner |
+| Linux | x64 | `debugrec` | no | `exclude-release`, `DEBUGREC=On` |
+| Linux | x64 | `cxx26` | no | `exclude-release`, `-DUSE_CXX_26=ON` |
+| macOS | x64 | (default) | no | `build-only`, `macos-15-intel` |
+| macOS | aarch64 | (default) | no | `build-only`, `macos-latest` |
+| macOS | universal | (default) | **yes** | `publish-only` |
+
+**Publish lanes** (Windows x64, macOS universal) produce the itch.io release
+artefacts; the rest are build-and-test only. The `debugrec` and `cxx26` lanes
+are the two non-default configurations a PR will exercise — both are
+`exclude-release`, so they never publish.
 
 ## Style gate
 
-*(Stub — content added in Task 4.)*
+`tools/auto_format.py` is the project's style gate. Run it on the
+`LegacyClonk/` directory:
+
+```bash
+python3 tools/auto_format.py LegacyClonk          # dry run — reports only
+python3 tools/auto_format.py LegacyClonk -w        # write changes in place
+```
+
+### What it formats
+
+| Pass | Files touched |
+|---|---|
+| CMake | `CMakeLists.txt`, `config.h.cmake`, `cmake/filelists/*.txt` |
+| C++ | `src/**/*.{cpp,h}` and `tests/**/*.{cpp,h}` — **but `src/res/` is excluded** (see `tools/auto_format.py:43-45`) |
+| Tools | `tools/*.sh` (shell), `tools/*.py` (python) |
+| YAML | root `.travis.yml`, `appveyor.yml` |
+
+### What it enforces
+
+- **Non-line-leading tab rejection** — a tab that is not at the start of a
+  line raises `FormattingError` (`tools/auto_format.py:121-124`). Fix by hand.
+- **Trailing whitespace** trimmed (`:149-151`).
+- **Trailing newline** — file ends in exactly one `\n` (`:135-141`).
+- **3+ blank lines condensed** to a single blank (`:126-128`).
+- **Keyword-`(` spacing** — enforces a space between `if`/`for`/`while`/
+  `else` (C++) or `if`/`elseif`/`else`/`endif` (CMake) and the opening paren
+  (`:143-147`).
+
+The `.editorconfig` (tabs, UTF-8, trailing-newline, final-newline) is the
+human-readable counterpart — your editor should already be picking it up.
 
 ## AGENTS.md conventions at a glance
 
-*(Stub — content added in Task 4.)*
+The workspace-root `AGENTS.md` (at `clonk_ws/AGENTS.md`, **not** inside
+`LegacyClonk/`) is the contributor's quick-reference for repo conventions.
+The rules most likely to bite a new contributor:
+
+- **`#pragma once` guards every header** — no `#ifndef` include guards.
+  (Documented in [Engine architecture](architecture.md).)
+- **`C4ForwardDeclarations.h` is the single source of forward declarations**
+  — add forward declarations there, not scattered across headers. It is the
+  *only* forward-declaration header. (See [Engine architecture](architecture.md).)
+- **Tabs, UTF-8, trim trailing whitespace, final newline** — enforced by
+  `.editorconfig` and `tools/auto_format.py`. (Workspace-root `AGENTS.md`,
+  "Code style".)
+- **C++23 by default; C++26 is opt-in** — pass `-DUSE_CXX_26=ON` at configure
+  time. No source files use C++26 features yet. (Workspace-root `AGENTS.md`,
+  "Build".)
+- **The `deps` symlink inside `LegacyClonk/` is required** — `LegacyClonk/deps`
+  → `../deps`. CMake expects `deps/include` and `deps/lib` relative to
+  `CMakeLists.txt`. (Workspace-root `AGENTS.md`, "Layout" + "Build".)
 
 ## See also
 
