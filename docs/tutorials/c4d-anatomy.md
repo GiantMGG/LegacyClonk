@@ -36,7 +36,7 @@ From `Blizzard.c4d/DefCore.txt`:
 [DefCore]
 id=BLZD
 Version=1
-Category=65536
+Category=C4D_StaticBack
 TimerCall=Execute
 Timer=5
 ```
@@ -44,8 +44,9 @@ Timer=5
 - **`id`**: The 4-letter identifier scenarios reference (e.g.
   `CreateObject(BLZD, ...)`). This is the single most important field.
 - **`Category`**: What kind of thing the object is.
-  `65536` = `C4D_StaticBack` (a static background object). See
-  [Constants](../reference/constants.md) for the full bit table.
+  `C4D_StaticBack` (bit 0, value `1`) — a static background object with
+  no physics. See [Constants](../reference/constants.md) for the full bit
+  table.
 - **`Version`**: Definition version (used for savegame compatibility).
 - **`TimerCall` / `Timer`**: Call `Execute()` every 5 frames.
 

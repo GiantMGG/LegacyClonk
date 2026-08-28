@@ -1,0 +1,46 @@
+# Hand-written numeric values for global constants, keyed by name.
+#
+# The harvest script (`tools/harvest_callbacks.py`) renders these in the
+# `Value` column of `docs/reference/constants.md`. Values are resolved by
+# hand from the enum definitions in `src/C4Def.h` (and the
+# `C4ScriptConstMap[]` mappings in `src/C4Script.cpp`).
+#
+# Only the `C4D_*` category / connection constants are populated for now —
+# these are the ones the modder tutorial (`docs/tutorials/first-object.md`)
+# links to. Add more as needed.
+
+C4D_All: -1
+C4D_StaticBack: 1
+C4D_Structure: 2
+C4D_Vehicle: 4
+C4D_Living: 8
+C4D_Object: 16
+C4D_Goal: 32
+C4D_Environment: 64
+C4D_Knowledge: 1024
+C4D_Magic: 131072
+C4D_Rule: 524288
+C4D_Background: 1048576
+C4D_Parallax: 2097152
+C4D_MouseSelect: 4194304
+C4D_Foreground: 8388608
+C4D_MouseIgnore: 16777216
+C4D_IgnoreFoW: 33554432
+C4D_GrabGet: 2
+C4D_GrabPut: 1
+C4D_LinePower: 1
+C4D_LineSource: 2
+C4D_LineDrain: 3
+C4D_LineLightning: 4
+C4D_LineVolcano: 5
+C4D_LineRope: 6
+C4D_LineColored: 7
+C4D_LineVertex: 8
+C4D_PowerInput: 1
+C4D_PowerOutput: 2
+C4D_LiquidInput: 4
+C4D_LiquidOutput: 8
+C4D_PowerGenerator: 16
+C4D_PowerConsumer: 32
+C4D_LiquidPump: 64
+C4D_EnergyHolder: 256

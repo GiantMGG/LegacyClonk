@@ -145,6 +145,7 @@ class Constant:
     c4v_type: str       # raw C4V_* token
     c4type: str         # mapped C4Script type
     source_line: int
+    value_token: str    # raw symbolic value token from the const map (e.g. "C4D_StaticBack")
 
 
 @dataclass
@@ -579,9 +580,10 @@ def parse_constants(cpp_path: Path) -> list[Constant]:
         m = _CONSTROW_RE.match(line)
         if not m:
             continue
-        name, c4v, _value = m.group(1), m.group(2), m.group(3)
+        name, c4v, value_token = m.group(1), m.group(2), m.group(3).strip()
         consts.append(Constant(
             name=name, c4v_type=c4v, c4type=_map_c4v(c4v), source_line=lineno,
+            value_token=value_token,
         ))
     return consts
 
@@ -812,7 +814,7 @@ def render_function_index(functions: list[Function], curated: dict) -> str:
     return "\n".join(lines) + "\n"
 
 
-def render_constants(consts: list[Constant], curated: dict) -> str:
+def render_constants(consts: list[Constant], curated: dict, values: dict) -> str:
     lines = ["# Global constants", ""]
     lines.append("Every global C4Script constant, harvested from `C4ScriptConstMap[]` "
                  "in `src/C4Script.cpp`.")
@@ -825,11 +827,12 @@ def render_constants(consts: list[Constant], curated: dict) -> str:
     for prefix in sorted(groups.keys()):
         lines.append(f"## `{prefix}_*`")
         lines.append("")
-        lines.append("| Name | Type | Description |")
-        lines.append("|---|---|---|")
+        lines.append("| Name | Value | Type | Description |")
+        lines.append("|---|---|---|---|")
         for c in sorted(groups[prefix], key=lambda x: x.name):
             desc = curated.get(c.name, "")
-            lines.append(f"| `{c.name}` | `{c.c4type}` | {desc} |")
+            value = values.get(c.name, "")
+            lines.append(f"| `{c.name}` | {value} | `{c.c4type}` | {desc} |")
         lines.append("")
     return "\n".join(lines) + "\n"
 
@@ -874,6 +877,7 @@ def main(argv: list[str] | None = None) -> int:
     cb_curated = _load_curated(out_dir / "callbacks" / "_curated.yaml")
     fn_curated = _load_curated(out_dir / "functions" / "_curated.yaml")
     const_curated = _load_curated(out_dir / "_curated_constants.yaml")
+    const_values = _load_curated(out_dir / "_curated_constant_values.yaml")
     defcore_curated = _load_curated(out_dir / "_curated_defcore.yaml")
 
     # Render callbacks: group by group file.
@@ -897,7 +901,7 @@ def main(argv: list[str] | None = None) -> int:
     (fn_out / "index.md").write_text(render_function_index(functions, fn_curated), encoding="utf-8")
 
     # Render constants + defcore.
-    (out_dir / "constants.md").write_text(render_constants(consts, const_curated), encoding="utf-8")
+    (out_dir / "constants.md").write_text(render_constants(consts, const_curated, const_values), encoding="utf-8")
     (out_dir / "defcore.md").write_text(render_defcore(defcore_fields, defcore_curated), encoding="utf-8")
 
     # Warn about unknown types.

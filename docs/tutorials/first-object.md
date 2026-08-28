@@ -8,8 +8,14 @@ compile can eat 30+ minutes on its own).
 ??? note "What you will build"
     A `GlowStone.c4d` object with `id=GWST` that prints
     `Glow Stone online!` when it spawns. The tutorial ships a ready-made
-    skeleton at `docs/skeletons/GlowStone.c4d/` — you copy it, tweak two
-    files, pack it, and see it in a scenario.
+    skeleton at `LegacyClonk/docs/skeletons/GlowStone.c4d/` — you copy it,
+    tweak two files, pack it, and see it in a scenario.
+
+!!! info "Working directory"
+    Run **every** command in this tutorial from the **workspace root** —
+    the directory that contains both `LegacyClonk/` and `content/`. All
+    paths below (`LegacyClonk/build/...`, `content/Objects.c4d/...`,
+    `LegacyClonk/docs/skeletons/...`) are written relative to that root.
 
 ---
 
@@ -18,19 +24,19 @@ compile can eat 30+ minutes on its own).
 Build the console engine and the `c4group` archive tool:
 
 ```bash
-cmake -B build -DUSE_CONSOLE=ON
-cmake --build build
+cmake -B LegacyClonk/build -S LegacyClonk -DUSE_CONSOLE=ON
+cmake --build LegacyClonk/build
 ```
 
-You now have `build/clonk` (the console engine) and `build/c4group`
-(the archive tool). On Windows the binaries are `clonk.exe` and
-`c4group.exe`.
+You now have `LegacyClonk/build/clonk` (the console engine) and
+`LegacyClonk/build/c4group` (the archive tool). On Windows the binaries
+are `clonk.exe` and `c4group.exe`.
 
 ??? question "Checkpoint 1: verify"
     ```text
-    $ ls build/c4group build/clonk
-    build/c4group
-    build/clonk
+    $ ls LegacyClonk/build/c4group LegacyClonk/build/clonk
+    LegacyClonk/build/c4group
+    LegacyClonk/build/clonk
     ```
 
 ??? tip "Repeatable setup with `lc`"
@@ -57,7 +63,7 @@ the engine "this is a thing in the world." It contains five files:
 Copy the shipped skeleton into the content tree:
 
 ```bash
-cp -r docs/skeletons/GlowStone.c4d content/Objects.c4d/
+cp -r LegacyClonk/docs/skeletons/GlowStone.c4d content/Objects.c4d/
 ```
 
 For a file-by-file dissection of a real `.c4d`, see
@@ -81,14 +87,17 @@ Edit `content/Objects.c4d/GlowStone.c4d/DefCore.txt`:
 [DefCore]
 id=GWST
 Name=Glow Stone
-Category=65536
-Version=1
+Category=C4D_StaticBack
+Version=4,9,8
 ```
 
 The 4-letter `id` is what scenarios reference (e.g.
-`CreateObject(GWST, ...)`). `Category=65536` is the `C4D_StaticBack` bit
-— a static background object with no physics. See
-[Constants](../reference/constants.md) for the full category bit table.
+`CreateObject(GWST, ...)`). `Category=C4D_StaticBack` (bit 0, value `1`)
+is a static background object with no physics. `Version=4,9,8` is the
+definition version — the engine warns on definitions whose version is
+below `4`, so match the `4,9,8` convention used across the content tree.
+See [Constants](../reference/constants.md) for the full category bit
+table.
 
 ??? tip "Make it yours"
     Change `id=GWST` to any 4-letter identifier you like (e.g.
@@ -97,11 +106,11 @@ The 4-letter `id` is what scenarios reference (e.g.
 
 ??? question "Checkpoint 3: verify"
     ```text
-    $ c4group content/Objects.c4d/GlowStone.c4d -l
+    $ LegacyClonk/build/c4group content/Objects.c4d/GlowStone.c4d -l
     Maker: Open directory  Creation: 0
     Version: 1.2  CRC: 0 (0)
-    ActMap.txt       78 Bytes ...
-    DefCore.txt      69 Bytes ...
+    ActMap.txt       ...
+    DefCore.txt      ...
     Graphics.png     ...
     Names.txt        ...
     Script.c         ...
@@ -146,13 +155,13 @@ group** (a single file, ready to ship). `c4group` converts between them:
 
 ```bash
 # Pack the folder into a single .c4d file:
-c4group content/Objects.c4d/GlowStone.c4d -p
+LegacyClonk/build/c4group content/Objects.c4d/GlowStone.c4d -p
 
 # List the contents of the packed group:
-c4group content/Objects.c4d/GlowStone.c4d -l
+LegacyClonk/build/c4group content/Objects.c4d/GlowStone.c4d -l
 
 # Unpack back to a folder (when you want to edit again):
-c4group content/Objects.c4d/GlowStone.c4d -u
+LegacyClonk/build/c4group content/Objects.c4d/GlowStone.c4d -u
 ```
 
 ??? warning "Don't double-pack"
@@ -162,9 +171,9 @@ c4group content/Objects.c4d/GlowStone.c4d -u
 
 ??? question "Checkpoint 5: verify"
     ```text
-    $ c4group content/Objects.c4d/GlowStone.c4d -l
+    $ LegacyClonk/build/c4group content/Objects.c4d/GlowStone.c4d -l
     ...
-    DefCore.txt       69 Bytes ...
+    DefCore.txt       ...
     Script.c         ...
     ...
     ```
@@ -181,7 +190,7 @@ spawns your `GlowStone`, asserts it round-trips its `id` and `Name`,
 fires `Initialize`, and survives removal + idempotent re-create. Run it:
 
 ```bash
-./build/clonk --console --smoke-run 350 \
+LegacyClonk/build/clonk --console --smoke-run 350 \
   content/Objects.c4d/Tests.c4f/FirstObjectSmoke.c4s
 ```
 
