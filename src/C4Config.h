@@ -222,6 +222,9 @@ public:
 	bool AutomaticUpdate;
 	uint64_t LastUpdateTime;
 	int32_t AsyncMaxWait;
+	bool RollbackEnabled;              // opt-in rollback primitive
+	int32_t RollbackSnapshotInterval;  // K: control ticks between snapshots
+	int32_t RollbackWindowSnapshots;   // W: ring buffer size
 	bool UseCurl;
 	bool EnableUPnP;
 

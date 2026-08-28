@@ -269,6 +269,9 @@ void C4ConfigNetwork::CompileFunc(StdCompiler *pComp)
 	pComp->Value(mkNamingAdapt(AutomaticUpdate,           "EnableAutomaticUpdate",  true));
 	pComp->Value(mkNamingAdapt(LastUpdateTime,            "LastUpdateTime",         0,    false, true));
 	pComp->Value(mkNamingAdapt(AsyncMaxWait,              "AsyncMaxWait",           2,    false, true));
+	pComp->Value(mkNamingAdapt(RollbackEnabled,           "RollbackEnabled",        false, false, true));
+	pComp->Value(mkNamingAdapt(RollbackSnapshotInterval,  "RollbackSnapshotInterval", C4Rollback::DefaultSnapshotInterval, false, true));
+	pComp->Value(mkNamingAdapt(RollbackWindowSnapshots,   "RollbackWindowSnapshots",  C4Rollback::DefaultWindowSnapshots,   false, true));
 
 	pComp->Value(mkNamingAdapt(s(PuncherAddress), "PuncherAddress", DefaultPuncherServer, false, true));
 
