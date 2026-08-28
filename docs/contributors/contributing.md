@@ -118,11 +118,169 @@ cmake --build build-console
 
 ## 25–35 min — Run the test suite
 
-*(Stub — content added in Task 3.)*
+There are two kinds of tests:
+
+- **Catch2 unit tests** in `tests/Tst*.cpp` — exercise engine internals that
+  can be driven without a full game boot. Registered as CTest entries via the
+  `add_test_target` helper in `tests/CMakeLists.txt`.
+- **Headless smoke scenarios** in `content/**/Tests.c4f/*Smoke.c4s` — C4Script-
+  level scenarios booted with `--smoke-run 350`. Discovered by the glob at
+  `tests/CMakeLists.txt:113-117` and registered one CTest entry per scenario
+  (`smoke_<Name>`).
+
+### Run the whole suite
+
+```bash
+ctest --test-dir build --output-on-failure
+```
+
+Expected: a summary line `100% tests passed` (or, on a known-flaky day, the
+documented subset). Each Catch2 test prints its `TEST_CASE` name on failure;
+each smoke scenario prints `<Name> PASS` on success (matched by
+`PASS_REGULAR_EXPRESSION` at `tests/CMakeLists.txt:129`).
+
+### Run a single test
+
+```bash
+ctest -R C4Math --test-dir build --output-on-failure
+```
+
+`-R` filters the test name (the `NAME` passed to `add_test`, e.g. `C4Math`,
+`StdBuf`, `smoke_Event`). Use `-VV` for full verbose output.
+
+### Catch2 vs smoke — which do I add?
+
+| Use a Catch2 test when… | Use a smoke scenario when… |
+|---|---|
+| The behaviour is a pure function or class with no game-world state. | The behaviour needs the engine booted, a landscape, objects, effects. |
+| You can `REQUIRE(...)` an expected value directly. | You want to assert on C4Script-level game state across N ticks. |
+| You don't need `Game`/`Application`/`Config` globals (or you accept the `LINK_ENGINE` wiring). | The scenario is naturally expressed as a `Script.c` driving `AddEffect`. |
+
+See the workspace-root `AGENTS.md` "Smoke scenario contract" section for the
+`Script.c` shape and the exit-code table.
 
 ## 35–50 min — Add a new Catch2 test
 
-*(Stub — content added in Task 3.)*
+The fastest path is to copy an existing test and rewire it. `tests/TstC4Math.cpp`
+is the canonical copy-template — it shows the three things every Catch2 test
+needs:
+
+```cpp
+#include <catch2/catch_all.hpp>
+
+#include "C4Math.h"   // the header under test
+
+TEST_CASE("Distance computes integer Pythagorean distance", "[C4Math]")
+{
+	REQUIRE(Distance(0, 0, 0, 0) == 0);
+	REQUIRE(Distance(0, 0, 3, 4) == 5);
+	REQUIRE(Distance(0, 0, -3, -4) == 5);
+}
+```
+
+The three invariants: `#include <catch2/catch_all.hpp>` first; a tag in the
+second `TEST_CASE` arg (e.g. `"[C4Math]"`); `REQUIRE(...)` (not `assert`) for
+the hard assertions.
+
+### Step 1 — copy the template
+
+```bash
+cd LegacyClonk/tests
+cp TstC4Math.cpp TstMyFeature.cpp
+```
+
+Edit `TstMyFeature.cpp`: change the `#include` to the header you are testing,
+rewrite the `TEST_CASE` name/tag/body. Keep the ISC license header block.
+
+### Step 2 — wire it into CTest
+
+`add_test_target` is defined at `tests/CMakeLists.txt:14`. It builds an
+executable `test_<Name>`, links `Catch2::Catch2WithMain` (which provides
+`main()`), and registers a CTest entry named `<Name>`. There are two forms:
+
+**Form A — standalone test (no engine globals).** Use when the code under test
+is a free function or a class that does not touch `Game`, `Application`,
+`Config`, etc.:
+
+```cmake
+add_test_target(MyFeature
+	SOURCES "${CMAKE_SOURCE_DIR}/tests/TstMyFeature.cpp"
+)
+```
+
+**Form B — test that needs the engine (`LINK_ENGINE`).** Use when the test
+touches engine singletons. `LINK_ENGINE` links `clonk_engine` **and** pulls in
+`tests/TstEngineGlobals.cpp` (see `tests/CMakeLists.txt:26-34`):
+
+```cmake
+add_test_target(MyFeature
+	SOURCES "${CMAKE_SOURCE_DIR}/tests/TstMyFeature.cpp"
+	LINK_ENGINE
+)
+```
+
+Add your line to `tests/CMakeLists.txt` after the existing `add_test_target`
+calls (the file is grouped roughly by subsystem). Reconfigure and rebuild:
+
+```bash
+cmake --build build
+ctest -R MyFeature --test-dir build --output-on-failure
+```
+
+### The two engine-integration gotchas
+
+!!! warning "Gotcha 1 — `LINK_ENGINE` pulls `TstEngineGlobals.cpp`"
+    `src/C4WinMain.cpp` defines `main()` *and* the engine singletons
+    (`Game`, `Application`, `Console`, `FullScreen`, `Config`). It is excluded
+    from `clonk_engine` (the OBJECT library tests link against) because its
+    `main()` would clash with Catch2's `main()` on macOS and Windows. So a
+    `LINK_ENGINE` test binary links `TstEngineGlobals.cpp` instead — a 31-line
+    TU that defines exactly those singletons. If your test references an
+    engine global but you forgot `LINK_ENGINE`, you will get link errors
+    (`undefined reference to Game` / `Application` / `Config`).
+
+!!! warning "Gotcha 2 — never `#include` C4WinMain.cpp from a test"
+    Catch2 ships its own `main()` via `Catch2WithMain`. Including
+    `C4WinMain.cpp` in a test target produces a duplicate-`main` link error on
+    macOS/Windows. The `LINK_ENGINE` + `TstEngineGlobals.cpp` split exists
+    precisely to avoid this — use it, do not work around it.
+
+### Worked example — a 15-line test
+
+`tests/TstMyFeature.cpp`. This reuses the real `Distance()` free function
+declared at `src/C4Math.h:33` so it compiles and passes out of the box —
+swap the function under test for your own:
+
+```cpp
+// (ISC license header block — copy from TstC4Math.cpp)
+
+#include <catch2/catch_all.hpp>
+
+#include "C4Math.h"
+
+TEST_CASE("Distance handles the unit square corners", "[C4Math]")
+{
+	REQUIRE(Distance(0, 0, 1, 0) == 1);   // right
+	REQUIRE(Distance(0, 0, 0, 1) == 1);   // up
+	REQUIRE(Distance(0, 0, 1, 1) == 1);   // diagonal, truncated
+}
+```
+
+`tests/CMakeLists.txt` (add after the existing `C4Math` line):
+
+```cmake
+add_test_target(MyFeature
+	SOURCES "${CMAKE_SOURCE_DIR}/tests/TstMyFeature.cpp"
+)
+```
+
+Verify:
+
+```bash
+cmake --build build
+ctest -R MyFeature --test-dir build --output-on-failure
+```
+Expected: `1/1 MyFeature ... Passed` and `100% tests passed`.
 
 ## 50–60 min — Open a PR
 
