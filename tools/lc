@@ -1,0 +1,471 @@
+#!/usr/bin/env python3
+"""LegacyClonk cross-platform launcher.
+
+Subcommands:
+    setup   Provision the game folder with symlinks to binary, planet, and content.
+    run     Launch the engine (auto-setup if game folder missing).
+    smoke   Run the engine headless with --smoke-run:350.
+    doctor  Print diagnostics.
+    init    Alias for setup.
+"""
+
+import os
+import sys
+import shutil
+import platform
+from pathlib import Path
+
+# --- Constants ---
+
+WORKSPACE = Path(__file__).resolve().parent
+LEGACYCLONK = WORKSPACE / "LegacyClonk"
+DEFAULT_BUILD_DIR = LEGACYCLONK / "build"
+DEFAULT_GAME_FOLDER = Path.home() / "clonk"
+DEFAULT_CONTENT_DIR = WORKSPACE / "content"
+DEFAULT_PLANET_DIR = LEGACYCLONK / "planet"
+DEFAULT_COMMUNITY_DIR = WORKSPACE / "content-community"
+CONTENT_PACK_EXTENSIONS = (".c4d", ".c4f", ".c4g")
+
+
+# --- Binary discovery ---
+
+def discover_binary(build_dir: Path, override: Path | None = None) -> Path:
+    """Find the clonk binary. Returns Path or raises FileNotFoundError."""
+    # 1. Explicit override
+    if override is not None:
+        override = Path(override)
+        if override.exists() and os.access(override, os.X_OK):
+            return override
+        raise FileNotFoundError(
+            f"Binary override not found or not executable: {override}"
+        )
+
+    # 2. Build directory candidates (platform-specific names)
+    candidates = []
+    if sys.platform == "win32":
+        candidates.append(Path(build_dir) / "clonk.exe")
+    elif sys.platform == "darwin":
+        candidates.append(Path(build_dir) / "clonk.app" / "Contents" / "MacOS" / "clonk")
+        candidates.append(Path(build_dir) / "clonk")
+    else:
+        candidates.append(Path(build_dir) / "clonk")
+
+    for c in candidates:
+        if c.exists() and os.access(c, os.X_OK):
+            return c
+
+    # 3. PATH lookup
+    which = shutil.which("clonk") or shutil.which("clonk.exe")
+    if which:
+        return Path(which)
+
+    raise FileNotFoundError(
+        f"Could not find clonk binary. Searched: {candidates}. "
+        "Pass --binary PATH or build the project."
+    )
+
+
+# --- Symlink helper ---
+
+def make_symlink(src: Path, dst: Path, *, dry_run: bool = False, verbose: bool = False) -> None:
+    """Create or refresh a symlink at dst pointing to src.
+
+    If dst is already a valid symlink to src, it is left alone.
+    If dst is a stale symlink (target moved), it is removed and recreated.
+    If dst is a real file/dir (not a symlink), it is skipped.
+    """
+    src_resolved = src.resolve()
+
+    # Already a symlink — check if it points to the right place
+    if dst.is_symlink():
+        current = Path(os.readlink(dst))
+        if current.resolve() == src_resolved:
+            if verbose:
+                print(f"OK: {dst} -> {src}")
+            return
+        # Stale symlink — remove and recreate
+        if dry_run:
+            print(f"DRY RUN: refresh {dst} -> {src}")
+            return
+        dst.unlink()
+        os.symlink(str(src_resolved), str(dst))
+        if verbose:
+            print(f"REFRESH: {dst} -> {src}")
+        return
+
+    # Real file/dir exists at dst — skip (don't clobber user data)
+    if dst.exists():
+        if verbose:
+            print(f"SKIP: {dst} already exists (not a symlink)")
+        return
+
+    # Create new symlink
+    if dry_run:
+        print(f"DRY RUN: create {dst} -> {src}")
+        return
+
+    try:
+        os.symlink(str(src_resolved), str(dst))
+    except OSError:
+        # Windows: symlink requires Developer Mode or admin.
+        # Fallback to junction for directories, copy for files.
+        if sys.platform == "win32":
+            import subprocess as _sp
+            if src.is_dir():
+                _sp.run(
+                    ["cmd", "/c", "mklink", "/J", str(dst), str(src)],
+                    check=True,
+                )
+            else:
+                shutil.copy2(src, dst)
+        else:
+            raise
+
+    if verbose:
+        print(f"CREATE: {dst} -> {src}")
+
+
+# --- Game folder setup ---
+
+def setup_game_folder(
+    binary: Path,
+    game_folder: Path,
+    content_dir: Path,
+    planet_dir: Path,
+    *,
+    include_community: bool = False,
+    community_dir: Path | None = None,
+    no_content: bool = False,
+    force: bool = False,
+    dry_run: bool = False,
+    verbose: bool = False,
+) -> None:
+    """Provision the game folder with symlinks to binary, planet c4g, and content packs."""
+    # --force: remove existing symlinks before provisioning
+    if force and game_folder.exists():
+        for item in game_folder.iterdir():
+            if item.is_symlink():
+                if dry_run:
+                    print(f"DRY RUN: remove {item}")
+                    continue
+                item.unlink()
+
+    game_folder.mkdir(parents=True, exist_ok=True)
+
+    # Symlink the binary
+    bin_name = "clonk.exe" if sys.platform == "win32" else "clonk"
+    make_symlink(binary, game_folder / bin_name, dry_run=dry_run, verbose=verbose)
+
+    # Symlink planet c4g files (Graphics.c4g, System.c4g)
+    if planet_dir.exists():
+        for c4g in planet_dir.glob("*.c4g"):
+            make_symlink(c4g, game_folder / c4g.name, dry_run=dry_run, verbose=verbose)
+
+    # Symlink content packs (.c4d, .c4f, .c4g)
+    if not no_content and content_dir.exists():
+        for ext in CONTENT_PACK_EXTENSIONS:
+            for pack in content_dir.glob(f"*{ext}"):
+                make_symlink(pack, game_folder / pack.name, dry_run=dry_run, verbose=verbose)
+
+    # Optionally symlink community content
+    if include_community and community_dir and community_dir.exists():
+        for ext in CONTENT_PACK_EXTENSIONS:
+            for pack in community_dir.glob(f"*{ext}"):
+                make_symlink(pack, game_folder / pack.name, dry_run=dry_run, verbose=verbose)
+
+
+# --- Run engine ---
+
+def run_engine(
+    binary: Path,
+    game_folder: Path,
+    extra_args: list[str],
+    *,
+    dry_run: bool = False,
+    verbose: bool = False,
+) -> None:
+    """chdir into game_folder and exec the binary with extra_args.
+
+    On macOS the engine uses GetWorkingDirectory() for path resolution,
+    so chdir is load-bearing on all platforms.
+    """
+    resolved = binary.resolve()
+    argv = [str(resolved)] + extra_args
+
+    if dry_run or verbose:
+        print(f"cd {game_folder}")
+        print(f"exec {' '.join(argv)}")
+
+    if dry_run:
+        return
+
+    os.chdir(str(game_folder))
+    os.execv(str(resolved), argv)
+
+
+def ensure_game_folder(
+    binary: Path,
+    game_folder: Path,
+    content_dir: Path,
+    planet_dir: Path,
+) -> None:
+    """Check if game folder is provisioned; auto-setup if missing or stale."""
+    bin_name = "clonk.exe" if sys.platform == "win32" else "clonk"
+    bin_link = game_folder / bin_name
+
+    needs_setup = (
+        not game_folder.exists()
+        or not bin_link.exists()
+        or not (game_folder / "Graphics.c4g").exists()
+        or not (game_folder / "System.c4g").exists()
+    )
+
+    if needs_setup:
+        setup_game_folder(binary, game_folder, content_dir, planet_dir)
+
+
+# --- Doctor ---
+
+def doctor(
+    binary: Path,
+    game_folder: Path,
+    content_dir: Path,
+    planet_dir: Path,
+) -> int:
+    """Print diagnostics. Returns 0 if ready, 1 if not."""
+    print("LegacyClonk launcher diagnostics")
+    print("================================")
+    print(f"Python:        {sys.version.split()[0]} ({sys.version.split()[1]})")
+    print(f"Platform:      {sys.platform}/{platform.machine()}")
+    print(f"Workspace:     {WORKSPACE}")
+
+    ready = True
+
+    # Binary
+    if binary.exists():
+        size_mb = binary.stat().st_size / (1024 * 1024)
+        print(f"Binary:        {binary} (exists, {size_mb:.1f} MB)")
+    else:
+        print(f"Binary:        {binary} (MISSING)")
+        ready = False
+
+    # Game folder
+    if game_folder.exists():
+        print(f"Game folder:   {game_folder} (exists)")
+    else:
+        print(f"Game folder:   {game_folder} (MISSING)")
+        ready = False
+
+    # Checks inside game folder
+    if game_folder.exists():
+        bin_name = "clonk.exe" if sys.platform == "win32" else "clonk"
+        bin_link = game_folder / bin_name
+        if bin_link.exists():
+            print(f"  binary link:   {bin_link.name} -> {bin_link.resolve()} (OK)")
+        else:
+            print(f"  binary link:   {bin_link.name} (MISSING)")
+            ready = False
+
+        for c4g in ("Graphics.c4g", "System.c4g"):
+            link = game_folder / c4g
+            if link.exists():
+                print(f"  {c4g}:  {link} (OK)")
+            else:
+                print(f"  {c4g}:  {link} (MISSING)")
+                ready = False
+
+        # Count content packs in game folder
+        pack_count = 0
+        for ext in CONTENT_PACK_EXTENSIONS:
+            pack_count += len(list(game_folder.glob(f"*{ext}")))
+        print(f"  Content:       {pack_count} packs linked")
+
+        # Count players
+        player_count = len(list(game_folder.glob("*.c4p")))
+        print(f"  Players:       {player_count} (.c4p found)")
+    else:
+        print("  (game folder does not exist)")
+
+    # Result
+    if ready:
+        print("Result:        READY")
+        return 0
+    else:
+        print("Result:        NOT READY")
+        return 1
+
+
+# --- CLI dispatch ---
+
+def main(argv: list[str] | None = None) -> int:
+    """CLI entry point. Returns exit code."""
+    if argv is None:
+        argv = sys.argv[1:]
+
+    if not argv:
+        print("Usage: lc <command> [options]", file=sys.stderr)
+        print("Commands: setup, run, smoke, doctor, init", file=sys.stderr)
+        return 1
+
+    cmd = argv[0]
+    rest = argv[1:]
+
+    if cmd in ("setup", "init"):
+        return _cmd_setup(rest)
+    elif cmd == "run":
+        return _cmd_run(rest)
+    elif cmd == "smoke":
+        return _cmd_smoke(rest)
+    elif cmd == "doctor":
+        return _cmd_doctor(rest)
+    else:
+        print(f"Unknown command: {cmd}", file=sys.stderr)
+        print("Commands: setup, run, smoke, doctor, init", file=sys.stderr)
+        return 1
+
+
+def _cmd_setup(rest: list[str]) -> int:
+    import argparse
+
+    parser = argparse.ArgumentParser(prog="lc setup")
+    parser.add_argument("--binary", type=Path)
+    parser.add_argument("--game-folder", type=Path)
+    parser.add_argument("--build-dir", type=Path)
+    parser.add_argument("--content-dir", type=Path)
+    parser.add_argument("--planet-dir", type=Path)
+    parser.add_argument("--no-content", action="store_true")
+    parser.add_argument("--include-community", action="store_true")
+    parser.add_argument("--force", action="store_true")
+    parser.add_argument("--dry-run", action="store_true")
+    parser.add_argument("--verbose", action="store_true")
+    opts = parser.parse_args(rest)
+
+    build_dir = opts.build_dir or DEFAULT_BUILD_DIR
+    game_folder = opts.game_folder or DEFAULT_GAME_FOLDER
+    content_dir = opts.content_dir or DEFAULT_CONTENT_DIR
+    planet_dir = opts.planet_dir or DEFAULT_PLANET_DIR
+    community_dir = DEFAULT_COMMUNITY_DIR
+
+    try:
+        binary = discover_binary(build_dir, opts.binary)
+    except FileNotFoundError as e:
+        print(f"Error: {e}", file=sys.stderr)
+        return 1
+
+    try:
+        setup_game_folder(
+            binary,
+            game_folder,
+            content_dir,
+            planet_dir,
+            include_community=opts.include_community,
+            community_dir=community_dir,
+            no_content=opts.no_content,
+            force=opts.force,
+            dry_run=opts.dry_run,
+            verbose=opts.verbose,
+        )
+    except OSError as e:
+        print(f"Error: {e}", file=sys.stderr)
+        return 1
+
+    return 0
+
+
+def _cmd_run(rest: list[str]) -> int:
+    import argparse
+
+    parser = argparse.ArgumentParser(prog="lc run")
+    parser.add_argument("--binary", type=Path)
+    parser.add_argument("--game-folder", type=Path)
+    parser.add_argument("--build-dir", type=Path)
+    parser.add_argument("--dry-run", action="store_true")
+    parser.add_argument("--verbose", action="store_true")
+    opts, engine_args = parser.parse_known_args(rest)
+
+    build_dir = opts.build_dir or DEFAULT_BUILD_DIR
+    game_folder = opts.game_folder or DEFAULT_GAME_FOLDER
+    content_dir = DEFAULT_CONTENT_DIR
+    planet_dir = DEFAULT_PLANET_DIR
+
+    try:
+        binary = discover_binary(build_dir, opts.binary)
+    except FileNotFoundError as e:
+        print(f"Error: {e}", file=sys.stderr)
+        return 1
+
+    ensure_game_folder(binary, game_folder, content_dir, planet_dir)
+
+    run_engine(
+        binary,
+        game_folder,
+        engine_args,
+        dry_run=opts.dry_run,
+        verbose=opts.verbose,
+    )
+    return 0  # only reached if dry_run
+
+
+def _cmd_smoke(rest: list[str]) -> int:
+    import argparse
+
+    parser = argparse.ArgumentParser(prog="lc smoke")
+    parser.add_argument("--binary", type=Path)
+    parser.add_argument("--game-folder", type=Path)
+    parser.add_argument("--build-dir", type=Path)
+    parser.add_argument("--dry-run", action="store_true")
+    parser.add_argument("--verbose", action="store_true")
+    opts, engine_args = parser.parse_known_args(rest)
+
+    build_dir = opts.build_dir or DEFAULT_BUILD_DIR
+    game_folder = opts.game_folder or DEFAULT_GAME_FOLDER
+    content_dir = DEFAULT_CONTENT_DIR
+    planet_dir = DEFAULT_PLANET_DIR
+
+    try:
+        binary = discover_binary(build_dir, opts.binary)
+    except FileNotFoundError as e:
+        print(f"Error: {e}", file=sys.stderr)
+        return 1
+
+    ensure_game_folder(binary, game_folder, content_dir, planet_dir)
+
+    # smoke prepends --smoke-run:350
+    run_engine(
+        binary,
+        game_folder,
+        ["--smoke-run:350"] + engine_args,
+        dry_run=opts.dry_run,
+        verbose=opts.verbose,
+    )
+    return 0  # only reached if dry_run
+
+
+def _cmd_doctor(rest: list[str]) -> int:
+    import argparse
+
+    parser = argparse.ArgumentParser(prog="lc doctor")
+    parser.add_argument("--binary", type=Path)
+    parser.add_argument("--game-folder", type=Path)
+    parser.add_argument("--build-dir", type=Path)
+    opts = parser.parse_args(rest)
+
+    build_dir = opts.build_dir or DEFAULT_BUILD_DIR
+    game_folder = opts.game_folder or DEFAULT_GAME_FOLDER
+
+    try:
+        binary = discover_binary(build_dir, opts.binary)
+    except FileNotFoundError:
+        # doctor still runs, but reports binary as missing
+        binary = build_dir / ("clonk.exe" if sys.platform == "win32" else "clonk")
+
+    return doctor(
+        binary,
+        game_folder,
+        DEFAULT_CONTENT_DIR,
+        DEFAULT_PLANET_DIR,
+    )
+
+
+if __name__ == "__main__":
+    sys.exit(main())
