@@ -110,6 +110,9 @@ public:
 	bool IsRunning()   const { return fRunning; }
 	bool IsActivated() const { return fActivated; }
 
+	// Rollback test harness introspection.
+	int32_t GetControlReady() const { return iControlReady.load(); }
+
 	int32_t getControlPreSend() const { return iControlPreSend; }
 	void setControlPreSend(int32_t iToVal) { iControlPreSend = (std::min)(iToVal, C4MaxPreSend); }
 	int32_t getAvgControlSendTime() const { return iAvgControlSendTime; }

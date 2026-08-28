@@ -24,6 +24,7 @@
 #include "C4Network2Client.h"
 #include "C4Record.h"
 #include "C4Replay.h"
+#include "C4Rollback.h"
 
 enum C4ControlMode
 {
@@ -72,6 +73,7 @@ protected:
 
 public:
 	C4ReplayController ReplayController; // replay scrub controller (pause/speed/seek)
+	C4Rollback Rollback;                 // in-memory snapshot ring buffer for netcode rollback
 
 private:
 	std::shared_ptr<spdlog::logger> logger;

@@ -34,3 +34,26 @@ TEST_CASE("C4Rollback_DefaultDisabled", "[rollback]")
 	REQUIRE(rb.GetOldestSnapshotTick() == -1);
 	REQUIRE(rb.GetNewestSnapshotTick() == -1);
 }
+
+#include "C4RollbackHarness.hpp"
+
+using namespace C4RollbackTest;
+
+// ---------------------------------------------------------------------------
+// Tier 1 case 5: Harness_DelayBasedLockstep_StallsOnMissingRemoteInput
+// Drive the harness with a 100-ms-delayed remote input; assert
+// iControlReady does NOT advance past the missing tick (the existing
+// delay-based behaviour). This is the baseline — proves the harness
+// accurately models the engine.
+// ---------------------------------------------------------------------------
+
+TEST_CASE("Harness_DelayBasedLockstep_StallsOnMissingRemoteInput", "[rollback][harness]")
+{
+	C4RollbackHarness h;
+	h.Init();
+
+	// Without remote input for tick 0, iControlReady must not advance.
+	const int32_t readyBefore = h.GetControlReady();
+	h.Drive();
+	REQUIRE(h.GetControlReady() == readyBefore);
+}

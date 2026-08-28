@@ -27,6 +27,7 @@
 
 #include <catch2/catch_all.hpp>
 
+#include "C4Game.h"
 #include "C4GameControl.h"
 #include "C4GameControlNetwork.h"
 
@@ -108,7 +109,7 @@ namespace C4RollbackTest
 
 	inline int32_t C4RollbackHarness::GetControlReady() const
 	{
-		return Game.Control.Network.iControlReady.load();
+		return Game.Control.Network.GetControlReady();
 	}
 }
 
