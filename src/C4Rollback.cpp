@@ -12,6 +12,9 @@
 
 #include "C4Rollback.h"
 
+#include "C4GameSave.h"
+#include "StdBuf.h"
+
 #include <algorithm>
 
 C4Rollback::C4Rollback() = default;
@@ -40,15 +43,35 @@ void C4Rollback::Clear()
 
 void C4Rollback::MaybeTakeSnapshot(int32_t iControlTick)
 {
-	// No-op until Milestone B wires real snapshot logic.
-	(void)iControlTick;
+	if (!fEnabled) return;
+	if (iControlTick % iSnapshotInterval != 0) return;
+	TakeSnapshot(iControlTick);
 }
 
 int32_t C4Rollback::RollbackToTick(int32_t iTick)
 {
-	// No-op until Milestone B wires real restore logic.
-	(void)iTick;
-	return -1;
+	if (!fEnabled) return -1;
+	if (fRollbackInProgress) return -1;
+
+	// Find the nearest valid snapshot with tick <= iTick.
+	const Snapshot *best = nullptr;
+	for (const auto &s : ring)
+	{
+		if (!s.fValid) continue;
+		if (s.iControlTick > iTick) continue;
+		if (!best || s.iControlTick > best->iControlTick) best = &s;
+	}
+	if (!best) return -1;
+
+	fRollbackInProgress = true;
+	bool ok = RestoreSnapshot(*best);
+	fRollbackInProgress = false;
+	if (!ok) return -1;
+
+	// Re-execute forward to iTick. The C4GameControl caller is responsible
+	// for driving FastForwardToFrame; RollbackToTick just restores state
+	// and reports the restored tick.
+	return best->iControlTick;
 }
 
 int32_t C4Rollback::GetSnapshotCount() const
@@ -74,14 +97,33 @@ int32_t C4Rollback::GetNewestSnapshotTick() const
 
 bool C4Rollback::TakeSnapshot(int32_t iControlTick)
 {
-	// Milestone B implements real snapshot capture.
-	(void)iControlTick;
-	return false;
+	StdBuf buf;
+	bool ok;
+	if (snapshotFn)
+		ok = snapshotFn(buf);
+	else
+	{
+		C4GameSaveSavegame save;
+		ok = save.SaveRuntimeDataToBuffer(buf);
+	}
+	if (!ok) return false;
+
+	Snapshot &slot = ring[iHead];
+	slot.iControlTick = iControlTick;
+	slot.serializedState.assign(static_cast<const uint8_t *>(buf.getData()),
+	                           static_cast<const uint8_t *>(buf.getData()) + buf.getSize());
+	slot.fValid = true;
+
+	iHead = (iHead + 1) % iWindowSnapshots;
+	return true;
 }
 
 bool C4Rollback::RestoreSnapshot(const Snapshot &snap)
 {
-	// Milestone B implements real restore.
-	(void)snap;
-	return false;
+	if (!snap.fValid) return false;
+	StdBuf buf;
+	buf.Copy(snap.serializedState.data(), snap.serializedState.size());
+	if (restoreFn) return restoreFn(buf);
+	C4GameSaveSavegame save;
+	return save.LoadRuntimeDataFromBuffer(buf);
 }

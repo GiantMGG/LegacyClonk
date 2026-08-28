@@ -23,7 +23,10 @@
 #pragma once
 
 #include <cstdint>
+#include <functional>
 #include <vector>
+
+#include "StdBuf.h"
 
 class C4Rollback
 {
@@ -55,6 +58,12 @@ public:
 	int32_t GetOldestSnapshotTick() const;
 	int32_t GetNewestSnapshotTick() const;
 
+	// Injectable snapshot/restore functions for testing. When set,
+	// TakeSnapshot/RestoreSnapshot call these instead of the default
+	// C4GameSaveSavegame helpers. Pass nullptr to revert to the default.
+	void SetSnapshotFunction(std::function<bool(StdBuf &)> fn) { snapshotFn = std::move(fn); }
+	void SetRestoreFunction(std::function<bool(const StdBuf &)> fn) { restoreFn = std::move(fn); }
+
 private:
 	struct Snapshot
 	{
@@ -69,6 +78,9 @@ private:
 	int32_t iWindowSnapshots  = DefaultWindowSnapshots;
 	int32_t iHead = 0; // next slot to write
 	std::vector<Snapshot> ring;
+
+	std::function<bool(StdBuf &)> snapshotFn;
+	std::function<bool(const StdBuf &)> restoreFn;
 
 	bool TakeSnapshot(int32_t iControlTick);
 	bool RestoreSnapshot(const Snapshot &snap);
