@@ -63,6 +63,12 @@ bool C4GameControl::InitNetwork(C4Client *pLocal)
 	fHost = pLocal->isHost(); iClientID = pLocal->getID();
 	// control rate by parameters
 	ControlRate = Game.Parameters.ControlRate;
+	if (Config.Network.RollbackEnabled)
+	{
+		Rollback.Init(Config.Network.RollbackSnapshotInterval,
+		              Config.Network.RollbackWindowSnapshots);
+		Rollback.SetEnabled(true);
+	}
 	// ok
 	return true;
 }
@@ -264,6 +270,8 @@ void C4GameControl::Clear()
 	StopRecord();
 	ReplayController.Detach();
 	ChangeToLocal();
+	Rollback.Clear();
+	Rollback.SetEnabled(false);
 	Default();
 }
 
@@ -373,6 +381,10 @@ void C4GameControl::Execute()
 
 	// statistics record
 	if (Game.pNetworkStatistics) Game.pNetworkStatistics->ExecuteControlFrame();
+
+	// Rollback: snapshot post-tick state when rollback is enabled.
+	if (Rollback.IsEnabled())
+		Rollback.MaybeTakeSnapshot(ControlTick);
 }
 
 void C4GameControl::Ticks()
