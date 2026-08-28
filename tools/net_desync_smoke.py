@@ -18,6 +18,7 @@ from __future__ import annotations
 import argparse
 import os
 import shlex
+import shutil
 import socket
 import subprocess
 import sys
@@ -32,6 +33,14 @@ DESYNC_MARKER = "Network: Synchronization loss!"
 # C4NetStdPortRefServer (src/C4Network2.h:52). The host runs a reference
 # server on this port; the client queries it. Both use the default.
 REF_SERVER_PORT = 11111
+
+# Default player file fixture (relative to this script's location).
+# Passing a .c4p file to both peers makes them join as players rather
+# than observers, satisfying GetMinPlayer() in the lobby.
+DEFAULT_PLAYER_FILE = (
+    Path(__file__).resolve().parent.parent
+    / "tests" / "fixtures" / "TestPlayer.c4p"
+)
 
 
 def pick_free_port() -> int:
@@ -94,7 +103,8 @@ def cleanup_impairment(tc_program: str, use_sudo: bool) -> None:
 
 
 def build_engine_args(engine: str, scenario: Path, ticks: int, role: str,
-                      tcp_port: int, udp_port: int) -> list[str]:
+                      tcp_port: int, udp_port: int,
+                      player_file: Path | None = None) -> list[str]:
     """Build the command-line args for a host or client engine instance."""
     args = [engine, "--console", "--smoke-run", str(ticks)]
     if role == "host":
@@ -106,6 +116,11 @@ def build_engine_args(engine: str, scenario: Path, ticks: int, role: str,
                      f"/tcpport:{tcp_port}", f"/udpport:{udp_port}"])
     else:
         raise ValueError(f"unknown role: {role}")
+    # A .c4p positional argument is parsed by C4Game::ParseCommandLine
+    # (src/C4Game.cpp:2755) and registered in PlayerFilenames. Both peers
+    # need it so the lobby sees the minimum player count.
+    if player_file is not None:
+        args.append(str(player_file))
     return args
 
 
@@ -149,6 +164,14 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--sudo", action=argparse.BooleanOptionalAction,
                         default=True,
                         help="Use sudo for tc commands (default: true).")
+    parser.add_argument("--player-file", default=str(DEFAULT_PLAYER_FILE),
+                        help="Path to a .c4p player file passed to both peers "
+                             "(default: tests/fixtures/TestPlayer.c4p).")
+    parser.add_argument("--ref-wait-delay", type=float, default=5.0,
+                        help="Extra seconds to wait after the reference server "
+                             "port opens before spawning the client, giving the "
+                             "host time to register its game reference "
+                             "(default: 5.0).")
     args = parser.parse_args(argv)
 
     # --- Validate inputs -------------------------------------------------
@@ -161,6 +184,19 @@ def main(argv: list[str] | None = None) -> int:
         print(f"ERROR: scenario directory not found: {scenario_path}",
               file=sys.stderr)
         return 2
+    player_path = Path(args.player_file)
+    if not player_path.exists():
+        print(f"ERROR: player file not found: {player_path}", file=sys.stderr)
+        return 2
+
+    # The engine saves player state back into the .c4p on game over, which
+    # would mutate the checked-in fixture. Copy it to a temp dir and hand
+    # each peer its own copy so the original fixture stays pristine.
+    player_tmp_dir = tempfile.mkdtemp(prefix="net_smoke_plr_")
+    host_player = Path(player_tmp_dir) / "HostPlayer.c4p"
+    client_player = Path(player_tmp_dir) / "ClientPlayer.c4p"
+    shutil.copyfile(player_path, host_player)
+    shutil.copyfile(player_path, client_player)
 
     # --- Port selection --------------------------------------------------
     base = pick_free_port()
@@ -193,7 +229,8 @@ def main(argv: list[str] | None = None) -> int:
         host_log_file = tempfile.NamedTemporaryFile(
             mode="w", delete=False, suffix="_net_desync_host.log")
         host_cmd = build_engine_args(
-            args.engine, scenario_path, args.ticks, "host", host_tcp, host_udp)
+            args.engine, scenario_path, args.ticks, "host",
+            host_tcp, host_udp, host_player)
         print(f"Host: {shlex.join(host_cmd)}")
         host_proc = subprocess.Popen(
             host_cmd, stdout=host_log_file, stderr=subprocess.STDOUT,
@@ -212,12 +249,20 @@ def main(argv: list[str] | None = None) -> int:
             print(f"--- Host log (last 20 lines) ---\n{tail(host_out)}")
             return 1
 
+        # The reference server port opening does not guarantee the host has
+        # registered its game reference yet. Wait an additional grace period
+        # so the client does not race ahead and get "No reference found!".
+        if args.ref_wait_delay > 0:
+            print(f"Reference server up; waiting {args.ref_wait_delay:.1f}s "
+                  f"for reference registration...")
+            time.sleep(args.ref_wait_delay)
+
         # --- Spawn client ------------------------------------------------
         client_log_file = tempfile.NamedTemporaryFile(
             mode="w", delete=False, suffix="_net_desync_client.log")
         client_cmd = build_engine_args(
             args.engine, scenario_path, args.ticks, "client",
-            client_tcp, client_udp)
+            client_tcp, client_udp, client_player)
         print(f"Client: {shlex.join(client_cmd)}")
         client_proc = subprocess.Popen(
             client_cmd, stdout=client_log_file, stderr=subprocess.STDOUT,
@@ -291,6 +336,9 @@ def main(argv: list[str] | None = None) -> int:
                     os.unlink(f.name)
                 except OSError:
                     pass
+        # --- Remove temp player-file copies ------------------------------
+        if player_tmp_dir:
+            shutil.rmtree(player_tmp_dir, ignore_errors=True)
 
 
 if __name__ == "__main__":
