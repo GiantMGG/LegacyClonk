@@ -66,6 +66,11 @@ add_test_target(C4AulParse
 	LINK_ENGINE
 )
 
+add_test_target(StdAdaptorsWarn
+	SOURCES "${CMAKE_SOURCE_DIR}/tests/TstStdAdaptorsWarn.cpp"
+	LINK_ENGINE
+)
+
 add_test_target(C4WeatherEvents
 	SOURCES "${CMAKE_SOURCE_DIR}/tests/TstC4WeatherEvents.cpp"
 	LINK_ENGINE

@@ -928,7 +928,7 @@ public:
 						return;
 					}
 				}
-				pComp->Warn("Unknown value name: %s", name.c_str());
+				pComp->Warn("Unknown value name: {}", name);
 			}
 		}
 	}
