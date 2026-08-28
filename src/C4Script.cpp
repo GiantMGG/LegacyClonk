@@ -3326,9 +3326,9 @@ static C4ValueInt FnGetWeatherEventDuration(C4AulContext *cthr)
 	return cthr->GetSection().Weather.GetWeatherEventDuration();
 }
 
-static bool FnLaunchWeatherEvent(C4AulContext *cthr, C4ValueInt id, C4ValueInt intensity, C4ValueInt duration)
+static bool FnLaunchWeatherEvent(C4AulContext *cthr, C4ID id, C4ValueInt intensity, C4ValueInt duration)
 {
-	return cthr->GetSection().Weather.LaunchWeatherEvent(static_cast<C4ID>(id), intensity, duration);
+	return cthr->GetSection().Weather.LaunchWeatherEvent(id, intensity, duration);
 }
 
 static void FnStopWeatherEvent(C4AulContext *cthr)
