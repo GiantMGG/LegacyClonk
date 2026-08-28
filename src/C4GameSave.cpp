@@ -31,6 +31,7 @@
 #include <format>
 #include <utility>
 #include <atomic>
+#include <array>
 
 // *** C4GameSave main class
 
@@ -750,16 +751,84 @@ bool C4GameSave::SaveRuntimeDataToBuffer(StdBuf &outBuf)
 
 bool C4GameSave::LoadRuntimeDataFromBuffer(const StdBuf &inBuf)
 {
-	// Full in-place game-state restoration (re-booting from the savegame
-	// via the C4Game::Init/OpenScenario path) is XL work beyond this
-	// minimal slice. Until that path exists we MUST report failure rather
-	// than pretend a restore succeeded — otherwise RollbackToTick would
-	// return a tick, HandleControl would skip the fast-forward, and the
-	// next C4ControlSyncCheck would LogFatal on the un-rewound state.
-	//
-	// Returning false is fail-safe: RollbackToTick returns -1, the
-	// C4GameControlNetwork::HandleControl caller skips the fast-forward,
-	// and the engine falls back to the existing delay-based behaviour.
-	(void)inBuf;
-	return false;
+	if (inBuf.getSize() == 0) return false;
+
+	// Write buffer to a unique temp file.
+	static std::atomic<uint64_t> counter{0};
+	const std::string tmpName = std::format("c4rollback_load_{}.c4g",
+		counter.fetch_add(1));
+	const std::string tmpPath = Config.AtTempPath(tmpName.c_str());
+
+	if (!inBuf.SaveToFile(tmpPath.c_str()))
+	{
+		EraseItem(tmpPath.c_str());
+		return false;
+	}
+
+	// Open the temp file as a C4Group — this is the savegame produced
+	// by SaveRuntimeDataToBuffer.
+	C4Group savegame;
+	if (!savegame.Open(tmpPath.c_str()))
+	{
+		EraseItem(tmpPath.c_str());
+		return false;
+	}
+
+	// Load the Game.txt entry from the savegame into GameText.
+	Game.GameText.Load(C4CFN_Game, savegame, C4CFN_Game);
+
+	// Clear all existing sections and reload from the savegame.
+	Game.Sections.clear();
+
+	// Reload sections from the savegame. The savegame contains
+	// SaveSect*.c4g entries, one per section.
+	savegame.ResetSearch();
+	std::array<char, _MAX_PATH + 1> filename;
+	while (savegame.FindNextEntry(C4CFN_SavedSectionFiles, filename.data()))
+	{
+		auto section = C4Section::FromSaveGame(savegame, filename.data());
+		if (!section)
+		{
+			savegame.Close();
+			EraseItem(tmpPath.c_str());
+			return false;
+		}
+		Game.Sections.emplace_back(std::move(section));
+	}
+
+	// Compile runtime data from Game.txt. The mainSectionProvider
+	// creates the main section from the savegame.
+	auto mainSectionProvider = [&savegame](StdCompiler &comp) -> C4Section &
+	{
+		auto section = std::make_unique<C4Section>(C4Section::Main,
+			C4Section::FirstSectionEnumerationIndex);
+		if (!section->InitFromTemplate(savegame) ||
+			!section->AssumeGroupAsSaveGameGroup())
+		{
+			comp.excCorrupt("Failed to open savegame group");
+		}
+		return *Game.Sections.emplace_front(std::move(section));
+	};
+
+	if (!Game.CompileRuntimeData(Game.GameText, mainSectionProvider))
+	{
+		savegame.Close();
+		EraseItem(tmpPath.c_str());
+		return false;
+	}
+
+	// Re-initialize sections after load.
+	for (auto &section : Game.Sections)
+	{
+		if (!section->InitFromSaveGameAfterLoad(savegame))
+		{
+			savegame.Close();
+			EraseItem(tmpPath.c_str());
+			return false;
+		}
+	}
+
+	savegame.Close();
+	EraseItem(tmpPath.c_str());
+	return true;
 }
