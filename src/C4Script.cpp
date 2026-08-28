@@ -37,6 +37,8 @@
 #include <C4ValueHash.h>
 #include <C4NetworkRestartInfos.h>
 #include <C4SoundSystem.h>
+#include <C4GameSave.h>
+#include <StdBuf.h>
 
 #include <array>
 #include <cinttypes>
@@ -7215,6 +7217,31 @@ template <typename T> struct C4ValueConv<std::optional<T>>
 	}
 };
 
+// --- Rollback test-only C4Script functions ---
+// These expose the save/restore round-trip to C4Script so the smoke
+// scenario can validate LoadRuntimeDataFromBuffer end-to-end.
+
+static StdBuf g_RollbackTestBuffer;
+
+static C4Value FnRollbackSaveState(C4AulContext *ctx)
+{
+	StdBuf buf;
+	C4GameSaveSavegame save;
+	if (!save.SaveRuntimeDataToBuffer(buf))
+	{
+		return C4Value{false};
+	}
+	g_RollbackTestBuffer.Take(buf);
+	return C4Value{true};
+}
+
+static C4Value FnRollbackLoadState(C4AulContext *ctx)
+{
+	if (g_RollbackTestBuffer.getSize() == 0) return C4Value{false};
+	C4GameSaveSavegame save;
+	return C4Value{save.LoadRuntimeDataFromBuffer(g_RollbackTestBuffer)};
+}
+
 void InitFunctionMap(C4AulScriptEngine *pEngine)
 {
 	// add all def constants (all Int)
@@ -7257,6 +7284,8 @@ void InitFunctionMap(C4AulScriptEngine *pEngine)
 	AddFunc(pEngine, "ObjectCount", FnObjectCount);
 	AddFunc(pEngine, "ObjectCall", FnObjectCall);
 	AddFunc(pEngine, "ProtectedCall", FnProtectedCall);
+	AddFunc(pEngine, "RollbackSaveState", FnRollbackSaveState);
+	AddFunc(pEngine, "RollbackLoadState", FnRollbackLoadState);
 	AddFunc(pEngine, "PrivateCall", FnPrivateCall);
 	AddFunc(pEngine, "GameCall", FnGameCall);
 	AddFunc(pEngine, "GameCallEx", FnGameCallEx);
