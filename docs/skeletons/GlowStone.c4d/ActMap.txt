@@ -1,0 +1,7 @@
+[ActMap]
+Action=Idle
+Length=1
+Delay=1
+Facet=(0,0,32,32,0,0)
+NextAction=Idle
+End

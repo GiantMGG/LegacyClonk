@@ -1,0 +1,5 @@
+[DefCore]
+id=GWST
+Name=Glow Stone
+Category=65536
+Version=1
