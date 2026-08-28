@@ -46,7 +46,9 @@ markdown_extensions:
 
 nav:
   - Home: index.md
-  - Quickstart: quickstart.md
+  - Tutorials:
+      - First object: tutorials/first-object.md
+      - C4D pack anatomy: tutorials/c4d-anatomy.md
   - C4Script guide:
       - Overview: c4script/index.md
       - Syntax: c4script/syntax.md

@@ -5,11 +5,11 @@ fan-made continuation of the Clonk Rage engine. These docs cover everything
 a modder needs to create custom objects, scenarios, and effects with the
 C4Script language.
 
-[Start modding in 1 hour](quickstart.md){ .md-button .md-button--primary }
+[Start modding in 1 hour](tutorials/first-object.md){ .md-button .md-button--primary }
 
 ## What you will find here
 
-- **[Quickstart](quickstart.md)** — from `git clone` to a first custom object
+- **[First object tutorial](tutorials/first-object.md)** — from `git clone` to a first custom object
   firing a callback in under 60 minutes.
 - **[C4Script guide](c4script/index.md)** — the hand-written language
   reference: syntax, types, control flow, proplists, effects, actions, and
