@@ -599,6 +599,50 @@ def check_duplicate_destinations(entries: list[ManifestEntry]) -> None:
         seen[e.destination] = e.ccan_id
 
 # ===========================================================================
+# Dependency resolution (requires closure + cycle detection)
+# ===========================================================================
+
+def resolve_requires(
+    entry: ManifestEntry,
+    entries: list[ManifestEntry],
+    content_community: Path,
+) -> list[str]:
+    """Resolve the transitive `requires` closure for ``entry``.
+
+    Returns an ordered list of dependency directory names (each a
+    ``content-community/<dep>/`` directory). Fails fast (SystemExit) if a
+    declared dependency's directory does not exist on disk. Detects
+    dependency cycles via a path-tracking visited set.
+    """
+    by_dest = {e.destination: e for e in entries}
+    visited: set[str] = set()
+    order: list[str] = []
+
+    def visit(dep: str, path: tuple[str, ...]) -> None:
+        if dep in path:
+            cycle = " -> ".join(path + (dep,))
+            sys.exit(f"Dependency cycle detected: {cycle}")
+        if dep in visited:
+            return
+        dep_dir = content_community / dep
+        if not dep_dir.is_dir():
+            sys.exit(
+                f"Manifest entry {entry.ccan_id} requires '{dep}' but "
+                f"content-community/{dep}/ does not exist. "
+                f"Import the dependency first."
+            )
+        visited.add(dep)
+        order.append(dep)
+        dep_entry = by_dest.get(dep)
+        if dep_entry:
+            for transitive in dep_entry.requires:
+                visit(transitive, path + (dep,))
+
+    for r in entry.requires:
+        visit(r, (entry.destination,))
+    return order
+
+# ===========================================================================
 # Subcommand stubs (implemented in later tasks)
 # ===========================================================================
 

@@ -401,3 +401,50 @@ def test_load_manifest_smoke_defaults(tmp_path: Path):
 	assert entries[0].smoke.ticks == 350
 	assert entries[0].smoke.skip is False
 	assert entries[0].smoke.curator_script is False
+
+
+def _make_entry(ccan_id, destination, requires=None):
+	return I.ManifestEntry(
+		ccan_id=ccan_id,
+		title=f"Pack{ccan_id}",
+		author_nick="x",
+		author_uid=1,
+		uploaded="2026-01-01",
+		engine="LC",
+		license="CC-BY-NC-4.0",
+		license_rationale="r",
+		filename=f"{destination}.c4s",
+		destination=destination,
+		notes="n",
+		requires=requires or [],
+	)
+
+
+def test_resolve_requires_fails_fast_on_missing_dep(tmp_path: Path):
+	a = _make_entry(1, "A", requires=["B"])
+	with pytest.raises(SystemExit, match="does not exist"):
+		I.resolve_requires(a, [a], tmp_path)
+
+
+def test_resolve_requires_detects_cycle(tmp_path: Path):
+	a = _make_entry(1, "A", requires=["B"])
+	b = _make_entry(2, "B", requires=["A"])
+	(tmp_path / "A").mkdir()
+	(tmp_path / "B").mkdir()
+	with pytest.raises(SystemExit, match="cycle"):
+		I.resolve_requires(a, [a, b], tmp_path)
+
+
+def test_resolve_requires_returns_transitive_closure(tmp_path: Path):
+	a = _make_entry(1, "A", requires=["B"])
+	b = _make_entry(2, "B", requires=["C"])
+	c = _make_entry(3, "C", requires=[])
+	(tmp_path / "B").mkdir()
+	(tmp_path / "C").mkdir()
+	result = I.resolve_requires(a, [a, b, c], tmp_path)
+	assert result == ["B", "C"]
+
+
+def test_resolve_requires_empty_when_no_deps(tmp_path: Path):
+	a = _make_entry(1, "A", requires=[])
+	assert I.resolve_requires(a, [a], tmp_path) == []
