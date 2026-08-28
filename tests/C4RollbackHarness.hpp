@@ -75,9 +75,9 @@ namespace C4RollbackTest
 
 	inline void C4RollbackHarness::Init()
 	{
-		// Wire the harness to the global Game.Control. The harness does not
-		// modify ControlRate or other engine state; it only drives the
-		// existing Execute() path with injected remote control.
+		// Always reset the rollback member so test cases are isolated from
+		// each other (Game.Control.Rollback is a global, shared singleton).
+		Game.Control.Rollback.Clear();
 		if (fRollbackEnabled)
 		{
 			Game.Control.Rollback.Init(iSnapshotInterval, iWindowSnapshots);
