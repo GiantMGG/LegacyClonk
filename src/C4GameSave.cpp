@@ -27,6 +27,7 @@
 #include <C4Log.h>
 #include <C4Player.h>
 #include <C4RTF.h>
+#include <C4Random.h>
 
 #include <format>
 #include <utility>
@@ -848,6 +849,41 @@ bool C4GameSave::LoadRuntimeDataFromBuffer(const StdBuf &inBuf)
 		if (!section->InitFromSaveGameAfterLoad(savegame))
 		{
 			// Restore the backup so the game keeps its prior sections.
+			Game.Sections = std::move(backup);
+			savegame.Close();
+			EraseItem(tmpPath.c_str());
+			return false;
+		}
+	}
+
+	// Initialize material/texture data on all restored sections.
+	// Mirrors C4Game::InitGameFirstPart's loop at C4Game.cpp:2434-2440.
+	// Without this, Landscape.Init → Mat2Pal crashes because
+	// GetMaterial() returns null (no material pointers set).
+	for (auto &section : Game.Sections)
+	{
+		if (!section->InitMaterialTexture({{Game.Material, Game.TextureMap}}))
+		{
+			Game.Sections = std::move(backup);
+			savegame.Close();
+			EraseItem(tmpPath.c_str());
+			return false;
+		}
+	}
+
+	// Re-init landscape on all restored sections so the landscape
+	// is in a saveable state for a second SaveRuntimeDataToBuffer.
+	// Mirrors C4Game::InitGameSecondPart's loop at C4Game.cpp:2462
+	// but ONLY calls Landscape.Init (not the full InitSecondPart,
+	// which would close groups and re-initialize objects).
+	for (auto &section : Game.Sections)
+	{
+		section->LandscapeLoaded = false;
+		if (!section->Landscape.Init(section->Group,
+			section->SaveGameGroup ? &*section->SaveGameGroup : nullptr,
+			C4Random::Default, true, false, true,
+			section->LandscapeLoaded, section->C4S.Head.SaveGame))
+		{
 			Game.Sections = std::move(backup);
 			savegame.Close();
 			EraseItem(tmpPath.c_str());
