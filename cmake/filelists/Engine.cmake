@@ -247,6 +247,10 @@ src/C4RankSystem.cpp
 src/C4RankSystem.h
 src/C4Record.cpp
 src/C4Record.h
+src/C4ReconnPkt.cpp
+src/C4ReconnPkt.h
+src/C4Reconnect.cpp
+src/C4Reconnect.h
 src/C4Rollback.cpp
 src/C4Rollback.h
 src/C4Replay.cpp

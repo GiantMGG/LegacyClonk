@@ -106,6 +106,21 @@ int32_t C4Rollback::GetNewestSnapshotTick() const
 	return newest;
 }
 
+std::optional<std::pair<StdBuf, int32_t>> C4Rollback::GetSnapshotForTick(int32_t iTick) const
+{
+	const Snapshot *best = nullptr;
+	for (const auto &s : ring)
+	{
+		if (!s.fValid) continue;
+		if (s.iControlTick > iTick) continue;
+		if (!best || s.iControlTick > best->iControlTick) best = &s;
+	}
+	if (!best) return std::nullopt;
+	StdBuf buf;
+	buf.Copy(best->serializedState.data(), best->serializedState.size());
+	return std::make_pair(std::move(buf), best->iControlTick);
+}
+
 bool C4Rollback::DoSaveRuntimeData(StdBuf &outBuf)
 {
 	C4GameSaveSavegame save;

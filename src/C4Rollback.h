@@ -23,6 +23,8 @@
 #pragma once
 
 #include <cstdint>
+#include <optional>
+#include <utility>
 #include <vector>
 
 #include "StdBuf.h"
@@ -56,6 +58,11 @@ public:
 	int32_t GetSnapshotCount() const;
 	int32_t GetOldestSnapshotTick() const;
 	int32_t GetNewestSnapshotTick() const;
+
+	// Returns the serialized state of the newest valid snapshot with
+	// tick <= iTick, or std::nullopt if no such snapshot exists (window
+	// exceeded, rollback disabled, or ring empty). Spec: reconnect.
+	std::optional<std::pair<StdBuf, int32_t>> GetSnapshotForTick(int32_t iTick) const;
 
 protected:
 	// Serialization hooks. The default implementation delegates to

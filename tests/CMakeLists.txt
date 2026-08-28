@@ -88,6 +88,13 @@ add_test_target(C4Rollback
 	LINK_ENGINE
 )
 
+add_test_target(C4Reconnect
+	SOURCES
+		"${CMAKE_SOURCE_DIR}/tests/TstC4Reconnect.cpp"
+		"${CMAKE_SOURCE_DIR}/tests/C4ReconnectHarness.hpp"
+	LINK_ENGINE
+)
+
 add_test_target(C4RecordRoundtrip
 	SOURCES "${CMAKE_SOURCE_DIR}/tests/TstC4RecordRoundtrip.cpp"
 	LINK_ENGINE

@@ -218,6 +218,10 @@ void C4Network2ClientListBox::ClientListItem::Update()
 			icoStatus = C4GUI::Ico_Ready;
 			break;
 
+		case NCS_Dormant: // client dropped, awaiting reconnect (spec: reconnect)
+			icoStatus = C4GUI::Ico_Loading;
+			break;
+
 		case NCS_Remove: // client is to be removed
 			icoStatus = C4GUI::Ico_Kick;
 			break;

@@ -19,6 +19,7 @@
 #include "C4Network2Res.h"
 #include "C4Version.h"
 #include "C4GameLobby.h"
+#include "C4ReconnPkt.h"
 
 // constants
 
@@ -68,6 +69,7 @@ const C4PktHandlingData PktHandlingData[] =
 	{ PID_ClientActReq,       PC_Network, "Client Activation Request",   false, false, PH_C4Network2,           PKT_UNPACK(C4PacketActivateReq) },
 
 	{ PID_JoinData,           PC_Network, "Join Data",                   false, false, PH_C4Network2,           PKT_UNPACK(C4PacketJoinData) },
+	{ PID_Reconn,             PC_Network, "Reconnect Request",           false, false, PH_C4Network2,           PKT_UNPACK(C4PacketReconn) },
 	{ PID_ReadyCheck,         PC_Network, "Ready Check",                 false, false, PH_C4Network2,           PKT_UNPACK(C4PacketReadyCheck) },
 
 	// C4Network2PlayerList (main thread)

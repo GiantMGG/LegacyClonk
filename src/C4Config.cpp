@@ -272,6 +272,8 @@ void C4ConfigNetwork::CompileFunc(StdCompiler *pComp)
 	pComp->Value(mkNamingAdapt(RollbackEnabled,           "RollbackEnabled",        false, false, true));
 	pComp->Value(mkNamingAdapt(RollbackSnapshotInterval,  "RollbackSnapshotInterval", C4Rollback::DefaultSnapshotInterval, false, true));
 	pComp->Value(mkNamingAdapt(RollbackWindowSnapshots,   "RollbackWindowSnapshots",  C4Rollback::DefaultWindowSnapshots,   false, true));
+	pComp->Value(mkNamingAdapt(ReconnectEnabled,          "ReconnectEnabled",        false,                         false, true));
+	pComp->Value(mkNamingAdapt(ReconnectGraceSec,         "ReconnectGraceSec",       C4Reconnect::DefaultGraceSec, false, true));
 
 	pComp->Value(mkNamingAdapt(s(PuncherAddress), "PuncherAddress", DefaultPuncherServer, false, true));
 

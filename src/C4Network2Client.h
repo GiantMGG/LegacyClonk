@@ -42,6 +42,7 @@ enum C4Network2ClientStatus
 	NCS_NotReady, // client is behind (status not acknowledged)
 	NCS_Ready,    // client acknowledged network status
 	NCS_Remove,   // client is to be removed
+	NCS_Dormant,  // client dropped but within reconnect grace window (spec: reconnect)
 };
 
 class C4Network2Client
@@ -113,6 +114,7 @@ public:
 	bool                   isReady()     const { return getStatus() == NCS_Ready; }
 	bool                   isWaitedFor() const { return getStatus() == NCS_NotReady || getStatus() == NCS_Ready; }
 	bool                   isRemoved()   const { return getStatus() == NCS_Remove; }
+	bool                   isDormant()   const { return getStatus() == NCS_Dormant; }
 
 	bool                isConnected()        const { return !!pMsgConn; }
 	time_t              getNextConnAttempt() const { return iNextConnAttempt; }

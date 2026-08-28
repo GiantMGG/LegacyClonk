@@ -24,6 +24,7 @@
 #include <C4UserMessages.h>
 #include <C4Log.h>
 #include <C4Game.h>
+#include <cstring>
 
 #ifndef _WIN32
 #include <sys/socket.h>
@@ -1682,6 +1683,22 @@ void C4PacketJoinData::CompileFunc(StdCompiler *pComp)
 	pComp->Value(mkNamingAdapt(mkParAdapt(GameStatus, true),   "GameStatus"));
 	pComp->Value(mkNamingAdapt(Dynamic,                        "Dynamic"));
 	pComp->Value(Parameters);
+	// Reconnect fields (spec: reconnect). Defaults keep old packets decodable.
+	uint64_t tokLo = 0, tokHi = 0;
+	if (pComp->isDecompiler())
+	{
+		std::memcpy(&tokLo, reconnectToken.data(),     sizeof(uint64_t));
+		std::memcpy(&tokHi, reconnectToken.data() + 8, sizeof(uint64_t));
+	}
+	pComp->Value(mkNamingAdapt(tokLo, "ReconnectTokenLo", 0ull));
+	pComp->Value(mkNamingAdapt(tokHi, "ReconnectTokenHi", 0ull));
+	if (pComp->isCompiler())
+	{
+		std::memcpy(reconnectToken.data(),     &tokLo, sizeof(uint64_t));
+		std::memcpy(reconnectToken.data() + 8, &tokHi, sizeof(uint64_t));
+	}
+	pComp->Value(mkNamingAdapt(reconnectSnapshotTick, "ReconnectSnapshotTick", -1));
+	pComp->Value(mkNamingAdapt(reconnectSnapshot,     "ReconnectSnapshot",     StdBuf{}));
 }
 
 // C4PacketReadyCheck

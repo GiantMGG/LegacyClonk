@@ -23,6 +23,7 @@
 #include <C4Application.h>
 #include <C4Console.h>
 #include <C4GameSave.h>
+#include <C4ReconnPkt.h>
 #include <C4RoundResults.h>
 
 // lobby
@@ -213,6 +214,9 @@ C4Network2::C4Network2()
 bool C4Network2::InitHost(bool fLobby)
 {
 	if (isEnabled()) Clear();
+	// Reconnect config (spec: connection-migration-reconnect).
+	Reconnect.SetEnabled(Config.Network.ReconnectEnabled);
+	Reconnect.SetGraceSec(Config.Network.ReconnectGraceSec);
 	if (!Logger)
 	{
 		Logger = Application.LogSystem.CreateLogger(Config.Logging.Network);
@@ -337,6 +341,9 @@ C4Network2::InitResult C4Network2::InitClient(const C4Network2Reference &Ref, bo
 
 C4Network2::InitResult C4Network2::InitClient(const std::vector<class C4Network2Address> &addrs, const C4ClientCore &HostCore, const char *szPassword)
 {
+	// Reconnect config (spec: connection-migration-reconnect).
+	Reconnect.SetEnabled(Config.Network.ReconnectEnabled);
+	Reconnect.SetGraceSec(Config.Network.ReconnectGraceSec);
 	// initialization
 	Status.Set(GS_Init, -1);
 	fHost = false;
@@ -691,6 +698,19 @@ void C4Network2::Execute()
 		UpdateChaseTarget();
 		// check for inactive clients and deactivate them
 		DeactivateInactiveClients();
+		// reconnect: expire dormant clients whose grace timer elapsed.
+		// The onExpire callback runs CtrlRemove directly (NOT re-entering
+		// OnClientDisconnect), so LeagueNotifyDisconnect is not re-fired.
+		if (Reconnect.IsEnabled())
+		{
+			Reconnect.TickDormancy(time(nullptr),
+				[this](C4Network2Client *pDormant) {
+					Logger->info("client {} grace expired; CtrlRemove",
+					             pDormant->getName());
+					Game.Clients.CtrlRemove(pDormant->getClient(),
+						LoadResStr(C4ResStrTableKey::IDS_MSG_DISCONNECTED));
+				});
+		}
 		// reference
 		if (!iLastReferenceUpdate || time(nullptr) > static_cast<time_t>(iLastReferenceUpdate + C4NetReferenceUpdateInterval))
 			if (NetIO.IsReferenceNeeded())
@@ -769,6 +789,8 @@ void C4Network2::Clear()
 	Clients.Clear();
 	// close net classes
 	NetIO.Clear();
+	// reconnect: rotate the game token and drop dormant state. Spec: reconnect.
+	Reconnect.Clear();
 	// clear ressources
 	ResList.Clear();
 	// clear password
@@ -940,6 +962,14 @@ void C4Network2::HandlePacket(char cStatus, const C4PacketBase *pPacket, C4Netwo
 		if (!pConn->isOpen()) break;
 		// handle
 		GETPKT(C4PacketJoinData, rPkt);
+		// Reconnect join data carries an inline snapshot and arrives when
+		// the client is already past GS_Init; route to the reconnect
+		// restore path. Spec: connection-migration-reconnect.
+		if (rPkt.GetReconnectSnapshot().getSize() > 0)
+		{
+			HandleReconnectJoinData(rPkt);
+			break;
+		}
 		HandleJoinData(rPkt);
 	}
 	break;
@@ -986,6 +1016,36 @@ void C4Network2::HandlePacket(char cStatus, const C4PacketBase *pPacket, C4Netwo
 		// handle
 		GETPKT(C4PacketActivateReq, rPkt);
 		HandleActivateReq(rPkt.getTick(), pClient);
+	}
+	break;
+
+	case PID_Reconn: // reconnect request (spec: connection-migration-reconnect)
+	{
+		if (!isHost()) break;             // host-only
+		if (!Reconnect.IsEnabled()) break; // opt-in
+		if (!pConn->isOpen()) break;
+		GETPKT(C4PacketReconn, rPkt);
+		C4Network2Client *pReassociated = Reconnect.HandleReconn(
+			rPkt.GetToken(), rPkt.GetOriginalClientID(),
+			rPkt.GetLastConfirmedCtrlTick(), pConn);
+		if (!pReassociated)
+		{
+			// Token mismatch or no dormant client for this ID. Close.
+			pConn->Close();
+			break;
+		}
+		// Reassociation succeeded. Ship reconnect join data: a snapshot
+		// taken now (from the rollback ring if possible, else fresh).
+		auto snap = Reconnect.GetReconnectSnapshot(
+			rPkt.GetLastConfirmedCtrlTick(), &Game.Control.Rollback);
+		if (!snap)
+		{
+			Logger->warn("reconnect snapshot failed; falling back to CtrlRemove");
+			Game.Clients.CtrlRemove(pReassociated->getClient(),
+				LoadResStr(C4ResStrTableKey::IDS_MSG_DISCONNECTED));
+			break;
+		}
+		SendReconnectJoinData(pReassociated, *snap);
 	}
 	break;
 	}
@@ -1797,6 +1857,19 @@ void C4Network2::OnClientDisconnect(C4Network2Client *pClient)
 	// host? Remove this client from the game.
 	if (isHost())
 	{
+		// Reconnect: if enabled and the client has a minted token on
+		// record, transition to NCS_Dormant instead of CtrlRemove. The
+		// frozen-statue players stay in the world; the original client
+		// ID is retained so a PID_Reconn handshake can re-associate.
+		// LeagueNotifyDisconnect above already fired once on the drop.
+		if (Reconnect.IsEnabled() && Reconnect.IsTokenMinted() &&
+		    Reconnect.EnterDormancy(pClient, time(nullptr)))
+		{
+			Logger->info("client {} entered dormancy (reconnect grace {}s)",
+			             pClient->getName(), Reconnect.GetGraceSec());
+			return;
+		}
+
 		bool fHadPlayers = !!Game.PlayerInfos.GetPrimaryInfoByClientID(pClient->getID());
 		// log
 		Logger->info(LoadResStr(C4ResStrTableKey::IDS_NET_CLIENTDISCONNECTED, pClient->getName())); // silent, because a duplicate message with disconnect reason will follow
@@ -1847,12 +1920,63 @@ void C4Network2::SendJoinData(C4Network2Client *pClient)
 	// core join data
 	JoinData.SetStartCtrlTick(iDynamicTick);
 	JoinData.SetDynamicCore(ResDynamic);
+	// embed the reconnect token so the client can echo it back in a
+	// future PID_Reconn. Minted lazily, game-scoped. Spec: reconnect.
+	if (Reconnect.IsEnabled())
+	{
+		Reconnect.MintGameToken();
+		JoinData.SetReconnectToken(Reconnect.GetGameToken());
+	}
 	// send
 	pClient->SendMsg(MkC4NetIOPacket(PID_JoinData, JoinData));
 	// send addresses
 	Clients.SendAddresses(pClient->getMsgConn());
 	// flag client (he will have to accept the network status sent next)
 	pClient->SetStatus(NCS_Chasing);
+	if (!iLastChaseTargetUpdate) iLastChaseTargetUpdate = time(nullptr);
+}
+
+void C4Network2::SendReconnectJoinData(C4Network2Client *pClient, const C4Reconnect::Snapshot &snap)
+{
+	// Host-only. Builds a C4PacketJoinData carrying the reconnect snapshot
+	// inline (bypassing the dynamic-core resource path used for fresh
+	// joins). The original client ID is preserved — no iNextClientID++
+	// mint. HandleReconn already set the client to NCS_Chasing. Spec:
+	// connection-migration-reconnect.
+	assert(isHost());
+	C4PacketJoinData JoinData;
+	JoinData.SetClientID(pClient->getID());
+	JoinData.SetGameStatus(Status);
+	JoinData.SetStartCtrlTick(snap.tick);
+	JoinData.SetReconnectSnapshotTick(snap.tick);
+	// Copy the snapshot buffer into the packet's StdBuf field (raw binary).
+	JoinData.SetReconnectSnapshot(snap.buf);
+	pClient->SendMsg(MkC4NetIOPacket(PID_JoinData, JoinData));
+}
+
+void C4Network2::HandleReconnectJoinData(const C4PacketJoinData &rPkt)
+{
+	// Client-side reconnect restore. The client is already past GS_Init,
+	// so the fresh-join HandleJoinData path cannot be used. Restore the
+	// inline snapshot via LoadRuntimeDataFromBuffer and chase forward.
+	// Spec: connection-migration-reconnect.
+	const StdBuf &snap = rPkt.GetReconnectSnapshot();
+	if (snap.getSize() == 0)
+	{
+		LogFatalNTr("reconnect join data has empty snapshot");
+		return;
+	}
+	C4GameSaveSavegame save;
+	if (!save.LoadRuntimeDataFromBuffer(snap))
+	{
+		LogFatalNTr("reconnect snapshot restore failed");
+		return;
+	}
+	iDynamicTick = rPkt.GetReconnectSnapshotTick();
+	// Enter chase: the existing C4Network2Client::isChasing path will
+	// fast-forward the client to the host's control tick.
+	C4Network2Client *pLocal = Clients.GetLocal();
+	if (pLocal) pLocal->SetStatus(NCS_Chasing);
 	if (!iLastChaseTargetUpdate) iLastChaseTargetUpdate = time(nullptr);
 }
 

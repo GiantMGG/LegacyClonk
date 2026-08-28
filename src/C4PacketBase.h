@@ -124,6 +124,9 @@ enum C4PacketType
 	// round results league info
 	PID_LeagueRoundResults = 0x17,
 
+	// reconnect request (spec: connection-migration-reconnect)
+	PID_Reconn = 0x18,
+
 	// * lobby
 	PID_LobbyCountdown = 0x20,
 	PID_ReadyCheck     = 0x21,
