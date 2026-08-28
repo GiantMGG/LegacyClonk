@@ -294,6 +294,7 @@ def test_integration_import_sample_pack_end_to_end(
 	# Drive the import via cmd_import's internals: call _import_one directly.
 	I._import_one(
 		entry=sample_manifest_entry,
+		entries=[sample_manifest_entry],
 		content_community=content_community,
 		c4group=c4group,
 		force=False,
@@ -329,6 +330,7 @@ def test_integration_import_sample_pack_end_to_end(
 	# 5. --force re-imports.
 	I._import_one(
 		entry=sample_manifest_entry,
+		entries=[sample_manifest_entry],
 		content_community=content_community,
 		c4group=c4group,
 		force=True,
@@ -563,3 +565,61 @@ def test_emit_smoke_artefacts_writes_definitions_closure(tmp_path: Path):
 	assert "Definition1=Objects.c4d" in text
 	# Dep's pack (Dep.c4d) listed.
 	assert "Dep.c4d" in text
+
+
+def test_import_one_emits_smoke_artefacts(tmp_path: Path, monkeypatch):
+	"""_import_one calls emit_smoke_artefacts after a successful import."""
+	entry = I.ManifestEntry(
+		ccan_id=4242,
+		title="Sample",
+		author_nick="SampleAuthor",
+		author_uid=9999,
+		uploaded="2026-08-27",
+		engine="LC",
+		license="CC-BY-NC-4.0",
+		license_rationale="Synthetic fixture for offline integration test.",
+		filename="Sample.c4d",
+		destination="Sample",
+		notes="Test fixture.",
+		requires=[],
+		smoke=I.SmokeConfig(),
+	)
+	content_community = tmp_path / "cc"
+	content_community.mkdir()
+
+	# Mock emit_smoke_artefacts to track it was called with the right args.
+	called = {}
+
+	def fake_emit(entry, dest_dir, unpack_path, requires_closure, content_community):
+		called["entry"] = entry
+		called["dest_dir"] = dest_dir
+		called["unpack_path"] = unpack_path
+		called["requires_closure"] = requires_closure
+		called["content_community"] = content_community
+
+	monkeypatch.setattr(I, "emit_smoke_artefacts", fake_emit)
+	monkeypatch.setattr(I, "resolve_requires", lambda *a, **kw: [])
+	monkeypatch.setattr(I, "fetch_metadata_html", lambda *a, **kw: "")
+	monkeypatch.setattr(I, "parse_ccan_metadata", lambda *a, **kw: I.CcanMetadata(
+		ccan_id=4242, title="Sample", author_nick="x", author_uid=1,
+		uploaded="2026-08-27", engine="LC", filename="Sample.c4d",
+		description_de="", description_us="",
+	))
+	monkeypatch.setattr(I, "fetch_pack", lambda *a, **kw: tmp_path / "blob")
+	monkeypatch.setattr(I, "unpack", lambda *a, **kw: a[1] / "Sample.c4d")
+	monkeypatch.setattr(I, "validate", lambda *a, **kw: (True, "ok"))
+	# Make unpack_path exist so resolve + emit work.
+	(cc_dir := content_community / "Sample").mkdir()
+	(cc_dir / "Sample.c4d").mkdir()
+
+	I._import_one(
+		entry=entry,
+		entries=[entry],
+		content_community=content_community,
+		c4group=Path("/bin/true"),
+		force=True,
+		rate_limit=0,
+	)
+
+	assert called.get("entry") is entry
+	assert called.get("requires_closure") == []

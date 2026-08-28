@@ -825,6 +825,7 @@ def cmd_list(args: argparse.Namespace) -> int:
 
 def _import_one(
     entry: ManifestEntry,
+    entries: list[ManifestEntry],
     content_community: Path,
     c4group: Path,
     force: bool,
@@ -846,6 +847,9 @@ def _import_one(
             f"Destination {dest_dir} already exists and is not a recognized "
             f"import. Remove it manually or use --force."
         )
+
+    # Fail fast on missing dependencies before any network fetch.
+    requires_closure = resolve_requires(entry, entries, content_community)
 
     # 1. Fetch metadata + parse.
     print(f"[{entry.ccan_id}] fetching metadata...")
@@ -876,6 +880,15 @@ def _import_one(
         rollback_import(dest_dir)
         sys.exit(f"[{entry.ccan_id}] import failed: {e}")
 
+    # 4. Emit tier-A struct marker + tier-B smoke scenario.
+    emit_smoke_artefacts(
+        entry=entry,
+        dest_dir=dest_dir,
+        unpack_path=unpack_path,
+        requires_closure=requires_closure,
+        content_community=content_community,
+    )
+
     print(f"[{entry.ccan_id}] imported -> {dest_dir}")
 
 def cmd_import(args: argparse.Namespace) -> int:
@@ -889,6 +902,7 @@ def cmd_import(args: argparse.Namespace) -> int:
             sys.exit(f"Entry ID {requested_id} not in manifest.")
         _import_one(
             by_id[requested_id],
+            entries,
             args.content_community,
             c4group,
             args.force,
