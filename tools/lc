@@ -17,14 +17,19 @@ from pathlib import Path
 
 # --- Constants ---
 
-WORKSPACE = Path(__file__).resolve().parent
-LEGACYCLONK = WORKSPACE / "LegacyClonk"
-DEFAULT_BUILD_DIR = LEGACYCLONK / "build"
+# The launcher lives at LegacyClonk/tools/lc. Climb from tools/ to the
+# LegacyClonk repo root; content/ and content-community/ live one level
+# above that, at the clonk_ws workspace root.
+WORKSPACE = Path(__file__).resolve().parent.parent  # LegacyClonk repo root
+LEGACYCLONK = WORKSPACE
+DEFAULT_BUILD_DIR = WORKSPACE / "build"
 DEFAULT_GAME_FOLDER = Path.home() / "clonk"
-DEFAULT_CONTENT_DIR = WORKSPACE / "content"
-DEFAULT_PLANET_DIR = LEGACYCLONK / "planet"
-DEFAULT_COMMUNITY_DIR = WORKSPACE / "content-community"
+DEFAULT_CONTENT_DIR = WORKSPACE.parent / "content"
+DEFAULT_PLANET_DIR = WORKSPACE / "planet"
+DEFAULT_COMMUNITY_DIR = WORKSPACE.parent / "content-community"
 CONTENT_PACK_EXTENSIONS = (".c4d", ".c4f", ".c4g")
+APP_BUNDLE_NAME = "clonk.app"
+MACOS_INNER_BINARY = Path("Contents") / "MacOS" / "clonk"
 
 
 # --- Binary discovery ---
@@ -45,7 +50,9 @@ def discover_binary(build_dir: Path, override: Path | None = None) -> Path:
     if sys.platform == "win32":
         candidates.append(Path(build_dir) / "clonk.exe")
     elif sys.platform == "darwin":
-        candidates.append(Path(build_dir) / "clonk.app" / "Contents" / "MacOS" / "clonk")
+        # On macOS, discover the .app bundle (not the inner binary); setup
+        # symlinks the bundle and run_engine execs the inner binary.
+        candidates.append(Path(build_dir) / APP_BUNDLE_NAME)
         candidates.append(Path(build_dir) / "clonk")
     else:
         candidates.append(Path(build_dir) / "clonk")
@@ -63,6 +70,18 @@ def discover_binary(build_dir: Path, override: Path | None = None) -> Path:
         f"Could not find clonk binary. Searched: {candidates}. "
         "Pass --binary PATH or build the project."
     )
+
+
+def _exec_target(binary: Path) -> Path:
+    """Return the path to actually exec, given a discovered binary location.
+
+    On macOS the discovered path is the `.app` bundle directory; the real
+    executable lives at `bundle/Contents/MacOS/clonk`. On other platforms the
+    discovered binary is the exec target.
+    """
+    if sys.platform == "darwin" and binary.name == APP_BUNDLE_NAME:
+        return binary / MACOS_INNER_BINARY
+    return binary
 
 
 # --- Symlink helper ---
@@ -152,9 +171,13 @@ def setup_game_folder(
 
     game_folder.mkdir(parents=True, exist_ok=True)
 
-    # Symlink the binary
-    bin_name = "clonk.exe" if sys.platform == "win32" else "clonk"
-    make_symlink(binary, game_folder / bin_name, dry_run=dry_run, verbose=verbose)
+    # Symlink the binary. On macOS we symlink the .app bundle (not the inner
+    # binary) so the engine can be launched as ./clonk.app/Contents/MacOS/clonk.
+    if sys.platform == "darwin" and binary.name == APP_BUNDLE_NAME:
+        make_symlink(binary, game_folder / APP_BUNDLE_NAME, dry_run=dry_run, verbose=verbose)
+    else:
+        bin_name = "clonk.exe" if sys.platform == "win32" else "clonk"
+        make_symlink(binary, game_folder / bin_name, dry_run=dry_run, verbose=verbose)
 
     # Symlink planet c4g files (Graphics.c4g, System.c4g)
     if planet_dir.exists():
@@ -189,7 +212,7 @@ def run_engine(
     On macOS the engine uses GetWorkingDirectory() for path resolution,
     so chdir is load-bearing on all platforms.
     """
-    resolved = binary.resolve()
+    resolved = _exec_target(binary).resolve()
     argv = [str(resolved)] + extra_args
 
     if dry_run or verbose:
@@ -210,7 +233,12 @@ def ensure_game_folder(
     planet_dir: Path,
 ) -> None:
     """Check if game folder is provisioned; auto-setup if missing or stale."""
-    bin_name = "clonk.exe" if sys.platform == "win32" else "clonk"
+    if sys.platform == "darwin":
+        bin_name = APP_BUNDLE_NAME
+    elif sys.platform == "win32":
+        bin_name = "clonk.exe"
+    else:
+        bin_name = "clonk"
     bin_link = game_folder / bin_name
 
     needs_setup = (
@@ -258,7 +286,12 @@ def doctor(
 
     # Checks inside game folder
     if game_folder.exists():
-        bin_name = "clonk.exe" if sys.platform == "win32" else "clonk"
+        if sys.platform == "darwin":
+            bin_name = APP_BUNDLE_NAME
+        elif sys.platform == "win32":
+            bin_name = "clonk.exe"
+        else:
+            bin_name = "clonk"
         bin_link = game_folder / bin_name
         if bin_link.exists():
             print(f"  binary link:   {bin_link.name} -> {bin_link.resolve()} (OK)")
@@ -285,6 +318,30 @@ def doctor(
         print(f"  Players:       {player_count} (.c4p found)")
     else:
         print("  (game folder does not exist)")
+
+    # Source directories (planet + content) — validated against the paths
+    # passed in, not just the game folder's existing symlinks.
+    if planet_dir.exists():
+        print(f"Planet dir:    {planet_dir} (exists)")
+        for c4g in ("Graphics.c4g", "System.c4g"):
+            src = planet_dir / c4g
+            if src.exists():
+                print(f"  {c4g}:  (OK)")
+            else:
+                print(f"  {c4g}:  (MISSING)")
+                ready = False
+    else:
+        print(f"Planet dir:    {planet_dir} (MISSING)")
+        ready = False
+
+    if content_dir.exists():
+        src_pack_count = 0
+        for ext in CONTENT_PACK_EXTENSIONS:
+            src_pack_count += len(list(content_dir.glob(f"*{ext}")))
+        print(f"Content dir:   {content_dir} (exists, {src_pack_count} packs)")
+    else:
+        print(f"Content dir:   {content_dir} (MISSING)")
+        ready = False
 
     # Result
     if ready:

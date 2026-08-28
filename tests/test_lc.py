@@ -8,8 +8,9 @@ from pathlib import Path
 
 import pytest
 
-# Load lc as a module (it has no .py extension)
-_LC_PATH = Path(__file__).parent / "lc"
+# Load lc as a module (it has no .py extension). The launcher lives at
+# LegacyClonk/tools/lc; the tests live at LegacyClonk/tests/test_lc.py.
+_LC_PATH = Path(__file__).parent.parent / "tools" / "lc"
 _loader = importlib.machinery.SourceFileLoader("lc", str(_LC_PATH))
 spec = importlib.util.spec_from_loader("lc", _loader)
 lc = importlib.util.module_from_spec(spec)
@@ -247,9 +248,8 @@ def test_run_chdirs_to_game_folder(fake_workspace, tmp_path, monkeypatch):
 # --- Smoke tests ---
 
 def test_smoke_subcommand(fake_workspace, tmp_path, monkeypatch):
-    """lc smoke is equivalent to lc run --smoke-run:350."""
+    """lc smoke dispatches through _cmd_smoke and prepends --smoke-run:350."""
     game_folder = tmp_path / "game"
-    game_folder.mkdir()
 
     captured = {}
 
@@ -257,20 +257,22 @@ def test_smoke_subcommand(fake_workspace, tmp_path, monkeypatch):
         captured["path"] = path
         captured["args"] = args
 
-    monkeypatch.setattr(os, "chdir", lambda p: None)
+    monkeypatch.setattr(os, "chdir", lambda p: captured.__setitem__("chdir", p))
     monkeypatch.setattr(os, "execv", fake_execv)
 
-    # smoke prepends --smoke-run:350 to the engine args
-    lc.run_engine(
-        fake_workspace["binary"],
-        game_folder,
-        ["--smoke-run:350"],
-    )
+    rc = lc.main([
+        "smoke",
+        "--build-dir", str(fake_workspace["build"]),
+        "--game-folder", str(game_folder),
+    ])
 
+    assert rc == 0
+    # smoke prepends --smoke-run:350 to the (empty) engine args
     assert captured["args"] == [
         str(fake_workspace["binary"].resolve()),
         "--smoke-run:350",
     ]
+    assert captured["chdir"] == str(game_folder)
 
 
 # --- Doctor tests ---
