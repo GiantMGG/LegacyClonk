@@ -791,8 +791,13 @@ bool C4GameSave::LoadRuntimeDataFromBuffer(const StdBuf &inBuf)
 	// Load the Game.txt entry from the savegame into GameText.
 	Game.GameText.Load(C4CFN_Game, savegame, C4CFN_Game);
 
-	// Clear all existing sections and reload from the savegame.
-	Game.Sections.clear();
+	// Make the restore atomic: move the existing sections into a
+	// backup before clearing. If any subsequent step fails, restore
+	// the backup so the game is not left with a corrupt (empty or
+	// half-loaded) section list. On success, the backup (the old
+	// sections) is discarded when this function returns.
+	std::list<std::unique_ptr<C4Section>> backup = std::move(Game.Sections);
+	// Game.Sections is now empty; new sections are built into it below.
 
 	// Reload sections from the savegame. The savegame contains
 	// SaveSect*.c4g entries, one per section.
@@ -803,6 +808,8 @@ bool C4GameSave::LoadRuntimeDataFromBuffer(const StdBuf &inBuf)
 		auto section = C4Section::FromSaveGame(savegame, filename.data());
 		if (!section)
 		{
+			// Restore the backup so the game keeps its prior sections.
+			Game.Sections = std::move(backup);
 			savegame.Close();
 			EraseItem(tmpPath.c_str());
 			return false;
@@ -828,6 +835,8 @@ bool C4GameSave::LoadRuntimeDataFromBuffer(const StdBuf &inBuf)
 
 	if (!Game.CompileRuntimeData(Game.GameText, mainSectionProvider))
 	{
+		// Restore the backup so the game keeps its prior sections.
+		Game.Sections = std::move(backup);
 		savegame.Close();
 		EraseItem(tmpPath.c_str());
 		return false;
@@ -838,6 +847,8 @@ bool C4GameSave::LoadRuntimeDataFromBuffer(const StdBuf &inBuf)
 	{
 		if (!section->InitFromSaveGameAfterLoad(savegame))
 		{
+			// Restore the backup so the game keeps its prior sections.
+			Game.Sections = std::move(backup);
 			savegame.Close();
 			EraseItem(tmpPath.c_str());
 			return false;
