@@ -23,7 +23,6 @@
 #pragma once
 
 #include <cstdint>
-#include <functional>
 #include <vector>
 
 #include "StdBuf.h"
@@ -36,7 +35,7 @@ public:
 	static constexpr int32_t MaxWindowSnapshots      = 32;
 
 	C4Rollback();
-	~C4Rollback();
+	virtual ~C4Rollback();
 
 	void Init(int32_t iSnapshotInterval, int32_t iWindowSnapshots);
 	void Clear();
@@ -58,11 +57,12 @@ public:
 	int32_t GetOldestSnapshotTick() const;
 	int32_t GetNewestSnapshotTick() const;
 
-	// Injectable snapshot/restore functions for testing. When set,
-	// TakeSnapshot/RestoreSnapshot call these instead of the default
-	// C4GameSaveSavegame helpers. Pass nullptr to revert to the default.
-	void SetSnapshotFunction(std::function<bool(StdBuf &)> fn) { snapshotFn = std::move(fn); }
-	void SetRestoreFunction(std::function<bool(const StdBuf &)> fn) { restoreFn = std::move(fn); }
+protected:
+	// Serialization hooks. The default implementation delegates to
+	// C4GameSaveSavegame. Test doubles override these to inject fake
+	// serialization without touching the real savegame path.
+	virtual bool DoSaveRuntimeData(StdBuf &outBuf);
+	virtual bool DoLoadRuntimeData(const StdBuf &inBuf);
 
 private:
 	struct Snapshot
@@ -78,9 +78,6 @@ private:
 	int32_t iWindowSnapshots  = DefaultWindowSnapshots;
 	int32_t iHead = 0; // next slot to write
 	std::vector<Snapshot> ring;
-
-	std::function<bool(StdBuf &)> snapshotFn;
-	std::function<bool(const StdBuf &)> restoreFn;
 
 	bool TakeSnapshot(int32_t iControlTick);
 	bool RestoreSnapshot(const Snapshot &snap);

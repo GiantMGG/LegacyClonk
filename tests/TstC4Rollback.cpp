@@ -80,18 +80,18 @@ TEST_CASE("C4Rollback_Init_ClampsKandW", "[rollback]")
 // ---------------------------------------------------------------------------
 TEST_CASE("C4Rollback_MaybeTakeSnapshot_RingBuffer", "[rollback]")
 {
-	C4Rollback rb;
+	C4RollbackTestable rb;
 	rb.Init(/*K=*/1, /*W=*/3);
 	rb.SetEnabled(true);
 
 	// Inject a fake snapshot function that always succeeds so the ring
 	// buffer mechanics can be tested without a live game.
-	rb.SetSnapshotFunction([](StdBuf &buf) -> bool
+	rb.snapshotFn = [](StdBuf &buf) -> bool
 	{
 		const uint8_t data[]{0x42};
 		buf.Copy(data, sizeof(data));
 		return true;
-	});
+	};
 
 	for (int32_t t = 0; t < 5; ++t)
 		rb.MaybeTakeSnapshot(t);
@@ -108,19 +108,19 @@ TEST_CASE("C4Rollback_MaybeTakeSnapshot_RingBuffer", "[rollback]")
 // ---------------------------------------------------------------------------
 TEST_CASE("C4Rollback_RollbackToTick_RestoresNearestSnapshot", "[rollback]")
 {
-	C4Rollback rb;
+	C4RollbackTestable rb;
 	rb.Init(/*K=*/5, /*W=*/3);
 	rb.SetEnabled(true);
 
 	// Fake snapshot + restore so the ring buffer mechanics are testable
 	// without a booted game.
-	rb.SetSnapshotFunction([](StdBuf &buf) -> bool
+	rb.snapshotFn = [](StdBuf &buf) -> bool
 	{
 		const uint8_t data[]{0x42};
 		buf.Copy(data, sizeof(data));
 		return true;
-	});
-	rb.SetRestoreFunction([](const StdBuf &) -> bool { return true; });
+	};
+	rb.restoreFn = [](const StdBuf &) -> bool { return true; };
 
 	for (int32_t t = 0; t <= 10; t += 5)
 		rb.MaybeTakeSnapshot(t);
@@ -148,24 +148,31 @@ TEST_CASE("C4Rollback_RollbackToTick_FastForwardsToTarget", "[rollback]")
 // ---------------------------------------------------------------------------
 TEST_CASE("Harness_RollbackWindowExceeded_FatalLog", "[rollback][harness]")
 {
-	C4Rollback rb;
+	C4RollbackTestable rb;
 	rb.Init(/*K=*/1, /*W=*/2);
 	rb.SetEnabled(true);
 
 	// Fake snapshot so the ring fills without a live game.
-	rb.SetSnapshotFunction([](StdBuf &buf) -> bool
+	rb.snapshotFn = [](StdBuf &buf) -> bool
 	{
 		const uint8_t data[]{0x42};
 		buf.Copy(data, sizeof(data));
 		return true;
-	});
+	};
 
 	for (int32_t t = 0; t < 4; ++t)
 		rb.MaybeTakeSnapshot(t);
 
+	// Reset any prior fatal errors so the assertion is isolated.
+	Application.LogSystem.ResetFatalErrors();
+
 	// Ticks 0,1 were evicted; oldest snapshot is tick 2 > 1, so no snapshot
-	// with tick <= 1 exists. RollbackToTick returns -1.
+	// with tick <= 1 exists. RollbackToTick returns -1 AND logs a fatal.
 	REQUIRE(rb.RollbackToTick(1) == -1);
+
+	// Spec edge cases #2 and #5: the engine must log a fatal error when
+	// the rollback window is exceeded.
+	REQUIRE_FALSE(Application.LogSystem.GetFatalErrorString().empty());
 }
 
 // ---------------------------------------------------------------------------
@@ -175,18 +182,18 @@ TEST_CASE("Harness_RollbackWindowExceeded_FatalLog", "[rollback][harness]")
 // ---------------------------------------------------------------------------
 TEST_CASE("Harness_CorruptSnapshot_RollbackFails", "[rollback][harness]")
 {
-	C4Rollback rb;
+	C4RollbackTestable rb;
 	rb.Init(/*K=*/1, /*W=*/3);
 	rb.SetEnabled(true);
 
-	rb.SetSnapshotFunction([](StdBuf &buf) -> bool
+	rb.snapshotFn = [](StdBuf &buf) -> bool
 	{
 		const uint8_t data[]{0x42};
 		buf.Copy(data, sizeof(data));
 		return true;
-	});
+	};
 	// Fake restore that always fails — models a corrupt/unrestorable snapshot.
-	rb.SetRestoreFunction([](const StdBuf &) -> bool { return false; });
+	rb.restoreFn = [](const StdBuf &) -> bool { return false; };
 
 	rb.MaybeTakeSnapshot(0);
 
@@ -227,26 +234,26 @@ TEST_CASE("Harness_RollbackDisabled_ByteForByteIdentical", "[rollback][harness]"
 // ---------------------------------------------------------------------------
 TEST_CASE("Harness_NestedRollbackSuppressed", "[rollback][harness]")
 {
-	C4Rollback rb;
+	C4RollbackTestable rb;
 	rb.Init(/*K=*/1, /*W=*/3);
 	rb.SetEnabled(true);
 
-	rb.SetSnapshotFunction([](StdBuf &buf) -> bool
+	rb.snapshotFn = [](StdBuf &buf) -> bool
 	{
 		const uint8_t data[]{0x42};
 		buf.Copy(data, sizeof(data));
 		return true;
-	});
+	};
 
 	C4Rollback *rbPtr = &rb;
 	// The restore function attempts a nested RollbackToTick, which must be
 	// suppressed because fRollbackInProgress is true during restore.
-	rb.SetRestoreFunction([rbPtr](const StdBuf &) -> bool
+	rb.restoreFn = [rbPtr](const StdBuf &) -> bool
 	{
 		// Nested rollback while fRollbackInProgress is true -> returns -1.
 		REQUIRE(rbPtr->RollbackToTick(0) == -1);
 		return true;
-	});
+	};
 
 	rb.MaybeTakeSnapshot(0);
 	REQUIRE(rb.RollbackToTick(0) == 0);
@@ -259,17 +266,17 @@ TEST_CASE("Harness_NestedRollbackSuppressed", "[rollback][harness]")
 // ---------------------------------------------------------------------------
 TEST_CASE("Harness_OutOfOrderRemoteInput_DoubleRollback", "[rollback][harness]")
 {
-	C4Rollback rb;
+	C4RollbackTestable rb;
 	rb.Init(/*K=*/1, /*W=*/4);
 	rb.SetEnabled(true);
 
-	rb.SetSnapshotFunction([](StdBuf &buf) -> bool
+	rb.snapshotFn = [](StdBuf &buf) -> bool
 	{
 		const uint8_t data[]{0x42};
 		buf.Copy(data, sizeof(data));
 		return true;
-	});
-	rb.SetRestoreFunction([](const StdBuf &) -> bool { return true; });
+	};
+	rb.restoreFn = [](const StdBuf &) -> bool { return true; };
 
 	for (int32_t t = 0; t < 4; ++t)
 		rb.MaybeTakeSnapshot(t);

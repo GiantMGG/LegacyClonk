@@ -13,6 +13,7 @@
 #include "C4Rollback.h"
 
 #include "C4GameSave.h"
+#include "C4Log.h"
 #include "StdBuf.h"
 
 #include <algorithm>
@@ -39,6 +40,8 @@ void C4Rollback::Clear()
 	iHead = 0;
 	fEnabled = false;
 	fRollbackInProgress = false;
+	iSnapshotInterval = DefaultSnapshotInterval;
+	iWindowSnapshots  = DefaultWindowSnapshots;
 }
 
 void C4Rollback::MaybeTakeSnapshot(int32_t iControlTick)
@@ -61,7 +64,15 @@ int32_t C4Rollback::RollbackToTick(int32_t iTick)
 		if (s.iControlTick > iTick) continue;
 		if (!best || s.iControlTick > best->iControlTick) best = &s;
 	}
-	if (!best) return -1;
+	if (!best)
+	{
+		// Spec edge cases #2 and #5: log a fatal error when the rollback
+		// window is exceeded — no snapshot <= iTick exists, so the engine
+		// cannot recover via rollback. The caller falls back to the
+		// existing delay-based lockstep behaviour.
+		LogFatalNTr("Rollback window exceeded for tick {}; cannot recover", iTick);
+		return -1;
+	}
 
 	fRollbackInProgress = true;
 	bool ok = RestoreSnapshot(*best);
@@ -95,18 +106,22 @@ int32_t C4Rollback::GetNewestSnapshotTick() const
 	return newest;
 }
 
+bool C4Rollback::DoSaveRuntimeData(StdBuf &outBuf)
+{
+	C4GameSaveSavegame save;
+	return save.SaveRuntimeDataToBuffer(outBuf);
+}
+
+bool C4Rollback::DoLoadRuntimeData(const StdBuf &inBuf)
+{
+	C4GameSaveSavegame save;
+	return save.LoadRuntimeDataFromBuffer(inBuf);
+}
+
 bool C4Rollback::TakeSnapshot(int32_t iControlTick)
 {
 	StdBuf buf;
-	bool ok;
-	if (snapshotFn)
-		ok = snapshotFn(buf);
-	else
-	{
-		C4GameSaveSavegame save;
-		ok = save.SaveRuntimeDataToBuffer(buf);
-	}
-	if (!ok) return false;
+	if (!DoSaveRuntimeData(buf)) return false;
 
 	Snapshot &slot = ring[iHead];
 	slot.iControlTick = iControlTick;
@@ -123,7 +138,5 @@ bool C4Rollback::RestoreSnapshot(const Snapshot &snap)
 	if (!snap.fValid) return false;
 	StdBuf buf;
 	buf.Copy(snap.serializedState.data(), snap.serializedState.size());
-	if (restoreFn) return restoreFn(buf);
-	C4GameSaveSavegame save;
-	return save.LoadRuntimeDataFromBuffer(buf);
+	return DoLoadRuntimeData(buf);
 }

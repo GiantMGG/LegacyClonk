@@ -750,22 +750,16 @@ bool C4GameSave::SaveRuntimeDataToBuffer(StdBuf &outBuf)
 
 bool C4GameSave::LoadRuntimeDataFromBuffer(const StdBuf &inBuf)
 {
-	// Write the buffer back to a temp file.
-	static std::atomic<uint64_t> counter{0};
-	const std::string tmpName = std::format("c4rollback_{}.c4g", counter.fetch_add(1));
-	const std::string tmpPath = Config.AtTempPath(tmpName.c_str());
-
-	if (!inBuf.SaveToFile(tmpPath.c_str()))
-	{
-		EraseItem(tmpPath.c_str());
-		return false;
-	}
-
-	// NOTE: Full in-place game-state restoration (re-booting from the
-	// savegame via the C4Game::Init/OpenScenario path) is XL work beyond
-	// this minimal slice. The buffer is preserved on disk so a future
-	// restore path can consume it. For now the rollback ring buffer
-	// mechanics are exercised via injectable fakes (see C4Rollback).
-	EraseItem(tmpPath.c_str());
-	return true;
+	// Full in-place game-state restoration (re-booting from the savegame
+	// via the C4Game::Init/OpenScenario path) is XL work beyond this
+	// minimal slice. Until that path exists we MUST report failure rather
+	// than pretend a restore succeeded — otherwise RollbackToTick would
+	// return a tick, HandleControl would skip the fast-forward, and the
+	// next C4ControlSyncCheck would LogFatal on the un-rewound state.
+	//
+	// Returning false is fail-safe: RollbackToTick returns -1, the
+	// C4GameControlNetwork::HandleControl caller skips the fast-forward,
+	// and the engine falls back to the existing delay-based behaviour.
+	(void)inBuf;
+	return false;
 }

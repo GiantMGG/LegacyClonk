@@ -30,6 +30,7 @@
 #include "C4Game.h"
 #include "C4GameControl.h"
 #include "C4GameControlNetwork.h"
+#include "C4Rollback.h"
 
 #include <cstdint>
 #include <functional>
@@ -37,6 +38,30 @@
 
 namespace C4RollbackTest
 {
+	// Test-only subclass of C4Rollback that exposes injectable
+	// snapshot/restore hooks. The production C4Rollback class has no
+	// test-injection surface; this subclass carries the std::function
+	// members so unit tests can exercise the ring-buffer mechanics
+	// without a live game.
+	class C4RollbackTestable : public C4Rollback
+	{
+	public:
+		std::function<bool(StdBuf &)> snapshotFn;
+		std::function<bool(const StdBuf &)> restoreFn;
+
+	protected:
+		bool DoSaveRuntimeData(StdBuf &outBuf) override
+		{
+			if (snapshotFn) return snapshotFn(outBuf);
+			return false;
+		}
+		bool DoLoadRuntimeData(const StdBuf &inBuf) override
+		{
+			if (restoreFn) return restoreFn(inBuf);
+			return false;
+		}
+	};
+
 	// A single injected remote control event. The harness calls onRemoteControl
 	// for each tick in the queue, allowing the test to simulate divergence
 	// (a remote input that differs from what was predicted/queued).
