@@ -479,6 +479,13 @@ void C4ControlSyncCheck::Set()
 		ObjectCount += section->Objects.ObjectCount();
 		SectShapeSum += section->Objects.Sectors.getShapeSum();
 	}
+
+	if (Game.LogSyncChecks)
+	{
+		spdlog::info("SyncCheck: Frm={} Ctrl={} Rn3={} Rnc={} Cpx={} PXS={} MMi={} Obc={} Oei={} Sct={}",
+			Frame, ControlTick, Random3, RandomCount, AllCrewPosX,
+			PXSCount, MassMoverIndex, ObjectCount, ObjectEnumerationIndex, SectShapeSum);
+	}
 }
 
 int32_t C4ControlSyncCheck::GetAllCrewPosX()

@@ -2808,6 +2808,12 @@ void C4Game::ParseCommandLine(const char *szCmdLine)
 				++iPar;  // consume the value token
 			}
 		}
+		// Log per-tick sync check fields for deterministic state-hash comparison.
+		if (SEqualNoCase(szParameter, "/log-sync-checks")
+		 || SEqualNoCase(szParameter, "--log-sync-checks"))
+		{
+			LogSyncChecks = true;
+		}
 		// Network
 		if (SEqualNoCase(szParameter, "/network"))
 			NetworkActive = true;

@@ -238,10 +238,11 @@ if (PYTHON3)
 	add_test(NAME net_desync_smoke
 		COMMAND "${PYTHON3}"
 			"${CMAKE_SOURCE_DIR}/tools/net_desync_smoke.py"
-			--engine "$<TARGET_FILE:clonk>"
-			--scenario "${CMAKE_SOURCE_DIR}/tests/fixtures/NetSyncSmoke.c4s"
-			--ticks 2000
-			--timeout 120
+			"--engine" "$<TARGET_FILE:clonk>"
+			"--scenario" "${CMAKE_SOURCE_DIR}/tests/fixtures/NetSyncSmoke.c4s"
+			"--ticks" "2000"
+			"--timeout" "120"
+			"--state-hash"
 			${tc_args}
 		WORKING_DIRECTORY "${CMAKE_BINARY_DIR}")
 	set_tests_properties(net_desync_smoke PROPERTIES

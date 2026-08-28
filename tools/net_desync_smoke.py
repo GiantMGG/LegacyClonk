@@ -104,9 +104,12 @@ def cleanup_impairment(tc_program: str, use_sudo: bool) -> None:
 
 def build_engine_args(engine: str, scenario: Path, ticks: int, role: str,
                       tcp_port: int, udp_port: int,
-                      player_file: Path | None = None) -> list[str]:
+                      player_file: Path | None = None,
+                      log_sync_checks: bool = False) -> list[str]:
     """Build the command-line args for a host or client engine instance."""
     args = [engine, "--console", "--smoke-run", str(ticks)]
+    if log_sync_checks:
+        args.append("--log-sync-checks")
     if role == "host":
         args.extend(["/host", "/lobby:10",
                      f"/tcpport:{tcp_port}", f"/udpport:{udp_port}",
@@ -128,6 +131,61 @@ def tail(text: str, n: int = 20) -> str:
     """Return the last n lines of text."""
     lines = text.splitlines()
     return "\n".join(lines[-n:])
+
+
+def parse_sync_checks(log_text: str) -> dict[int, dict[str, int]]:
+    """Parse SyncCheck log lines from engine output.
+
+    Returns a dict mapping Frame -> {field: value} for each logged sync check.
+    """
+    import re
+    pattern = re.compile(
+        r"SyncCheck: Frm=(\d+) Ctrl=(\d+) Rn3=(\d+) Rnc=(\d+) "
+        r"Cpx=(\d+) PXS=(\d+) MMi=(\d+) Obc=(\d+) Oei=(\d+) Sct=(\d+)"
+    )
+    result: dict[int, dict[str, int]] = {}
+    for line in log_text.splitlines():
+        m = pattern.search(line)
+        if m:
+            frame = int(m.group(1))
+            result[frame] = {
+                "Ctrl": int(m.group(2)),
+                "Rn3": int(m.group(3)),
+                "Rnc": int(m.group(4)),
+                "Cpx": int(m.group(5)),
+                "PXS": int(m.group(6)),
+                "MMi": int(m.group(7)),
+                "Obc": int(m.group(8)),
+                "Oei": int(m.group(9)),
+                "Sct": int(m.group(10)),
+            }
+    return result
+
+
+def compare_sync_checks(host_checks: dict[int, dict[str, int]],
+                        client_checks: dict[int, dict[str, int]]) -> list[str]:
+    """Compare host and client sync checks per frame.
+
+    Returns a list of divergence report strings (empty if all match).
+    """
+    divergences: list[str] = []
+    all_frames = sorted(set(host_checks.keys()) | set(client_checks.keys()))
+    for frame in all_frames:
+        h = host_checks.get(frame)
+        c = client_checks.get(frame)
+        if h is None:
+            divergences.append(f"Frame {frame}: host missing (client has it)")
+            continue
+        if c is None:
+            divergences.append(f"Frame {frame}: client missing (host has it)")
+            continue
+        for field in h:
+            if h[field] != c.get(field):
+                divergences.append(
+                    f"Frame {frame}: {field} diverges "
+                    f"(host={h[field]} client={c.get(field)})"
+                )
+    return divergences
 
 
 def kill_proc(proc: subprocess.Popen | None) -> None:
@@ -172,6 +230,9 @@ def main(argv: list[str] | None = None) -> int:
                              "port opens before spawning the client, giving the "
                              "host time to register its game reference "
                              "(default: 5.0).")
+    parser.add_argument("--state-hash", action="store_true",
+                        help="Enable per-tick state-hash comparison via "
+                             "--log-sync-checks engine flag.")
     args = parser.parse_args(argv)
 
     # --- Validate inputs -------------------------------------------------
@@ -230,7 +291,8 @@ def main(argv: list[str] | None = None) -> int:
             mode="w", delete=False, suffix="_net_desync_host.log")
         host_cmd = build_engine_args(
             args.engine, scenario_path, args.ticks, "host",
-            host_tcp, host_udp, host_player)
+            host_tcp, host_udp, host_player,
+            log_sync_checks=args.state_hash)
         print(f"Host: {shlex.join(host_cmd)}")
         host_proc = subprocess.Popen(
             host_cmd, stdout=host_log_file, stderr=subprocess.STDOUT,
@@ -262,7 +324,8 @@ def main(argv: list[str] | None = None) -> int:
             mode="w", delete=False, suffix="_net_desync_client.log")
         client_cmd = build_engine_args(
             args.engine, scenario_path, args.ticks, "client",
-            client_tcp, client_udp, client_player)
+            client_tcp, client_udp, client_player,
+            log_sync_checks=args.state_hash)
         print(f"Client: {shlex.join(client_cmd)}")
         client_proc = subprocess.Popen(
             client_cmd, stdout=client_log_file, stderr=subprocess.STDOUT,
@@ -302,13 +365,32 @@ def main(argv: list[str] | None = None) -> int:
         desync_in_client = DESYNC_MARKER in client_out
         desync_detected = desync_in_host or desync_in_client
 
+        # --- State-hash comparison (deterministic) -----------------------
+        state_hash_divergence = False
+        if args.state_hash:
+            host_checks = parse_sync_checks(host_out)
+            client_checks = parse_sync_checks(client_out)
+            divergences = compare_sync_checks(host_checks, client_checks)
+            if divergences:
+                state_hash_divergence = True
+                print(f"STATE-HASH DIVERGENCE: {len(divergences)} field(s) differ:")
+                for d in divergences[:20]:
+                    print(f"  {d}")
+                if len(divergences) > 20:
+                    print(f"  ... and {len(divergences) - 20} more")
+            else:
+                print(f"State-hash OK: {len(host_checks)} frames compared")
+
         if desync_detected:
             print('DESYNC DETECTED: log contains "Network: Synchronization '
                   'loss!"')
+        if state_hash_divergence:
+            print("DESYNC DETECTED: state-hash comparison found divergences")
         print(f"Host exit code: {host_exit}")
         print(f"Client exit code: {client_exit}")
 
-        if desync_detected or host_exit != 0 or client_exit != 0:
+        if (desync_detected or state_hash_divergence
+                or host_exit != 0 or client_exit != 0):
             print("--- Host log (last 20 lines) ---")
             print(tail(host_out))
             print("--- Client log (last 20 lines) ---")

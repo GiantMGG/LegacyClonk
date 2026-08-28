@@ -213,6 +213,7 @@ public:
 	// headless-scenario-smoke-harness). Not serialized — process-lifetime flag.
 	int32_t SmokeRunTicks{0};
 	bool SmokeRunActive() const { return SmokeRunTicks > 0; }
+	bool LogSyncChecks{false};  // --log-sync-checks: log per-tick sync check fields
 	int32_t iTick2, iTick3, iTick5, iTick10, iTick35, iTick255, iTick500, iTick1000;
 	bool TimeGo;
 	int32_t Time;
