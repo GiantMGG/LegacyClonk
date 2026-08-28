@@ -519,6 +519,25 @@ void C4GameControlNetwork::HandleControl(int32_t iByClientID, const C4GameContro
 	// create copy, add to list
 	C4GameControlPacket *pCopy = new C4GameControlPacket(rPkt);
 	AddCtrl(pCopy);
+	// Rollback: if a remote input arrives for a tick we have already
+	// executed, restore the nearest snapshot and re-execute forward.
+	if (pParent->Rollback.IsEnabled())
+	{
+		const int32_t iTick = rPkt.getCtrlTick();
+		const int32_t iExecutedTick = pParent->ControlTick;
+		if (iTick <= iExecutedTick)
+		{
+			const int32_t restored = pParent->Rollback.RollbackToTick(iTick);
+			if (restored >= 0)
+			{
+				// Re-execute forward to the executed tick. The corrected
+				// control is already in pCtrlStack (added via AddCtrl above);
+				// FastForwardToFrame re-runs Game.Execute() which re-packs
+				// the corrected control through CheckCompleteCtrl.
+				pParent->FastForwardToFrame(static_cast<uint32_t>(iExecutedTick));
+			}
+		}
+	}
 	// check: control complete?
 	if (IsEnabled())
 		CheckCompleteCtrl(true);
