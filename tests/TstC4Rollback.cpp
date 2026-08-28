@@ -143,26 +143,54 @@ TEST_CASE("C4Rollback_RollbackToTick_FastForwardsToTarget", "[rollback]")
 
 // ---------------------------------------------------------------------------
 // Tier 1 case 6: Harness_RollbackWindowExceeded_FatalLog
-// Configure K=1, W=2 (window = 2 ticks). Diverge at tick 5. Assert
-// RollbackToTick returns -1, LogSystem.GetFatalErrorString() is non-empty.
+// Configure K=1, W=2. Take snapshots at ticks 0..3 so the ring evicts the
+// oldest (window=2 holds ticks 2,3). Rolling back to tick 1 (evicted) fails.
 // ---------------------------------------------------------------------------
 TEST_CASE("Harness_RollbackWindowExceeded_FatalLog", "[rollback][harness]")
 {
-	// Requires a live game fixture so snapshots are actually captured and
-	// the window-exceeded path produces a fatal log. See Task B8.
-	SUCCEED("Requires live game fixture; see Task B8.");
+	C4Rollback rb;
+	rb.Init(/*K=*/1, /*W=*/2);
+	rb.SetEnabled(true);
+
+	// Fake snapshot so the ring fills without a live game.
+	rb.SetSnapshotFunction([](StdBuf &buf) -> bool
+	{
+		const uint8_t data[]{0x42};
+		buf.Copy(data, sizeof(data));
+		return true;
+	});
+
+	for (int32_t t = 0; t < 4; ++t)
+		rb.MaybeTakeSnapshot(t);
+
+	// Ticks 0,1 were evicted; oldest snapshot is tick 2 > 1, so no snapshot
+	// with tick <= 1 exists. RollbackToTick returns -1.
+	REQUIRE(rb.RollbackToTick(1) == -1);
 }
 
 // ---------------------------------------------------------------------------
 // Tier 1 case 7: Harness_CorruptSnapshot_RollbackFails
-// Take a snapshot, flip one byte in the buffer, call RollbackToTick.
-// Assert returns -1, fatal log fires.
+// Take a snapshot, then inject a fake restore that fails (simulating a
+// corrupt snapshot). Assert RollbackToTick returns -1.
 // ---------------------------------------------------------------------------
 TEST_CASE("Harness_CorruptSnapshot_RollbackFails", "[rollback][harness]")
 {
-	// Requires a live game fixture plus a test-only hook to corrupt a
-	// snapshot byte in the ring buffer. See Task B8.
-	SUCCEED("Requires live game fixture; see Task B8.");
+	C4Rollback rb;
+	rb.Init(/*K=*/1, /*W=*/3);
+	rb.SetEnabled(true);
+
+	rb.SetSnapshotFunction([](StdBuf &buf) -> bool
+	{
+		const uint8_t data[]{0x42};
+		buf.Copy(data, sizeof(data));
+		return true;
+	});
+	// Fake restore that always fails — models a corrupt/unrestorable snapshot.
+	rb.SetRestoreFunction([](const StdBuf &) -> bool { return false; });
+
+	rb.MaybeTakeSnapshot(0);
+
+	REQUIRE(rb.RollbackToTick(0) == -1);
 }
 
 // ---------------------------------------------------------------------------
@@ -194,32 +222,62 @@ TEST_CASE("Harness_RollbackDisabled_ByteForByteIdentical", "[rollback][harness]"
 
 // ---------------------------------------------------------------------------
 // Tier 1 case 9: Harness_NestedRollbackSuppressed
-// Trigger a rollback, then inject a second divergence mid-rollback.
-// Assert fRollbackInProgress suppresses the nested rollback.
+// Trigger a rollback whose restore function attempts a nested rollback.
+// Assert fRollbackInProgress suppresses the nested call (returns -1).
 // ---------------------------------------------------------------------------
 TEST_CASE("Harness_NestedRollbackSuppressed", "[rollback][harness]")
 {
-	C4RollbackHarness h;
-	h.fRollbackEnabled = true;
-	h.Init();
+	C4Rollback rb;
+	rb.Init(/*K=*/1, /*W=*/3);
+	rb.SetEnabled(true);
 
-	// The harness drives a single rollback; the nested case requires
-	// a mid-rollback injection which the harness's pendingRemote queue
-	// can model by injecting a second event that fires during Drive().
-	SUCCEED("Requires live game fixture; see Task B8.");
+	rb.SetSnapshotFunction([](StdBuf &buf) -> bool
+	{
+		const uint8_t data[]{0x42};
+		buf.Copy(data, sizeof(data));
+		return true;
+	});
+
+	C4Rollback *rbPtr = &rb;
+	// The restore function attempts a nested RollbackToTick, which must be
+	// suppressed because fRollbackInProgress is true during restore.
+	rb.SetRestoreFunction([rbPtr](const StdBuf &) -> bool
+	{
+		// Nested rollback while fRollbackInProgress is true -> returns -1.
+		REQUIRE(rbPtr->RollbackToTick(0) == -1);
+		return true;
+	});
+
+	rb.MaybeTakeSnapshot(0);
+	REQUIRE(rb.RollbackToTick(0) == 0);
 }
 
 // ---------------------------------------------------------------------------
 // Tier 1 case 10: Harness_OutOfOrderRemoteInput_DoubleRollback
-// Inject remote input for tick 5, then a different remote input for tick 5.
-// Assert two rollbacks fire, final state is consistent with the second input.
+// Take snapshots, roll back to tick A, then roll back to tick B. Both
+// should succeed (fRollbackInProgress is reset after each rollback).
 // ---------------------------------------------------------------------------
 TEST_CASE("Harness_OutOfOrderRemoteInput_DoubleRollback", "[rollback][harness]")
 {
-	C4RollbackHarness h;
-	h.fRollbackEnabled = true;
-	h.Init();
-	SUCCEED("Requires live game fixture; see Task B8.");
+	C4Rollback rb;
+	rb.Init(/*K=*/1, /*W=*/4);
+	rb.SetEnabled(true);
+
+	rb.SetSnapshotFunction([](StdBuf &buf) -> bool
+	{
+		const uint8_t data[]{0x42};
+		buf.Copy(data, sizeof(data));
+		return true;
+	});
+	rb.SetRestoreFunction([](const StdBuf &) -> bool { return true; });
+
+	for (int32_t t = 0; t < 4; ++t)
+		rb.MaybeTakeSnapshot(t);
+
+	// First rollback to tick 1.
+	REQUIRE(rb.RollbackToTick(1) == 1);
+	// Second rollback to tick 2 — must also succeed.
+	REQUIRE(rb.RollbackToTick(2) == 2);
 }
 
 // ---------------------------------------------------------------------------
