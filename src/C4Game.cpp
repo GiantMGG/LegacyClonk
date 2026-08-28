@@ -2889,8 +2889,8 @@ void C4Game::ParseCommandLine(const char *szCmdLine)
 		// network game comment
 		if (SEqual2NoCase(szParameter, "/comment:"))
 			Config.Network.Comment.CopyValidated(szParameter + 9);
-#ifndef NDEBUG
-		// debug configs
+		// debug configs (also available in release for CI smoke tests;
+		// see spec network-desync-ci-smoke)
 		if (SEqualNoCase(szParameter, "/host"))
 		{
 			NetworkActive = true;
@@ -2907,7 +2907,6 @@ void C4Game::ParseCommandLine(const char *szCmdLine)
 			Config.Network.PortTCP = 11112 + 2 * (atoi(szParameter + 8) + 1);
 			Config.Network.PortUDP = 11113 + 2 * (atoi(szParameter + 8) + 1);
 		}
-#endif
 	}
 
 	// Check for fullscreen switch in command line
