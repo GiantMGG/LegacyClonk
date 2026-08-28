@@ -448,3 +448,118 @@ def test_resolve_requires_returns_transitive_closure(tmp_path: Path):
 def test_resolve_requires_empty_when_no_deps(tmp_path: Path):
 	a = _make_entry(1, "A", requires=[])
 	assert I.resolve_requires(a, [a], tmp_path) == []
+
+
+def _setup_pack(tmp_path: Path, name: str = "MyPack", requires=None, smoke=None):
+	"""Create a minimal pack layout: tmp_path/name/MyPack.c4s/ with one sub-def."""
+	entry = I.ManifestEntry(
+		ccan_id=1,
+		title=name,
+		author_nick="x",
+		author_uid=1,
+		uploaded="2026-01-01",
+		engine="LC",
+		license="CC-BY-NC-4.0",
+		license_rationale="r",
+		filename=f"{name}.c4s",
+		destination=name,
+		notes="n",
+		requires=requires or [],
+		smoke=smoke or I.SmokeConfig(),
+	)
+	dest_dir = tmp_path / name
+	dest_dir.mkdir()
+	unpack_path = dest_dir / f"{name}.c4s"
+	unpack_path.mkdir()
+	(unpack_path / "Objects.c4d").mkdir()  # sub-def
+	return entry, dest_dir, unpack_path
+
+
+def test_emit_smoke_artefacts_creates_struct_marker(tmp_path: Path):
+	entry, dest_dir, unpack_path = _setup_pack(tmp_path)
+	I.emit_smoke_artefacts(
+		entry=entry,
+		dest_dir=dest_dir,
+		unpack_path=unpack_path,
+		requires_closure=[],
+		content_community=tmp_path,
+	)
+	marker = dest_dir / "Tests.c4f" / "MyPackStruct.txt"
+	assert marker.is_file()
+	content = marker.read_text(encoding="utf-8").strip()
+	assert content == str(unpack_path.resolve())
+
+
+def test_emit_smoke_artefacts_creates_smoke_scenario(tmp_path: Path):
+	entry, dest_dir, unpack_path = _setup_pack(tmp_path)
+	I.emit_smoke_artefacts(
+		entry=entry,
+		dest_dir=dest_dir,
+		unpack_path=unpack_path,
+		requires_closure=[],
+		content_community=tmp_path,
+	)
+	smoke_dir = dest_dir / "Tests.c4f" / "MyPackSmoke.c4s"
+	assert (smoke_dir / "Scenario.txt").is_file()
+	assert (smoke_dir / "Script.c").is_file()
+	assert (smoke_dir / "Title.txt").is_file()
+	assert (smoke_dir / "Map.bmp").is_file()
+	# Script.c logs "<PackName> PASS" for the PASS_REGULAR_EXPRESSION match.
+	script = (smoke_dir / "Script.c").read_text(encoding="utf-8")
+	assert 'Log("MyPack PASS")' in script
+
+
+def test_emit_smoke_artefacts_skips_when_skip_true(tmp_path: Path):
+	entry, dest_dir, unpack_path = _setup_pack(
+		tmp_path, smoke=I.SmokeConfig(skip=True)
+	)
+	I.emit_smoke_artefacts(
+		entry=entry,
+		dest_dir=dest_dir,
+		unpack_path=unpack_path,
+		requires_closure=[],
+		content_community=tmp_path,
+	)
+	assert not (dest_dir / "Tests.c4f").exists()
+
+
+def test_emit_smoke_artefacts_preserves_curator_script(tmp_path: Path):
+	entry, dest_dir, unpack_path = _setup_pack(
+		tmp_path, smoke=I.SmokeConfig(curator_script=True)
+	)
+	# Pre-existing curator Script.c.
+	smoke_dir = dest_dir / "Tests.c4f" / "MyPackSmoke.c4s"
+	smoke_dir.mkdir(parents=True)
+	curator_script = "# Curator authored\n#strict 2\n"
+	(smoke_dir / "Script.c").write_text(curator_script, encoding="utf-8")
+	I.emit_smoke_artefacts(
+		entry=entry,
+		dest_dir=dest_dir,
+		unpack_path=unpack_path,
+		requires_closure=[],
+		content_community=tmp_path,
+	)
+	assert (smoke_dir / "Script.c").read_text(encoding="utf-8") == curator_script
+
+
+def test_emit_smoke_artefacts_writes_definitions_closure(tmp_path: Path):
+	entry, dest_dir, unpack_path = _setup_pack(tmp_path, requires=["Dep"])
+	# Dep dir with a sub-def Dep.c4d.
+	dep_dir = tmp_path / "Dep"
+	dep_dir.mkdir()
+	(dep_dir / "Dep.c4d").mkdir()
+	I.emit_smoke_artefacts(
+		entry=entry,
+		dest_dir=dest_dir,
+		unpack_path=unpack_path,
+		requires_closure=["Dep"],
+		content_community=tmp_path,
+	)
+	scenario = (
+		dest_dir / "Tests.c4f" / "MyPackSmoke.c4s" / "Scenario.txt"
+	)
+	text = scenario.read_text(encoding="utf-8")
+	# Pack's own sub-def (Objects.c4d) listed.
+	assert "Definition1=Objects.c4d" in text
+	# Dep's pack (Dep.c4d) listed.
+	assert "Dep.c4d" in text
