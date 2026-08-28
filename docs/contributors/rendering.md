@@ -123,6 +123,7 @@ Frame N enters `C4GraphicsSystem::Execute()` at
 ---
 
 !!! seealso "See also"
+    - [Contributing](contributing.md) — build, test, and open a PR
     - [C4Aul deep dive](c4aul.md)
     - [Network lockstep deep dive](network.md)
     - [Engine architecture](architecture.md)

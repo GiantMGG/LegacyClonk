@@ -25,5 +25,4 @@ parse→exec pipeline, the network lockstep loop, and the rendering pipeline.
 ## Where to go next
 
 - **[Engine architecture](architecture.md)** — the full roadmap deliverable.
-- For build, test, and code-style conventions see the repo-root
-  `CONTRIBUTING.md` (a future cycle will fold it into this section).
+- **[Contributing](contributing.md)** — build, test, and open a PR.

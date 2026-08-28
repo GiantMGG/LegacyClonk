@@ -17,6 +17,9 @@ Please refer to the [English](https://clonkspot.org/lc-en#installation-1) or [Ge
 ## Compiling - Quick Start
 **Disclaimer**: This readme is fairly new and may contain mistakes. In case of problems [reach out](#Contact). Readme improvement PRs are welcome.
 
+For the full contributor onboarding flow — clone, build, test, add a Catch2
+test, open a PR — see [`docs/contributors/contributing.md`](docs/contributors/contributing.md).
+
 Essential dependencies:
 - CMake
 - Fairly modern C++ compiler

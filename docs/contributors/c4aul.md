@@ -121,6 +121,7 @@ scenario object. The trace:
 ---
 
 !!! seealso "See also"
+    - [Contributing](contributing.md) — build, test, and open a PR
     - [Network lockstep deep dive](network.md)
     - [Rendering pipeline deep dive](rendering.md)
     - [Engine architecture](architecture.md)

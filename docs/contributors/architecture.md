@@ -313,3 +313,11 @@ on a real reader need. The reader's-guide summaries above carry the
 roadmap-named topics (main loop, C4Aul, network lockstep, rendering)
 at a depth sufficient for onboarding. See the spec's *Out of scope*
 section for the full list.
+
+---
+
+!!! seealso "See also"
+    - [Contributing](contributing.md) — build, test, and open a PR
+    - [C4Aul deep dive](c4aul.md)
+    - [Network lockstep deep dive](network.md)
+    - [Rendering pipeline deep dive](rendering.md)

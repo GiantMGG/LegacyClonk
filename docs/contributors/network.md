@@ -133,6 +133,7 @@ A player on Client A presses the right arrow key. The trace:
 ---
 
 !!! seealso "See also"
+    - [Contributing](contributing.md) — build, test, and open a PR
     - [C4Aul deep dive](c4aul.md)
     - [Rendering pipeline deep dive](rendering.md)
     - [Engine architecture](architecture.md)
