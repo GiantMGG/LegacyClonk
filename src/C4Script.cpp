@@ -2644,6 +2644,11 @@ static C4ID FnC4Id(C4AulContext *cthr, C4String *szID)
 	return C4Id(FnStringPar(szID));
 }
 
+static C4String *FnC4IdText(C4AulContext *cthr, C4ID id)
+{
+	return String(C4IdText(id));
+}
+
 static bool FnPlayerMessage(C4AulContext *cthr, C4ValueInt iPlayer, C4String *szMessage, C4Object *pObj, C4Value iPar0, C4Value iPar1, C4Value iPar2, C4Value iPar3, C4Value iPar4, C4Value iPar5, C4Value iPar6)
 {
 	char buf[MaxFnStringParLen + 1];
@@ -7512,6 +7517,7 @@ void InitFunctionMap(C4AulScriptEngine *pEngine)
 	AddFunc(pEngine, "PlaceAnimal",                     FnPlaceAnimal);
 	AddFunc(pEngine, "GameOver",                        FnGameOver);
 	AddFunc(pEngine, "C4Id",                            FnC4Id);
+	AddFunc(pEngine, "C4IdText",                        FnC4IdText);
 	AddFunc(pEngine, "ScriptGo",                        FnScriptGo);
 	AddFunc(pEngine, "GetHiRank",                       FnGetHiRank);
 	AddFunc(pEngine, "GetCrew",                         FnGetCrew);

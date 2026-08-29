@@ -66,6 +66,11 @@ add_test_target(C4AulParse
 	LINK_ENGINE
 )
 
+add_test_target(C4IdText
+	SOURCES "${CMAKE_SOURCE_DIR}/tests/TstC4IdText.cpp"
+	        "${CMAKE_SOURCE_DIR}/src/C4Id.cpp"
+)
+
 add_test_target(StdAdaptorsWarn
 	SOURCES "${CMAKE_SOURCE_DIR}/tests/TstStdAdaptorsWarn.cpp"
 	LINK_ENGINE
