@@ -164,4 +164,4 @@ README: "Without them, the engine won't start."
 [Setup game folder](https://github.com/legacyclonk/LegacyClonk/blob/main/README.md#setup-game-folder)
 section — the setup commands live there.
 
-**Citation.** `README.md:87`.
+**Citation.** `README.md:88`.
