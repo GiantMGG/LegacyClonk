@@ -1552,6 +1552,30 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p_bulk.set_defaults(func=cmd_bulk_import)
 
+    p_ver_imports = sub.add_parser(
+        "verify-imports",
+        help="Re-fetch CCAN blobs and diff sha256 vs the master index.",
+    )
+    p_ver_imports.add_argument(
+        "--content-community",
+        type=Path,
+        default=DEFAULT_CONTENT_COMMUNITY,
+        help="Destination repo root (default: ../content-community).",
+    )
+    p_ver_imports.add_argument(
+        "--snapshot-dir",
+        default=None,
+        help="Optional ccan-snapshot/ path; blobs are read from here when "
+             "available.",
+    )
+    p_ver_imports.add_argument(
+        "--rate-limit",
+        type=float,
+        default=DEFAULT_RATE_LIMIT,
+        help=f"Seconds between requests (default: {DEFAULT_RATE_LIMIT}).",
+    )
+    p_ver_imports.set_defaults(func=cmd_verify_imports)
+
     return parser
 
 def main(argv: list[str] | None = None) -> int:
