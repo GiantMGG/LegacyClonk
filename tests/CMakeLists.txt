@@ -262,3 +262,29 @@ if (PYTHON3)
 		LABELS "network;smoke"
 		RUN_SERIAL TRUE)
 endif()
+
+# --- Live reconnect smoke ----------------------------------------------
+# See spec live-network-test-harness. Boots two headless engine instances
+# on loopback, partitions the client via tc-by-port (or SIGSTOP fallback),
+# and verifies the disconnect -> dormancy -> PID_Reconn -> snapshot-restore
+# -> state-hash-convergence path.
+if (PYTHON3)
+	set(live_reconn_tc_args "")
+	if (TC)
+		list(APPEND live_reconn_tc_args "--tc-program" "${TC}")
+	endif()
+	add_test(NAME live_reconnect_smoke
+		COMMAND "${PYTHON3}"
+			"${CMAKE_SOURCE_DIR}/tools/live_reconnect_smoke.py"
+			"--engine" "$<TARGET_FILE:clonk>"
+			"--scenario" "${CMAKE_SOURCE_DIR}/tests/fixtures/NetSyncSmoke.c4s"
+			"--ticks" "2000"
+			"--timeout" "120"
+			"--state-hash"
+			${live_reconn_tc_args}
+		WORKING_DIRECTORY "${CMAKE_BINARY_DIR}")
+	set_tests_properties(live_reconnect_smoke PROPERTIES
+		TIMEOUT 180
+		LABELS "network;smoke"
+		RUN_SERIAL TRUE)
+endif()
