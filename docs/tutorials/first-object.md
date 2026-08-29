@@ -213,3 +213,5 @@ LegacyClonk/build/clonk --console --smoke-run 350 \
 - [C4D pack anatomy](c4d-anatomy.md) — file-by-file dissection of a real `.c4d`.
 - [DefCore.txt fields](../reference/defcore.md) — the full 93-row field table.
 - [Constants](../reference/constants.md) — `C4D_*` category bits and more.
+- [First scenario](first-scenario.md) — build a playable `.c4s` from
+  scratch.

@@ -49,6 +49,7 @@ nav:
   - Changelog: changelog.md
   - Tutorials:
       - First object: tutorials/first-object.md
+      - First scenario: tutorials/first-scenario.md
       - C4D pack anatomy: tutorials/c4d-anatomy.md
   - C4Script guide:
       - Overview: c4script/index.md
