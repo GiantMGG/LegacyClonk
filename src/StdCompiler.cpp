@@ -126,7 +126,7 @@ void StdCompilerBinWrite::WriteValue(const T &rValue)
 {
 	// Copy data
 	if (fSecondPass)
-		*Buf.getMPtr<T>(iPos) = rValue;
+		std::memcpy(Buf.getMPtr(iPos), &rValue, sizeof(rValue));
 	iPos += sizeof(rValue);
 }
 
@@ -233,7 +233,7 @@ inline void StdCompilerBinRead::ReadValue(T &rValue)
 		excEOF(); return;
 	}
 	// Copy
-	rValue = *Buf.getPtr<T>(iPos);
+	std::memcpy(&rValue, Buf.getPtr(iPos), sizeof(T));
 	iPos += sizeof(T);
 }
 
