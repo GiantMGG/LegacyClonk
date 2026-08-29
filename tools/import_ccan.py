@@ -23,7 +23,9 @@ relative to this script's parent's parent.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import html.parser
+import json
 import os
 import re
 import shutil
@@ -152,6 +154,23 @@ class CcanMetadata:
     filename: str
     description_de: str
     description_us: str
+
+
+@dataclass
+class ImportResult:
+    """Outcome of importing one manifest entry."""
+    status: str  # "imported" | "skipped"
+    metadata: Optional[CcanMetadata] = None
+    blob_path: Optional[Path] = None
+
+
+def sha256_file(path: Path) -> str:
+    """Compute the SHA-256 hex digest of a file (streaming)."""
+    h = hashlib.sha256()
+    with open(path, "rb") as f:
+        for chunk in iter(lambda: f.read(65536), b""):
+            h.update(chunk)
+    return h.hexdigest()
 
 # ===========================================================================
 # c4group resolution
@@ -823,6 +842,34 @@ def cmd_list(args: argparse.Namespace) -> int:
         print(f"      engine={e.engine}  license={e.license}")
     return 0
 
+def _fetch_metadata(
+    entry: ManifestEntry,
+    rate_limit: float,
+    snapshot_dir: Optional[Path] = None,
+) -> str:
+    """Fetch metadata HTML, preferring a snapshot's raw.html if available."""
+    if snapshot_dir is not None:
+        raw_path = snapshot_dir / "entries" / str(entry.ccan_id) / "raw.html"
+        if raw_path.is_file():
+            return raw_path.read_text(encoding="utf-8", errors="replace")
+    return fetch_metadata_html(entry, rate_limit=rate_limit)
+
+
+def _fetch_blob(
+    entry: ManifestEntry,
+    cache_dir: Path,
+    rate_limit: float,
+    snapshot_dir: Optional[Path] = None,
+) -> Path:
+    """Resolve the pack blob, preferring a snapshot blob if available."""
+    if snapshot_dir is not None:
+        blob_path = (
+            snapshot_dir / "entries" / str(entry.ccan_id) / entry.filename)
+        if blob_path.is_file():
+            return blob_path
+    return fetch_pack(entry, cache_dir, rate_limit=rate_limit)
+
+
 def _import_one(
     entry: ManifestEntry,
     entries: list[ManifestEntry],
@@ -830,14 +877,15 @@ def _import_one(
     c4group: Path,
     force: bool,
     rate_limit: float,
-) -> None:
-    """Import a single manifest entry. Raises on failure (caller exits)."""
+    snapshot_dir: Optional[Path] = None,
+) -> ImportResult:
+    """Import a single manifest entry. Raises SystemExit on failure."""
     dest_dir = content_community / entry.destination
 
     if not force and is_already_imported(entry, content_community):
         print(f"[{entry.ccan_id}] already imported, skipping "
               f"(use --force to override).")
-        return
+        return ImportResult(status="skipped")
 
     if force and dest_dir.is_dir():
         rollback_import(dest_dir)
@@ -854,13 +902,13 @@ def _import_one(
     # 1. Fetch metadata + parse.
     print(f"[{entry.ccan_id}] fetching metadata...")
     metadata = parse_ccan_metadata(
-        fetch_metadata_html(entry, rate_limit=rate_limit),
+        _fetch_metadata(entry, rate_limit, snapshot_dir),
         entry.ccan_id,
     )
 
     # 2. Fetch pack blob.
     print(f"[{entry.ccan_id}] downloading {entry.filename}...")
-    blob_path = fetch_pack(entry, CACHE_DIR, rate_limit=rate_limit)
+    blob_path = _fetch_blob(entry, CACHE_DIR, rate_limit, snapshot_dir)
 
     # 3. Unpack into the destination.
     print(f"[{entry.ccan_id}] unpacking...")
@@ -890,6 +938,8 @@ def _import_one(
     )
 
     print(f"[{entry.ccan_id}] imported -> {dest_dir}")
+    return ImportResult(
+        status="imported", metadata=metadata, blob_path=blob_path)
 
 def cmd_import(args: argparse.Namespace) -> int:
     entries = load_manifest(args.manifest)
@@ -968,6 +1018,421 @@ def cmd_verify_manifest(args: argparse.Namespace) -> int:
     print(f"\nAll {len(entries)} entries match live CCAN metadata.")
     return 0
 
+# ===========================================================================
+# License triage (Phase 2 discover)
+# ===========================================================================
+
+TRIAGE_RULES_PATH = SCRIPT_DIR / "ccan_license_triage.toml"
+
+
+def load_triage_rules(path: Path) -> list[dict]:
+    """Load the [[rule]] list from ccan_license_triage.toml."""
+    try:
+        data = tomllib.loads(path.read_text(encoding="utf-8"))
+    except FileNotFoundError:
+        sys.exit(f"Triage rules not found: {path}")
+    except tomllib.TOMLDecodeError as e:
+        sys.exit(f"Triage rules parse error: {e}")
+    return list(data.get("rule", []))
+
+
+def run_triage(meta: dict, rules: list[dict]) -> tuple[str, str]:
+    """Return (verdict, matched_keyword). First matching rule wins.
+
+    Searches the concatenated description_de + description_us + comments
+    fields (case-insensitive substring match).
+    """
+    haystack = " ".join([
+        str(meta.get("description_de", "")),
+        str(meta.get("description_us", "")),
+        str(meta.get("comments", "")),
+    ]).lower()
+    for rule in rules:
+        kw = rule["keyword"].lower()
+        if kw and kw in haystack:
+            return rule["verdict"], rule["keyword"]
+    return "ok", ""
+
+
+def slugify(title: str) -> str:
+    """Strip a title to an alphanumeric slug (no spaces, no punctuation)."""
+    slug = re.sub(r"[^A-Za-z0-9]+", "", title or "")
+    if not slug:
+        slug = "ccan"
+    return slug
+
+
+def engine_supports(entry_engine: str, wanted: str) -> bool:
+    """True if entry's engine field is compatible with the wanted engine."""
+    e = (entry_engine or "").upper()
+    w = (wanted or "").upper()
+    if not e:
+        return True
+    if "BOTH" in e or w in e:
+        return True
+    return False
+
+
+def _render_discovered_manifest(candidates: list[dict]) -> str:
+    """Render a candidate manifest in the ccan_curated.toml schema."""
+    lines = [
+        "# Candidate manifest emitted by `import_ccan.py discover`.\n"
+        "# Review in a PR: remove false positives, correct licenses, add "
+        "requires + notes.\n"
+        "# `license = \"unknown\"` is rejected at import time — set a "
+        "concrete license before importing.\n\n",
+    ]
+    for c in candidates:
+        lines.append(f"[entry.{c['ccan_id']}]\n")
+        for field in (
+            "title", "ccan_id", "author_nick", "author_uid", "uploaded",
+            "engine", "license", "license_rationale", "filename",
+            "destination", "notes",
+        ):
+            v = c.get(field, "")
+            if isinstance(v, str):
+                lines.append(f'{field} = "{v}"\n')
+            else:
+                lines.append(f"{field} = {v}\n")
+        lines.append("\n")
+    return "".join(lines)
+
+
+def cmd_discover(args: argparse.Namespace) -> int:
+    """Phase 2: triage a CCAN snapshot into a candidate import manifest."""
+    snapshot_dir = Path(args.snapshot_dir).expanduser()
+    index_path = snapshot_dir / "index.jsonl"
+    if not index_path.is_file():
+        sys.exit(
+            f"Snapshot index not found: {index_path}\n"
+            f"Run `mirror_ccan.py mirror --snapshot-dir {snapshot_dir}` first.")
+
+    rules = load_triage_rules(TRIAGE_RULES_PATH)
+    engine_filter = args.engine
+    max_size_bytes = int(args.max_size * 1024 * 1024) if args.max_size else 0
+
+    candidates: list[dict] = []
+    skip_lines: list[str] = []
+    seen_slugs: dict[str, int] = {}
+    n_total = 0
+
+    for line in index_path.read_text(encoding="utf-8").splitlines():
+        if not line.strip():
+            continue
+        try:
+            meta = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        n_total += 1
+        ccan_id = meta.get("ccan_id")
+        title = meta.get("title", "")
+        filename = meta.get("filename", "")
+        engine = meta.get("engine", "")
+
+        verdict, matched_kw = run_triage(meta, rules)
+
+        # Filters.
+        if engine_filter and not engine_supports(engine, engine_filter):
+            skip_lines.append(
+                f"{ccan_id}\tengine_filter\t{engine}\t{title}")
+            continue
+        if filename.lower().endswith(".txt"):
+            skip_lines.append(
+                f"{ccan_id}\ttext_only\t-\t{title}")
+            continue
+        if max_size_bytes and int(meta.get("blob_size", 0)) > max_size_bytes:
+            skip_lines.append(
+                f"{ccan_id}\tsize_filter\t{meta.get('blob_size')}\t{title}")
+            continue
+        if verdict == "skip":
+            skip_lines.append(
+                f"{ccan_id}\tskip\t{matched_kw}\t{title}")
+            continue
+
+        # Destination slug with collision suffix.
+        slug = slugify(title)
+        if slug in seen_slugs:
+            slug = f"{slug}-{ccan_id}"
+            skip_lines.append(
+                f"{ccan_id}\tdestination_collision\t{slug}\t{title}")
+        seen_slugs[slug] = ccan_id
+
+        license_val = "CC-BY-NC-4.0" if verdict == "ok" else "unknown"
+        rationale = (
+            f"Triage verdict: {verdict}. "
+            f"Matched keyword: '{matched_kw}'. "
+            f"Description: '{(meta.get('description_de') or meta.get('description_us') or '')[:120]}'"
+            if matched_kw
+            else f"Triage verdict: ok. No skip/ambiguous keyword matched. "
+                f"Default CC BY-NC 4.0 applies."
+        )
+        candidates.append({
+            "title": title,
+            "ccan_id": ccan_id,
+            "author_nick": meta.get("author_nick", ""),
+            "author_uid": meta.get("author_uid", 0),
+            "uploaded": meta.get("uploaded", ""),
+            "engine": engine,
+            "license": license_val,
+            "license_rationale": rationale,
+            "filename": filename,
+            "destination": slug,
+            "notes": "",
+        })
+
+    out_manifest = Path(args.out_manifest)
+    out_manifest.write_text(
+        _render_discovered_manifest(candidates), encoding="utf-8")
+    out_skip = Path(args.out_skip)
+    out_skip.write_text(
+        "\n".join(skip_lines) + ("\n" if skip_lines else ""), encoding="utf-8")
+
+    print(f"{n_total} entries mirrored, {len(candidates)} candidates, "
+          f"{len(skip_lines)} skipped.")
+    return 0
+
+
+# ===========================================================================
+# Master ATTRIBUTION.toml index (Phase 3 bulk-import)
+# ===========================================================================
+
+MASTER_INDEX_FIELDS = (
+    "ccan_id", "title", "author_nick", "author_uid", "uploaded",
+    "source_url", "download_url", "filename", "license",
+    "license_rationale", "sha256", "imported_at",
+)
+
+
+def load_master_index(path: Path) -> dict:
+    """Load content-community/ATTRIBUTION.toml. Returns {} if absent."""
+    if not path.is_file():
+        return {}
+    try:
+        return tomllib.loads(path.read_text(encoding="utf-8"))
+    except tomllib.TOMLDecodeError as e:
+        sys.exit(f"Master index parse error: {e}")
+
+
+def write_master_index(path: Path, packs: dict) -> None:
+    """Write the master index, sorted by destination for diff stability."""
+    header = (
+        "# Master attribution index for bulk-imported packs.\n"
+        "# Generated by `import_ccan.py bulk-import`. Per-pack "
+        "ATTRIBUTION.txt + COPYING\n"
+        "# convention is unchanged; this index is an additive, diffable, "
+        "machine-readable\n"
+        "# summary. Sorted by `destination` for diff stability.\n\n"
+    )
+    lines = [header]
+    for dest in sorted(packs):
+        block = packs[dest]
+        lines.append(f"[pack.{dest}]\n")
+        for f in MASTER_INDEX_FIELDS:
+            if f not in block:
+                continue
+            v = block[f]
+            if isinstance(v, str):
+                lines.append(f'{f} = "{v}"\n')
+            else:
+                lines.append(f"{f} = {v}\n")
+        lines.append("\n")
+    path.write_text("".join(lines), encoding="utf-8")
+
+
+def cmd_bulk_import(args: argparse.Namespace) -> int:
+    """Phase 3: bulk-import from a curator-approved manifest + snapshot."""
+    entries = load_manifest(args.manifest)
+    c4group = resolve_c4group()
+    content_community = args.content_community
+    content_community.mkdir(parents=True, exist_ok=True)
+    snapshot_dir = (
+        Path(args.snapshot_dir).expanduser() if args.snapshot_dir else None)
+    rate_limit = args.rate_limit
+
+    master_path = content_community / "ATTRIBUTION.toml"
+    # Advisory lock on a sibling of the master index.
+    try:
+        import fcntl
+        lock_path = content_community / "ATTRIBUTION.toml.lock"
+        lock_file = open(lock_path, "w")
+        try:
+            fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except OSError:
+            lock_file.close()
+            sys.exit(
+                f"content-community/ATTRIBUTION.toml is locked by another "
+                f"bulk-import run.")
+    except ImportError:
+        lock_file = None
+
+    master = load_master_index(master_path)
+    packs: dict = dict(master.get("pack", {}))
+
+    failures_path = Path(args.failures_log)
+    # Pre-flight: ensure failures log is writable.
+    try:
+        failures_path.write_text("", encoding="utf-8")
+    except OSError as e:
+        sys.exit(f"Failures log not writable ({failures_path}): {e}")
+
+    failures: list[dict] = []
+    imported = 0
+    for entry in entries:
+        try:
+            result = _import_one(
+                entry=entry,
+                entries=entries,
+                content_community=content_community,
+                c4group=c4group,
+                force=False,
+                rate_limit=rate_limit,
+                snapshot_dir=snapshot_dir,
+            )
+        except SystemExit as e:
+            failures.append({
+                "ccan_id": entry.ccan_id,
+                "destination": entry.destination,
+                "error": str(e),
+            })
+            print(f"[{entry.ccan_id}] FAILED: {e}", file=sys.stderr)
+            continue
+        if result.status == "skipped":
+            print(f"[{entry.ccan_id}] already imported, skipping.")
+            continue
+        # Success — update master index block.
+        sha = sha256_file(result.blob_path) if result.blob_path else ""
+        today = time.strftime("%Y-%m-%d", time.gmtime())
+        packs[entry.destination] = {
+            "ccan_id": entry.ccan_id,
+            "title": (result.metadata.title if result.metadata else entry.title),
+            "author_nick": (result.metadata.author_nick
+                            if result.metadata else entry.author_nick),
+            "author_uid": (result.metadata.author_uid
+                           if result.metadata else entry.author_uid),
+            "uploaded": entry.uploaded,
+            "source_url": entry.view_url,
+            "download_url": entry.download_url,
+            "filename": entry.filename,
+            "license": entry.license,
+            "license_rationale": entry.license_rationale,
+            "sha256": sha,
+            "imported_at": today,
+        }
+        write_master_index(master_path, packs)
+        imported += 1
+        print(f"[{entry.ccan_id}] imported -> "
+              f"{content_community / entry.destination}")
+
+    if failures:
+        failures_path.write_text(
+            "\n".join(json.dumps(f, ensure_ascii=False) for f in failures)
+            + "\n", encoding="utf-8")
+
+    if lock_file is not None:
+        lock_file.close()
+
+    print(f"\n{imported} entries imported, {len(failures)} failure(s)."
+          + (f" See {failures_path}." if failures else ""))
+    if failures:
+        return 1
+    return 0
+
+
+# ===========================================================================
+# verify-imports (Phase 4, stretch)
+# ===========================================================================
+
+def cmd_verify_imports(args: argparse.Namespace) -> int:
+    """Phase 4: re-fetch CCAN blobs and diff sha256 vs the master index."""
+    content_community = args.content_community
+    master_path = content_community / "ATTRIBUTION.toml"
+    if not master_path.is_file():
+        sys.exit("Run `bulk-import` first to generate the master index.")
+    master = load_master_index(master_path)
+    packs = master.get("pack", {})
+    snapshot_dir = (
+        Path(args.snapshot_dir).expanduser() if args.snapshot_dir else None)
+    rate_limit = args.rate_limit
+
+    changed, missing, local_missing, unchanged, unknown = (
+        [], [], [], [], [])
+
+    for dest in sorted(packs):
+        block = packs[dest]
+        ccan_id = block.get("ccan_id")
+        local_dir = content_community / dest
+        if not local_dir.is_dir():
+            local_missing.append((dest, block))
+            continue
+        # Resolve blob: snapshot first, else HTTP.
+        blob_bytes = None
+        err = None
+        if snapshot_dir is not None:
+            blob_path = (snapshot_dir / "entries" / str(ccan_id)
+                         / block.get("filename", ""))
+            if blob_path.is_file():
+                blob_bytes = blob_path.read_bytes()
+        if blob_bytes is None:
+            try:
+                blob_bytes = fetch_url(
+                    block.get("download_url", ""), rate_limit=rate_limit)
+            except SystemExit as e:
+                err = str(e)
+            except (ConnectionError, OSError) as e:
+                err = str(e)
+        if blob_bytes is None:
+            if err and "404" in err:
+                missing.append((dest, block))
+            else:
+                unknown.append((dest, block, err))
+            continue
+        new_sha = hashlib.sha256(blob_bytes).hexdigest()
+        if new_sha == block.get("sha256"):
+            unchanged.append(dest)
+        else:
+            changed.append((dest, block.get("sha256"), new_sha))
+
+    # Emit markdown report.
+    report_path = Path("ccan_verify_imports_report.md")
+    r = []
+    r.append("# CCAN verify-imports report\n\n")
+    r.append(f"- unchanged: {len(unchanged)}\n")
+    r.append(f"- changed: {len(changed)}\n")
+    r.append(f"- missing (CCAN deleted): {len(missing)}\n")
+    r.append(f"- local_missing (master index out of sync): "
+             f"{len(local_missing)}\n")
+    r.append(f"- unknown (could not verify): {len(unknown)}\n\n")
+    if changed:
+        r.append("## Changed (sha256 mismatch)\n\n")
+        for dest, old, new in changed:
+            r.append(f"- `{dest}`: `{old}` -> `{new}`\n")
+        r.append("\n")
+    if missing:
+        r.append("## Missing (CCAN deleted)\n\n")
+        for dest, block in missing:
+            r.append(f"- `{dest}` (ccan_id={block.get('ccan_id')})\n")
+        r.append("\n")
+    if local_missing:
+        r.append("## Local missing (master index out of sync)\n\n")
+        for dest, block in local_missing:
+            r.append(f"- `{dest}` (ccan_id={block.get('ccan_id')})\n")
+        r.append("\n")
+    if unknown:
+        r.append("## Unknown (could not verify)\n\n")
+        for dest, block, err in unknown:
+            r.append(f"- `{dest}`: {err}\n")
+        r.append("\n")
+    report_path.write_text("".join(r), encoding="utf-8")
+
+    print(f"verify-imports: {len(unchanged)} unchanged, {len(changed)} "
+          f"changed, {len(missing)} missing, {len(local_missing)} "
+          f"local_missing, {len(unknown)} unknown. "
+          f"Report: {report_path}")
+    if changed or missing or local_missing:
+        return 1
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="import_ccan.py",
@@ -1012,6 +1477,44 @@ def build_parser() -> argparse.ArgumentParser:
         help=f"Seconds between CCAN requests (default: {DEFAULT_RATE_LIMIT}).",
     )
     p_ver.set_defaults(func=cmd_verify_manifest)
+
+    p_disc = sub.add_parser(
+        "discover",
+        help="Triage a CCAN snapshot into a candidate import manifest.",
+    )
+    p_disc.add_argument(
+        "--snapshot-dir",
+        required=True,
+        help="Path to the ccan-snapshot/ directory (mirror_ccan.py output).",
+    )
+    p_disc.add_argument(
+        "--engine",
+        default="LC",
+        help="Drop entries not compatible with this engine (default: LC).",
+    )
+    p_disc.add_argument(
+        "--rate-limit",
+        type=float,
+        default=DEFAULT_RATE_LIMIT,
+        help=f"Seconds between requests (default: {DEFAULT_RATE_LIMIT}).",
+    )
+    p_disc.add_argument(
+        "--max-size",
+        type=float,
+        default=0.0,
+        help="Drop entries larger than N MB (0 = no limit).",
+    )
+    p_disc.add_argument(
+        "--out-manifest",
+        default="ccan_discovered.toml",
+        help="Candidate manifest output path (default: ccan_discovered.toml).",
+    )
+    p_disc.add_argument(
+        "--out-skip",
+        default="ccan_triage_skip.txt",
+        help="Skip/audit log output path (default: ccan_triage_skip.txt).",
+    )
+    p_disc.set_defaults(func=cmd_discover)
 
     return parser
 
