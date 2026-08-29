@@ -75,6 +75,7 @@ nav:
       - Rendering pipeline deep dive: contributors/rendering.md
   - Players:
       - First game: players/first-game.md
+      - Controls reference: players/controls.md
   - Porting:
       - BSD port: BSD_PORT.md
   - Reference:
