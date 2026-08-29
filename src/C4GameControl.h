@@ -50,6 +50,8 @@ public:
 	C4GameControl();
 	~C4GameControl();
 
+	bool IsInitComplete() const noexcept { return fInitComplete; }
+
 public:
 	C4Control Input;
 	C4GameControlNetwork Network;

@@ -127,9 +127,12 @@ namespace C4RollbackTest
 		}
 		pendingRemote.clear();
 
-		// Advance the engine one control tick.
+	// Advance the engine one control tick.
+	if (Game.Control.IsInitComplete())
+	{
 		Game.Control.Execute();
-		controlTickTrace.push_back(Game.Control.ControlTick);
+	}
+	controlTickTrace.push_back(Game.Control.ControlTick);
 	}
 
 	inline int32_t C4RollbackHarness::GetControlReady() const
