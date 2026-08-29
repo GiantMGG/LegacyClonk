@@ -14,6 +14,7 @@
 # Exit codes:
 #   0  MATCH (reproducible) — or baseline updated (--update-baseline)
 #   1  MISMATCH / error
+#   2  unknown argument (argument parsing)
 #   3  SKIP — no baseline entry for this platform yet
 #
 # Requires: bash 4+, curl, sha256sum, tar, cmake, ninja, awk.

@@ -16,9 +16,14 @@ defaults:
   run:
     shell: bash
 
+permissions:
+  contents: read
+  actions: read
+
 jobs:
   repro-check:
     name: verify-repro.sh (Linux-x64)
+    if: ${{ !(github.event_name == 'workflow_dispatch' && inputs.record-baseline) }}
     runs-on: ubuntu-22.04
     timeout-minutes: 60
     env:
