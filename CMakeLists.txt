@@ -50,6 +50,7 @@ include(CheckCXXSymbolExists)
 include(CheckIncludeFileCXX)
 include(CMakeDependentOption)
 include(FetchContent)
+include(Sanitizer)
 
 # Make sure headers of the project are found
 include_directories(src)
@@ -70,6 +71,22 @@ option(SOLIDMASK_DEBUG "Solid mask debugging" OFF)
 option(USE_CONSOLE "Dedicated server mode (compile as pure console application)" OFF)
 option(USE_LTO "Enable Link Time Optimization" ON)
 option(USE_PCH "Precompile Headers" ON)
+
+# When a sanitizer is enabled, force LTO and PCH off. ASan + LTO balloons
+# link times, and the GCC 16 PCH + ASan interaction is the same one the
+# debugrec Linux lane already works around (build.yml disables PCH for
+# debugrec on Linux). Gating here means `cmake -DUSE_SANITIZER=...` is
+# self-contained — no need to also remember -DUSE_LTO=Off -DUSE_PCH=Off.
+if (USE_SANITIZER)
+	if (USE_LTO)
+		set(USE_LTO OFF CACHE BOOL "LTO disabled by USE_SANITIZER" FORCE)
+		message(STATUS "USE_SANITIZER set: disabling USE_LTO")
+	endif ()
+	if (USE_PCH)
+		set(USE_PCH OFF CACHE BOOL "PCH disabled by USE_SANITIZER" FORCE)
+		message(STATUS "USE_SANITIZER set: disabling USE_PCH")
+	endif ()
+endif ()
 option(USE_STAT "Enable internal performance statistics for developers" OFF)
 option(USE_TESTS "Enable testing" OFF)
 
