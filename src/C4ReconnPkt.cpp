@@ -14,6 +14,8 @@
 
 #include <cstring>
 
+#include "StdAdaptors.h"
+
 void C4PacketReconn::CompileFunc(StdCompiler *pComp)
 {
 	// Serialise the 128-bit token as two uint64s so the on-wire format is

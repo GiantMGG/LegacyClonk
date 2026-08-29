@@ -19,6 +19,7 @@
 #include "C4StartupWelcomeDlg.h"
 
 #include "C4Game.h"
+#include "C4GuiResource.h"
 #include "C4OpenURL.h"
 #include "C4Startup.h"
 #include "C4Gui.h"
