@@ -198,9 +198,9 @@ protected func Initialize()
 
 protected func InitializePlayer(int plr, int x, int y, object base, int team)
 {
-    // Equip the player's first Clonk with a sword and a loaf.
+    // Equip the player's first Clonk with a flint (a basic item from Objects.c4d).
     var clonk = GetHiRank(plr);
-    if (clonk) clonk->CreateContents(SWORD);
+    if (clonk) clonk->CreateContents(FLNT);
     return true;
 }
 ```
@@ -237,8 +237,14 @@ Run the skeleton headless:
 
 ```bash
 LegacyClonk/build/clonk --console --smoke-run 350 \
-  content/MyFirstScenario.c4s
+  -s "$(pwd)/content/MyFirstScenario.c4s"
 ```
+
+!!! tip "Why the absolute path?"
+    The engine resolves scenario paths relative to its own working
+    directory, not your shell's CWD. Using `"$(pwd)/..."` converts the
+    relative path to an absolute one so it works regardless of where
+    you run the command from.
 
 ??? question "Checkpoint 5: verify"
     ```text
@@ -290,7 +296,7 @@ See [Timer effect](../cookbook/timer-effect.md) for the full
 
     ```bash
     LegacyClonk/build/clonk --console --smoke-run 350 \
-      content/MyFirstScenario.c4s
+      -s "$(pwd)/content/MyFirstScenario.c4s"
     ```
 
     Exit code: `0`. No `FatalError`.

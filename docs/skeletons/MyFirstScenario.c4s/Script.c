@@ -10,8 +10,8 @@ protected func Initialize()
 
 protected func InitializePlayer(int plr, int x, int y, object base, int team)
 {
-	// Equip the player's first Clonk with a sword.
+	// Equip the player's first Clonk with a flint (a basic item from Objects.c4d).
 	var clonk = GetHiRank(plr);
-	if (clonk) clonk->CreateContents(SWORD);
+	if (clonk) clonk->CreateContents(FLNT);
 	return true;
 }
