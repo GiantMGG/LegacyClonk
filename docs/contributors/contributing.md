@@ -430,3 +430,4 @@ The rules most likely to bite a new contributor:
     - [Rendering pipeline deep dive](rendering.md)
     - [Contributors overview](index.md)
     - Root [`README.md`](https://github.com/legacyclonk/LegacyClonk/blob/main/README.md) — canonical build instructions
+    - [Troubleshooting](troubleshooting.md) — build/test failure modes

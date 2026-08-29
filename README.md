@@ -19,6 +19,7 @@ Please refer to the [English](https://clonkspot.org/lc-en#installation-1) or [Ge
 
 For the full contributor onboarding flow — clone, build, test, add a Catch2
 test, open a PR — see [`docs/contributors/contributing.md`](docs/contributors/contributing.md).
+Build or test failure? See [`docs/contributors/troubleshooting.md`](docs/contributors/troubleshooting.md).
 
 Essential dependencies:
 - CMake
