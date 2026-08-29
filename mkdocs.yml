@@ -46,6 +46,7 @@ markdown_extensions:
 
 nav:
   - Home: index.md
+  - Changelog: changelog.md
   - Tutorials:
       - First object: tutorials/first-object.md
       - C4D pack anatomy: tutorials/c4d-anatomy.md

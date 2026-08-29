@@ -1,0 +1,19 @@
+changelog:
+  exclude:
+    labels: [ci-skip, ignore-for-release]
+    authors: ["dependabot[bot]", "github-actions[bot]"]
+  categories:
+    - title: ":rocket: New Features"
+      labels: [feature, enhancement]
+    - title: ":bug: Bug Fixes"
+      labels: [bug, fix]
+    - title: ":art: Content & Mods"
+      labels: [content]
+    - title: ":wrench: Engine & Internals"
+      labels: [engine, refactor, internal]
+    - title: ":book: Documentation"
+      labels: [documentation]
+    - title: ":package: Dependencies / CI"
+      labels: [dependencies, ci]
+    - title: ":game_die: Other"
+      labels: ["*"]
