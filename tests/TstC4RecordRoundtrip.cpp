@@ -32,6 +32,14 @@
 #include <cstdint>
 #include <cstring>
 
+// Regression guard: C4RecordChunk must NOT be inside #pragma pack(1).
+// It owns non-trivial members (StdStrBuf) whose constructors require
+// natural alignment. If someone re-adds #pragma pack(1) around
+// C4RecordChunk, alignof(C4RecordChunk) drops to 1 and this
+// static_assert fails at compile time.
+static_assert(alignof(StdStrBuf) <= alignof(C4RecordChunk),
+              "C4RecordChunk must not be #pragma pack(1)'d — it owns StdStrBuf");
+
 namespace
 {
 struct RoundTrip { StdBuf first; StdBuf second; };

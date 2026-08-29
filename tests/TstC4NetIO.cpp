@@ -26,6 +26,7 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
+#include <cstring>
 
 // ---------------------------------------------------------------------------
 // Test shims -- re-expose protected engine members so the test can name them
@@ -74,7 +75,9 @@ TEST_CASE("TCP framing round-trips a 100-byte payload byte-for-byte", "[C4NetIO]
 		// Wire format: 0xff + uint32 size + payload  => 1 + 4 + 100 == 105
 		REQUIRE(out.getSize() == 105);
 		REQUIRE(*out.getPtr<uint8_t>(0) == 0xff);
-		REQUIRE(*out.getPtr<uint32_t>(1) == 100u);
+		uint32_t size;
+		std::memcpy(&size, out.getPtr(1), sizeof(size));
+		REQUIRE(size == 100u);
 
 		// UnpackPacket returns bytes consumed (no callback installed).
 		REQUIRE(tcp.UnpackPacket(out, C4NetIO::addr_t{}) == 105);
@@ -127,7 +130,8 @@ TEST_CASE("TCP framing rejects malformed input", "[C4NetIO][TCP][fuzz]")
 		// 5-byte buffer: 0xff + uint32 size = 100, but 0 payload bytes follow.
 		StdBuf buf; buf.New(5);
 		*buf.getMPtr<uint8_t>(0) = 0xff;
-		*buf.getMPtr<uint32_t>(1) = 100u;
+		uint32_t size = 100u;
+		std::memcpy(buf.getMPtr(1), &size, sizeof(size));
 		REQUIRE(tcp.UnpackPacket(buf, C4NetIO::addr_t{}) == 0);
 	}
 
@@ -137,7 +141,8 @@ TEST_CASE("TCP framing rejects malformed input", "[C4NetIO][TCP][fuzz]")
 		// Exercises the integer-overflow guard at C4NetIO.cpp:1312.
 		StdBuf buf; buf.New(5);
 		*buf.getMPtr<uint8_t>(0) = 0xff;
-		*buf.getMPtr<uint32_t>(1) = 0xFFFFFFFFu;
+		uint32_t size = 0xFFFFFFFFu;
+		std::memcpy(buf.getMPtr(1), &size, sizeof(size));
 		REQUIRE(tcp.UnpackPacket(buf, C4NetIO::addr_t{}) == 0);
 	}
 
