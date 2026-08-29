@@ -27,7 +27,6 @@ def auto_format():
 	format_cmake_files()
 	format_cpp_files()
 	format_tool_files()
-	format_yml_files()
 
 	if dry_run:
 		print('Dry run finished.')
@@ -35,7 +34,6 @@ def auto_format():
 def format_cmake_files():
 	format_filelists()
 	format_files((lc_dir / 'CMakeLists.txt',), FileFormatter.format_cmakelists)
-	format_files((lc_dir / 'config.h.cmake',), FileFormatter.format_cpp)
 
 def format_cpp_files():
 	files = chain(*(get_file_paths(lc_dir / sub_dir, 'cpp', 'h')
@@ -52,16 +50,15 @@ def format_tool_files():
 	format_files(get_file_paths(lc_dir / 'tools', 'py'),
 		FileFormatter.format_python)
 
-def format_yml_files():
-	format_files((lc_dir / file for file in ('.travis.yml', 'appveyor.yml')),
-		FileFormatter.format_cmakelists)
-
 def format_filelists():
 	format_files(get_file_paths(lc_dir / 'cmake' / 'filelists', 'txt'),
 		FileFormatter.format_filelist)
 
 def format_files(files, fmt_func):
 	for file in sorted(files):
+		if not file.is_file():
+			print(f'{file}: skipped (not found)')
+			continue
 		try:
 			fmt = FileFormatter(file)
 			fmt_func(fmt)
