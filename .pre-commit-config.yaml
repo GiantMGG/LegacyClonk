@@ -1,0 +1,11 @@
+# Pre-commit hooks for LegacyClonk.
+# Install: pip install pre-commit && pre-commit install
+repos:
+  - repo: local
+    hooks:
+      - id: citation-freshness
+        name: citation freshness
+        language: system
+        entry: python3 tools/check_citations.py
+        files: ^docs/.*\.md$
+        pass_filenames: true
