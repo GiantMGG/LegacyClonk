@@ -1516,6 +1516,42 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p_disc.set_defaults(func=cmd_discover)
 
+    p_bulk = sub.add_parser(
+        "bulk-import",
+        help="Bulk-import from a curator-approved manifest + snapshot.",
+    )
+    p_bulk.add_argument(
+        "--manifest",
+        type=Path,
+        default=DEFAULT_MANIFEST,
+        help=f"Path to the curated manifest (default: {DEFAULT_MANIFEST}).",
+    )
+    p_bulk.add_argument(
+        "--snapshot-dir",
+        default=None,
+        help="Path to the ccan-snapshot/ directory (optional; falls back to "
+             "HTTP).",
+    )
+    p_bulk.add_argument(
+        "--content-community",
+        type=Path,
+        default=DEFAULT_CONTENT_COMMUNITY,
+        help="Destination repo root (default: ../content-community).",
+    )
+    p_bulk.add_argument(
+        "--rate-limit",
+        type=float,
+        default=DEFAULT_RATE_LIMIT,
+        help=f"Seconds between requests (default: {DEFAULT_RATE_LIMIT}).",
+    )
+    p_bulk.add_argument(
+        "--failures-log",
+        default="ccan_bulk_failures.jsonl",
+        help="Per-entry failures log path (default: "
+             "ccan_bulk_failures.jsonl).",
+    )
+    p_bulk.set_defaults(func=cmd_bulk_import)
+
     return parser
 
 def main(argv: list[str] | None = None) -> int:
