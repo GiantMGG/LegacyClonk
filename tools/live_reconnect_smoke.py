@@ -200,9 +200,11 @@ def cleanup_port_partition(tc_program: str, use_sudo: bool) -> None:
 def build_engine_args(engine: str, scenario: Path, ticks: int, role: str,
                       tcp_port: int, udp_port: int, config_file: str,
                       player_file: Path | None = None,
-                      log_sync_checks: bool = False) -> list[str]:
+                      log_sync_checks: bool = False,
+                      frame_rate_cap: int = 35) -> list[str]:
     """Build the command-line args for a host or client engine instance."""
     args = [engine, "--console", "--smoke-run", str(ticks),
+            "--frame-rate-cap", str(frame_rate_cap),
             f"/config:{config_file}"]
     if log_sync_checks:
         args.append("--log-sync-checks")

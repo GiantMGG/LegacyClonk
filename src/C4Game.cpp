@@ -1582,6 +1582,7 @@ void C4Game::Default()
 	IsRunning = false;
 	FrameCounter = 0;
 	SmokeRunTicks = 0;  // reset on Clear()->Default() (spec headless-scenario-smoke-harness)
+	FrameRateCap = 0;   // likewise reset (spec frame-rate-cap-engine-option)
 	GameOver = GameOverDlgShown = false;
 	ScenarioFilename[0] = 0;
 	PlayerFilenames[0] = 0;
@@ -1723,8 +1724,11 @@ void C4Game::Ticks()
 	if (FrameCounter % FrameSkip) DoSkipFrame = true;
 	// Control
 	Control.Ticks();
-	// Full speed
-	if (GameGo) Application.NextTick(false); // short-circuit the timer
+	// Full speed: short-circuit the timer (run unbounded) unless an
+	// explicit frame-rate cap is set, in which case let the Delay timer
+	// pace the loop (spec frame-rate-cap-engine-option).
+	if (GameGo && FrameRateCap == 0)
+		Application.NextTick(false); // short-circuit the timer
 	// statistics
 	if (pNetworkStatistics) pNetworkStatistics->ExecuteFrame();
 }
@@ -2805,6 +2809,29 @@ void C4Game::ParseCommandLine(const char *szCmdLine)
 			if (SGetParameter(szCmdLine, iPar + 1, szValue, _MAX_PATH))
 			{
 				SmokeRunTicks = std::atol(szValue);
+				++iPar;  // consume the value token
+			}
+		}
+		// Frame-rate cap (headless pacing; spec frame-rate-cap-engine-option).
+		// Colon form: "--frame-rate-cap:35" / "/frame-rate-cap:35".
+		if (SEqual2NoCase(szParameter, "/frame-rate-cap:")
+		 || SEqual2NoCase(szParameter, "--frame-rate-cap:"))
+		{
+			const char *colon = std::strchr(szParameter, ':');
+			FrameRateCap = colon ? std::atol(colon + 1) : 0;
+			if (FrameRateCap > 0)
+				Application.ResetTimer(static_cast<unsigned int>(1000 / FrameRateCap));
+		}
+		// Two-arg form: "--frame-rate-cap 35" / "/frame-rate-cap 35".
+		if (SEqualNoCase(szParameter, "/frame-rate-cap")
+		 || SEqualNoCase(szParameter, "--frame-rate-cap"))
+		{
+			char szValue[_MAX_PATH + 1];
+			if (SGetParameter(szCmdLine, iPar + 1, szValue, _MAX_PATH))
+			{
+				FrameRateCap = std::atol(szValue);
+				if (FrameRateCap > 0)
+					Application.ResetTimer(static_cast<unsigned int>(1000 / FrameRateCap));
 				++iPar;  // consume the value token
 			}
 		}
