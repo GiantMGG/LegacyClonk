@@ -1073,6 +1073,11 @@ def engine_supports(entry_engine: str, wanted: str) -> bool:
     return False
 
 
+def _toml_escape(s: str) -> str:
+    """Escape a string for inclusion in a double-quoted TOML basic string."""
+    return s.replace("\\", "\\\\").replace('"', '\\"')
+
+
 def _render_discovered_manifest(candidates: list[dict]) -> str:
     """Render a candidate manifest in the ccan_curated.toml schema."""
     lines = [
@@ -1091,7 +1096,7 @@ def _render_discovered_manifest(candidates: list[dict]) -> str:
         ):
             v = c.get(field, "")
             if isinstance(v, str):
-                lines.append(f'{field} = "{v}"\n')
+                lines.append(f'{field} = "{_toml_escape(v)}"\n')
             else:
                 lines.append(f"{field} = {v}\n")
         lines.append("\n")
@@ -1232,7 +1237,7 @@ def write_master_index(path: Path, packs: dict) -> None:
                 continue
             v = block[f]
             if isinstance(v, str):
-                lines.append(f'{f} = "{v}"\n')
+                lines.append(f'{f} = "{_toml_escape(v)}"\n')
             else:
                 lines.append(f"{f} = {v}\n")
         lines.append("\n")
