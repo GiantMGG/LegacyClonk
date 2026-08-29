@@ -24,6 +24,7 @@
 
 #include <cassert>
 #include <cerrno>
+#include <cstring>
 
 #include <fcntl.h>
 #include <format>
@@ -1290,7 +1291,8 @@ void C4NetIOTCP::PackPacket(const C4NetIOPacket &rPacket, StdBuf &rOutBuf)
 
 	// write packet at end of outgoing buffer
 	*rOutBuf.getMPtr<uint8_t>(iPos) = cFirstByte; iPos += sizeof(uint8_t);
-	*rOutBuf.getMPtr<uint32_t>(iPos) = iSize; iPos += sizeof(uint32_t);
+	std::memcpy(rOutBuf.getMPtr(iPos), &iSize, sizeof(iSize));
+	iPos += sizeof(uint32_t);
 	rOutBuf.Write(rPacket, iPos);
 }
 
@@ -1306,7 +1308,7 @@ size_t C4NetIOTCP::UnpackPacket(const StdBuf &IBuf, const C4NetIO::addr_t &addr)
 	uint32_t iPacketSize;
 	if (iPos + sizeof(uint32_t) > IBuf.getSize())
 		return 0;
-	iPacketSize = *IBuf.getPtr<uint32_t>(iPos);
+	std::memcpy(&iPacketSize, IBuf.getPtr(iPos), sizeof(iPacketSize));
 	iPos += sizeof(uint32_t);
 	// packet incomplete?
 	if (iPos + iPacketSize < iPos || iPos + iPacketSize > IBuf.getSize())
