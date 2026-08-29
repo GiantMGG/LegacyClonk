@@ -105,6 +105,13 @@ add_test_target(C4RecordRoundtrip
 	LINK_ENGINE
 )
 
+add_test_target(C4PacketReconn
+	SOURCES
+		"${CMAKE_SOURCE_DIR}/tests/TstC4PacketReconn.cpp"
+		"${CMAKE_SOURCE_DIR}/tests/C4ReconnectHarness.hpp"
+	LINK_ENGINE
+)
+
 # --- Headless scenario smoke harness -------------------------------------
 # Discovers content/**/Tests.c4f/*Smoke.c4s scenarios and registers one
 # CTest entry per scenario. See spec headless-scenario-smoke-harness.

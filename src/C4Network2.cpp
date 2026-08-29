@@ -1046,6 +1046,8 @@ void C4Network2::HandlePacket(char cStatus, const C4PacketBase *pPacket, C4Netwo
 			break;
 		}
 		SendReconnectJoinData(pReassociated, *snap);
+		Logger->info("client {} reassociated via PID_Reconn (snapshot tick {})",
+		             pReassociated->getName(), snap->tick);
 	}
 	break;
 	}
