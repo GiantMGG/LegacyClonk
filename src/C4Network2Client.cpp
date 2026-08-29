@@ -22,6 +22,7 @@
 #include <C4Network2.h>
 #include <C4Network2IO.h>
 #include <C4Network2Stats.h>
+#include <C4Game.h>
 #include <C4GameLobby.h> // fullscreen network lobby
 
 #include <algorithm>
@@ -277,8 +278,18 @@ bool C4Network2Client::AddAddr(const C4Network2Address &addr, bool fAnnounce, bo
 	return true;
 }
 
+// File-local helper: true when the direct-join target resolves to a loopback
+// address. The host never sets DirectJoinAddress, so this returns false for the
+// host → host keeps advertising all addresses (correct: WAN clients need them).
+static bool TargetIsLoopback()
+{
+	return *Game.DirectJoinAddress
+		&& C4Network2HostAddress{StdStrBuf{Game.DirectJoinAddress}}.IsLoopback();
+}
+
 void C4Network2Client::AddLocalAddrs(const std::uint16_t iPortTCP, const std::uint16_t iPortUDP)
 {
+	// 1) Seed the AnyIPv4 wildcard (existing behaviour, line 282).
 	C4NetIO::addr_t addr{C4Network2HostAddress::AnyIPv4};
 
 	if (iPortTCP != 0)
@@ -293,7 +304,28 @@ void C4Network2Client::AddLocalAddrs(const std::uint16_t iPortTCP, const std::ui
 		AddAddr(C4Network2Address(addr, P_UDP), false);
 	}
 
-	for (const auto &ha : C4NetIO::GetLocalAddresses())
+	// 2) Decide which addresses to advertise beyond the wildcard.
+	const auto &bind = Config.Network.BindAddress;
+
+	std::vector<C4Network2HostAddress> hosts;
+	if (!bind.isNull())
+	{
+		// Explicit filter: advertise only the bind address. Synthesize the
+		// literal directly because GetLocalAddresses strips loopback.
+		hosts.push_back(C4Network2HostAddress{bind});
+	}
+	else if (TargetIsLoopback())
+	{
+		// Zero-config default: advertise loopback only.
+		hosts.push_back(C4Network2HostAddress{"127.0.0.1"});
+		hosts.push_back(C4Network2HostAddress{"::1"});
+	}
+	else
+	{
+		hosts = C4NetIO::GetLocalAddresses();
+	}
+
+	for (const auto &ha : hosts)
 	{
 		addr.SetAddress(ha);
 		if (iPortTCP != 0)

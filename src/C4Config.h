@@ -205,6 +205,7 @@ public:
 	bool LeagueServerSignUp;
 	bool UseAlternateServer;
 	int32_t PortTCP, PortUDP, PortDiscovery, PortRefServer;
+	StdStrBuf BindAddress;  // Config.Network.BindAddress: filter advertised client addresses
 	int32_t ControlMode;
 	ValidatedStdStrBuf<C4InVal::VAL_NameNoEmpty> LocalName;
 	ValidatedStdStrBuf<C4InVal::VAL_NameAllowEmpty> Nick;

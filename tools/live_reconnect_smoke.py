@@ -205,6 +205,7 @@ def build_engine_args(engine: str, scenario: Path, ticks: int, role: str,
     """Build the command-line args for a host or client engine instance."""
     args = [engine, "--console", "--smoke-run", str(ticks),
             "--frame-rate-cap", str(frame_rate_cap),
+            "--bind-address", "127.0.0.1",
             f"/config:{config_file}"]
     if log_sync_checks:
         args.append("--log-sync-checks")

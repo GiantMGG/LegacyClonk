@@ -2835,6 +2835,25 @@ void C4Game::ParseCommandLine(const char *szCmdLine)
 				++iPar;  // consume the value token
 			}
 		}
+		// Bind-address filter (spec client-bind-address-fix).
+		// Colon form: "/bind-address:127.0.0.1" / "--bind-address:127.0.0.1".
+		if (SEqual2NoCase(szParameter, "/bind-address:")
+		 || SEqual2NoCase(szParameter, "--bind-address:"))
+		{
+			const char *colon = std::strchr(szParameter, ':');
+			Config.Network.BindAddress.Copy(colon ? colon + 1 : "");
+		}
+		// Two-arg form: "/bind-address 127.0.0.1" / "--bind-address 127.0.0.1".
+		if (SEqualNoCase(szParameter, "/bind-address")
+		 || SEqualNoCase(szParameter, "--bind-address"))
+		{
+			char szValue[_MAX_PATH + 1];
+			if (SGetParameter(szCmdLine, iPar + 1, szValue, _MAX_PATH))
+			{
+				Config.Network.BindAddress.Copy(szValue);
+				++iPar;  // consume the value token
+			}
+		}
 		// Log per-tick sync check fields for deterministic state-hash comparison.
 		if (SEqualNoCase(szParameter, "/log-sync-checks")
 		 || SEqualNoCase(szParameter, "--log-sync-checks"))

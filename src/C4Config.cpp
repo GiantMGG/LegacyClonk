@@ -252,6 +252,7 @@ void C4ConfigNetwork::CompileFunc(StdCompiler *pComp)
 	pComp->Value(mkNamingAdapt(PortUDP,       "PortUDP",       C4NetStdPortUDP,       false, true));
 	pComp->Value(mkNamingAdapt(PortDiscovery, "PortDiscovery", C4NetStdPortDiscovery, false, true));
 	pComp->Value(mkNamingAdapt(PortRefServer, "PortRefServer", C4NetStdPortRefServer, false, true));
+	pComp->Value(mkNamingAdapt(BindAddress, "BindAddress", StdStrBuf{}, false, true));
 
 	pComp->Value(mkNamingAdapt(ControlMode,        "ControlMode",        0,              false, true));
 	pComp->Value(mkNamingAdapt(LocalName,          "LocalName",          "Unknown",      false, true));
