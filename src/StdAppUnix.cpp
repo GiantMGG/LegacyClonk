@@ -20,6 +20,7 @@
 #include "spdlog/common.h"
 
 #include <array>
+#include <csignal>
 #include <string>
 
 #include <poll.h>
@@ -108,6 +109,14 @@ void CStdApp::Init(const int argc, char **const argv)
 {
 	setlocale(LC_ALL, "");
 	setlocale(LC_NUMERIC, "C");
+
+	// A send() to a socket whose peer has closed raises SIGPIPE, whose
+	// default disposition terminates the process. A network engine must
+	// instead see the EPIPE error and handle it as a connection failure
+	// (the IO layer already does). Without this, a client dies the
+	// moment it writes to a connection the host tore down -- e.g. the
+	// SIGSTOP-partitioned live reconnect smoke.
+	signal(SIGPIPE, SIG_IGN);
 
 #ifdef USE_X11
 	// Clear XMODIFIERS as key input gets evaluated twice otherwise
