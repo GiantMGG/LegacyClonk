@@ -197,6 +197,7 @@ jobs:
         with:
           sparse-checkout: |
            autobuild
+           planet
       - uses: actions/download-artifact@v8
         with:
           name: clonk-${{ matrix.config-suffix }}
@@ -221,6 +222,7 @@ jobs:
           Copy-Item -Path ../../clonk* -Destination . -Recurse
           Copy-Item -Path ../../c4group* -Destination . -Recurse
           Copy-Item -Path ../../* -Include @('System.c4g', 'Graphics.c4g') -Destination .
+          Copy-Item -Path ../../planet/gamecontrollerdb.txt -Destination .
 
       - name: Create Full Archive
         run: |
@@ -229,6 +231,7 @@ jobs:
           Copy-Item -Path ../../clonk* -Destination . -Recurse
           Copy-Item -Path ../../c4group* -Destination . -Recurse
           Move-Item -Path ../../*.c4? -Destination .
+          Copy-Item -Path ../../planet/gamecontrollerdb.txt -Destination .
 
       - name: "Linux: Pack Engine As Tarball"
         if: ${{ matrix.os == 'Linux' }}
@@ -266,6 +269,128 @@ jobs:
         with:
           name: lc_full_${{ env.VERSION }}_${{ matrix.platform-suffix }}.tar.gz
           path: output/lc_full_${{ env.VERSION }}_${{ matrix.platform-suffix }}.tar.gz
+
+  publish-portable:
+    name: Publish Portable Archives
+    runs-on: ${{ matrix.runner }}
+    needs: [generate-ci-config, pack-zips]
+    strategy:
+      fail-fast: false
+      max-parallel: 1
+      matrix:
+        include: ${{ fromJson(needs.generate-ci-config.outputs.matrix-release-publish) }}
+    env:
+      VERSION: ${{ needs.generate-ci-config.outputs.buildversion }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          sparse-checkout: |
+            autobuild
+            deps.lock
+      - name: Download engine archive (zip)
+        if: ${{ matrix.os != 'Linux' }}
+        uses: actions/download-artifact@v8
+        with:
+          name: lc_${{ env.VERSION }}_${{ matrix.platform-suffix }}.zip
+          path: portable-src
+      - name: Download full archive (zip)
+        if: ${{ matrix.os != 'Linux' }}
+        uses: actions/download-artifact@v8
+        with:
+          name: lc_full_${{ env.VERSION }}_${{ matrix.platform-suffix }}.zip
+          path: full-src
+      - name: Download engine archive (tarball)
+        if: ${{ matrix.os == 'Linux' }}
+        uses: actions/download-artifact@v8
+        with:
+          name: lc_${{ env.VERSION }}_${{ matrix.platform-suffix }}.tar.gz
+      - name: Download full archive (tarball)
+        if: ${{ matrix.os == 'Linux' }}
+        uses: actions/download-artifact@v8
+        with:
+          name: lc_full_${{ env.VERSION }}_${{ matrix.platform-suffix }}.tar.gz
+      - name: "Linux: Extract staging tarballs"
+        if: ${{ matrix.os == 'Linux' }}
+        run: |
+          mkdir portable-src full-src
+          tar xzf lc_${{ env.VERSION }}_${{ matrix.platform-suffix }}.tar.gz -C portable-src
+          tar xzf lc_full_${{ env.VERSION }}_${{ matrix.platform-suffix }}.tar.gz -C full-src
+      - name: "Linux: Restore executable bit"
+        if: ${{ matrix.os == 'Linux' }}
+        run: |
+          chmod +x portable-src/clonk portable-src/c4group
+          chmod +x full-src/clonk full-src/c4group
+      - name: "macOS: Restore executable bit"
+        if: ${{ matrix.os == 'Mac' }}
+        run: |
+          chmod +x portable-src/clonk.app/Contents/MacOS/clonk portable-src/c4group
+          chmod +x full-src/clonk.app/Contents/MacOS/clonk full-src/c4group
+      - name: Build portable archive
+        run: >
+          autobuild/MakePortableArchive.ps1
+          -Version ${{ env.VERSION }}
+          -PlatformSuffix ${{ matrix.platform-suffix }}
+          -Kind portable
+          -SourceDir portable-src
+          -OutDir out
+          -Commit ${{ github.sha }}
+          -Tag ${{ github.ref_name }}
+      - name: Build full archive
+        run: >
+          autobuild/MakePortableArchive.ps1
+          -Version ${{ env.VERSION }}
+          -PlatformSuffix ${{ matrix.platform-suffix }}
+          -Kind full
+          -SourceDir full-src
+          -OutDir out
+          -Commit ${{ github.sha }}
+          -Tag ${{ github.ref_name }}
+      - name: Publish portable archives
+        uses: ncipollo/release-action@v1.11.2
+        with:
+          artifacts: out/LegacyClonk-*.tar.gz
+          allowUpdates: true
+          artifactErrorsFailBuild: true
+          replacesArtifacts: true
+      - name: Upload per-platform checksum fragment
+        uses: actions/upload-artifact@v7
+        with:
+          name: portable-${{ matrix.config-suffix }}
+          path: out
+
+  publish-portable-sums:
+    name: Publish Portable Checksum Manifest
+    runs-on: ubuntu-latest
+    needs: [publish-portable]
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: 'portable-*'
+      - name: Assemble SHA256SUMS
+        shell: bash
+        run: |
+          cat portable-*/SHA256SUMS.part > SHA256SUMS
+      - name: Verify fragment hashes
+        shell: bash
+        run: |
+          for part in portable-*/SHA256SUMS.part; do
+            (cd "$(dirname "$part")" && sha256sum -c SHA256SUMS.part)
+          done
+      - name: Verify manifest completeness
+        shell: bash
+        run: |
+          LINES=$(wc -l < SHA256SUMS)
+          if [ "$LINES" -ne 12 ]; then
+            echo "SHA256SUMS has $LINES lines, expected 12 (6 publish legs x 2 kinds)" >&2
+            exit 1
+          fi
+      - name: Publish SHA256SUMS
+        uses: ncipollo/release-action@v1.11.2
+        with:
+          artifacts: SHA256SUMS
+          allowUpdates: true
+          artifactErrorsFailBuild: true
+          replacesArtifacts: true
 
   build-combined-update-groups:
     name: Build Combined Update Groups
