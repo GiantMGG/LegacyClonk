@@ -51,7 +51,8 @@ bool C4Reconnect::ConstantTimeEquals(const Token &a, const Token &b)
 	return diff == 0;
 }
 
-bool C4Reconnect::EnterDormancy(C4Network2Client *pClient, time_t now)
+bool C4Reconnect::EnterDormancy(C4Network2Client *pClient, time_t now,
+                                const C4NetIO::addr_t *pLastPeerAddr)
 {
 	if (!enabled || !pClient) return false;
 	// Idempotent per client: a drop tears down several conns in a burst,
@@ -63,6 +64,15 @@ bool C4Reconnect::EnterDormancy(C4Network2Client *pClient, time_t now)
 		if (d.pClient == pClient)
 		{
 			d.deadline = now + static_cast<time_t>(graceSec);
+			// A UDP conn's death re-enters here with its peer addr:
+			// record it (that conn's Peer::Close send counts as the
+			// latest transmission). A null addr (TCP conn death) must
+			// not clobber an already-recorded addr.
+			if (pLastPeerAddr)
+			{
+				d.lastPeerAddr = *pLastPeerAddr;
+				d.lastCloseSend = now;
+			}
 			return true;
 		}
 	}
@@ -72,6 +82,8 @@ bool C4Reconnect::EnterDormancy(C4Network2Client *pClient, time_t now)
 	d.token = gameToken;
 	d.deadline = now + static_cast<time_t>(graceSec);
 	d.pClient = pClient;
+	if (pLastPeerAddr) d.lastPeerAddr = *pLastPeerAddr;
+	d.lastCloseSend = now;
 	dormant.push_back(std::move(d));
 	return true;
 }
@@ -90,6 +102,23 @@ void C4Reconnect::TickDormancy(time_t now, const std::function<void(C4Network2Cl
 		else ++it;
 	}
 	for (C4Network2Client *p : expired) onExpire(p);
+}
+
+void C4Reconnect::RetransmitCloses(time_t now,
+                                   const std::function<void(const C4NetIO::addr_t &)> &sendClose)
+{
+	for (auto &d : dormant)
+	{
+		// No captured UDP addr (TCP-only topology, or the UDP conn
+		// outlived the msg conn): nothing to retransmit to.
+		if (d.lastPeerAddr.IsNull()) continue;
+		// One close datagram per ping interval per dormant client.
+		if (now - d.lastCloseSend < CloseRetransmitIntervalSec) continue;
+		sendClose(d.lastPeerAddr);
+		// Updated regardless of send success: retrying a broken socket
+		// once per second is harmless (keeps the 1 Hz cadence).
+		d.lastCloseSend = now;
+	}
 }
 
 C4Network2Client *C4Reconnect::HandleReconn(const Token &token, int32_t originalClientID,

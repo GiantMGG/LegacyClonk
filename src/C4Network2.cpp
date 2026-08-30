@@ -717,6 +717,14 @@ void C4Network2::Execute()
 					Game.Clients.CtrlRemove(pDormant->getClient(),
 						LoadResStr(C4ResStrTableKey::IDS_MSG_DISCONNECTED));
 				});
+			// QUIC closing state (RFC 9000 §10.2.1): while the client is
+			// dormant, re-send the UDP close at the ping cadence, so a
+			// resumed client's zombie conn is reaped within ~1 s and it
+			// arms + re-dials well inside the grace window. Ordering:
+			// TickDormancy above erases expired entries first, so an
+			// entry expiring this tick is never retransmitted to.
+			Reconnect.RetransmitCloses(time(nullptr),
+				[this](const C4NetIO::addr_t &addr) { NetIO.SendClosePacket(addr); });
 		}
 		// reference
 		if (!iLastReferenceUpdate || time(nullptr) > static_cast<time_t>(iLastReferenceUpdate + C4NetReferenceUpdateInterval))
@@ -1845,7 +1853,9 @@ void C4Network2::OnConnectFail(C4Network2IOConnection *pConn)
 	//  See C4Network2::Join)
 	C4Network2Client *pClient = Clients.GetClientByID(pConn->getClientID());
 	if (pClient && !pClient->isConnected())
-		OnClientDisconnect(pClient);
+		OnClientDisconnect(pClient,
+			pConn->getNetClass() == NetIO.getNetIO(P_UDP)
+				? std::addressof(pConn->getPeerAddr()) : nullptr);
 }
 
 void C4Network2::OnDisconnect(C4Network2Client *pClient, C4Network2IOConnection *pConn)
@@ -1855,7 +1865,9 @@ void C4Network2::OnDisconnect(C4Network2Client *pClient, C4Network2IOConnection 
 
 	// connection lost?
 	if (!pClient->isConnected())
-		OnClientDisconnect(pClient);
+		OnClientDisconnect(pClient,
+			pConn->getNetClass() == NetIO.getNetIO(P_UDP)
+				? std::addressof(pConn->getPeerAddr()) : nullptr);
 }
 
 void C4Network2::OnClientConnect(C4Network2Client *pClient, C4Network2IOConnection *pConn)
@@ -1876,7 +1888,7 @@ void C4Network2::OnClientConnect(C4Network2Client *pClient, C4Network2IOConnecti
 	ResList.OnClientConnect(pConn);
 }
 
-void C4Network2::OnClientDisconnect(C4Network2Client *pClient)
+void C4Network2::OnClientDisconnect(C4Network2Client *pClient, const C4NetIO::addr_t *pLastUDPAddr)
 {
 	// league: Notify regular client disconnect within the game
 	if (pLeagueClient && (isHost() || pClient->isHost())) LeagueNotifyDisconnect(pClient->getID(), C4LDR_ConnectionFailed);
@@ -1893,7 +1905,7 @@ void C4Network2::OnClientDisconnect(C4Network2Client *pClient)
 		// fresh transition, so the smoke's marker count stays 1.
 		const bool wasDormant = pClient->isDormant();
 		if (Reconnect.IsEnabled() && Reconnect.IsTokenMinted() &&
-		    Reconnect.EnterDormancy(pClient, time(nullptr)))
+		    Reconnect.EnterDormancy(pClient, time(nullptr), pLastUDPAddr))
 		{
 			if (!wasDormant)
 				Logger->info("client {} entered dormancy (reconnect grace {}s)",

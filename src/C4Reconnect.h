@@ -31,6 +31,8 @@
 
 #include "StdBuf.h"
 
+#include "C4NetIO.h"
+
 class C4Network2Client;
 class C4Network2IOConnection;
 class C4Rollback;
@@ -39,6 +41,9 @@ class C4Reconnect
 {
 public:
 	static constexpr uint32_t DefaultGraceSec = 120;
+	// Close retransmit cadence (s); one datagram per ping interval
+	// (C4NetPingFreq / 1000, C4Network2IO.h:35).
+	static constexpr time_t CloseRetransmitIntervalSec = 1;
 	using Token = std::array<uint8_t, 16>; // 128-bit
 
 	C4Reconnect() = default;
@@ -56,11 +61,23 @@ public:
 
 	// Host-side dormancy. Transitions pClient to NCS_Dormant and arms a
 	// grace timer. Returns false if disabled (caller should CtrlRemove).
-	bool EnterDormancy(C4Network2Client *pClient, time_t now);
+	// pLastPeerAddr: the dying UDP conn's peer addr (null for non-UDP
+	// conns) -- recorded for the close retransmit below.
+	bool EnterDormancy(C4Network2Client *pClient, time_t now,
+	                   const C4NetIO::addr_t *pLastPeerAddr = nullptr);
 
 	// Host-side per-tick expiry. Invokes onExpire outside the dormant list
 	// so the callback may mutate the client list (e.g. CtrlRemove).
 	void TickDormancy(time_t now, const std::function<void(C4Network2Client *)> &onExpire);
+
+	// Host-side reactive close retransmit (QUIC closing state, RFC 9000
+	// §10.2.1): while a client is dormant, re-send one raw IPID_Close
+	// datagram to its recorded UDP peer addr per ping interval, so a
+	// resumed client's zombie conn is reaped within ~1 s and it arms +
+	// re-dials well inside the grace window. Entries without a captured
+	// addr (TCP-only topology) are skipped.
+	void RetransmitCloses(time_t now,
+	                       const std::function<void(const C4NetIO::addr_t &)> &sendClose);
 
 	// Host-side reconnect handshake. Looks up the dormant client by
 	// originalClientID, constant-time-compares the token, re-associates
@@ -90,6 +107,13 @@ private:
 		Token    token{};
 		time_t   deadline{0};
 		C4Network2Client *pClient{nullptr};
+		// UDP addr the original IPID_Close was sent to. Null addr =
+		// not captured (TCP-only topology, or the UDP conn outlived
+		// the msg conn past the drop burst).
+		C4NetIO::addr_t lastPeerAddr{};
+		// Wall-clock of the last close send (the original Peer::Close
+		// send counts as the first transmission).
+		time_t lastCloseSend{0};
 	};
 
 	bool     enabled{false};

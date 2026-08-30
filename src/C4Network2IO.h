@@ -143,6 +143,10 @@ public:
 	void SendPuncherPacket(const C4NetpuncherPacket &, C4Network2HostAddress::AddressFamily family);
 	void Punch(const C4NetIO::addr_t &); // Sends a ping packet
 
+	// reactive close retransmit for dormant reconnect clients
+	// (no-op when UDP is not initialized)
+	void SendClosePacket(const C4NetIO::addr_t &addr);
+
 	// stuff
 	C4NetIO *getNetIO(C4Network2IOProtocol eProt); // by both
 	const char *getNetIOName(C4NetIO *pNetIO);

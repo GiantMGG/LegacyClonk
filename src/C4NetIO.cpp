@@ -3281,6 +3281,18 @@ bool C4NetIOUDP::SendDirect(C4NetIOPacket &&rPacket) // (mt-safe)
 	return C4NetIOSimpleUDP::Send(C4NetIOPacket(rPacket.getRef(), toaddr));
 }
 
+bool C4NetIOUDP::SendClosePacket(const addr_t &to) // (mt-safe)
+{
+	// Byte-identical to the close Peer::Close emits, so the receiver-side
+	// PeerAddr check (Peer::OnRecv, case IPID_Close) passes on the
+	// dormant client's zombie conn: retransmit == original close.
+	ClosePacket Pkt;
+	Pkt.StatusByte = IPID_Close;
+	Pkt.Nr = 0;
+	Pkt.Addr = to;
+	return SendDirect(C4NetIOPacket(&Pkt, sizeof(Pkt), false, to));
+}
+
 bool C4NetIOUDP::DoLoopbackTest()
 {
 	// (try to) enable loopback

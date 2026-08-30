@@ -399,7 +399,7 @@ protected:
 	void OnConnectFail(C4Network2IOConnection *pConn);
 	void OnDisconnect(C4Network2Client *pClient, C4Network2IOConnection *pConn);
 	void OnClientConnect(C4Network2Client *pClient, C4Network2IOConnection *pConn);
-	void OnClientDisconnect(C4Network2Client *pClient);
+	void OnClientDisconnect(C4Network2Client *pClient, const C4NetIO::addr_t *pLastUDPAddr = nullptr);
 
 	void SendJoinData(C4Network2Client *pClient);
 	void SendReconnectJoinData(C4Network2Client *pClient, const C4Reconnect::Snapshot &snap);

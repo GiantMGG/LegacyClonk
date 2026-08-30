@@ -464,6 +464,13 @@ void C4Network2IO::Punch(const C4NetIO::addr_t &puncheeAddr)
 	dynamic_cast<C4NetIOUDP *>(pNetIO_UDP)->SendDirect(MkC4NetIOPacket(PID_Pong, C4PacketPing{}, puncheeAddr));
 }
 
+void C4Network2IO::SendClosePacket(const C4NetIO::addr_t &addr)
+{
+	if (!pNetIO_UDP)
+		return;
+	dynamic_cast<C4NetIOUDP *>(pNetIO_UDP)->SendClosePacket(addr);
+}
+
 void C4Network2IO::SendPuncherPacket(const C4NetpuncherPacket &p, const C4Network2HostAddress::AddressFamily family)
 {
 	if (!pNetIO_UDP) return;
