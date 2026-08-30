@@ -8,6 +8,17 @@ snapshot-restore -> state-hash-convergence path.
 
 See spec live-network-test-harness.
 
+SIGSTOP-fallback pathology (documented 2026-08-30, cycle 79): under the
+SIGSTOP fallback the frozen client's kernel socket buffers overflow under
+the host's control-recovery bursts, which loses the single best-effort
+IPID_Close (~10% of runs pre-fix). Under the preferred tc-by-port
+partition the client never freezes and processes the close reliably.
+CI must guarantee tc; the SIGSTOP fallback's loss is an environment
+pathology, while the underlying engine race (single close loss =>
+zombie conn => late arm => grace-expiry rejection) is real for
+production UDP loss. The cycle-79 engine fix (host re-sends IPID_Close
+once per second while the client is dormant) addresses the race itself.
+
 Exit codes:
   0 -- test passed (markers present, both peers exit 0, no desync/fatal).
   1 -- test failed (markers missing, non-zero peer exit, desync, timeout).
