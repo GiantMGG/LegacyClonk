@@ -639,6 +639,12 @@ bool C4Game::Init()
 	}
 
 	Application.SetGameTickDelay(defaultIngameGameTickDelay);
+	// SetGameTickDelay calls ResetTimer, clobbering a --frame-rate-cap
+	// parsed earlier (both land in Application.Delay). Re-apply the cap so
+	// the headless smoke loop is paced at the requested rate.
+	// Spec: frame-rate-cap-engine-option (cycle-64 deferred fix).
+	if (FrameRateCap > 0)
+		Application.ResetTimer(static_cast<unsigned int>(1000 / FrameRateCap));
 	// now free all startup gfx to make room for game gfx
 	C4Startup::Unload();
 
