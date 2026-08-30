@@ -112,6 +112,11 @@ add_test_target(C4PacketReconn
 	LINK_ENGINE
 )
 
+add_test_target(C4MaterialReactions
+	SOURCES "${CMAKE_SOURCE_DIR}/tests/TstC4MaterialReactions.cpp"
+	LINK_ENGINE
+)
+
 # --- Headless scenario smoke harness -------------------------------------
 # Discovers content/**/Tests.c4f/*Smoke.c4s scenarios and registers one
 # CTest entry per scenario. See spec headless-scenario-smoke-harness.

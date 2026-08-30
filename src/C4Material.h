@@ -95,6 +95,7 @@ public:
 	int32_t MaxAirSpeed;
 	int32_t MaxSlide;
 	int32_t WindDrift;
+	int32_t Buoyancy; // upward acceleration in percent of gravity (PXS only; 0 = default gravity)
 	int32_t Inflammable;
 	int32_t Incindiary;
 	int32_t Extinguisher;

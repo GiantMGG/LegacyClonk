@@ -110,6 +110,7 @@ void C4MaterialCore::Clear()
 	MaxAirSpeed = 0;
 	MaxSlide = 0;
 	WindDrift = 0;
+	Buoyancy = 0;
 	Inflammable = 0;
 	Incindiary = 0;
 	Extinguisher = 0;
@@ -190,6 +191,7 @@ void C4MaterialCore::CompileFunc(StdCompiler *pComp)
 		pComp->Value(mkNamingAdapt(MaxAirSpeed,                                                      "MaxAirSpeed",         0));
 		pComp->Value(mkNamingAdapt(MaxSlide,                                                         "MaxSlide",            0));
 		pComp->Value(mkNamingAdapt(WindDrift,                                                        "WindDrift",           0));
+		pComp->Value(mkNamingAdapt(Buoyancy,                                                        "Buoyancy",            0));
 		pComp->Value(mkNamingAdapt(Inflammable,                                                      "Inflammable",         0));
 		pComp->Value(mkNamingAdapt(Incindiary,                                                       "Incindiary",          0));
 		pComp->Value(mkNamingAdapt(Corrode,                                                          "Corrode",             0));

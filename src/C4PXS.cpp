@@ -61,8 +61,15 @@ void C4PXS::Execute(C4Section &section)
 		Deactivate(section); return;
 	}
 
-	// Gravity
-	ydir += section.Landscape.Gravity;
+	// Gravity / buoyancy: Buoyancy is upward acceleration in percent of
+	// gravity (150 = 1.5x gravity upward). 0 (default) applies full gravity;
+	// buoyant PXS get no gravity at all, only the buoyant acceleration.
+	// Integer-only math keeps this sync-critical path deterministic.
+	const int32_t iBuoyancy = section.Material.Map[Mat].Buoyancy;
+	if (iBuoyancy)
+		ydir -= (section.Landscape.Gravity * iBuoyancy) / 100; // buoyant: rise
+	else
+		ydir += section.Landscape.Gravity; // default: fall
 
 	if (section.Landscape.GetDensity(iX, iY + 1) < section.Material.Map[Mat].Density)
 	{
