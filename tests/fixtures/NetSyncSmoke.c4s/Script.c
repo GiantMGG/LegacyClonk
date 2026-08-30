@@ -21,6 +21,17 @@ static g_iStep;
 protected func Initialize()
 {
 	g_iStep = 0;
+	// Script observer player: the crew-less TestPlayers passed by the
+	// smoke orchestrators are eliminated on join, and once every player
+	// is eliminated C4Game::GameOverCheck fires GameOver at frame 35 --
+	// ending the run long before the --smoke-run bound and defeating the
+	// reconnect cycle's timing budget. This script player is never
+	// elimination-checked, so the game runs to the bound. idExtra is
+	// unused metadata; ROCK is a valid C4ID even when no matching
+	// definition is loaded. Precedent: Hazard.c4d AIPlayer.c4d.
+	CreateScriptPlayer("SmokeObserver", RGB(255, 255, 255), 0,
+	                   CSPF_NoScenarioInit | CSPF_NoEliminationCheck,
+	                   ROCK);
 	// Run one activity step every 35 frames (~1s at 35 fps).
 	AddEffect("RunTest", this, 1, 35, this);
 	return true;
