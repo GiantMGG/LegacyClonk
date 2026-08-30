@@ -1902,7 +1902,7 @@ bool C4Game::SaveData(C4Group &hGroup, bool fInitial, bool fSaveExact)
 	// Initial?
 	if (fInitial && GameText.GetData())
 	{
-		// HACK: Reinsert player sections, if any.
+		// HACK(legacyclonk/LegacyClonk#000): Reinsert player sections, if any.
 		const char *pPlayerSections = strstr(GameText.GetData(), "[Player");
 		if (pPlayerSections)
 		{

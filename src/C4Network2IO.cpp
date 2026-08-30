@@ -405,7 +405,7 @@ bool C4Network2IO::Broadcast(const C4NetIOPacket &rPkt)
 
 bool C4Network2IO::BroadcastMsg(const C4NetIOPacket &rPkt) // by both
 {
-	// TODO: ugly algorithm. do better
+	// TODO(legacyclonk/LegacyClonk#000): ugly algorithm. do better
 
 	// begin broadcast
 	BeginBroadcast(false);
@@ -989,7 +989,7 @@ void C4Network2IO::HandlePacket(char cStatus, const C4PacketBase *pPacket, C4Net
 	{
 		if (!pConn->isOpen()) break;
 		// conn not sent? That's fishy.
-		// FIXME: Note this happens if the peer has exclusive connection mode on.
+		// FIXME(legacyclonk/LegacyClonk#000): Note this happens if the peer has exclusive connection mode on.
 		if (!pConn->isConnSent())
 		{
 			pConn->Close();

@@ -1081,7 +1081,7 @@ void C4Network2::HandleLobbyPacket(char cStatus, const C4PacketBase *pBasePkt, C
 
 bool C4Network2::HandlePuncherPacket(const C4NetpuncherPacket::uptr pkt, const C4Network2HostAddress::AddressFamily family)
 {
-	// TODO: is this all thread-safe?
+	// TODO(legacyclonk/LegacyClonk#000): is this all thread-safe?
 	assert(pkt);
 #pragma push_macro("GETPKT")
 #undef GETPKT

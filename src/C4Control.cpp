@@ -674,7 +674,7 @@ void C4ControlClientRemove::Execute(const std::shared_ptr<spdlog::logger> &) con
 	C4Client *pClient = Game.Clients.getClientByID(iID);
 	if (!pClient)
 	{
-		// TODO: in replays, client list is not yet synchronized
+		// TODO(legacyclonk/LegacyClonk#000): in replays, client list is not yet synchronized
 		// remove players anyway
 		if (Game.Control.isReplay()) Game.Players.RemoveAtClient(iID, true);
 		return;

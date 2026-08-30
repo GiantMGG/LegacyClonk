@@ -618,7 +618,7 @@ bool C4GameSaveSavegame::OnSaving()
 	// synchronization to sync player files on all clients
 	// this resets playing times and stores them in the players?
 	// but doing so would be too late when the queue is executed!
-	// TODO: remove it? (-> PeterW ;))
+	// TODO(legacyclonk/LegacyClonk#000): remove it? (-> PeterW ;))
 	if (Game.Network.isEnabled())
 		Game.Input.Add(CID_Synchronize, new C4ControlSynchronize(true));
 	else
