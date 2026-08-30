@@ -1937,10 +1937,15 @@ void C4Network2::OnClientDisconnect(C4Network2Client *pClient)
 bool C4Network2::TryReconnectToHost()
 {
 	// Called from the host-lost branch of OnClientDisconnect (client
-	// side). Arms the reconnect when the local client holds a token and
-	// keeps it armed while the grace window is open. Returns true while
-	// the reconnect is in progress -- the caller must then skip the
-	// host-lost cleanup.
+	// side). Arms the reconnect when reconnect is locally enabled, the
+	// local client holds a token, and the grace window is open. Returns
+	// true while the reconnect is in progress -- the caller must then
+	// skip the host-lost cleanup.
+	// The IsEnabled() gate is the client-side opt-in (spec §2.2): in a
+	// mixed config (host enabled, client disabled) the client still
+	// receives a token in fresh-join JoinData, but must take the regular
+	// host-lost teardown instead of arming the reconnect.
+	if (!Reconnect.IsEnabled()) return false; // client-side opt-in
 	C4Network2Client *pLocal = Clients.GetLocal();
 	if (!pLocal || !pLocal->HasReconnectToken()) return false;
 	if (!fReconnectInProgress)
