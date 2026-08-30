@@ -2087,7 +2087,6 @@ static C4Object *FnFindBase(C4AulContext *cthr, C4ValueInt iOwner, C4ValueInt iI
 	return cthr->GetSection().FindBase(iOwner, iIndex);
 }
 
-
 enum class C4FindObjectSectionInfo : std::int32_t
 {
 	AnySection = -1,
@@ -2451,6 +2450,11 @@ static C4ValueInt FnGetMaterialCount(C4AulContext *cthr, C4ValueInt iMaterial, b
 		return section.Landscape.MatCount[iMaterial];
 	else
 		return section.Landscape.EffectiveMatCount[iMaterial];
+}
+
+static C4ValueInt FnGetPXSCount(C4AulContext *cthr)
+{
+	return cthr->GetSection().PXS.Count;
 }
 
 static C4ValueInt FnGetMaterial(C4AulContext *cthr, C4ValueInt x, C4ValueInt y)
@@ -7543,6 +7547,7 @@ void InitFunctionMap(C4AulScriptEngine *pEngine)
 	AddFunc(pEngine, "GetMaterial",                     FnGetMaterial);
 	AddFunc(pEngine, "GetTexture",                      FnGetTexture);
 	AddFunc(pEngine, "GetMaterialCount",                FnGetMaterialCount);
+	AddFunc(pEngine, "GetPXSCount",                    FnGetPXSCount);
 	AddFunc(pEngine, "GBackSolid",                      FnGBackSolid);
 	AddFunc(pEngine, "GBackSemiSolid",                  FnGBackSemiSolid);
 	AddFunc(pEngine, "GBackLiquid",                     FnGBackLiquid);
