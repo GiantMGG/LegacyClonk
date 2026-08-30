@@ -269,7 +269,7 @@ int main(int argc, char *argv[])
 	signal(SIGTERM, crash_handler);
 #endif
 
-	// FIXME: This should only be done in developer mode.
+	// FIXME(legacyclonk/LegacyClonk#000): This should only be done in developer mode.
 #ifdef WITH_DEVELOPER_MODE
 	gdk_set_allowed_backends("x11");
 	gtk_init(&argc, &argv);

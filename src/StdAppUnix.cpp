@@ -391,7 +391,7 @@ C4AppHandleResult CStdApp::HandleMessage(const unsigned int timeout, const bool 
 
 	if (timeoutHandle && !timeoutElapsed)
 	{
-		// FIXME: do not add a new timeout instead of deleting the old one in the next call
+		// FIXME(legacyclonk/LegacyClonk#000): do not add a new timeout instead of deleting the old one in the next call
 		g_source_remove(timeoutHandle);
 	}
 
@@ -697,7 +697,7 @@ void CStdApp::HandleXMessage()
 
 	case ButtonPress:
 		// We can take this directly since there are no key presses
-		// involved. TODO: We probably need to correct button state
+		// involved. TODO(legacyclonk/LegacyClonk#000): We probably need to correct button state
 		// here though.
 		KeyMask = event.xbutton.state;
 		LastEventTime = event.xbutton.time;

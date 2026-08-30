@@ -1452,7 +1452,7 @@ static std::optional<C4ValueInt> FnGetValue(C4AulContext *cthr, C4Object *pObj, 
 		}
 		else
 		{
-			return {}; // FIXME
+			return {}; // FIXME(legacyclonk/LegacyClonk#000)
 		}
 	}
 

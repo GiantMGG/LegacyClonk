@@ -377,7 +377,7 @@ std::vector<C4Network2HostAddress> C4NetIO::GetLocalAddresses(bool unsorted)
 // Orders connection addresses to optimize joining.
 void C4NetIO::SortAddresses(std::vector<C4Network2Address> &addrs)
 {
-	// TODO: Maybe use addresses from local client to avoid the extra system calls.
+	// TODO(legacyclonk/LegacyClonk#000): Maybe use addresses from local client to avoid the extra system calls.
 	return ::SortAddresses(addrs, ContainsGlobalIpv6(C4NetIO::GetLocalAddresses(true)), std::mem_fn(static_cast<const addr_t &(C4Network2Address::*)() const>(&C4Network2Address::GetAddr)));
 }
 
@@ -1613,7 +1613,7 @@ bool C4NetIOSimpleUDP::InitBroadcast(addr_t *pBroadcastAddr)
 	// set up multicast group information
 	this->MCAddr = *pBroadcastAddr;
 	MCGrpInfo.ipv6mr_multiaddr = static_cast<sockaddr_in6>(MCAddr).sin6_addr;
-	// TODO: do multicast on all interfaces?
+	// TODO(legacyclonk/LegacyClonk#000): do multicast on all interfaces?
 	MCGrpInfo.ipv6mr_interface = 0; // Default interface
 
 	// join multicast group
@@ -2146,7 +2146,7 @@ bool C4NetIOUDP::InitBroadcast(addr_t *pBroadcastAddr)
 		// 32 bit group id: search for a free one
 		for (int iRetries = 1000; iRetries; iRetries--)
 		{
-			const auto rnd = static_cast<std::uint32_t>(std::rand()); // FIXME: better replacement for UnsyncedRandom()?
+			const auto rnd = static_cast<std::uint32_t>(std::rand()); // FIXME(legacyclonk/LegacyClonk#000): better replacement for UnsyncedRandom()?
 			std::memcpy(addrgen, &rnd, sizeof(rnd));
 
 			// "high-order bit of the Group ID will be the same value as the T flag"

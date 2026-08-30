@@ -16,7 +16,9 @@ jobs:
   freebsd:
     name: FreeBSD 14.2 (console-only)
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    # Cache-miss runs build cmake 4 from source plus the engine + tests;
+    # 30 minutes is too tight for that.
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
         with:
@@ -34,6 +36,11 @@ jobs:
             # FreeBSD ports install headers/libs under /usr/local; CMake does
             # not search there by default, so we pass -DCMAKE_PREFIX_PATH=/usr/local.
             pkg update -f
+            # Package names verified against the FreeBSD 14.2 amd64 package
+            # index (pkg.freebsd.org/FreeBSD:14:amd64/latest): there is no
+            # `zlib` package (the base system provides libz), `fmtlib` is
+            # `libfmt`, and console-only builds still hard-require
+            # `jpeg-turbo` and `png` (FindJPEG/FindPNG are REQUIRED).
             pkg install -y \
               cmake \
               ninja \
@@ -41,12 +48,22 @@ jobs:
               pkgconf \
               openssl \
               curl \
-              zlib \
-              fmtlib \
+              jpeg-turbo \
+              png \
+              libfmt \
               libiconv \
               miniupnpc \
               spdlog \
               catch2
+            # FreeBSD has no cmake 4 package (repo ships 3.31.12) but the
+            # project requires CMake >= 4.0 — build it from source when the
+            # installed cmake is too old.
+            if ! cmake --version | grep -q '^cmake version 4'; then
+              fetch -o cmake.tar.gz https://github.com/Kitware/CMake/releases/download/v4.4.2/cmake-4.4.2.tar.gz
+              tar xf cmake.tar.gz
+              cd cmake-4.4.2 && ./bootstrap --prefix=/usr/local && make -j$(sysctl -n hw.ncpu) && make install
+              cd .. && rm -rf cmake-4.4.2 cmake.tar.gz
+            fi
           run: |
             set -euo pipefail
             cd "$GITHUB_WORKSPACE"
@@ -97,15 +114,20 @@ jobs:
             set -euo pipefail
             # OpenBSD's package manager is pkg_add; packages live under /usr/local.
             # The base-OS Clang has incomplete C++23 support — see docs/BSD_PORT.md.
+            # Package names verified against the OpenBSD 7.9 amd64 package index:
+            #   - no `zlib` package (base provides libz), no `pkgconf`,
+            #     no standalone `openssl` (ambiguous in the 7.9 repo; base
+            #     LibreSSL satisfies FindOpenSSL), `fmtlib` is `fmt`,
+            #   - console-only builds still hard-require `jpeg` and `png`
+            #     (FindJPEG/FindPNG are REQUIRED when USE_WIC is off).
             pkg_add -I -v \
               cmake \
               ninja \
               git \
-              pkgconf \
-              openssl \
               curl \
-              zlib \
-              fmtlib \
+              jpeg \
+              png \
+              fmt \
               libiconv \
               miniupnpc \
               spdlog \
