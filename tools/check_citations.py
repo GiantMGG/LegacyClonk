@@ -2,8 +2,9 @@
 """Lint file:line citation freshness in docs/.
 
 Scans docs/**/*.md for backtick-wrapped file:line and file:line-line
-citations, resolves the cited file against src/, and verifies the cited
-line(s) are within the file's current bounds.
+citations (cited-file extensions: cpp, h, c, cc, hpp, md, txt), resolves
+the cited file against src/, and verifies the cited line(s) are within
+the file's current bounds.
 
 Usage:
     python3 tools/check_citations.py [OPTIONS] [PATH...]
@@ -31,9 +32,10 @@ REPO_ROOT = Path(__file__).resolve().parent.parent  # LegacyClonk/
 DEFAULT_ALLOWLIST = REPO_ROOT / "tools" / "citation-allowlist.txt"
 
 # Backtick-wrapped citation: `file.ext:NNN` or `file.ext:NNN-MMM`
+# (ext one of: cpp, h, c, cc, hpp, md, txt)
 CITE_RE = re.compile(
     r"`"
-    r"([^`]+\.(?:cpp|h|c|cc|hpp))"
+    r"([^`]+\.(?:cpp|h|c|cc|hpp|md|txt))"
     r":(\d+)"
     r"(?:-(\d+))?"
     r"`"
@@ -213,7 +215,10 @@ def run(scan_targets: list[Path], allowlist: set[str], budget: int, advisory: bo
 
 def main() -> int:
     parser = argparse.ArgumentParser(
-        description="Lint file:line citation freshness in docs/.",
+        description=(
+            "Lint file:line citation freshness in docs/. "
+            "Cited-file extensions: cpp, h, c, cc, hpp, md, txt."
+        ),
     )
     parser.add_argument("paths", nargs="*", default=["docs"],
                         help="doc files/dirs to scan (default: docs)")
