@@ -878,8 +878,14 @@ bool C4Game::GameOverCheck()
 	if (Control.isReplay()) return false;
 
 	// All players eliminated: game over
-	if (!Players.GetCountNotEliminated())
-		fDoGameOver = true;
+	// Smoke-run mode: playerless smoke scenarios must survive to the
+	// --smoke-run N tick cap (or their own GameOver() call); the
+	// elimination auto-game-over would quit them at the first 35-tick
+	// boundary. Script GameOver() is unaffected (FnGameOver routes
+	// through DoGameOver directly).
+	if (!SmokeRunActive())
+		if (!Players.GetCountNotEliminated())
+			fDoGameOver = true;
 
 	// Cooperative game over (obsolete with new game goal objects, kept for
 	// downward compatibility with CreateObjects,ClearObjects,ClearMaterial settings)
