@@ -686,6 +686,13 @@ void C4Network2::Execute()
 	// client connections
 	Clients.DoConnectAttempts();
 
+	// Client-side reconnect (spec: live-reconnect-smoke-verification):
+	// DoConnectAttempts above re-dials the retained host addresses; once
+	// the fresh msg connection is open, send the PID_Reconn handshake
+	// exactly once per armed reconnect.
+	if (fReconnectInProgress && !isHost() && !fReconnectSent)
+		SendReconnIfConnected();
+
 	// status reached?
 	CheckStatusReached();
 
@@ -791,6 +798,9 @@ void C4Network2::Clear()
 	NetIO.Clear();
 	// reconnect: rotate the game token and drop dormant state. Spec: reconnect.
 	Reconnect.Clear();
+	// Client-side reconnect state (spec: live-reconnect-smoke-verification).
+	fReconnectInProgress = false;
+	fReconnectSent = false;
 	// clear ressources
 	ResList.Clear();
 	// clear password
@@ -1669,6 +1679,15 @@ void C4Network2::HandleJoinData(const C4PacketJoinData &rPkt)
 	{
 		Logger->info("Could not find local client in join data!"); Clear(); return;
 	}
+	// Store the reconnect token (spec: live-reconnect-smoke-verification).
+	// Only fresh joins carry the host-minted token; reconnect join data
+	// carries a zero token and is routed to HandleReconnectJoinData before
+	// this point, so the fresh-join token survives across the reconnect.
+	if (C4Network2Client *pLocalNetClient = Clients.GetLocal();
+		pLocalNetClient && rPkt.GetReconnectToken() != C4Reconnect::Token{})
+	{
+		pLocalNetClient->SetReconnectToken(rPkt.GetReconnectToken());
+	}
 	// save back dynamic data
 	ResDynamic = rPkt.getDynamicCore();
 	iDynamicTick = rPkt.getStartCtrlTick();
@@ -1891,12 +1910,62 @@ void C4Network2::OnClientDisconnect(C4Network2Client *pClient)
 	// host disconnected? Clear up#
 	if (!isHost() && pClient->isHost())
 	{
+		// Reconnect (spec: live-reconnect-smoke-verification): while a
+		// token-holding reconnect is armed and inside its grace window,
+		// skip the host-lost teardown so the retained host client entry
+		// (with its address list) lets DoConnectAttempts re-dial.
+		if (TryReconnectToHost())
+			return;
 		const std::string msg{LoadResStr(C4ResStrTableKey::IDS_NET_HOSTDISCONNECTED, pClient->getName())};
 		LogNTr(msg);
 		// host connection lost: clear up everything
 		Game.RoundResults.EvaluateNetwork(C4RoundResults::NR_NetError, msg.c_str());
 		Clear();
 	}
+}
+
+bool C4Network2::TryReconnectToHost()
+{
+	// Called from the host-lost branch of OnClientDisconnect (client
+	// side). Arms the reconnect when the local client holds a token and
+	// keeps it armed while the grace window is open. Returns true while
+	// the reconnect is in progress -- the caller must then skip the
+	// host-lost cleanup.
+	C4Network2Client *pLocal = Clients.GetLocal();
+	if (!pLocal || !pLocal->HasReconnectToken()) return false;
+	if (!fReconnectInProgress)
+	{
+		fReconnectInProgress = true;
+		fReconnectSent = false;
+		pLocal->SetReconnectDeadline(time(nullptr) + Reconnect.GetGraceSec());
+		Logger->info("host connection lost; reconnect armed (grace {}s)",
+		             Reconnect.GetGraceSec());
+	}
+	if (time(nullptr) < pLocal->GetReconnectDeadline()) return true;
+	// Grace expired: give up; the caller falls through to the regular
+	// host-lost cleanup.
+	fReconnectInProgress = false;
+	fReconnectSent = false;
+	return false;
+}
+
+void C4Network2::SendReconnIfConnected()
+{
+	// Sends the PID_Reconn handshake once the re-dialled host msg
+	// connection is open. Exactly one send per armed reconnect: the host
+	// erases the dormant entry on a successful HandleReconn, so a
+	// duplicate PID_Reconn would be rejected and the connection closed.
+	C4Network2Client *pLocal = Clients.GetLocal();
+	C4Network2Client *pHost = Clients.GetHost();
+	if (!pLocal || !pHost) return;
+	C4Network2IOConnection *pConn = pHost->getMsgConn();
+	if (!pConn || !pConn->isOpen()) return;
+	fReconnectSent = true;
+	const int32_t lastConfirmedCtrlTick = pControl ? pControl->GetControlReady() : -1;
+	C4PacketReconn pkt{pLocal->GetReconnectToken(), pLocal->getID(), lastConfirmedCtrlTick};
+	Logger->info("sending PID_Reconn (client {}, last confirmed ctrl tick {})",
+	             pkt.GetOriginalClientID(), pkt.GetLastConfirmedCtrlTick());
+	Clients.SendMsgToHost(MkC4NetIOPacket(PID_Reconn, pkt));
 }
 
 void C4Network2::SendJoinData(C4Network2Client *pClient)
@@ -1980,6 +2049,11 @@ void C4Network2::HandleReconnectJoinData(const C4PacketJoinData &rPkt)
 	C4Network2Client *pLocal = Clients.GetLocal();
 	if (pLocal) pLocal->SetStatus(NCS_Chasing);
 	if (!iLastChaseTargetUpdate) iLastChaseTargetUpdate = time(nullptr);
+	// Reassociation complete: clear the client-side reconnect state so a
+	// later drop can re-arm (the host re-dormants on the next drop, so a
+	// new PID_Reconn is accepted).
+	fReconnectInProgress = false;
+	fReconnectSent = false;
 }
 
 C4Network2Res::Ref C4Network2::RetrieveRes(const C4Network2ResCore &Core, int32_t iTimeoutLen, const char *szResName, bool fWaitForCore)

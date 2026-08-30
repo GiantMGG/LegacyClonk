@@ -247,6 +247,10 @@ protected:
 	// delayed activation request?
 	bool fDelayedActivateReq;
 
+	// client-side reconnect state (spec: live-reconnect-smoke-verification)
+	bool fReconnectInProgress{false};
+	bool fReconnectSent{false};
+
 	// voting
 	C4Control Votes;
 	class C4VoteDialog *pVoteDialog;
@@ -400,6 +404,9 @@ protected:
 	void SendJoinData(C4Network2Client *pClient);
 	void SendReconnectJoinData(C4Network2Client *pClient, const C4Reconnect::Snapshot &snap);
 	void HandleReconnectJoinData(const class C4PacketJoinData &rPkt);
+
+	bool TryReconnectToHost();
+	void SendReconnIfConnected();
 
 	// ressource list
 	bool CreateDynamic(bool fInit);
