@@ -42,7 +42,11 @@ DORMANCY_MARKER = "entered dormancy"
 REASSOC_MARKER = "reassociated via PID_Reconn"
 
 # Fatal markers mirrored from the smoke_* CTest FAIL_REGULAR_EXPRESSION.
-FATAL_MARKERS = ("FatalError", "[error]", "[fatal]")
+# The engine's fatal path (LogFatalNTr / AddFatalError) logs at the
+# critical level ("[critical] ..."), and FatalError covers scenario-level
+# fatal calls. A plain "[error]" match would over-trigger on benign
+# error-level lines (parser DebugLog notes, UPnP port-mapping failures).
+FATAL_MARKERS = ("FatalError", "[critical]")
 
 DEFAULT_PLAYER_FILE = (
     Path(__file__).resolve().parent.parent
@@ -106,17 +110,19 @@ def parse_sync_checks(log_text: str) -> dict[int, dict[str, int]]:
 
 def compare_sync_checks(host_checks: dict[int, dict[str, int]],
                         client_checks: dict[int, dict[str, int]]) -> list[str]:
-    """Compare host and client sync checks per frame. Returns divergences."""
+    """Compare host and client sync checks per frame. Returns divergences.
+
+    Only frames that BOTH peers logged are compared. The reconnect flow
+    inherently leaves a coverage hole in the client's SyncChecks (the
+    SIGSTOP freeze, then the snapshot restore jumping its frame counter
+    past the frozen window), so frames logged by only one side are not
+    divergences -- a real desync shows up as a hash mismatch on the
+    frames both peers did log.
+    """
     divergences: list[str] = []
-    for frame in sorted(set(host_checks) | set(client_checks)):
-        h = host_checks.get(frame)
-        c = client_checks.get(frame)
-        if h is None:
-            divergences.append(f"Frame {frame}: host missing")
-            continue
-        if c is None:
-            divergences.append(f"Frame {frame}: client missing")
-            continue
+    for frame in sorted(set(host_checks) & set(client_checks)):
+        h = host_checks[frame]
+        c = client_checks[frame]
         for field in h:
             if h[field] != c.get(field):
                 divergences.append(
