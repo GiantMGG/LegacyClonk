@@ -94,6 +94,7 @@ nav:
       - Functions: reference/functions/index.md
       - Constants: reference/constants.md
       - DefCore.txt fields: reference/defcore.md
+      - Material reactions: reference/materials.md
 
 extra:
   version:
