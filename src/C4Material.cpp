@@ -755,6 +755,21 @@ bool C4MaterialMap::mrfReact(C4MaterialReaction *pReaction, C4Section &section, 
 	// reaction reports success (mover + neighbor -> LSProduct pixel).
 	if (evEvent == meeMassMove) return true;
 
+	if (evEvent == meePXSPos)
+	{
+		// meePXSPos serves two callers: the PXS pre-move check (a real
+		// moving PXS embedded in material) and InsertMaterial's
+		// reaction-with-material-below probe (a static insertion
+		// attempt - no PXS exists there). Consume the PXS/insertion in
+		// both cases (return true): the product is cast as a fresh PXS
+		// at the probed position, mirroring the in-place conversion
+		// (velocity zeroed), so PXS-only products never insert
+		// statically. Product omitted -> the PXS/insertion still dies.
+		if (pReaction->iPXSProduct >= 0)
+			section.PXS.Create(pReaction->iPXSProduct, itofix(iX), itofix(iY));
+		return true;
+	}
+
 	if (pReaction->iPXSProduct >= 0)
 	{
 		// The PXS survives as its product material (mrfConvert in-place pattern).
@@ -841,7 +856,11 @@ bool C4MaterialMap::mrfIncinerate(C4MaterialReaction *pReaction, C4Section &sect
 	{
 	case meeMassMove: // MassMover-movement
 	case meePXSPos: // PXS check before movement
-		if (section.Landscape.Incinerate(iX, iY)) return true;
+		// Incinerate the contacted landscape pixel (for the PXS pre-move
+		// check and the InsertMaterial probe, iLSPos is the PXS's own
+		// cell / the material below the insertion point; for the
+		// MassMover probe it is the blocked neighbor cell).
+		if (section.Landscape.Incinerate(iLSPosX, iLSPosY)) return true;
 		break;
 
 	case meePXSMove: // PXS movement
@@ -849,8 +868,9 @@ bool C4MaterialMap::mrfIncinerate(C4MaterialReaction *pReaction, C4Section &sect
 		if (!mrfInsertCheck(section, iX, iY, fXDir, fYDir, iPxsMat, iLsMat, pfPosChanged))
 			// either splash or slide prevented interaction
 			return false;
-		// evaluate inflammation (should always succeed)
-		if (section.Landscape.Incinerate(iX, iY)) return true;
+		// evaluate inflammation (should always succeed): the contacted
+		// landscape pixel ignites, not the PXS's own (air) cell
+		if (section.Landscape.Incinerate(iLSPosX, iLSPosY)) return true;
 		// Else: dead. Insert material here
 		section.Landscape.InsertMaterial(iPxsMat, iX, iY);
 		return true;
