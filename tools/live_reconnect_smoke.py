@@ -560,6 +560,18 @@ def main(argv: list[str] | None = None) -> int:
                 print("SKIP: no SyncCheck lines logged (engine exited "
                       "too fast for state-hash comparison).")
                 return 0
+            # M-2 (review 2026-08-30-0415): an empty intersection would
+            # make the per-frame comparison pass vacuously.  By this
+            # point the full paced cycle ran (dormancy + reassociation
+            # markers were found), so a client logging zero or
+            # frame-disjoint SyncChecks is a real anomaly, not an
+            # environment limitation — fail rather than skip.
+            if not (set(host_checks) & set(client_checks)):
+                failures.append(
+                    f"empty SyncCheck frame intersection (host logged "
+                    f"{len(host_checks)} frames, client logged "
+                    f"{len(client_checks)} frames); state-hash "
+                    f"comparison cannot be verified")
             divergences = compare_sync_checks(host_checks, client_checks)
             if divergences:
                 failures.append(
