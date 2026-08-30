@@ -83,6 +83,21 @@ void C4PXS::Execute(C4Section &section)
 		xdir += ((txdir - xdir) * iWindDrift) * WindDrift_Factor;
 		ydir += ((tydir - ydir) * iWindDrift) * WindDrift_Factor;
 	}
+	else if (section.Material.Map[Mat].Saltation)
+	{
+		// Saltation: supported PXS hop downwind once |wind| exceeds
+		// the material's Saltation threshold. Fires ~1/3 of
+		// supported ticks. GBackWind returns 0 inside tunnels/IFT,
+		// so buried grains never hop underground.
+		const int32_t iWind = section.GBackWind(iX, iY);
+		if (Abs(iWind) >= section.Material.Map[Mat].Saltation && !Random(3))
+		{
+			// Downwind impulse: wind/30 px per tick, +-0.25 jitter.
+			xdir += itofix(iWind, 30) + FIXED256(Random(128) - 64);
+			// Upward kick: ~1.0-1.25 px/tick against Gravity (~0.2).
+			ydir -= FIXED100(100) + FIXED256(Random(64));
+		}
+	}
 
 	C4Fixed ctcox = x + xdir;
 	C4Fixed ctcoy = y + ydir;

@@ -179,3 +179,39 @@ TEST_CASE("C4MaterialReaction.ReactRoundTrip", "[material]")
 	CHECK(second.iByProductRate == first.iByProductRate);
 	CHECK(second.iRate == first.iRate);
 }
+
+namespace
+{
+	constexpr const char *MaterialWithoutSaltation = R"ini([Material]
+Name=TestSaltPlain
+Density=50
+)ini";
+
+	constexpr const char *MaterialWithSaltation = R"ini([Material]
+Name=TestSaltation
+Density=50
+Saltation=30
+)ini";
+}
+
+TEST_CASE("C4MaterialCore.SaltationRoundTrip", "[material]")
+{
+	// Old-format material without the key compiles to the 0 default
+	// (saltation branch never runs for every pre-cycle material).
+	C4MaterialCore plain;
+	REQUIRE(CompileMaterial(plain, MaterialWithoutSaltation));
+	CHECK(plain.Saltation == 0);
+
+	// New-format material with the key compiles to 30.
+	C4MaterialCore saltating;
+	REQUIRE(CompileMaterial(saltating, MaterialWithSaltation));
+	CHECK(saltating.Saltation == 30);
+
+	// Decompile -> recompile equality for the new field.
+	const std::string decompiled = DecompileToBuf<StdCompilerINIWrite>(saltating);
+	C4MaterialCore reparsed;
+	REQUIRE(CompileMaterial(reparsed, decompiled.c_str()));
+	CHECK(reparsed.Saltation == 30);
+	CHECK(reparsed.Density == saltating.Density);
+	CHECK(std::strcmp(reparsed.Name, saltating.Name) == 0);
+}

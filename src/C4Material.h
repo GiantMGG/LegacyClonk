@@ -111,6 +111,7 @@ public:
 	int32_t MaxSlide;
 	int32_t WindDrift;
 	int32_t Buoyancy; // upward acceleration in percent of gravity (PXS only; 0 = default gravity)
+	int32_t Saltation; // |wind| threshold at which supported PXS of this material hop downwind (0 = never)
 	int32_t Inflammable;
 	int32_t Incindiary;
 	int32_t Extinguisher;
