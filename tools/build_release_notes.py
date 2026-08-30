@@ -24,11 +24,9 @@ from pathlib import Path
 PRERELEASE_RE = re.compile(r"-(rc|beta|alpha)\d*$", re.IGNORECASE)
 MARKER = "<!-- git-cliff prepends new release sections above this line. -->"
 
-
 def is_prerelease(tag: str) -> bool:
     """Return True if the tag matches a pre-release suffix (``-rc*``, ``-beta*``, ``-alpha*``)."""
     return bool(PRERELEASE_RE.search(tag))
-
 
 def load_highlights(buildversion: str, tag: str, highlights_dir: Path) -> str:
     """Load the highlights fragment for ``buildversion``.
@@ -46,7 +44,6 @@ def load_highlights(buildversion: str, tag: str, highlights_dir: Path) -> str:
         f"Create it with 3-8 player-facing bullets before tagging."
     )
 
-
 def assemble_release_notes(highlights: str, digest: str) -> str:
     """Build the release-notes.md body: highlights + full changelog digest."""
     return (
@@ -55,7 +52,6 @@ def assemble_release_notes(highlights: str, digest: str) -> str:
         "## Full changelog\n\n"
         f"{digest.rstrip()}\n"
     )
-
 
 def splice_changelog(changelog: Path, digest: str, buildversion: str) -> None:
     """Splice the git-cliff digest into CHANGELOG.md above the marker comment.
@@ -74,7 +70,6 @@ def splice_changelog(changelog: Path, digest: str, buildversion: str) -> None:
     else:
         text = text.rstrip() + "\n\n" + digest.rstrip() + "\n"
     changelog.write_text(text, encoding="utf-8")
-
 
 def main() -> int:
     p = argparse.ArgumentParser(description=__doc__)
@@ -95,7 +90,6 @@ def main() -> int:
     splice_changelog(args.changelog, digest, args.buildversion)
     shutil.copyfile(args.changelog, args.docs_mirror)
     return 0
-
 
 if __name__ == "__main__":
     sys.exit(main())

@@ -118,7 +118,6 @@ class SmokeConfig:
     skip: bool = False
     curator_script: bool = False
 
-
 @dataclass
 class ManifestEntry:
     ccan_id: int
@@ -155,14 +154,12 @@ class CcanMetadata:
     description_de: str
     description_us: str
 
-
 @dataclass
 class ImportResult:
     """Outcome of importing one manifest entry."""
     status: str  # "imported" | "skipped"
     metadata: Optional[CcanMetadata] = None
     blob_path: Optional[Path] = None
-
 
 def sha256_file(path: Path) -> str:
     """Compute the SHA-256 hex digest of a file (streaming)."""
@@ -720,7 +717,6 @@ def _minimal_bmp() -> bytes:
         + pixel_data
     )
 
-
 def _collect_pack_definitions(directory: Path) -> list[str]:
     """Return bare filenames of .c4d/.c4f/.c4s packs directly inside directory.
 
@@ -733,7 +729,6 @@ def _collect_pack_definitions(directory: Path) -> list[str]:
         if entry.suffix.lower() in PACK_EXTENSIONS:
             defs.append(entry.name)
     return defs
-
 
 def _build_smoke_definitions(
     unpack_path: Path,
@@ -757,7 +752,6 @@ def _build_smoke_definitions(
         dep_dir = content_community / dep
         defs.extend(_collect_pack_definitions(dep_dir))
     return defs
-
 
 def emit_smoke_artefacts(
     entry: ManifestEntry,
@@ -854,7 +848,6 @@ def _fetch_metadata(
             return raw_path.read_text(encoding="utf-8", errors="replace")
     return fetch_metadata_html(entry, rate_limit=rate_limit)
 
-
 def _fetch_blob(
     entry: ManifestEntry,
     cache_dir: Path,
@@ -868,7 +861,6 @@ def _fetch_blob(
         if blob_path.is_file():
             return blob_path
     return fetch_pack(entry, cache_dir, rate_limit=rate_limit)
-
 
 def _import_one(
     entry: ManifestEntry,
@@ -1024,7 +1016,6 @@ def cmd_verify_manifest(args: argparse.Namespace) -> int:
 
 TRIAGE_RULES_PATH = SCRIPT_DIR / "ccan_license_triage.toml"
 
-
 def load_triage_rules(path: Path) -> list[dict]:
     """Load the [[rule]] list from ccan_license_triage.toml."""
     try:
@@ -1034,7 +1025,6 @@ def load_triage_rules(path: Path) -> list[dict]:
     except tomllib.TOMLDecodeError as e:
         sys.exit(f"Triage rules parse error: {e}")
     return list(data.get("rule", []))
-
 
 def run_triage(meta: dict, rules: list[dict]) -> tuple[str, str]:
     """Return (verdict, matched_keyword). First matching rule wins.
@@ -1053,14 +1043,12 @@ def run_triage(meta: dict, rules: list[dict]) -> tuple[str, str]:
             return rule["verdict"], rule["keyword"]
     return "ok", ""
 
-
 def slugify(title: str) -> str:
     """Strip a title to an alphanumeric slug (no spaces, no punctuation)."""
     slug = re.sub(r"[^A-Za-z0-9]+", "", title or "")
     if not slug:
         slug = "ccan"
     return slug
-
 
 def engine_supports(entry_engine: str, wanted: str) -> bool:
     """True if entry's engine field is compatible with the wanted engine."""
@@ -1072,11 +1060,9 @@ def engine_supports(entry_engine: str, wanted: str) -> bool:
         return True
     return False
 
-
 def _toml_escape(s: str) -> str:
     """Escape a string for inclusion in a double-quoted TOML basic string."""
     return s.replace("\\", "\\\\").replace('"', '\\"')
-
 
 def _render_discovered_manifest(candidates: list[dict]) -> str:
     """Render a candidate manifest in the ccan_curated.toml schema."""
@@ -1101,7 +1087,6 @@ def _render_discovered_manifest(candidates: list[dict]) -> str:
                 lines.append(f"{field} = {v}\n")
         lines.append("\n")
     return "".join(lines)
-
 
 def cmd_discover(args: argparse.Namespace) -> int:
     """Phase 2: triage a CCAN snapshot into a candidate import manifest."""
@@ -1196,7 +1181,6 @@ def cmd_discover(args: argparse.Namespace) -> int:
           f"{len(skip_lines)} skipped.")
     return 0
 
-
 # ===========================================================================
 # Master ATTRIBUTION.toml index (Phase 3 bulk-import)
 # ===========================================================================
@@ -1207,7 +1191,6 @@ MASTER_INDEX_FIELDS = (
     "license_rationale", "sha256", "imported_at",
 )
 
-
 def load_master_index(path: Path) -> dict:
     """Load content-community/ATTRIBUTION.toml. Returns {} if absent."""
     if not path.is_file():
@@ -1216,7 +1199,6 @@ def load_master_index(path: Path) -> dict:
         return tomllib.loads(path.read_text(encoding="utf-8"))
     except tomllib.TOMLDecodeError as e:
         sys.exit(f"Master index parse error: {e}")
-
 
 def write_master_index(path: Path, packs: dict) -> None:
     """Write the master index, sorted by destination for diff stability."""
@@ -1242,7 +1224,6 @@ def write_master_index(path: Path, packs: dict) -> None:
                 lines.append(f"{f} = {v}\n")
         lines.append("\n")
     path.write_text("".join(lines), encoding="utf-8")
-
 
 def cmd_bulk_import(args: argparse.Namespace) -> int:
     """Phase 3: bulk-import from a curator-approved manifest + snapshot."""
@@ -1342,7 +1323,6 @@ def cmd_bulk_import(args: argparse.Namespace) -> int:
         return 1
     return 0
 
-
 # ===========================================================================
 # verify-imports (Phase 4, stretch)
 # ===========================================================================
@@ -1436,7 +1416,6 @@ def cmd_verify_imports(args: argparse.Namespace) -> int:
     if changed or missing or local_missing:
         return 1
     return 0
-
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(

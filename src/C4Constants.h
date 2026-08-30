@@ -190,7 +190,6 @@ const uint8_t // Directional
 	CNAT_MultiAttach = 32, // new attachment behaviour; see C4Shape::Attach
 	CNAT_NoCollision = 64; // turn off collision for this vertex
 
-
 const uint8_t CNAT_Flags = CNAT_MultiAttach | CNAT_NoCollision; // all attchment flags that can be combined with regular attachment
 
 inline constexpr auto CNAT_EnumInfo = mkBitfieldInfo<uint8_t>("CNAT_",

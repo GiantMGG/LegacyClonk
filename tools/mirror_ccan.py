@@ -45,13 +45,11 @@ DEFAULT_SNAPSHOT_DIR = Path(os.environ.get(
     "CCAN_SNAPSHOT_DIR", str(Path.home() / "clonk" / "ccan-snapshot")))
 LISTING_URL = f"{CCAN_BASE}/ccan-view.pl?pg={{pg}}&nr={{nr}}"
 
-
 # ===========================================================================
 # Resilient HTTP fetch (per-entry failure isolation)
 # ===========================================================================
 
 _LAST_REQUEST_TIME: float = 0.0
-
 
 def _rate_limit_sleep(rate_limit: float) -> None:
     global _LAST_REQUEST_TIME
@@ -60,7 +58,6 @@ def _rate_limit_sleep(rate_limit: float) -> None:
     if wait > 0:
         time.sleep(wait)
     _LAST_REQUEST_TIME = time.monotonic()
-
 
 def mirror_fetch(
     url: str,
@@ -91,7 +88,6 @@ def mirror_fetch(
                 continue
             return None, str(e)
 
-
 # ===========================================================================
 # Advisory lock
 # ===========================================================================
@@ -112,7 +108,6 @@ def acquire_lock(snapshot_dir: Path) -> Optional[object]:
     lock_file.write(str(os.getpid()) + "\n")
     lock_file.flush()
     return lock_file
-
 
 # ===========================================================================
 # Listing crawl
@@ -150,7 +145,6 @@ def crawl_listing(
         pg += 1
     return all_entries, total_entries
 
-
 # ===========================================================================
 # Per-entry mirror
 # ===========================================================================
@@ -158,14 +152,12 @@ def crawl_listing(
 def _entry_dir(snapshot_dir: Path, ccan_id: int) -> Path:
     return snapshot_dir / "entries" / str(ccan_id)
 
-
 def _sha256_file(path: Path) -> str:
     h = hashlib.sha256()
     with open(path, "rb") as f:
         for chunk in iter(lambda: f.read(65536), b""):
             h.update(chunk)
     return h.hexdigest()
-
 
 def _is_resolved(snapshot_dir: Path, ccan_id: int) -> bool:
     """True if meta.json + blob exist and sha256 matches."""
@@ -181,7 +173,6 @@ def _is_resolved(snapshot_dir: Path, ccan_id: int) -> bool:
     if not blob_path.is_file():
         return False
     return _sha256_file(blob_path) == meta.get("sha256")
-
 
 def mirror_entry(
     entry: CI.ListingEntry,
@@ -238,7 +229,6 @@ def mirror_entry(
         json.dumps(meta, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     return True, None
 
-
 # ===========================================================================
 # Snapshot index writers
 # ===========================================================================
@@ -261,7 +251,6 @@ def write_index(snapshot_dir: Path, mirrored_ids: list[int]) -> None:
     manifest_path.write_text(
         "\n".join(manifest_lines) + ("\n" if manifest_lines else ""),
         encoding="utf-8")
-
 
 # ===========================================================================
 # Subcommand: mirror
@@ -329,7 +318,6 @@ def cmd_mirror(args: argparse.Namespace) -> int:
         return 1
     return 0
 
-
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="mirror_ccan.py",
@@ -360,11 +348,9 @@ def build_parser() -> argparse.ArgumentParser:
     p_mirror.set_defaults(func=cmd_mirror)
     return parser
 
-
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     return args.func(args)
-
 
 if __name__ == "__main__":
     raise SystemExit(main())

@@ -15,13 +15,11 @@ import pytest
 sys.path.insert(0, str(Path(__file__).parent))
 import mirror_ccan as M
 
-
 LISTING_HTML = """<html><body><table>
 <tr><td><a href="ccan-view.pl?a=view&i=100">Pack One</a></td><td>Alice</td><td>2025-01-01</td><td>LC</td><td>Pack1.c4s</td><td>c4s</td><td>1.0 MB</td></tr>
 <tr><td><a href="ccan-view.pl?a=view&i=200">Pack Two</a></td><td>Bob</td><td>2025-02-02</td><td>CR</td><td>Pack2.c4d</td><td>c4d</td><td>2.0 MB</td></tr>
 <tr><td><a href="ccan-view.pl?a=view&i=300">Pack Three</a></td><td>Carol</td><td>2025-03-03</td><td>both</td><td>Pack3.zip</td><td>zip</td><td>3.0 MB</td></tr>
 </table><div>Seite 1 von 1 von 3</div></body></html>"""
-
 
 PER_ENTRY_HTML = """<html><head><title>CCAN - Sample Pack</title></head><body>
 <table>
@@ -34,9 +32,7 @@ PER_ENTRY_HTML = """<html><head><title>CCAN - Sample Pack</title></head><body>
 <tr><th>Description (US)</th><td>US desc</td></tr>
 </table></body></html>"""
 
-
 BLOB = b"fake-pack-blob-bytes"
-
 
 def _fake_fetch_factory(responses: dict, default_blob: bytes = BLOB):
     """Build a fake mirror_fetch that serves canned responses by URL substring.
@@ -57,7 +53,6 @@ def _fake_fetch_factory(responses: dict, default_blob: bytes = BLOB):
 
     fake_fetch.calls = calls
     return fake_fetch
-
 
 def test_mirror_writes_meta_raw_and_blob(tmp_path, monkeypatch):
     snapshot = tmp_path / "snap"
@@ -81,13 +76,11 @@ def test_mirror_writes_meta_raw_and_blob(tmp_path, monkeypatch):
     assert meta["blob_size"] == len(BLOB)
     assert "fetched_at" in meta
 
-
 def CI_ListingEntry(ccan_id):
     return M.CI.ListingEntry(
         ccan_id=ccan_id, title="Sample Pack", author_nick="SampleAuthor",
         uploaded="2026-08-27", engine="LC", filename="Sample.c4d",
         file_type="c4d", size_label="1.0 MB")
-
 
 def test_mirror_records_failure_and_continues(tmp_path, monkeypatch):
     snapshot = tmp_path / "snap"
@@ -120,7 +113,6 @@ def test_mirror_records_failure_and_continues(tmp_path, monkeypatch):
     assert failures[0][0] == 100
     assert "boom" in failures[0][1]
 
-
 def test_resume_skips_completed_entries(tmp_path, monkeypatch):
     snapshot = tmp_path / "snap"
     fake = _fake_fetch_factory({
@@ -135,7 +127,6 @@ def test_resume_skips_completed_entries(tmp_path, monkeypatch):
     assert M._is_resolved(snapshot, 4242) is True
     # Simulate cmd_mirror resume path: it checks _is_resolved and skips.
     assert fake.calls == []
-
 
 def test_index_jsonl_and_manifest_format(tmp_path, monkeypatch):
     snapshot = tmp_path / "snap"
@@ -153,7 +144,6 @@ def test_index_jsonl_and_manifest_format(tmp_path, monkeypatch):
     assert manifest.startswith("4242\tSample Pack\t")
     assert manifest.count("\n") == 1
 
-
 def test_concurrent_mirror_lock_exits(tmp_path, monkeypatch):
     snapshot = tmp_path / "snap"
     snapshot.mkdir(parents=True)
@@ -164,7 +154,6 @@ def test_concurrent_mirror_lock_exits(tmp_path, monkeypatch):
     with pytest.raises(SystemExit, match="locked"):
         M.acquire_lock(snapshot)
     lock.close()
-
 
 def test_cmd_mirror_end_to_end_with_mocked_listing(tmp_path, monkeypatch):
     snapshot = tmp_path / "snap"

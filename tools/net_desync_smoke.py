@@ -42,7 +42,6 @@ DEFAULT_PLAYER_FILE = (
     / "tests" / "fixtures" / "TestPlayer.c4p"
 )
 
-
 def pick_free_port() -> int:
     """Bind a temporary TCP socket to port 0 and return the assigned port."""
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -51,7 +50,6 @@ def pick_free_port() -> int:
         return sock.getsockname()[1]
     finally:
         sock.close()
-
 
 def wait_for_port(host: str, port: int, timeout: float, interval: float = 0.1) -> bool:
     """Poll a TCP connect until it succeeds or timeout expires."""
@@ -64,7 +62,6 @@ def wait_for_port(host: str, port: int, timeout: float, interval: float = 0.1) -
             time.sleep(interval)
     return False
 
-
 def run_tc(tc_program: str, args: list[str], use_sudo: bool) -> subprocess.CompletedProcess:
     """Run a tc subcommand, optionally via sudo."""
     cmd: list[str] = []
@@ -73,7 +70,6 @@ def run_tc(tc_program: str, args: list[str], use_sudo: bool) -> subprocess.Compl
     cmd.append(tc_program)
     cmd.extend(args)
     return subprocess.run(cmd, capture_output=True, text=True, stdin=subprocess.DEVNULL)
-
 
 def apply_impairment(tc_program: str, delay: int, jitter: int, loss: int,
                      use_sudo: bool) -> bool:
@@ -93,14 +89,12 @@ def apply_impairment(tc_program: str, delay: int, jitter: int, loss: int,
     print(f"Impairment applied: delay {delay}ms jitter {jitter}ms loss {loss}%")
     return True
 
-
 def cleanup_impairment(tc_program: str, use_sudo: bool) -> None:
     """Remove tc netem qdisc from loopback."""
     result = run_tc(tc_program, ["qdisc", "del", "dev", "lo", "root"], use_sudo)
     if result.returncode != 0:
         print(f"WARNING: tc qdisc del failed (exit {result.returncode}): "
               f"{result.stderr.strip()}")
-
 
 def build_engine_args(engine: str, scenario: Path, ticks: int, role: str,
                       tcp_port: int, udp_port: int,
@@ -126,12 +120,10 @@ def build_engine_args(engine: str, scenario: Path, ticks: int, role: str,
         args.append(str(player_file))
     return args
 
-
 def tail(text: str, n: int = 20) -> str:
     """Return the last n lines of text."""
     lines = text.splitlines()
     return "\n".join(lines[-n:])
-
 
 def parse_sync_checks(log_text: str) -> dict[int, dict[str, int]]:
     """Parse SyncCheck log lines from engine output.
@@ -161,7 +153,6 @@ def parse_sync_checks(log_text: str) -> dict[int, dict[str, int]]:
             }
     return result
 
-
 def compare_sync_checks(host_checks: dict[int, dict[str, int]],
                         client_checks: dict[int, dict[str, int]]) -> list[str]:
     """Compare host and client sync checks per frame.
@@ -187,7 +178,6 @@ def compare_sync_checks(host_checks: dict[int, dict[str, int]],
                 )
     return divergences
 
-
 def kill_proc(proc: subprocess.Popen | None) -> None:
     """Terminate then SIGKILL a process if still running."""
     if proc is None or proc.poll() is not None:
@@ -197,7 +187,6 @@ def kill_proc(proc: subprocess.Popen | None) -> None:
         proc.wait(timeout=5)
     except subprocess.TimeoutExpired:
         proc.kill()
-
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
@@ -421,7 +410,6 @@ def main(argv: list[str] | None = None) -> int:
         # --- Remove temp player-file copies ------------------------------
         if player_tmp_dir:
             shutil.rmtree(player_tmp_dir, ignore_errors=True)
-
 
 if __name__ == "__main__":
     sys.exit(main())

@@ -2882,7 +2882,6 @@ void C4Object::CompileFunc(StdCompiler *pComp)
 	pComp->Value(mkNamingAdapt(C4GraphicsOverlayListAdapt(pGfxOverlay), "GfxOverlay",         nullptr));
 	pComp->Value(mkNamingAdapt(C4HudBarsAdapt(HudBars), "HudBars", Game.HudBars.DefaultBars()));
 
-
 	if (PhysicalTemporary)
 	{
 		pComp->FollowName("Physical");

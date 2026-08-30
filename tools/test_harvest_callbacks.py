@@ -18,7 +18,6 @@ HERE = Path(__file__).parent
 FIX = HERE / "fixtures"
 SRC = HERE.parent / "src"
 
-
 # ---------------------------------------------------------------------------
 # Synthetic-fixture unit tests
 # ---------------------------------------------------------------------------
@@ -28,24 +27,20 @@ def test_parse_callbacks_from_synthetic_fixture():
     names = {c.name for c in callbacks}
     assert names == {"Initialize", "Hit", "Damage", "FxStart"}
 
-
 def test_parse_functions_from_synthetic_fixture():
     funcs = H.parse_functions(FIX / "C4Script.cpp", src_dir=FIX)
     names = {f.name for f in funcs}
     assert names == {"Explode", "Message", "Call"}
-
 
 def test_parse_constants_from_synthetic_fixture():
     consts = H.parse_constants(FIX / "C4Script.cpp")
     names = {c.name for c in consts}
     assert names == {"C4D_All", "OCF_Construct", "COMD_None"}
 
-
 def test_parse_defcore_fields_from_synthetic_fixture():
     fields = H.parse_defcore_fields(FIX / "C4Def.cpp")
     keys = {f.key for f in fields}
     assert keys == {"Timer", "TimerCall", "Mass"}
-
 
 def test_callback_group_routing():
     callbacks = H.parse_callbacks(FIX / "C4Script.h")
@@ -55,7 +50,6 @@ def test_callback_group_routing():
     assert "Hit" in by_group.get("combat.md", [])
     assert "Initialize" in by_group.get("object-lifecycle.md", [])
     assert "FxStart" in by_group.get("effects.md", [])
-
 
 def test_function_signature_extraction():
     funcs = H.parse_functions(FIX / "C4Script.cpp", src_dir=FIX)
@@ -67,7 +61,6 @@ def test_function_signature_extraction():
     param_types = [p.c4type for p in explode.params]
     assert param_types == ["int", "object", "id", "string"]
 
-
 def test_function_protected_flag():
     funcs = H.parse_functions(FIX / "C4Script.cpp", src_dir=FIX)
     call = next(f for f in funcs if f.name == "Call")
@@ -75,12 +68,10 @@ def test_function_protected_flag():
     explode = next(f for f in funcs if f.name == "Explode")
     assert explode.protected is True  # no fourth arg => callable
 
-
 def test_constant_type_mapping():
     consts = H.parse_constants(FIX / "C4Script.cpp")
     all_const = next(c for c in consts if c.name == "C4D_All")
     assert all_const.c4type == "int"
-
 
 # ---------------------------------------------------------------------------
 # Real-engine integration tests
@@ -92,24 +83,20 @@ def test_every_psf_macro_yields_a_callback():
     macro_count = H.count_psf_macros(SRC / "C4Script.h")
     assert len(callbacks) == macro_count
 
-
 def test_every_addfunc_yields_a_function():
     funcs = H.parse_functions(SRC / "C4Script.cpp", src_dir=SRC)
     addfunc_count = H.count_addfuncs(SRC / "C4Script.cpp")
     assert len(funcs) == addfunc_count
-
 
 def test_every_constmap_row_yields_a_constant():
     consts = H.parse_constants(SRC / "C4Script.cpp")
     row_count = H.count_constmap_rows(SRC / "C4Script.cpp")
     assert len(consts) == row_count
 
-
 def test_every_defcore_field_yields_a_row():
     fields = H.parse_defcore_fields(SRC / "C4Def.cpp")
     field_count = H.count_defcore_fields(SRC / "C4Def.cpp")
     assert len(fields) == field_count
-
 
 def test_render_callbacks_group_page_is_nonempty():
     callbacks = H.parse_callbacks(SRC / "C4Script.h")

@@ -18,7 +18,6 @@ import pytest
 sys.path.insert(0, str(Path(__file__).parent))
 import import_ccan as I
 
-
 def _entry(ccan_id, destination, *, title=None, filename=None):
     return I.ManifestEntry(
         ccan_id=ccan_id,
@@ -36,7 +35,6 @@ def _entry(ccan_id, destination, *, title=None, filename=None):
         smoke=I.SmokeConfig(),
     )
 
-
 def _write_manifest(tmp_path: Path, entries: list[I.ManifestEntry]) -> Path:
     p = tmp_path / "manifest.toml"
     lines = []
@@ -53,12 +51,10 @@ def _write_manifest(tmp_path: Path, entries: list[I.ManifestEntry]) -> Path:
     p.write_text("".join(lines), encoding="utf-8")
     return p
 
-
 def _make_blob(tmp_path: Path, content: bytes = b"blob") -> Path:
     blob = tmp_path / "blob.bin"
     blob.write_bytes(content)
     return blob
-
 
 def test_bulk_import_writes_master_index(tmp_path, monkeypatch):
     e1 = _entry(100, "Alpha")
@@ -95,7 +91,6 @@ def test_bulk_import_writes_master_index(tmp_path, monkeypatch):
     assert "[pack.Beta]" in master
     assert hashlib.sha256(b"blob").hexdigest() in master
 
-
 def test_bulk_import_idempotent_second_run_skips(tmp_path, monkeypatch):
     e1 = _entry(100, "Alpha")
     manifest = _write_manifest(tmp_path, [e1])
@@ -125,7 +120,6 @@ def test_bulk_import_idempotent_second_run_skips(tmp_path, monkeypatch):
             "--failures-log", str(tmp_path / "f.jsonl")])
     after = (cc / "ATTRIBUTION.toml").read_text(encoding="utf-8")
     assert before == after
-
 
 def test_bulk_import_continues_after_failure(tmp_path, monkeypatch):
     e1 = _entry(100, "Alpha")
@@ -161,7 +155,6 @@ def test_bulk_import_continues_after_failure(tmp_path, monkeypatch):
     assert "validation failed" in fail
     assert "200" in fail
 
-
 def test_master_index_sorted_by_destination(tmp_path, monkeypatch):
     entries = [_entry(1, "Zeta"), _entry(2, "Alpha"), _entry(3, "Mu")]
     manifest = _write_manifest(tmp_path, entries)
@@ -187,7 +180,6 @@ def test_master_index_sorted_by_destination(tmp_path, monkeypatch):
     pos = {name: master.index(name) for name in
            ("[pack.Alpha]", "[pack.Mu]", "[pack.Zeta]")}
     assert pos["[pack.Alpha]"] < pos["[pack.Mu]"] < pos["[pack.Zeta]"]
-
 
 def test_master_index_update_in_place(tmp_path, monkeypatch):
     e1 = _entry(100, "Alpha")

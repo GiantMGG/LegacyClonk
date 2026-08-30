@@ -255,7 +255,6 @@ public:
 		return CreateLogger(C4LoggerConfig::Name<T>::Value, config);
 	}
 
-
 	template<typename T>
 	std::shared_ptr<spdlog::logger> CreateLoggerWithDifferentName(C4LoggerConfig::Config<T> &config, std::string name)
 	{

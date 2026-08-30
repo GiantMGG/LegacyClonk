@@ -18,7 +18,6 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 SRC_ROOT = REPO_ROOT / "src"
 MARKER_RE = re.compile(r"\b(TODO|FIXME|HACK|XXX|BUG)\b")
 
-
 def scan_file(path: Path):
     rel = path.relative_to(REPO_ROOT).as_posix()
     try:
@@ -29,7 +28,6 @@ def scan_file(path: Path):
         if MARKER_RE.search(line):
             yield rel, lineno, line.strip()
 
-
 def find_markers():
     markers = []
     for ext in ("*.cpp", "*.h"):
@@ -37,7 +35,6 @@ def find_markers():
             for rel, line, text in scan_file(path):
                 markers.append((rel, line, text))
     return markers
-
 
 def blame_date(rel_path: str, line: int) -> str:
     try:
@@ -50,7 +47,6 @@ def blame_date(rel_path: str, line: int) -> str:
     except FileNotFoundError:
         pass
     return "unknown"
-
 
 def main() -> int:
     markers = find_markers()
@@ -75,7 +71,6 @@ def main() -> int:
             snippet = snippet[:77] + "..."
         print(f"| {idx} | {date} | {rel}:{line} | `{snippet}` |   |   | open (grandfathered) |")
     return 0
-
 
 if __name__ == "__main__":
     sys.exit(main())

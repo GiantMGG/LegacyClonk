@@ -58,7 +58,6 @@ _SYNC_RE = re.compile(
     r"Cpx=(\d+) PXS=(\d+) MMi=(\d+) Obc=(\d+) Oei=(\d+) Sct=(\d+)"
 )
 
-
 def pick_free_port() -> int:
     """Bind a temporary TCP socket to port 0 and return the assigned port."""
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -67,7 +66,6 @@ def pick_free_port() -> int:
         return sock.getsockname()[1]
     finally:
         sock.close()
-
 
 def wait_for_port(host: str, port: int, timeout: float,
                   interval: float = 0.1) -> bool:
@@ -81,11 +79,9 @@ def wait_for_port(host: str, port: int, timeout: float,
             time.sleep(interval)
     return False
 
-
 def tail(text: str, n: int = 20) -> str:
     """Return the last n lines of text."""
     return "\n".join(text.splitlines()[-n:])
-
 
 def parse_sync_checks(log_text: str) -> dict[int, dict[str, int]]:
     """Parse SyncCheck log lines. Returns Frame -> {field: value}."""
@@ -106,7 +102,6 @@ def parse_sync_checks(log_text: str) -> dict[int, dict[str, int]]:
                 "Sct": int(m.group(10)),
             }
     return result
-
 
 def compare_sync_checks(host_checks: dict[int, dict[str, int]],
                         client_checks: dict[int, dict[str, int]]) -> list[str]:
@@ -131,7 +126,6 @@ def compare_sync_checks(host_checks: dict[int, dict[str, int]],
                 )
     return divergences
 
-
 def kill_proc(proc: subprocess.Popen | None) -> None:
     """Terminate then SIGKILL a process if still running."""
     if proc is None or proc.poll() is not None:
@@ -142,7 +136,6 @@ def kill_proc(proc: subprocess.Popen | None) -> None:
     except subprocess.TimeoutExpired:
         proc.kill()
 
-
 def run_tc(tc_program: str, args: list[str], use_sudo: bool) -> subprocess.CompletedProcess:
     """Run a tc subcommand, optionally via sudo."""
     cmd: list[str] = []
@@ -152,7 +145,6 @@ def run_tc(tc_program: str, args: list[str], use_sudo: bool) -> subprocess.Compl
     cmd.extend(args)
     return subprocess.run(cmd, capture_output=True, text=True,
                           stdin=subprocess.DEVNULL)
-
 
 def apply_port_partition(tc_program: str, client_tcp_port: int,
                          use_sudo: bool) -> bool:
@@ -195,13 +187,11 @@ def apply_port_partition(tc_program: str, client_tcp_port: int,
     print(f"Port partition applied: dport {client_tcp_port} -> 100% loss")
     return True
 
-
 def cleanup_port_partition(tc_program: str, use_sudo: bool) -> None:
     """Remove tc qdisc from loopback (idempotent)."""
     r = run_tc(tc_program, ["qdisc", "del", "dev", "lo", "root"], use_sudo)
     if r.returncode != 0:
         print(f"WARNING: tc qdisc del failed: {r.stderr.strip()}")
-
 
 def build_engine_args(engine: str, scenario: Path, ticks: int, role: str,
                       tcp_port: int, udp_port: int, config_file: str,
@@ -228,7 +218,6 @@ def build_engine_args(engine: str, scenario: Path, ticks: int, role: str,
         args.append(str(player_file))
     return args
 
-
 def write_reconnect_config(grace_sec: int) -> str:
     """Write a temp config enabling reconnect with a short grace window."""
     tmp = tempfile.NamedTemporaryFile(mode="w", delete=False,
@@ -238,7 +227,6 @@ def write_reconnect_config(grace_sec: int) -> str:
     tmp.write(f"ReconnectGraceSec={grace_sec}\n")
     tmp.close()
     return tmp.name
-
 
 def wait_for_marker(log_path: str, marker: str, timeout: float,
                     interval: float = 0.2) -> bool:
@@ -254,7 +242,6 @@ def wait_for_marker(log_path: str, marker: str, timeout: float,
         time.sleep(interval)
     return False
 
-
 def cleanup_temp_files(config_file: str | None,
                        player_tmp_dir: str | None) -> None:
     if config_file:
@@ -264,7 +251,6 @@ def cleanup_temp_files(config_file: str | None,
             pass
     if player_tmp_dir:
         shutil.rmtree(player_tmp_dir, ignore_errors=True)
-
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
@@ -610,7 +596,6 @@ def main(argv: list[str] | None = None) -> int:
                     os.unlink(p)
                 except OSError:
                     pass
-
 
 if __name__ == "__main__":
     sys.exit(main())

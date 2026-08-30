@@ -151,8 +151,6 @@ void CStdApp::Init(const int argc, char **const argv)
 
 #ifdef WITH_GLIB
 
-
-
 	loop = g_main_loop_new(nullptr, false);
 #endif
 

@@ -112,14 +112,12 @@ public:
 	bool InitThirdPart();
 	bool CheckObjectEnumeration();
 
-
 private:
 	void InitInEarth();
 	void InitVegetation();
 	void InitAnimals();
 	void InitEnvironment();
 	bool PlaceInEarth(C4ID id);
-
 
 public:
 	void Execute();

@@ -38,7 +38,6 @@
 #include <fcntl.h>
 #include <sys/stat.h>
 
-
 // *** StdBuf
 
 bool StdBuf::LoadFromFile(const char *szFile) try

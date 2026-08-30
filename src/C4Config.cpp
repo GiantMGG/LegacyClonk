@@ -147,7 +147,6 @@ struct C4EnumInfo<C4AulScriptStrict>
 	);
 };
 
-
 void C4ConfigDeveloper::ConsoleScriptStrictnessWrapper::CompileFunc(StdCompiler *const comp)
 {
 	comp->Value(mkEnumAdapt(Strictness));
@@ -935,7 +934,6 @@ std::uint8_t C4Config::GetCharsetCode(const char *const charset) noexcept
 	// Default
 	return 0; // ANSI_CHARSET
 }
-
 
 std::int32_t C4Config::GetCharsetCodePage(const char *const charset) noexcept
 {

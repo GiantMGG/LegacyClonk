@@ -21,7 +21,6 @@ project("LegacyClonk" LANGUAGES CXX ${LANGUAGE_OBJCXX})
 
 set(CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 
-
 include(GetArchitecture)
 
 if (TARGET_ARCHITECTURE_KNOWN)
@@ -44,7 +43,6 @@ endif ()
 
 # C++ standard level is set per-target via target_compile_features() below;
 # see the LC_CXX_STANDARD_LEVEL variable defined alongside USE_CXX_26.
-
 
 include(CheckCXXSymbolExists)
 include(CheckIncludeFileCXX)
@@ -421,7 +419,7 @@ endif ()
 if (APPLE)
 	set(C4_OS "mac")
 elseif (UNIX)
-	if(TARGET_ARCHITECTURE STREQUAL "x86")
+	if (TARGET_ARCHITECTURE STREQUAL "x86")
 		set(C4_OS "linux")
 	elseif (TARGET_ARCHITECTURE STREQUAL "x86_64")
 		set(C4_OS "linux64")
@@ -431,7 +429,7 @@ elseif (UNIX)
 		message(FATAL_ERROR "Unhandled architecture: ${TARGET_ARCHITECTURE}")
 	endif ()
 elseif (WIN32)
-	if(TARGET_ARCHITECTURE STREQUAL "x86")
+	if (TARGET_ARCHITECTURE STREQUAL "x86")
 		set(C4_OS "win32")
 	elseif (TARGET_ARCHITECTURE STREQUAL "x86_64")
 		set(C4_OS "win64")

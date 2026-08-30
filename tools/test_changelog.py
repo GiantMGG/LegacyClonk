@@ -17,7 +17,6 @@ import pytest
 sys.path.insert(0, str(Path(__file__).parent))
 import build_release_notes as brn
 
-
 # ---------------------------------------------------------------------------
 # Highlights validation
 # ---------------------------------------------------------------------------
@@ -29,12 +28,10 @@ def test_highlights_missing_stable_fails(tmp_path: Path) -> None:
     assert exc.value.code != 0
     assert "highlights fragment missing" in str(exc.value)
 
-
 def test_highlights_missing_prerelease_warns(tmp_path: Path) -> None:
     """Pre-release tag + missing highlights -> placeholder string, no exit."""
     result = brn.load_highlights("366-rc1", "v366-rc1", tmp_path)
     assert "pre-release" in result.lower()
-
 
 def test_highlights_present_stable_ok(tmp_path: Path) -> None:
     """Stable tag + highlights file with 3 bullets -> returns file content."""
@@ -45,7 +42,6 @@ def test_highlights_present_stable_ok(tmp_path: Path) -> None:
     result = brn.load_highlights("366", "v366", tmp_path)
     assert "bullet one" in result
     assert "bullet three" in result
-
 
 # ---------------------------------------------------------------------------
 # Release notes assembly
@@ -69,7 +65,6 @@ def test_release_notes_structure(tmp_path: Path) -> None:
     assert headings[:2] == ["## Highlights", "## Full changelog"]
     assert "abcdef0" in notes
 
-
 # ---------------------------------------------------------------------------
 # CHANGELOG.md splice
 # ---------------------------------------------------------------------------
@@ -83,7 +78,6 @@ to [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/).
 
 <!-- git-cliff prepends new release sections above this line. -->
 """
-
 
 def test_changelog_prepend_splice(tmp_path: Path) -> None:
     """Splicing inserts the new section above the marker and below the header,
@@ -100,7 +94,6 @@ def test_changelog_prepend_splice(tmp_path: Path) -> None:
     assert "## [366] - 2026-08-29" in result
     assert result.index("## [366]") < result.index("<!-- git-cliff")
     assert "All notable changes" in result  # header preserved
-
 
 def test_changelog_duplicate_section_refused(tmp_path: Path) -> None:
     """If CHANGELOG.md already contains ## [366], the splice step exits and does
@@ -120,7 +113,6 @@ def test_changelog_duplicate_section_refused(tmp_path: Path) -> None:
     assert "already contains section" in str(exc.value)
     assert changelog.read_text(encoding="utf-8") == original
 
-
 # ---------------------------------------------------------------------------
 # Scope map coverage
 # ---------------------------------------------------------------------------
@@ -129,7 +121,6 @@ _KNOWN_SCOPES = {
     "network", "savegame", "rollback", "replay", "weather", "preservation",
     "input", "ccan", "tutorial", "players", "contributors",
 }
-
 
 def test_scope_map_coverage() -> None:
     """Every scope listed in cliff.toml's Tera elif chain is present; unknown
@@ -146,7 +137,6 @@ def test_scope_map_coverage() -> None:
     assert "{% else %}" in text
     # Verify the verbatim rendering uses commit.scope.
     assert "**{{ commit.scope }}**" in text
-
 
 # ---------------------------------------------------------------------------
 # Docs mirror (full main() flow)

@@ -101,7 +101,6 @@ public:
 		C4ObjectLink *extraLink;
 	};
 
-
 private:
 	// used as StdCompiler-parameter
 	struct CompileSettings
@@ -454,7 +453,6 @@ public:
 
 protected:
 	bool CompileRuntimeData(C4ComponentHost &rGameData, std::function<C4Section &(StdCompiler &)> mainSectionProvider);
-
 
 	bool ToggleDebugMode(); // dbg modeon/off if allowed
 

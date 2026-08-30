@@ -75,7 +75,7 @@ void C4HudBars::SetValue(const std::string_view name, const std::int32_t value, 
 {
 	C4HudBar &barVal{BarVal(name)};
 	barVal.Value = value;
-	if(max > 0) barVal.Max = max;
+	if (max > 0) barVal.Max = max;
 }
 
 void C4HudBars::SetVisibility(const std::string_view name, const bool visible)
@@ -362,7 +362,7 @@ std::shared_ptr<C4FacetExID> C4HudBarsUniquifier::GetFacet(const std::function<v
 
 	const std::shared_ptr<C4FacetExID> facet{new C4FacetExID, deleter};
 	const bool success{Game.GraphicsResource.LoadFile(*facet, file.data(), Game.GraphicsResource.Files)};
-	if(!success)
+	if (!success)
 	{
 		error(std::format("could not load hud bar graphic \"{}\"", file));
 		return nullptr;
@@ -499,7 +499,7 @@ void C4HudBarsUniquifier::ProcessGroup(std::int32_t &valueIndex, const C4HudBars
 			break;
 
 		case C4V_Array:
-			if(advanceAlways)
+			if (advanceAlways)
 			{
 				if (const auto *array = element._getArray(); array)
 				{
@@ -603,7 +603,6 @@ void C4HudBarsUniquifier::ProcessHudBar(std::int32_t &valueIndex, const C4HudBar
 		bars.push_back(bar);
 	}
 }
-
 
 void C4HudBarsAdapt::CompileFunc(StdCompiler *const comp)
 {

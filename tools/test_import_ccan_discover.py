@@ -15,7 +15,6 @@ import pytest
 sys.path.insert(0, str(Path(__file__).parent))
 import import_ccan as I
 
-
 def _write_index(tmp_path: Path, records: list[dict]) -> Path:
     snap = tmp_path / "snap"
     snap.mkdir()
@@ -23,7 +22,6 @@ def _write_index(tmp_path: Path, records: list[dict]) -> Path:
     idx.write_text(
         "\n".join(json.dumps(r) for r in records) + "\n", encoding="utf-8")
     return snap
-
 
 def _meta(ccan_id, *, title="P", description_de="", description_us="",
           comments="", engine="LC", filename="P.c4s", blob_size=1000,
@@ -40,7 +38,6 @@ def _meta(ccan_id, *, title="P", description_de="", description_us="",
         "is_pack": True,
     }
 
-
 def _run_discover(snap: Path, tmp_path: Path, *, engine="LC", max_size=0.0):
     out_m = tmp_path / "ccan_discovered.toml"
     out_s = tmp_path / "ccan_triage_skip.txt"
@@ -54,7 +51,6 @@ def _run_discover(snap: Path, tmp_path: Path, *, engine="LC", max_size=0.0):
     ])
     return rc, out_m, out_s
 
-
 def test_triage_default_ok(tmp_path):
     snap = _write_index(tmp_path, [_meta(100, title="Hazard 3D")])
     rc, out_m, out_s = _run_discover(snap, tmp_path)
@@ -64,7 +60,6 @@ def test_triage_default_ok(tmp_path):
     assert 'license = "CC-BY-NC-4.0"' in text
     assert 'destination = "Hazard3D"' in text
     assert out_s.read_text(encoding="utf-8") == ""
-
 
 def test_triage_skip_keyword_en(tmp_path):
     snap = _write_index(tmp_path, [
@@ -76,7 +71,6 @@ def test_triage_skip_keyword_en(tmp_path):
     skip = out_s.read_text(encoding="utf-8")
     assert "100\tskip\tno reupload" in skip
 
-
 def test_triage_skip_keyword_de(tmp_path):
     snap = _write_index(tmp_path, [
         _meta(100, description_de="Bitte kein reupload."),
@@ -85,7 +79,6 @@ def test_triage_skip_keyword_de(tmp_path):
     assert rc == 0
     skip = out_s.read_text(encoding="utf-8")
     assert "100\tskip\tkein reupload" in skip
-
 
 def test_triage_ambiguous(tmp_path):
     snap = _write_index(tmp_path, [
@@ -96,7 +89,6 @@ def test_triage_ambiguous(tmp_path):
     text = out_m.read_text(encoding="utf-8")
     assert "[entry.100]" in text
     assert 'license = "unknown"' in text
-
 
 def test_triage_first_matching_rule_wins(tmp_path):
     # "no reupload" (skip) appears before "please ask" (ambiguous) in the
@@ -110,7 +102,6 @@ def test_triage_first_matching_rule_wins(tmp_path):
     assert "100\tskip\tno reupload" in skip
     assert "[entry.100]" not in out_m.read_text(encoding="utf-8")
 
-
 def test_filter_engine_lc(tmp_path):
     snap = _write_index(tmp_path, [
         _meta(100, engine="CR", title="CR Pack"),
@@ -119,7 +110,6 @@ def test_filter_engine_lc(tmp_path):
     assert rc == 0
     skip = out_s.read_text(encoding="utf-8")
     assert "100\tengine_filter" in skip
-
 
 def test_filter_text_only(tmp_path):
     snap = _write_index(tmp_path, [
@@ -130,7 +120,6 @@ def test_filter_text_only(tmp_path):
     skip = out_s.read_text(encoding="utf-8")
     assert "100\ttext_only" in skip
 
-
 def test_filter_max_size(tmp_path):
     snap = _write_index(tmp_path, [
         _meta(100, blob_size=2_000_000, title="Big"),
@@ -139,7 +128,6 @@ def test_filter_max_size(tmp_path):
     assert rc == 0
     skip = out_s.read_text(encoding="utf-8")
     assert "100\tsize_filter" in skip
-
 
 def test_destination_slug_collision(tmp_path):
     snap = _write_index(tmp_path, [
@@ -154,7 +142,6 @@ def test_destination_slug_collision(tmp_path):
     skip = out_s.read_text(encoding="utf-8")
     assert "200\tdestination_collision" in skip
 
-
 def test_discovered_manifest_loads(tmp_path):
     snap = _write_index(tmp_path, [
         _meta(100, title="Pack A", filename="A.c4s"),
@@ -166,7 +153,6 @@ def test_discovered_manifest_loads(tmp_path):
     entries = I.load_manifest(out_m)
     assert len(entries) == 3
     assert {e.ccan_id for e in entries} == {100, 200, 300}
-
 
 def test_discover_missing_index_exits(tmp_path):
     snap = tmp_path / "nosnap"

@@ -14,7 +14,6 @@ import pytest
 sys.path.insert(0, str(Path(__file__).parent))
 import ccan_index as CI
 
-
 LISTING_HTML_3 = """<html><body>
 <table>
 <tr><td><a href="ccan-view.pl?a=view&i=100">Pack One</a></td><td>Alice</td><td>2025-01-01</td><td>LC</td><td>Pack1.c4s</td><td>c4s</td><td>1.0 MB</td></tr>
@@ -23,7 +22,6 @@ LISTING_HTML_3 = """<html><body>
 </table>
 <div>Seite 1 von 41 - Eintraege 1 bis 30 von 3695</div>
 </body></html>"""
-
 
 PER_ENTRY_HTML = """<!DOCTYPE html>
 <html><head><title>CCAN - Sample Pack</title></head><body>
@@ -38,7 +36,6 @@ PER_ENTRY_HTML = """<!DOCTYPE html>
 </table>
 <div id="comments"><p>First comment by Dave.</p><p>Second comment by Eve.</p></div>
 </body></html>"""
-
 
 def test_parse_listing_collects_entries():
     page = CI.parse_listing(LISTING_HTML_3)
@@ -55,19 +52,16 @@ def test_parse_listing_collects_entries():
     assert e0.size_label == "1.0 MB"
     assert e0.is_pack is True
 
-
 def test_parse_listing_detects_pagination_and_total():
     page = CI.parse_listing(LISTING_HTML_3)
     assert page.page_number == 1
     assert page.total_pages == 41
     assert page.total_entries == 3695
 
-
 def test_parse_listing_empty_table():
     page = CI.parse_listing("<html><body><table></table></body></html>")
     assert page.entries == []
     assert page.total_entries == 0
-
 
 def test_parse_per_entry_populates_all_fields():
     per = CI.parse_per_entry(PER_ENTRY_HTML, 4242)
@@ -87,10 +81,8 @@ def test_parse_per_entry_populates_all_fields():
     assert per.download_url == (
         "https://ccan.de/cgi-bin/ccan/ccan-dl-auth.pl/4242/Sample.c4d")
 
-
 def test_extract_comments_returns_empty_when_absent():
     assert CI.extract_comments("<html><body>no comments</body></html>") == ""
-
 
 def test_extract_comments_case_insensitive_id():
     html = '<div id="Comments">hello world</div>'

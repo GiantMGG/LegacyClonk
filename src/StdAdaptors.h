@@ -952,7 +952,6 @@ private:
 template <class Enum, class T, std::size_t N = C4EnumInfo<Enum>::data.values.size()>
 auto mkEnumAdapt(T &val, C4EnumAdaptPrefixMode prefixMode = C4EnumAdaptPrefixMode::None, const C4EnumInfoData<Enum, N> &info = C4EnumInfo<Enum>::data) { return C4EnumAdaptWithInfo<T, Enum, N>{val, prefixMode, info}; }
 
-
 template <class Enum, std::size_t N = C4EnumInfo<Enum>::data.values.size()> requires std::is_enum_v<Enum>
 auto mkEnumAdapt(Enum &val, C4EnumAdaptPrefixMode prefixMode = C4EnumAdaptPrefixMode::None, const C4EnumInfoData<Enum, N> &info = C4EnumInfo<Enum>::data) { return C4EnumAdaptWithInfo<Enum, Enum, N>{val, prefixMode, info}; }
 

@@ -30,7 +30,6 @@ from import_ccan import (
     parse_ccan_metadata,
 )
 
-
 # ===========================================================================
 # Data classes
 # ===========================================================================
@@ -51,14 +50,12 @@ class ListingEntry:
     def is_pack(self) -> bool:
         return self.file_type in ("c4d", "c4f", "c4s", "zip")
 
-
 @dataclass
 class ListingPage:
     entries: list[ListingEntry]
     page_number: int
     total_pages: int
     total_entries: int      # the "von N" count; 0 if undetectable
-
 
 @dataclass
 class PerEntry:
@@ -75,7 +72,6 @@ class PerEntry:
     comments: str
     view_url: str
     download_url: str
-
 
 # ===========================================================================
 # Listing parser
@@ -153,7 +149,6 @@ class _ListingParser(html.parser.HTMLParser):
             size_label=cells[6],
         ))
 
-
 def parse_listing(html_text: str) -> ListingPage:
     """Parse one CCAN listing page. Returns a ListingPage."""
     parser = _ListingParser()
@@ -175,7 +170,6 @@ def parse_listing(html_text: str) -> ListingPage:
         total_entries=parser.total_entries,
     )
 
-
 # ===========================================================================
 # Per-entry parser + comments extraction
 # ===========================================================================
@@ -196,7 +190,6 @@ def extract_comments(html_text: str) -> str:
     inner = m.group(1)
     text = re.sub(r"<[^>]+>", " ", inner)
     return re.sub(r"\s+", " ", text).strip()
-
 
 def parse_per_entry(html_text: str, ccan_id: int) -> PerEntry:
     """Parse a per-entry CCAN page into a full PerEntry record."""

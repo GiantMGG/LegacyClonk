@@ -44,7 +44,6 @@ enum class C4TextEncoding
 #endif
 };
 
-
 class C4TextEncodingConverter
 {
 #ifdef HAVE_ICONV
@@ -378,7 +377,6 @@ public:
 	{
 		return Convert<C4TextEncoding::System, C4TextEncoding::Clonk>(input);
 	}
-
 
 #ifdef HAVE_ICONV
 	void CreateConverters(const char *charsetCodeName);

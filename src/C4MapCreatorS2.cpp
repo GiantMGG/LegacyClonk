@@ -146,7 +146,7 @@ C4MCNode::C4MCNode(C4MCNode *pOwner, C4MCNode &rTemplate, bool fClone)
     // Preserve the name if pOwner is a MCN_Node, which is only the case if pOwner is a C4MapCreatorS2
     if (pOwner && pOwner->Type() == MCN_Node)
         SCopy(rTemplate.Name, Name, C4MaxName);
-    else 
+    else
         *Name = 0;  // Default behavior: reset the name
 }
 

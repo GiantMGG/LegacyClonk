@@ -11,7 +11,6 @@ STUB_MAX_SIZE = 200
 PNG_WIDTH = 64
 PNG_HEIGHT = 64
 
-
 def make_transparent_png(width: int, height: int) -> bytes:
     """Generate a valid PNG: width×height, RGBA, all pixels (0,0,0,0)."""
     def chunk(tag: bytes, data: bytes) -> bytes:
@@ -39,7 +38,6 @@ def make_transparent_png(width: int, height: int) -> bytes:
         + chunk(b"IDAT", idat)
         + chunk(b"IEND", iend)
     )
-
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
@@ -72,7 +70,6 @@ def main():
         print(f"  FIXED: {s} ({old_size} -> {len(replacement)} bytes)")
 
     print(f"Replaced {len(stubs)} stubs with {PNG_WIDTH}x{PNG_HEIGHT} transparent RGBA PNGs")
-
 
 if __name__ == "__main__":
     main()

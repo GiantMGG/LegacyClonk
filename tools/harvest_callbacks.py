@@ -29,7 +29,6 @@ try:
 except ImportError:  # pragma: no cover
     yaml = None
 
-
 # ===========================================================================
 # Hand-maintained mapping tables (trivially auditable, live at top of file)
 # ===========================================================================
@@ -106,7 +105,6 @@ CALLBACK_GROUPS: list[tuple[str, str, str]] = [
     (r"^PSF_(Action|OnActionJump)$", "actions.md", "Action callbacks"),
 ]
 
-
 # ===========================================================================
 # Data classes
 # ===========================================================================
@@ -116,7 +114,6 @@ class Param:
     name: str
     c4type: str
 
-
 @dataclass
 class Callback:
     name: str           # e.g. "Hit" (stripped of ~ and {})
@@ -124,7 +121,6 @@ class Callback:
     raw_string: str     # e.g. "~Hit" or "Fx{}Start"
     param_hint: str     # trailing // comment, e.g. "iChange, iCausedBy" (may be "")
     source_line: int
-
 
 @dataclass
 class Function:
@@ -138,7 +134,6 @@ class Function:
     signature_found: bool
     signature_source: str  # file:line where the static Fn<Name>(...) was found
 
-
 @dataclass
 class Constant:
     name: str
@@ -147,7 +142,6 @@ class Constant:
     source_line: int
     value_token: str    # raw symbolic value token from the const map (e.g. "C4D_StaticBack")
 
-
 @dataclass
 class DefCoreField:
     key: str            # DefCore.txt key (quoted second arg)
@@ -155,13 +149,11 @@ class DefCoreField:
     default: str        # default value literal (third arg, "" if absent)
     source_line: int
 
-
 # ===========================================================================
 # Parse helpers
 # ===========================================================================
 
 _WARN_UNKNOWN_TYPES: set[str] = set()
-
 
 def _map_cpp_type(cpp_type: str) -> str:
     cpp_type = cpp_type.strip()
@@ -175,17 +167,14 @@ def _map_cpp_type(cpp_type: str) -> str:
     _WARN_UNKNOWN_TYPES.add(cpp_type)
     return "any"
 
-
 def _map_hungarian(name: str) -> str:
     for prefix, c4type in sorted(HUNGARIAN_MAP.items(), key=lambda kv: -len(kv[0])):
         if name.startswith(prefix):
             return c4type
     return "any"
 
-
 def _map_c4v(c4v_token: str) -> str:
     return C4V_MAP.get(c4v_token.strip(), "any")
-
 
 def _split_top_level_commas(s: str) -> list[str]:
     """Split on commas that are not nested inside (), [], or {}."""
@@ -206,7 +195,6 @@ def _split_top_level_commas(s: str) -> list[str]:
         parts.append("".join(current).strip())
     return parts
 
-
 # ---------------------------------------------------------------------------
 # Callbacks: parse C4Script.h #define PSF_* lines
 # ---------------------------------------------------------------------------
@@ -220,7 +208,6 @@ _PSF_RE = re.compile(
         \s*$""",
     re.VERBOSE,
 )
-
 
 def parse_callbacks(header_path: Path) -> list[Callback]:
     callbacks: list[Callback] = []
@@ -240,7 +227,6 @@ def parse_callbacks(header_path: Path) -> list[Callback]:
         ))
     return callbacks
 
-
 def count_psf_macros(header_path: Path) -> int:
     """Independent count of `#define PSF_*` macro lines.
 
@@ -253,13 +239,11 @@ def count_psf_macros(header_path: Path) -> int:
             count += 1
     return count
 
-
 def callback_group(symbol: str) -> str:
     for pattern, group_file, _title in CALLBACK_GROUPS:
         if re.search(pattern, symbol):
             return group_file
     return "misc.md"
-
 
 def _parse_hint_params(hint: str) -> list[Param]:
     """Parse a trailing // comment into typed params.
@@ -288,7 +272,6 @@ def _parse_hint_params(hint: str) -> list[Param]:
         params.append(_parse_one_param_token("".join(current)))
     return [p for p in params if p is not None]
 
-
 def _parse_one_param_token(token: str) -> Optional[Param]:
     token = token.strip()
     if not token:
@@ -311,7 +294,6 @@ def _parse_one_param_token(token: str) -> Optional[Param]:
     name = token
     # Strip a leading type char if it looks like Hungarian.
     return Param(name=name, c4type=_map_hungarian(name))
-
 
 # ---------------------------------------------------------------------------
 # Functions: parse AddFunc registration table + Fn<Name> signatures
@@ -344,7 +326,6 @@ _FN_DEF_RE = re.compile(
         .*$""",
     re.VERBOSE,
 )
-
 
 def parse_functions(cpp_path: Path, src_dir: Path) -> list[Function]:
     """Parse AddFunc registrations and resolve Fn<Name> signatures across src_dir."""
@@ -403,7 +384,6 @@ def parse_functions(cpp_path: Path, src_dir: Path) -> list[Function]:
                 signature_source="",
             ))
     return functions
-
 
 def _scan_fn_definitions(cpp_path: Path, fn_defs: dict) -> None:
     raw_lines = cpp_path.read_text(encoding="utf-8", errors="replace").splitlines()
@@ -467,7 +447,6 @@ def _scan_fn_definitions(cpp_path: Path, fn_defs: dict) -> None:
         }
         pending_docstring = ""
 
-
 def _parse_fn_params(params_text: str) -> list[Param]:
     """Parse a C++ parameter list, dropping C4AulContext *cthr."""
     params_text = params_text.strip()
@@ -513,7 +492,6 @@ def _parse_fn_params(params_text: str) -> list[Param]:
             params.append(Param(name="", c4type=_map_cpp_type(tok)))
     return params
 
-
 def _clean_docstring(raw: str) -> str:
     if not raw:
         return ""
@@ -532,7 +510,6 @@ def _clean_docstring(raw: str) -> str:
             lines.append(line)
     return "\n".join(lines)
 
-
 def count_addfuncs(cpp_path: Path) -> int:
     """Independent count of `AddFunc(pEngine, ...)` registration lines.
 
@@ -545,7 +522,6 @@ def count_addfuncs(cpp_path: Path) -> int:
         if "AddFunc" in line and "pEngine" in line:
             count += 1
     return count
-
 
 # ---------------------------------------------------------------------------
 # Constants: parse C4ScriptConstMap[] rows
@@ -563,7 +539,6 @@ _CONSTROW_RE = re.compile(
         \s*$""",
     re.VERBOSE,
 )
-
 
 def parse_constants(cpp_path: Path) -> list[Constant]:
     consts: list[Constant] = []
@@ -587,7 +562,6 @@ def parse_constants(cpp_path: Path) -> list[Constant]:
         ))
     return consts
 
-
 def count_constmap_rows(cpp_path: Path) -> int:
     """Independent count of `C4ScriptConstMap[]` data rows.
 
@@ -608,7 +582,6 @@ def count_constmap_rows(cpp_path: Path) -> int:
         if in_map and line.lstrip().startswith('{ "'):
             count += 1
     return count
-
 
 # ---------------------------------------------------------------------------
 # DefCore.txt fields: parse C4DefCore::CompileFunc mkNamingAdapt(...) calls
@@ -639,7 +612,6 @@ def _extract_paren_calls(text: str, name: str) -> list[tuple[int, str]]:
         pos = i
     return results
 
-
 def _innermost_identifier(arg: str) -> str:
     """Given a field arg like `mkBitfieldAdapt(Category, ...)` or
     `toC4CStr(STimerCall)`, return the innermost C++ field identifier."""
@@ -650,7 +622,6 @@ def _innermost_identifier(arg: str) -> str:
         commas = _split_top_level_commas(inner)
         s = commas[0].strip() if commas else inner.strip()
     return s
-
 
 def parse_defcore_fields(def_path: Path) -> list[DefCoreField]:
     text = def_path.read_text(encoding="utf-8", errors="replace")
@@ -688,7 +659,6 @@ def parse_defcore_fields(def_path: Path) -> list[DefCoreField]:
         ))
     return fields
 
-
 def count_defcore_fields(def_path: Path) -> int:
     """Independent count of `mkNamingAdapt(...)` calls in `C4Def::CompileFunc`.
 
@@ -713,7 +683,6 @@ def count_defcore_fields(def_path: Path) -> int:
     body = text[body_start:i - 1]
     return body.count("mkNamingAdapt")
 
-
 # ===========================================================================
 # Rendering
 # ===========================================================================
@@ -722,7 +691,6 @@ def _load_curated(path: Path) -> dict:
     if path.exists() and yaml is not None:
         return yaml.safe_load(path.read_text(encoding="utf-8")) or {}
     return {}
-
 
 def render_callback_group(group_file: str, group_title: str,
                           callbacks: list[Callback], curated: dict) -> str:
@@ -754,7 +722,6 @@ def render_callback_group(group_file: str, group_title: str,
                          f"See `src/C4Script.h:{cb.source_line}`.")
             lines.append("")
     return "\n".join(lines) + "\n"
-
 
 def render_function_page(fn: Function, curated: dict) -> str:
     entry = curated.get(fn.name, {})
@@ -799,7 +766,6 @@ def render_function_page(fn: Function, curated: dict) -> str:
         lines.append("")
     return "\n".join(lines) + "\n"
 
-
 def render_function_index(functions: list[Function], curated: dict) -> str:
     lines = ["# Built-in functions", ""]
     lines.append("Alphabetic table of every built-in C4Script function, harvested from "
@@ -812,7 +778,6 @@ def render_function_index(functions: list[Function], curated: dict) -> str:
         lines.append(f"| [`{fn.name}`]({fn.name}.md) | `{fn.symbol}` | {status} |")
     lines.append("")
     return "\n".join(lines) + "\n"
-
 
 def render_constants(consts: list[Constant], curated: dict, values: dict) -> str:
     lines = ["# Global constants", ""]
@@ -836,7 +801,6 @@ def render_constants(consts: list[Constant], curated: dict, values: dict) -> str
         lines.append("")
     return "\n".join(lines) + "\n"
 
-
 def render_defcore(fields: list[DefCoreField], curated: dict) -> str:
     lines = ["# DefCore.txt fields", ""]
     lines.append("Every `DefCore.txt` field, harvested from `C4DefCore::CompileFunc` "
@@ -849,7 +813,6 @@ def render_defcore(fields: list[DefCoreField], curated: dict) -> str:
         lines.append(f"| `{f.key}` | `{f.field}` | `{f.default}` | {desc} |")
     lines.append("")
     return "\n".join(lines) + "\n"
-
 
 # ===========================================================================
 # Main: orchestrate parse + render + write
@@ -913,7 +876,6 @@ def main(argv: list[str] | None = None) -> int:
     print(f"Harvested {len(callbacks)} callbacks, {len(functions)} functions, "
           f"{len(consts)} constants, {len(defcore_fields)} DefCore.txt fields.")
     return 0
-
 
 if __name__ == "__main__":
     raise SystemExit(main())

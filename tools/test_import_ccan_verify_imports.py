@@ -15,9 +15,7 @@ import pytest
 sys.path.insert(0, str(Path(__file__).parent))
 import import_ccan as I
 
-
 BLOB = b"pack-blob-bytes"
-
 
 def _make_cc(tmp_path: Path, packs: dict) -> Path:
     cc = tmp_path / "cc"
@@ -38,7 +36,6 @@ def _make_cc(tmp_path: Path, packs: dict) -> Path:
     (cc / "ATTRIBUTION.toml").write_text("".join(lines), encoding="utf-8")
     return cc
 
-
 def _run_verify(cc: Path, tmp_path: Path, *, snapshot_dir=None,
                 fake_fetch=None, monkeypatch):
     if fake_fetch:
@@ -48,7 +45,6 @@ def _run_verify(cc: Path, tmp_path: Path, *, snapshot_dir=None,
     if snapshot_dir:
         argv += ["--snapshot-dir", str(snapshot_dir)]
     return I.main(argv)
-
 
 def test_verify_imports_no_changes(tmp_path, monkeypatch):
     sha = hashlib.sha256(BLOB).hexdigest()
@@ -65,7 +61,6 @@ def test_verify_imports_no_changes(tmp_path, monkeypatch):
     assert "unchanged: 1" in text
     report.unlink()
 
-
 def test_verify_imports_detects_sha256_mismatch(tmp_path, monkeypatch):
     cc = _make_cc(tmp_path, {
         "Alpha": {"ccan_id": 100, "sha256": "oldsha",
@@ -81,7 +76,6 @@ def test_verify_imports_detects_sha256_mismatch(tmp_path, monkeypatch):
     assert "oldsha" in text
     assert hashlib.sha256(BLOB).hexdigest() in text
     report.unlink()
-
 
 def test_verify_imports_detects_deleted_entry(tmp_path, monkeypatch):
     cc = _make_cc(tmp_path, {
@@ -100,7 +94,6 @@ def test_verify_imports_detects_deleted_entry(tmp_path, monkeypatch):
     assert "missing (CCAN deleted): 1" in text
     report.unlink()
 
-
 def test_verify_imports_detects_local_missing(tmp_path, monkeypatch):
     cc = _make_cc(tmp_path, {
         "Alpha": {"ccan_id": 100, "sha256": "x",
@@ -116,7 +109,6 @@ def test_verify_imports_detects_local_missing(tmp_path, monkeypatch):
     text = report.read_text(encoding="utf-8")
     assert "local_missing" in text
     report.unlink()
-
 
 def test_verify_imports_reads_blob_from_snapshot(tmp_path, monkeypatch):
     sha = hashlib.sha256(BLOB).hexdigest()
@@ -135,7 +127,6 @@ def test_verify_imports_reads_blob_from_snapshot(tmp_path, monkeypatch):
     rc = _run_verify(cc, tmp_path, snapshot_dir=snap, monkeypatch=monkeypatch)
     assert rc == 0
     Path("ccan_verify_imports_report.md").unlink()
-
 
 def test_verify_imports_missing_master_index_exits(tmp_path, monkeypatch):
     cc = tmp_path / "cc"

@@ -239,7 +239,6 @@ private:
 	std::shared_ptr<C4HudBars> defaultBars;
 };
 
-
 class C4HudBarsAdapt
 {
 protected:

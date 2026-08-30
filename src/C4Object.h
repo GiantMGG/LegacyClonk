@@ -471,7 +471,6 @@ public:
 	// -Objects that are not to be saved in "SaveScenario"-mode
 	bool IsUserPlayerObject(); // true for any object that belongs to any player (NO_OWNER) or a specified player
 
-
 	void MoveToSection(C4Section &newSection, bool checkContained);
 
 private:

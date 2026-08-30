@@ -66,7 +66,6 @@ void StdCompiler::NameGuard::Disarm() noexcept
 
 // *** StdCompiler
 
-
 char StdCompiler::SeparatorToChar(Sep eSep)
 {
 	switch (eSep)

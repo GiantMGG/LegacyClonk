@@ -338,7 +338,6 @@ def test_integration_import_sample_pack_end_to_end(
 	)
 	assert (pack_dir / "Sample.c4d").is_dir(), "force re-import lost the pack"
 
-
 def test_load_manifest_parses_requires_field(tmp_path: Path):
 	p = tmp_path / "manifest.toml"
 	p.write_text(
@@ -353,7 +352,6 @@ def test_load_manifest_parses_requires_field(tmp_path: Path):
 	entries = I.load_manifest(p)
 	assert entries[0].requires == ["B", "C"]
 
-
 def test_load_manifest_requires_defaults_to_empty(tmp_path: Path):
 	p = tmp_path / "manifest.toml"
 	p.write_text(
@@ -366,7 +364,6 @@ def test_load_manifest_requires_defaults_to_empty(tmp_path: Path):
 	)
 	entries = I.load_manifest(p)
 	assert entries[0].requires == []
-
 
 def test_load_manifest_parses_smoke_subtable(tmp_path: Path):
 	p = tmp_path / "manifest.toml"
@@ -387,7 +384,6 @@ def test_load_manifest_parses_smoke_subtable(tmp_path: Path):
 	assert entries[0].smoke.skip is True
 	assert entries[0].smoke.curator_script is True
 
-
 def test_load_manifest_smoke_defaults(tmp_path: Path):
 	p = tmp_path / "manifest.toml"
 	p.write_text(
@@ -403,7 +399,6 @@ def test_load_manifest_smoke_defaults(tmp_path: Path):
 	assert entries[0].smoke.ticks == 350
 	assert entries[0].smoke.skip is False
 	assert entries[0].smoke.curator_script is False
-
 
 def _make_entry(ccan_id, destination, requires=None):
 	return I.ManifestEntry(
@@ -421,12 +416,10 @@ def _make_entry(ccan_id, destination, requires=None):
 		requires=requires or [],
 	)
 
-
 def test_resolve_requires_fails_fast_on_missing_dep(tmp_path: Path):
 	a = _make_entry(1, "A", requires=["B"])
 	with pytest.raises(SystemExit, match="does not exist"):
 		I.resolve_requires(a, [a], tmp_path)
-
 
 def test_resolve_requires_detects_cycle(tmp_path: Path):
 	a = _make_entry(1, "A", requires=["B"])
@@ -435,7 +428,6 @@ def test_resolve_requires_detects_cycle(tmp_path: Path):
 	(tmp_path / "B").mkdir()
 	with pytest.raises(SystemExit, match="cycle"):
 		I.resolve_requires(a, [a, b], tmp_path)
-
 
 def test_resolve_requires_returns_transitive_closure(tmp_path: Path):
 	a = _make_entry(1, "A", requires=["B"])
@@ -446,11 +438,9 @@ def test_resolve_requires_returns_transitive_closure(tmp_path: Path):
 	result = I.resolve_requires(a, [a, b, c], tmp_path)
 	assert result == ["B", "C"]
 
-
 def test_resolve_requires_empty_when_no_deps(tmp_path: Path):
 	a = _make_entry(1, "A", requires=[])
 	assert I.resolve_requires(a, [a], tmp_path) == []
-
 
 def _setup_pack(tmp_path: Path, name: str = "MyPack", requires=None, smoke=None):
 	"""Create a minimal pack layout: tmp_path/name/MyPack.c4s/ with one sub-def."""
@@ -476,7 +466,6 @@ def _setup_pack(tmp_path: Path, name: str = "MyPack", requires=None, smoke=None)
 	(unpack_path / "Objects.c4d").mkdir()  # sub-def
 	return entry, dest_dir, unpack_path
 
-
 def test_emit_smoke_artefacts_creates_struct_marker(tmp_path: Path):
 	entry, dest_dir, unpack_path = _setup_pack(tmp_path)
 	I.emit_smoke_artefacts(
@@ -490,7 +479,6 @@ def test_emit_smoke_artefacts_creates_struct_marker(tmp_path: Path):
 	assert marker.is_file()
 	content = marker.read_text(encoding="utf-8").strip()
 	assert content == str(unpack_path.resolve())
-
 
 def test_emit_smoke_artefacts_creates_smoke_scenario(tmp_path: Path):
 	entry, dest_dir, unpack_path = _setup_pack(tmp_path)
@@ -510,7 +498,6 @@ def test_emit_smoke_artefacts_creates_smoke_scenario(tmp_path: Path):
 	script = (smoke_dir / "Script.c").read_text(encoding="utf-8")
 	assert 'Log("MyPack PASS")' in script
 
-
 def test_emit_smoke_artefacts_skips_when_skip_true(tmp_path: Path):
 	entry, dest_dir, unpack_path = _setup_pack(
 		tmp_path, smoke=I.SmokeConfig(skip=True)
@@ -523,7 +510,6 @@ def test_emit_smoke_artefacts_skips_when_skip_true(tmp_path: Path):
 		content_community=tmp_path,
 	)
 	assert not (dest_dir / "Tests.c4f").exists()
-
 
 def test_emit_smoke_artefacts_preserves_curator_script(tmp_path: Path):
 	entry, dest_dir, unpack_path = _setup_pack(
@@ -542,7 +528,6 @@ def test_emit_smoke_artefacts_preserves_curator_script(tmp_path: Path):
 		content_community=tmp_path,
 	)
 	assert (smoke_dir / "Script.c").read_text(encoding="utf-8") == curator_script
-
 
 def test_emit_smoke_artefacts_writes_definitions_closure(tmp_path: Path):
 	entry, dest_dir, unpack_path = _setup_pack(tmp_path, requires=["Dep"])
@@ -565,7 +550,6 @@ def test_emit_smoke_artefacts_writes_definitions_closure(tmp_path: Path):
 	assert "Definition1=Objects.c4d" in text
 	# Dep's pack (Dep.c4d) listed.
 	assert "Dep.c4d" in text
-
 
 def test_import_one_emits_smoke_artefacts(tmp_path: Path, monkeypatch):
 	"""_import_one calls emit_smoke_artefacts after a successful import."""

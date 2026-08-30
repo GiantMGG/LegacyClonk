@@ -70,7 +70,6 @@ private:
 	// Process list
 	std::unordered_set<StdSchedulerProc *> procs;
 
-
 #ifdef _WIN32
 	CStdEvent unblocker{CStdEvent::AutoReset()};
 

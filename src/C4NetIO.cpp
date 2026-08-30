@@ -229,8 +229,6 @@ void ResetSocketError()
 
 #endif
 
-
-
 namespace
 {
 	bool ContainsGlobalIpv6(const std::vector<C4Network2HostAddress> &addresses)
