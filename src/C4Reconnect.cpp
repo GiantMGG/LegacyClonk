@@ -54,6 +54,18 @@ bool C4Reconnect::ConstantTimeEquals(const Token &a, const Token &b)
 bool C4Reconnect::EnterDormancy(C4Network2Client *pClient, time_t now)
 {
 	if (!enabled || !pClient) return false;
+	// Idempotent per client: a drop tears down several conns in a burst,
+	// each firing OnClientDisconnect. Refresh the existing entry's
+	// deadline instead of stacking duplicates -- stale duplicates would
+	// later expire and CtrlRemove a freshly reassociated client.
+	for (auto &d : dormant)
+	{
+		if (d.pClient == pClient)
+		{
+			d.deadline = now + static_cast<time_t>(graceSec);
+			return true;
+		}
+	}
 	pClient->SetStatus(NCS_Dormant);
 	Dormant d;
 	d.originalClientID = pClient->getID();
@@ -91,6 +103,11 @@ C4Network2Client *C4Reconnect::HandleReconn(const Token &token, int32_t original
 	if (!ConstantTimeEquals(token, it->token)) return nullptr;
 	C4Network2Client *pClient = it->pClient;
 	// Tear down any stale half-open connections before re-associating.
+	// The handshake conn may already be among them (the host's own
+	// re-dial of the dormant client's addresses lands as the client
+	// entry's msg conn) -- detach it first so the teardown cannot close
+	// the conn the reconnect join data must travel on.
+	if (pNewConn && pClient->hasConn(pNewConn)) pClient->RemoveConn(pNewConn);
 	pClient->CloseConns("reconnect");
 	if (pNewConn) pClient->SetMsgConn(pNewConn);
 	pClient->SetStatus(NCS_Chasing);

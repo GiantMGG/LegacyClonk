@@ -1044,6 +1044,11 @@ void C4Network2::HandlePacket(char cStatus, const C4PacketBase *pPacket, C4Netwo
 			pConn->Close();
 			break;
 		}
+		// Prime the chase-target update so UpdateChaseTarget broadcasts
+		// the chase target to the freshly-chasing client (mirrors the
+		// SendJoinData tail for fresh joins; without this the client
+		// never learns a chase target and its catch-up stalls).
+		if (!iLastChaseTargetUpdate) iLastChaseTargetUpdate = time(nullptr);
 		// Reassociation succeeded. Ship reconnect join data: a snapshot
 		// taken now (from the rollback ring if possible, else fresh).
 		auto snap = Reconnect.GetReconnectSnapshot(
@@ -1883,11 +1888,16 @@ void C4Network2::OnClientDisconnect(C4Network2Client *pClient)
 		// frozen-statue players stay in the world; the original client
 		// ID is retained so a PID_Reconn handshake can re-associate.
 		// LeagueNotifyDisconnect above already fired once on the drop.
+		// A drop tears down several conns in a burst, each re-entering
+		// this branch -- the dormancy marker is logged only on the
+		// fresh transition, so the smoke's marker count stays 1.
+		const bool wasDormant = pClient->isDormant();
 		if (Reconnect.IsEnabled() && Reconnect.IsTokenMinted() &&
 		    Reconnect.EnterDormancy(pClient, time(nullptr)))
 		{
-			Logger->info("client {} entered dormancy (reconnect grace {}s)",
-			             pClient->getName(), Reconnect.GetGraceSec());
+			if (!wasDormant)
+				Logger->info("client {} entered dormancy (reconnect grace {}s)",
+				             pClient->getName(), Reconnect.GetGraceSec());
 			return;
 		}
 
@@ -2020,6 +2030,12 @@ void C4Network2::SendReconnectJoinData(C4Network2Client *pClient, const C4Reconn
 	JoinData.SetGameStatus(Status);
 	JoinData.SetStartCtrlTick(snap.tick);
 	JoinData.SetReconnectSnapshotTick(snap.tick);
+	// Copy the game parameters exactly like the fresh-join SendJoinData.
+	// Without this the packet's default-constructed Parameters carries a
+	// Scenario C4GameRes with a null res core, and packing it segfaults
+	// the host in C4GameRes::CompileFunc (the null-check assert is
+	// compiled out under NDEBUG).
+	JoinData.Parameters = Game.Parameters;
 	// Copy the snapshot buffer into the packet's StdBuf field (raw binary).
 	JoinData.SetReconnectSnapshot(snap.buf);
 	pClient->SendMsg(MkC4NetIOPacket(PID_JoinData, JoinData));
@@ -2044,6 +2060,15 @@ void C4Network2::HandleReconnectJoinData(const C4PacketJoinData &rPkt)
 		return;
 	}
 	iDynamicTick = rPkt.GetReconnectSnapshotTick();
+	// Re-anchor the control stream at the snapshot tick. The client's
+	// pre-drop control-ready is far behind the snapshot (the host kept
+	// simulating during the partition), and the host's control backlog
+	// cannot serve ticks that old -- without the re-anchor the chase
+	// stalls requesting control the host has already cleared. Mirrors
+	// the fresh-join pControl->Init in HandleJoinData.
+	C4Client *pLocalClient = Game.Clients.getClientByID(rPkt.getClientID());
+	pControl->Init(rPkt.getClientID(), false, rPkt.GetReconnectSnapshotTick(),
+	               pLocalClient ? pLocalClient->isActivated() : false, this);
 	// Enter chase: the existing C4Network2Client::isChasing path will
 	// fast-forward the client to the host's control tick.
 	C4Network2Client *pLocal = Clients.GetLocal();
