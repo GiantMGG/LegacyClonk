@@ -97,15 +97,20 @@ jobs:
             set -euo pipefail
             # OpenBSD's package manager is pkg_add; packages live under /usr/local.
             # The base-OS Clang has incomplete C++23 support — see docs/BSD_PORT.md.
+            # Package names verified against the OpenBSD 7.9 amd64 package index:
+            #   - no `zlib` package (base provides libz), no `pkgconf`,
+            #     no standalone `openssl` (ambiguous in the 7.9 repo; base
+            #     LibreSSL satisfies FindOpenSSL), `fmtlib` is `fmt`,
+            #   - console-only builds still hard-require `jpeg` and `png`
+            #     (FindJPEG/FindPNG are REQUIRED when USE_WIC is off).
             pkg_add -I -v \
               cmake \
               ninja \
               git \
-              pkgconf \
-              openssl \
               curl \
-              zlib \
-              fmtlib \
+              jpeg \
+              png \
+              fmt \
               libiconv \
               miniupnpc \
               spdlog \
