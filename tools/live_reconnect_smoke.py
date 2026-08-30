@@ -282,8 +282,10 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--player-file", default=str(DEFAULT_PLAYER_FILE),
                         help="Path to a .c4p player file passed to both peers "
                              "(default: tests/fixtures/TestPlayer.c4p).")
-    parser.add_argument("--grace-sec", type=int, default=3,
-                        help="ReconnectGraceSec override (default: 3).")
+    parser.add_argument("--grace-sec", type=int, default=20,
+                        help="ReconnectGraceSec override (default: 20). "
+                             "Must cover heal + re-dial after the host's "
+                             "30 s ping-timeout dormancy detection.")
     parser.add_argument("--join-wait", type=float, default=8.0,
                         help="Seconds to wait for the client to fully join "
                              "before partitioning (default: 8.0).")
@@ -292,9 +294,10 @@ def main(argv: list[str] | None = None) -> int:
                              "server port opens before spawning the client, "
                              "giving the host time to register its game "
                              "reference (default: 5.0).")
-    parser.add_argument("--marker-timeout", type=float, default=30.0,
+    parser.add_argument("--marker-timeout", type=float, default=60.0,
                         help="Seconds to wait for each log marker "
-                             "(default: 30.0).")
+                             "(default: 60.0; must exceed the host's 30 s "
+                             "ping-timeout dormancy detection).")
     parser.add_argument("--state-hash", action="store_true",
                         help="Enable per-tick state-hash comparison via "
                              "--log-sync-checks.")
