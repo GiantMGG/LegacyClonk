@@ -19,7 +19,7 @@ jobs:
         with:
           python-version: '3.12'
       - run: pip install -r docs/requirements.txt
-      - run: pytest tools/test_harvest_callbacks.py -v
+      - run: pytest tools/test_harvest_callbacks.py tools/test_check_citations.py -v
 
   docs-build:
     name: Build + deploy docs
