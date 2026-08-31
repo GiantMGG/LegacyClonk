@@ -1725,8 +1725,6 @@ void C4PlayerInfoList::CompileFunc(StdCompiler *pComp)
 		mkNamingAdapt(
 			mkArrayAdaptMapS(ppClients, iClientCount, mkPtrAdaptNoNull<C4ClientPlayerInfos>),
 			"Client"));
-	// force compiler to specialize
-	mkPtrAdaptNoNull<C4ClientPlayerInfos>(*ppClients);
 }
 
 int32_t C4PlayerInfoList::GetStartupCount()
