@@ -49,23 +49,7 @@ def _run(tmp: Path, allowlist: set[str] | None = None,
     exp = expectations or {}
     exercised: set[str] = set()
     failures, total = cc.scan_docs(doc_files, al, exp, exercised)
-    for key in exp:
-        if key not in exercised:
-            doc_rel, _, lineno_s = key.rpartition(":")
-            failures.append({
-                "doc_rel": doc_rel,
-                "doc_lineno": int(lineno_s),
-                "src_raw": "",
-                "start": 0,
-                "end": None,
-                "message": (
-                    "orphaned expectation: no citation on this line — "
-                    "delete or re-key the entry in "
-                    "tools/citation-expectations.txt"
-                ),
-                "allowlisted": key in al,
-                "kind": "orphan",
-            })
+    failures.extend(cc.orphan_failures(exp, exercised, al))
     allowlisted = sum(1 for f in failures if f["allowlisted"])
     new_drift = len(failures) - allowlisted
     exit_code = 0 if advisory else (1 if new_drift > budget else 0)

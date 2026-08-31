@@ -334,24 +334,16 @@ def load_expectations(path: Path) -> dict[str, list[str]]:
     return out
 
 
-def run(scan_targets: list[Path], allowlist: set[str], budget: int, advisory: bool,
-        expectations: dict[str, list[str]] | None = None) -> int:
-    """Run the linter. Returns exit code (0, 1, or 2)."""
-    doc_files = collect_doc_files(scan_targets)
-    if not doc_files:
-        print("error: no .md files found in scan targets", file=sys.stderr)
-        return 2
-
-    exp = expectations if expectations is not None else {}
-    exercised: set[str] = set()
-    all_failures, total_checked = scan_docs(doc_files, allowlist, exp, exercised)
-
-    # Orphan pass: ledger keys whose doc line was never exercised (the
-    # line no longer carries a citation, or the doc is outside the scan).
-    for key in exp:
+def orphan_failures(expectations: dict[str, list[str]], exercised: set[str],
+                    allowlist: set[str]) -> list[dict]:
+    """Orphan pass: ledger keys whose doc line was never exercised (the
+    line no longer carries a citation, or the doc is outside the scan).
+    """
+    failures: list[dict] = []
+    for key in expectations:
         if key not in exercised:
             doc_rel, _, lineno_s = key.rpartition(":")
-            all_failures.append({
+            failures.append({
                 "doc_rel": doc_rel,
                 "doc_lineno": int(lineno_s),
                 "src_raw": "",
@@ -365,6 +357,22 @@ def run(scan_targets: list[Path], allowlist: set[str], budget: int, advisory: bo
                 "allowlisted": key in allowlist,
                 "kind": "orphan",
             })
+    return failures
+
+
+def run(scan_targets: list[Path], allowlist: set[str], budget: int, advisory: bool,
+        expectations: dict[str, list[str]] | None = None) -> int:
+    """Run the linter. Returns exit code (0, 1, or 2)."""
+    doc_files = collect_doc_files(scan_targets)
+    if not doc_files:
+        print("error: no .md files found in scan targets", file=sys.stderr)
+        return 2
+
+    exp = expectations if expectations is not None else {}
+    exercised: set[str] = set()
+    all_failures, total_checked = scan_docs(doc_files, allowlist, exp, exercised)
+
+    all_failures.extend(orphan_failures(exp, exercised, allowlist))
 
     for f in all_failures:
         print(f"{f['doc_rel']}:{f['doc_lineno']}: {f['message']}", file=sys.stderr)
