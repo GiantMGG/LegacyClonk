@@ -71,6 +71,9 @@ void C4PXS::Execute(C4Section &section)
 	else
 		ydir += section.Landscape.Gravity; // default: fall
 
+	// Saltation threshold: supported PXS hop downwind once |wind|
+	// exceeds it. 0 (default) disables the branch.
+	const int32_t iSaltation = section.Material.Map[Mat].Saltation;
 	if (section.Landscape.GetDensity(iX, iY + 1) < section.Material.Map[Mat].Density)
 	{
 		// Air speed: Wind plus some random
@@ -83,14 +86,14 @@ void C4PXS::Execute(C4Section &section)
 		xdir += ((txdir - xdir) * iWindDrift) * WindDrift_Factor;
 		ydir += ((tydir - ydir) * iWindDrift) * WindDrift_Factor;
 	}
-	else if (section.Material.Map[Mat].Saltation)
+	else if (iSaltation)
 	{
 		// Saltation: supported PXS hop downwind once |wind| exceeds
 		// the material's Saltation threshold. Fires ~1/3 of
 		// supported ticks. GBackWind returns 0 inside tunnels/IFT,
 		// so buried grains never hop underground.
 		const int32_t iWind = section.GBackWind(iX, iY);
-		if (Abs(iWind) >= section.Material.Map[Mat].Saltation && !Random(3))
+		if (Abs(iWind) >= iSaltation && !Random(3))
 		{
 			// Downwind impulse: wind/30 px per tick, +-0.25 jitter.
 			xdir += itofix(iWind, 30) + FIXED256(Random(128) - 64);

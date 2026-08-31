@@ -13,13 +13,17 @@
  * for the above references.
  */
 
-// Cycle 75 (pixel-material-reactions) engine unit tests.
+// Cycle 75 (pixel-material-reactions) / cycle 80 (sand-drift-dune-mechanic)
+// engine unit tests.
 //
-// Covers the two additive engine changes:
+// Cycle 75 covers the two additive engine changes:
 //   1. The C4MaterialCore "Buoyancy" field (compile round-trip, default 0).
 //   2. The "React" reaction type (multi-[Reaction] parsing, product-sentinel
 //      resolution, and the compile -> decompile -> recompile savegame
 //      round-trip for a full React section).
+//
+// Cycle 80 adds:
+//   3. The C4MaterialCore "Saltation" field (compile round-trip, default 0).
 
 #include <catch2/catch_all.hpp>
 
