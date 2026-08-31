@@ -117,6 +117,12 @@ add_test_target(C4MaterialReactions
 	LINK_ENGINE
 )
 
+# --- Offline pre-game options (spec pregame-options-parity) ----------------
+add_test_target(OptionsOverride
+	SOURCES "${CMAKE_SOURCE_DIR}/tests/TstC4GameOptions.cpp"
+	LINK_ENGINE
+)
+
 # --- Headless scenario smoke harness -------------------------------------
 # Discovers content/**/Tests.c4f/*Smoke.c4s scenarios and registers one
 # CTest entry per scenario. See spec headless-scenario-smoke-harness.

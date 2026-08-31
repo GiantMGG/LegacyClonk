@@ -369,6 +369,9 @@ bool C4Game::OpenScenario()
 				Parameters.MaxPlayers = restoreCount;
 			}
 		}
+
+		// Apply --parameter overrides (spec pregame-options-parity)
+		ApplyParameterOverrides();
 	}
 
 	// Title
@@ -1595,6 +1598,7 @@ void C4Game::Default()
 	FrameCounter = 0;
 	SmokeRunTicks = 0;  // reset on Clear()->Default() (spec headless-scenario-smoke-harness)
 	FrameRateCap = 0;   // likewise reset (spec frame-rate-cap-engine-option)
+	ParameterOverrides.clear();  // likewise reset (spec pregame-options-parity)
 	GameOver = GameOverDlgShown = false;
 	ScenarioFilename[0] = 0;
 	PlayerFilenames[0] = 0;
@@ -2846,6 +2850,24 @@ void C4Game::ParseCommandLine(const char *szCmdLine)
 				++iPar;  // consume the value token
 			}
 		}
+		// Parameter override (spec pregame-options-parity).
+		// Colon form: "--parameter:TeamDist=Random" / "/parameter:TeamDist=Random".
+		if (SEqual2NoCase(szParameter, "/parameter:")
+		 || SEqual2NoCase(szParameter, "--parameter:"))
+		{
+			AddParameterOverride(szParameter + (SEqual2NoCase(szParameter, "/parameter:") ? 11 : 12));
+		}
+		// Two-arg form: "--parameter TeamDist=Random" / "/parameter TeamDist=Random".
+		if (SEqualNoCase(szParameter, "/parameter")
+		 || SEqualNoCase(szParameter, "--parameter"))
+		{
+			char szValue[_MAX_PATH + 1];
+			if (SGetParameter(szCmdLine, iPar + 1, szValue, _MAX_PATH))
+			{
+				AddParameterOverride(szValue);
+				++iPar;  // consume the value token
+			}
+		}
 		// Bind-address filter (spec client-bind-address-fix).
 		// Colon form: "/bind-address:127.0.0.1" / "--bind-address:127.0.0.1".
 		if (SEqual2NoCase(szParameter, "/bind-address:")
@@ -2978,6 +3000,94 @@ void C4Game::ParseCommandLine(const char *szCmdLine)
 
 	// startup dialog required?
 	Application.UseStartupDialog = Application.isFullScreen && !*DirectJoinAddress && !*ScenarioFilename && !RecordStream.getSize();
+}
+
+namespace
+{
+	// Parse a TeamDist value for --parameter (names mirror FillTeamDistOptions)
+	bool TeamDistFromString(const char *szValue, C4TeamList::TeamDist &eOut)
+	{
+		if (SEqualNoCase(szValue, "Free"))      { eOut = C4TeamList::TEAMDIST_Free;      return true; }
+		if (SEqualNoCase(szValue, "Host"))      { eOut = C4TeamList::TEAMDIST_Host;      return true; }
+		if (SEqualNoCase(szValue, "None"))      { eOut = C4TeamList::TEAMDIST_None;      return true; }
+		if (SEqualNoCase(szValue, "Random"))    { eOut = C4TeamList::TEAMDIST_Random;    return true; }
+		if (SEqualNoCase(szValue, "RandomInv")) { eOut = C4TeamList::TEAMDIST_RandomInv; return true; }
+		return false;
+	}
+}
+
+void C4Game::AddParameterOverride(const char *szKV)
+{
+	const char *szEqual = std::strchr(szKV, '=');
+	if (!szEqual)
+	{
+		LogNTr("--parameter: value without '=' ignored: {}", szKV);
+		return;
+	}
+	ParameterOverrides.emplace_back(
+		StdStrBuf{szKV, static_cast<size_t>(szEqual - szKV)},
+		StdStrBuf{szEqual + 1});
+}
+
+void C4Game::ApplyParameterOverrides()
+{
+	for (const auto &[Key, Value] : ParameterOverrides)
+	{
+		// ControlRate=<1..C4MaxControlRate>
+		if (SEqualNoCase(Key.getData(), "ControlRate"))
+		{
+			const int32_t iRate = atoi(Value.getData());
+			if (!Inside(iRate, 1, C4MaxControlRate))
+			{
+				LogNTr("--parameter: ControlRate value out of range [1..{}]: {}", C4MaxControlRate, Value.getData());
+				continue;
+			}
+			Parameters.ControlRate = iRate;
+		}
+		// TeamDist=<Free|Host|None|Random|RandomInv>
+		else if (SEqualNoCase(Key.getData(), "TeamDist"))
+		{
+			C4TeamList::TeamDist eDist;
+			if (!TeamDistFromString(Value.getData(), eDist))
+			{
+				LogNTr("--parameter: unknown TeamDist value ignored: {}", Value.getData());
+				continue;
+			}
+			if (eDist == C4TeamList::TEAMDIST_None && !Teams.IsAutoGenerateTeams())
+			{
+				LogNTr("--parameter: TeamDist=None rejected (scenario does not auto-generate teams)");
+				continue;
+			}
+			Teams.SetTeamDistribution(eDist);
+		}
+		// TeamColors=<0|1>
+		else if (SEqualNoCase(Key.getData(), "TeamColors"))
+		{
+			const int32_t iVal = atoi(Value.getData());
+			if (!Inside(iVal, 0, 1))
+			{
+				LogNTr("--parameter: TeamColors value out of range [0..1]: {}", Value.getData());
+				continue;
+			}
+			Teams.SetTeamColors(!!iVal);
+		}
+		// RandomTeamCount=<0|N>
+		else if (SEqualNoCase(Key.getData(), "RandomTeamCount"))
+		{
+			const int32_t iVal = atoi(Value.getData());
+			if (iVal < 0)
+			{
+				LogNTr("--parameter: RandomTeamCount value out of range: {}", Value.getData());
+				continue;
+			}
+			Teams.SetRandomTeamCount(iVal);
+		}
+		// unknown key
+		else
+		{
+			LogNTr("--parameter: unknown key ignored: {}", Key.getData());
+		}
+	}
 }
 
 bool C4Game::LoadScenarioComponents()
