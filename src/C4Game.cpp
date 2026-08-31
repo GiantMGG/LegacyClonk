@@ -3035,9 +3035,14 @@ void C4Game::AddParameterOverride(const char *szKV)
 		LogNTr("--parameter: value without '=' ignored: {}", szKV);
 		return;
 	}
-	ParameterOverrides.emplace_back(
-		StdStrBuf{szKV, static_cast<size_t>(szEqual - szKV)},
-		StdStrBuf{szEqual + 1});
+	// StdStrBuf(pData, iLength) copies iLength+1 bytes and assumes the char
+	// at pData[iLength] is the NUL terminator. The key substring is not
+	// NUL-terminated in szKV, so build it via Copy(pnData, iChars), which
+	// appends the terminator.
+	StdStrBuf Key, Value;
+	Key.Copy(szKV, static_cast<size_t>(szEqual - szKV));
+	Value.Copy(szEqual + 1);
+	ParameterOverrides.emplace_back(std::move(Key), std::move(Value));
 }
 
 void C4Game::ApplyParameterOverrides()
