@@ -120,7 +120,7 @@ void C4Facet::Draw(C4Facet &cgo, bool fAspect, int32_t iPhaseX, int32_t iPhaseY,
 	{
 		//    w1 : h1 <=> w2 : h2
 		// => w1 * h2 <=> w2 * h1
-		if (Wdt * cgo.Hgt > cgo.Wdt * Hgt)	// Scale height
+		if (Wdt * cgo.Hgt > cgo.Wdt * Hgt) // Scale height
 		{
 			ccgo.Hgt = Hgt * cgo.Wdt / Wdt;
 			ccgo.Y += (cgo.Hgt - ccgo.Hgt) / 2;

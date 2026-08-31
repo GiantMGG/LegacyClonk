@@ -66,14 +66,12 @@ _SMART_MAP = str.maketrans({
 
 _content_cache: dict[Path, list[str]] = {}
 
-
 def normalize_snippet(s: str) -> str:
     """NFC -> smart-quote/dash canonicalization -> casefold -> collapse."""
     s = unicodedata.normalize("NFC", s)
     s = s.translate(_SMART_MAP)
     s = s.casefold()
     return re.sub(r"\s+", " ", s).strip()
-
 
 def extract_citations(text: str) -> list[tuple[str, int, int | None]]:
     """Return all backtick-wrapped citations found in `text`.
@@ -88,7 +86,6 @@ def extract_citations(text: str) -> list[tuple[str, int, int | None]]:
         end = int(end_s) if end_s is not None else None
         out.append((raw, start, end))
     return out
-
 
 def resolve_src_file(raw_path: str) -> Path | None:
     """Resolve a cited file path to an absolute Path, or None if not found.
@@ -109,7 +106,6 @@ def resolve_src_file(raw_path: str) -> Path | None:
         return candidate
     return None
 
-
 def line_count(path: Path) -> int:
     """Return the number of lines in `path`, or -1 if unreadable."""
     if path not in _line_cache:
@@ -120,7 +116,6 @@ def line_count(path: Path) -> int:
         except OSError:
             _line_cache[path] = -1
     return _line_cache[path]
-
 
 def check_citation(src_raw: str, start: int, end: int | None) -> tuple[str, str]:
     """Check a single citation. Returns (status, message).
@@ -142,7 +137,6 @@ def check_citation(src_raw: str, start: int, end: int | None) -> tuple[str, str]
         return ("fail", f"citation {src_raw}:{start}-{end} range end out of bounds (file has {n} lines)")
     return ("pass", "")
 
-
 def file_lines(path: Path) -> list[str]:
     """Cached line list (utf-8, errors='replace'); [] when unreadable."""
     if path not in _content_cache:
@@ -154,7 +148,6 @@ def file_lines(path: Path) -> list[str]:
             _content_cache[path] = []
     return _content_cache[path]
 
-
 def locate_snippet(path: Path, snippet: str) -> list[int]:
     """1-based line numbers in `path` whose normalized content contains
     the normalized snippet. Runs only on mismatch; reads via file_lines."""
@@ -164,7 +157,6 @@ def locate_snippet(path: Path, snippet: str) -> list[int]:
         for i, line in enumerate(file_lines(path), start=1)
         if norm in normalize_snippet(line)
     ]
-
 
 def check_snippet(cites: list[tuple[str, int, int | None]], snippet: str) -> tuple[bool, str]:
     """True iff the normalized snippet is contained in the normalized
@@ -200,7 +192,6 @@ def check_snippet(cites: list[tuple[str, int, int | None]], snippet: str) -> tup
         f"{head}; snippet not found anywhere in {src_raw} — content "
         "drifted, update tools/citation-expectations.txt"
     ))
-
 
 def scan_file(doc_path: Path, allowlist: set[str],
               expectations: dict[str, list[str]],
@@ -259,7 +250,6 @@ def scan_file(doc_path: Path, allowlist: set[str],
                     })
     return failures, total
 
-
 def scan_docs(doc_files: list[Path], allowlist: set[str],
               expectations: dict[str, list[str]],
               exercised: set[str]) -> tuple[list[dict], int]:
@@ -272,7 +262,6 @@ def scan_docs(doc_files: list[Path], allowlist: set[str],
         total_checked += checked
     return all_failures, total_checked
 
-
 def collect_doc_files(scan_targets: list[Path]) -> list[Path]:
     """Expand scan targets into a sorted, de-duplicated list of .md files."""
     files: list[Path] = []
@@ -282,7 +271,6 @@ def collect_doc_files(scan_targets: list[Path]) -> list[Path]:
         elif target.is_dir():
             files.extend(target.rglob("*.md"))
     return sorted(set(files))
-
 
 def load_allowlist(path: Path) -> set[str]:
     """Load allowlist entries (doc_rel:doc_lineno) from `path`.
@@ -297,7 +285,6 @@ def load_allowlist(path: Path) -> set[str]:
         for line in path.read_text(encoding="utf-8").splitlines()
         if line.strip() and not line.startswith("#")
     }
-
 
 def load_expectations(path: Path) -> dict[str, list[str]]:
     """Parse the content-expectations ledger at `path`.
@@ -333,7 +320,6 @@ def load_expectations(path: Path) -> dict[str, list[str]]:
         out.setdefault(key, []).append(snippet)
     return out
 
-
 def orphan_failures(expectations: dict[str, list[str]], exercised: set[str],
                     allowlist: set[str]) -> list[dict]:
     """Orphan pass: ledger keys whose doc line was never exercised (the
@@ -358,7 +344,6 @@ def orphan_failures(expectations: dict[str, list[str]], exercised: set[str],
                 "kind": "orphan",
             })
     return failures
-
 
 def run(scan_targets: list[Path], allowlist: set[str], budget: int, advisory: bool,
         expectations: dict[str, list[str]] | None = None) -> int:
@@ -401,7 +386,6 @@ def run(scan_targets: list[Path], allowlist: set[str], budget: int, advisory: bo
         return 1
     return 0
 
-
 def main() -> int:
     parser = argparse.ArgumentParser(
         description=(
@@ -440,7 +424,6 @@ def main() -> int:
 
     allowlist = load_allowlist(args.allowlist)
     return run(targets, allowlist, args.budget, args.advisory, expectations)
-
 
 if __name__ == "__main__":
     sys.exit(main())

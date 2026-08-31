@@ -2053,7 +2053,7 @@ void C4Player::FoW2Map(CClrModAddMap &rMap, int iOffX, int iOffY)
 				if (!iRange && Cursor) iRange = Cursor->PlrViewRange;
 				if (!iRange) iRange = C4FOW_Def_View_RangeX;
 
-				rMap.ReduceModulation(objInSection.ObjX	+ iOffX, objInSection.ObjY + iOffY, iRange * 2 / 3, iRange);
+				rMap.ReduceModulation(objInSection.ObjX + iOffX, objInSection.ObjY + iOffY, iRange * 2 / 3, iRange);
 			}
 		}
 	}

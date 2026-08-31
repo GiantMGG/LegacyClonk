@@ -2737,7 +2737,6 @@ bool C4Game::InitControl()
 	return true;
 }
 
-
 void C4Game::ParseCommandLine(const char *szCmdLine)
 {
 	LogNTr("Command line: "); LogNTr(szCmdLine);
@@ -3189,7 +3188,7 @@ bool C4Game::InitKeyboard()
 	return true;
 }
 
-std::uint32_t C4Game::CreateSection(const char *const name, std::string callback, C4Section &sourceSection, C4Object *const	target, const C4Value &value)
+std::uint32_t C4Game::CreateSection(const char *const name, std::string callback, C4Section &sourceSection, C4Object *const target, const C4Value &value)
 {
 	C4Section *const section{SectionsLoading.emplace_back(std::make_unique<C4Section>(name), std::move(callback), sourceSection.Number, target ? target->Number : 0, value).Section.get()};
 

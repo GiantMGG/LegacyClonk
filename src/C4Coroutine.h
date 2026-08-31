@@ -741,7 +741,7 @@ public:
 		}
 	}
 
-	~Task()	noexcept
+	~Task() noexcept
 	{
 		if constexpr (TaskTraits::CancelAndWaitOnDestruction)
 		{
