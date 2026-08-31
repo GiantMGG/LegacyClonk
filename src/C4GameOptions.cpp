@@ -230,7 +230,8 @@ void C4GameOptionsList::OptionTeamColors::Update()
 }
 
 C4GameOptionsList::OptionRandomTeamCount::OptionRandomTeamCount(C4GameOptionsList *forDlg)
-	: OptionDropdown(forDlg, LoadResStr(C4ResStrTableKey::IDS_MSG_RANDOMTEAMCOUNT), !Game.Network.isHost())
+	: OptionDropdown(forDlg, LoadResStr(C4ResStrTableKey::IDS_MSG_RANDOMTEAMCOUNT),
+		!(Game.Network.isHost() || !Game.Control.isNetwork()))
 {
 	SetToolTip(LoadResStr(C4ResStrTableKey::IDS_MSG_RANDOMTEAMCOUNT_DESC));
 }
@@ -303,7 +304,10 @@ C4GameOptionsList::C4GameOptionsList(const C4Rect &rcBounds, bool fActive, bool 
 void C4GameOptionsList::InitOptions()
 {
 	// creates option selection components
-	new OptionControlMode(this);
+	// control mode is network-only: offline it would render as a
+	// read-only "no net" row (spec pregame-options-parity)
+	if (Game.Control.isNetwork())
+		new OptionControlMode(this);
 	new OptionControlRate(this);
 	if (Game.Network.isHost())
 	{
@@ -320,7 +324,8 @@ void C4GameOptionsList::InitOptions()
 
 void C4GameOptionsList::Update()
 {
-	const auto haveRandomTeamCount = !IsRuntime() && Game.Teams.HasTeamDistOptions() && Game.Network.isHost() && Game.Teams.IsRandomTeam();
+	const auto haveRandomTeamCount = !IsRuntime() && Game.Teams.HasTeamDistOptions()
+		&& (Game.Network.isHost() || !Game.Control.isNetwork()) && Game.Teams.IsRandomTeam();
 	if (haveRandomTeamCount != (randomTeamCount != nullptr))
 	{
 		if (!randomTeamCount)

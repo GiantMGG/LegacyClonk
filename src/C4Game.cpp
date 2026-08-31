@@ -47,6 +47,7 @@
 #include <C4GameOverDlg.h>
 #include <C4ObjectMenu.h>
 #include <C4GameLobby.h>
+#include "C4OfflineOptionsDlg.h"
 #include <C4ChatDlg.h>
 #include "C4KeyboardInput.h"
 #include "C4Thread.h"
@@ -639,6 +640,16 @@ bool C4Game::Init()
 		// Init network
 		if (!InitNetworkHost()) return false;
 		SetInitProgress(7);
+#ifndef USE_CONSOLE
+		// Offline pre-game options dialog (spec pregame-options-parity):
+		// fullscreen, non-console, non-replay offline starts only.
+		if (Application.isFullScreen && !Console.Active
+			&& !GameC4S.Head.Replay && Game.pGUI
+			&& lpDDraw->GetEngine() != GFXENGN_NOGFX)
+		{
+			if (!C4OfflineOptionsDlg::Show()) return false;
+		}
+#endif
 	}
 
 	Application.SetGameTickDelay(defaultIngameGameTickDelay);
@@ -3849,6 +3860,12 @@ bool C4Game::InitNetworkHost()
 		// Clear client list
 		if (!GameC4S.Head.Replay)
 			Clients.Init();
+		// Init local control early, so the offline pre-game options dialog
+		// can change options through DoInput (spec pregame-options-parity).
+		// Idempotent with the later InitLocal call in InitControl.
+		if (!GameC4S.Head.Replay)
+			if (!Control.InitLocal(Clients.getLocal()))
+				return false;
 		return true;
 	}
 	// network not active?

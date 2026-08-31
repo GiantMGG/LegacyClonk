@@ -87,6 +87,8 @@ src/C4GameObjects.cpp
 src/C4GameObjects.h
 src/C4GameOptions.cpp
 src/C4GameOptions.h
+src/C4OfflineOptionsDlg.cpp
+src/C4OfflineOptionsDlg.h
 src/C4GameOverDlg.cpp
 src/C4GameOverDlg.h
 src/C4GamePadCon.cpp
