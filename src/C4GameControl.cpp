@@ -25,6 +25,7 @@
 #include <C4Network2Stats.h>
 
 #include <cassert>
+#include <algorithm>
 
 // *** C4GameControl
 
@@ -48,7 +49,8 @@ bool C4GameControl::InitLocal(C4Client *pLocal)
 {
 	eMode = CM_Local; fPreInit = fInitComplete = true;
 	fHost = true; iClientID = pLocal->getID();
-	ControlRate = 1;
+	// control rate by parameters (bounded; mirrors InitNetwork)
+	ControlRate = std::clamp(Game.Parameters.ControlRate, 1, C4MaxControlRate);
 	// ok
 	return true;
 }

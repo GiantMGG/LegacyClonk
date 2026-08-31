@@ -185,6 +185,9 @@ public:
 	int Compare(const void *pCData, size_t iCSize, size_t iAt = 0) const
 	{
 		assert(iAt + iCSize <= getSize());
+		// Zero-size compare: memcmp would be UB with null pointers
+		// (both sides empty StdStrBuf).
+		if (!iCSize) return 0;
 		return std::memcmp(getPtr(iAt), pCData, iCSize);
 	}
 

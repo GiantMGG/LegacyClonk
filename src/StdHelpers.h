@@ -99,7 +99,6 @@ struct C4SingleArgumentFunctionFunctor
 template <auto free>
 using C4DeleterFunctionUniquePtr = std::unique_ptr<std::remove_pointer_t<detail::FunctionSingleArgument<free>>, C4SingleArgumentFunctionFunctor<free>>;
 
-
 namespace detail
 {
 	template<typename T>

@@ -428,7 +428,7 @@ bool C4Network2VersionInfoClient::GetVersion(C4GameVersion &saveToVer, CStdOSVer
 
 		void CompileFunc(StdCompiler *const comp)
 		{
-			comp->Value(mkNamingAdapt(mkParAdapt(Version, false),	"Version"));
+			comp->Value(mkNamingAdapt(mkParAdapt(Version, false), "Version"));
 
 			if (const auto guard = comp->Name(C4_OS))
 			{

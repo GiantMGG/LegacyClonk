@@ -26,6 +26,7 @@
 #include "C4Network2IO.h"
 #include "C4Network2Players.h"
 #include "C4GameParameters.h"
+#include "C4Reconnect.h"
 
 #include "C4PlayerInfo.h"
 #include "C4Teams.h"
@@ -176,6 +177,9 @@ public:
 	// player list
 	C4Network2Players Players;
 
+	// reconnect handshake state (spec: connection-migration-reconnect)
+	C4Reconnect Reconnect;
+
 	// game status
 	C4Network2Status Status;
 
@@ -242,6 +246,10 @@ protected:
 
 	// delayed activation request?
 	bool fDelayedActivateReq;
+
+	// client-side reconnect state (spec: live-reconnect-smoke-verification)
+	bool fReconnectInProgress{false};
+	bool fReconnectSent{false};
 
 	// voting
 	C4Control Votes;
@@ -391,9 +399,14 @@ protected:
 	void OnConnectFail(C4Network2IOConnection *pConn);
 	void OnDisconnect(C4Network2Client *pClient, C4Network2IOConnection *pConn);
 	void OnClientConnect(C4Network2Client *pClient, C4Network2IOConnection *pConn);
-	void OnClientDisconnect(C4Network2Client *pClient);
+	void OnClientDisconnect(C4Network2Client *pClient, const C4NetIO::addr_t *pLastUDPAddr = nullptr);
 
 	void SendJoinData(C4Network2Client *pClient);
+	void SendReconnectJoinData(C4Network2Client *pClient, const C4Reconnect::Snapshot &snap);
+	void HandleReconnectJoinData(const class C4PacketJoinData &rPkt);
+
+	bool TryReconnectToHost();
+	void SendReconnIfConnected();
 
 	// ressource list
 	bool CreateDynamic(bool fInit);
@@ -467,6 +480,11 @@ protected:
 	// control tick
 	int32_t iStartCtrlTick;
 
+	// reconnect token + inline snapshot (spec: reconnect)
+	C4Reconnect::Token reconnectToken{};
+	StdBuf reconnectSnapshot;
+	int32_t reconnectSnapshotTick{-1};
+
 public:
 	// the game parameters
 	C4GameParameters Parameters;
@@ -481,6 +499,21 @@ public:
 	void SetGameStatus(const C4Network2Status &Status) { GameStatus = Status; }
 	void SetDynamicCore(const C4Network2ResCore &Core) { Dynamic = Core; }
 	void SetStartCtrlTick(int32_t iTick)               { iStartCtrlTick = iTick; }
+
+	// Reconnect fields (spec: connection-migration-reconnect). Token is
+	// minted by the host on first Join() and echoed back by the client in
+	// PID_Reconn. reconnectSnapshot is a binary runtime-state blob, non-empty
+	// only on a reconnect join data packet; reconnectSnapshotTick is the
+	// control tick the snapshot corresponds to. Defaults are zero/empty so
+	// an old-format packet decodes as "no reconnect". The snapshot uses
+	// StdBuf (the engine's raw binary buffer type with its own CompileFunc)
+	// rather than StdStrBuf, which assumes null-termination.
+	const C4Reconnect::Token &GetReconnectToken()      const { return reconnectToken; }
+	const StdBuf          &GetReconnectSnapshot()   const { return reconnectSnapshot; }
+	int32_t                   GetReconnectSnapshotTick() const { return reconnectSnapshotTick; }
+	void SetReconnectToken(const C4Reconnect::Token &t)      { reconnectToken = t; }
+	void SetReconnectSnapshot(const StdBuf &s)               { reconnectSnapshot = s; }
+	void SetReconnectSnapshotTick(int32_t t)                 { reconnectSnapshotTick = t; }
 
 	virtual void CompileFunc(StdCompiler *pComp) override;
 };

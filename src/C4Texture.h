@@ -37,7 +37,6 @@ public:
 	C4Texture(C4Texture &&) = default;
 	C4Texture &operator=(C4Texture &&) = default;
 
-
 public:
 	std::shared_ptr<C4Surface> Surface32;
 	std::shared_ptr<CSurface8> Surface8;

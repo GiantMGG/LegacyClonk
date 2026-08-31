@@ -1,10 +1,39 @@
 # Hand-written one-line descriptions for global constants, keyed by name.
 
-C4D_All: All category bits set.
-C4D_Structure: Structure category.
-C4D_Vehicle: Vehicle category.
-C4D_Living: Living creature category.
-C4D_Object: Generic object category.
-C4D_Goal: Goal object category.
-OCF_Construct: Object can be constructed.
-COMD_None: No command.
+C4D_All: "All category bits set (bitwise NOT of `C4D_None`)."
+C4D_StaticBack: "Static background object category (bit 0). No physics."
+C4D_Structure: "Structure category (bit 1)."
+C4D_Vehicle: "Vehicle category (bit 2)."
+C4D_Living: "Living creature category (bit 3)."
+C4D_Object: "Generic object category (bit 4)."
+C4D_Goal: "Goal object category (bit 5)."
+C4D_Environment: "Environment object category (bit 6)."
+C4D_Knowledge: "Selectable knowledge category (bit 10, alias of `C4D_SelectKnowledge`)."
+C4D_Magic: "Magic object category (bit 17)."
+C4D_Rule: "Rule object category (bit 19)."
+C4D_Background: "Background object category (bit 20)."
+C4D_Parallax: "Parallax background category (bit 21)."
+C4D_MouseSelect: "Mouse-selectable category (bit 22)."
+C4D_Foreground: "Foreground object category (bit 23)."
+C4D_MouseIgnore: "Object ignores mouse interaction (bit 24)."
+C4D_IgnoreFoW: "Object ignores fog of war (bit 25)."
+C4D_GrabGet: "Grab-line direction: get (receive) contents."
+C4D_GrabPut: "Grab-line direction: put (send) contents."
+C4D_LinePower: "Line type: power line."
+C4D_LineSource: "Line type: source."
+C4D_LineDrain: "Line type: drain."
+C4D_LineLightning: "Line type: lightning."
+C4D_LineVolcano: "Line type: volcano."
+C4D_LineRope: "Line type: rope."
+C4D_LineColored: "Line type: colored."
+C4D_LineVertex: "Line type: vertex."
+C4D_PowerInput: "Power connection: input."
+C4D_PowerOutput: "Power connection: output."
+C4D_LiquidInput: "Liquid connection: input."
+C4D_LiquidOutput: "Liquid connection: output."
+C4D_PowerGenerator: "Power connection: generator."
+C4D_PowerConsumer: "Power connection: consumer."
+C4D_LiquidPump: "Liquid connection: pump."
+C4D_EnergyHolder: "Connection flag: energy holder."
+OCF_Construct: "Object can be constructed."
+COMD_None: "No command."

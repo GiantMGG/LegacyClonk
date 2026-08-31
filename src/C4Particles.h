@@ -202,7 +202,6 @@ protected:
 
 	C4ParticleChunk *AddChunk(); // add a new chunk to the list
 
-
 public:
 	C4Section &section;
 	C4ParticleList FreeParticles; // list of free particles
@@ -221,7 +220,6 @@ public:
 		float x, float y, int32_t level,
 		float a0 = 0.0f, uint32_t b0 = 0, float a1 = 0.0f, uint32_t b1 = 0,
 		C4ParticleList *pPxList = nullptr, C4Object *pObj = nullptr);
-
 
 	int32_t Push(C4ParticleDef *pOfDef, float dxdir, float dydir); // add movement to all particles of type
 };

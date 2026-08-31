@@ -16,6 +16,7 @@
 
 #include <cmath>
 #include <cstdint>
+#include <limits>
 #include <numbers>
 
 // ---------------------------------------------------------------------------
@@ -39,6 +40,22 @@ TEST_CASE("C4Fixed itofix/fixtoi pin exact bit patterns", "[C4Fixed]")
 	REQUIRE(fixtoi(negHalf) == 0);
 	C4Fixed negOneHalf; negOneHalf.val = -65536 - 32768;
 	REQUIRE(fixtoi(negOneHalf) == -2);
+}
+
+TEST_CASE("C4Fixed itofix overflow-domain wrap pins", "[C4Fixed]")
+{
+	// In-range boundary: 32767 is the last value that does not overflow
+	REQUIRE(itofix(32767).val == 0x7FFF0000);
+	// First overflow: 32768 wraps to INT32_MIN
+	REQUIRE(itofix(32768).val == std::numeric_limits<int32_t>::min());
+	// Negative overflow: -32769 wraps to +0x7FFF0000
+	REQUIRE(itofix(-32769).val == 0x7FFF0000);
+	// Full wrap: 65535 → 0xFFFF0000, 65536 → 0
+	REQUIRE(itofix(65535).val == -65536);
+	REQUIRE(itofix(65536).val == 0);
+	// Symmetric negative wrap
+	REQUIRE(itofix(-65535).val == 65536);
+	REQUIRE(itofix(-65536).val == 0);
 }
 
 TEST_CASE("C4Fixed ftofix/fixtof conversions", "[C4Fixed]")

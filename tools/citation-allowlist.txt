@@ -1,0 +1,5 @@
+# Citation freshness allowlist
+# Format: doc_path:doc_line (relative to repo root)
+# These are known-stale citations; fix them when you touch the doc,
+# do not add new ones.
+#

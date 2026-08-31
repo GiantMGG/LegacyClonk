@@ -504,7 +504,6 @@ void OverlayPicture::DrawElement(C4FacetEx &cgo)
 	innerCgo.Hgt = overlayCgo.Hgt - 2 * scaledBorderSize;
 	Facet.Draw(innerCgo, true);
 
-
 	if (!fAspect || std::is_eq(aspectRatioRelation))
 	{
 		// draw outer image
@@ -513,7 +512,7 @@ void OverlayPicture::DrawElement(C4FacetEx &cgo)
 		overlayCgo.Wdt = rcBounds.Wdt;
 		overlayCgo.Hgt = rcBounds.Hgt;
 	}
-	else if (std::is_gt(aspectRatioRelation))	 // Scale height
+	else if (std::is_gt(aspectRatioRelation)) // Scale height
 	{
 		drawHeight = innerCgo.Wdt * Facet.Hgt / Facet.Wdt + 2 * scaledBorderSize;
 		const auto drawOffsetY = (targetHeight - drawHeight) / 2;

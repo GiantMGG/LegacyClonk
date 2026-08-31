@@ -24,6 +24,7 @@
 
 #include <cassert>
 #include <cerrno>
+#include <cstring>
 
 #include <fcntl.h>
 #include <format>
@@ -228,8 +229,6 @@ void ResetSocketError()
 
 #endif
 
-
-
 namespace
 {
 	bool ContainsGlobalIpv6(const std::vector<C4Network2HostAddress> &addresses)
@@ -378,7 +377,7 @@ std::vector<C4Network2HostAddress> C4NetIO::GetLocalAddresses(bool unsorted)
 // Orders connection addresses to optimize joining.
 void C4NetIO::SortAddresses(std::vector<C4Network2Address> &addrs)
 {
-	// TODO: Maybe use addresses from local client to avoid the extra system calls.
+	// TODO(legacyclonk/LegacyClonk#000): Maybe use addresses from local client to avoid the extra system calls.
 	return ::SortAddresses(addrs, ContainsGlobalIpv6(C4NetIO::GetLocalAddresses(true)), std::mem_fn(static_cast<const addr_t &(C4Network2Address::*)() const>(&C4Network2Address::GetAddr)));
 }
 
@@ -1290,7 +1289,8 @@ void C4NetIOTCP::PackPacket(const C4NetIOPacket &rPacket, StdBuf &rOutBuf)
 
 	// write packet at end of outgoing buffer
 	*rOutBuf.getMPtr<uint8_t>(iPos) = cFirstByte; iPos += sizeof(uint8_t);
-	*rOutBuf.getMPtr<uint32_t>(iPos) = iSize; iPos += sizeof(uint32_t);
+	std::memcpy(rOutBuf.getMPtr(iPos), &iSize, sizeof(iSize));
+	iPos += sizeof(uint32_t);
 	rOutBuf.Write(rPacket, iPos);
 }
 
@@ -1306,7 +1306,7 @@ size_t C4NetIOTCP::UnpackPacket(const StdBuf &IBuf, const C4NetIO::addr_t &addr)
 	uint32_t iPacketSize;
 	if (iPos + sizeof(uint32_t) > IBuf.getSize())
 		return 0;
-	iPacketSize = *IBuf.getPtr<uint32_t>(iPos);
+	std::memcpy(&iPacketSize, IBuf.getPtr(iPos), sizeof(iPacketSize));
 	iPos += sizeof(uint32_t);
 	// packet incomplete?
 	if (iPos + iPacketSize < iPos || iPos + iPacketSize > IBuf.getSize())
@@ -1613,7 +1613,7 @@ bool C4NetIOSimpleUDP::InitBroadcast(addr_t *pBroadcastAddr)
 	// set up multicast group information
 	this->MCAddr = *pBroadcastAddr;
 	MCGrpInfo.ipv6mr_multiaddr = static_cast<sockaddr_in6>(MCAddr).sin6_addr;
-	// TODO: do multicast on all interfaces?
+	// TODO(legacyclonk/LegacyClonk#000): do multicast on all interfaces?
 	MCGrpInfo.ipv6mr_interface = 0; // Default interface
 
 	// join multicast group
@@ -2146,7 +2146,7 @@ bool C4NetIOUDP::InitBroadcast(addr_t *pBroadcastAddr)
 		// 32 bit group id: search for a free one
 		for (int iRetries = 1000; iRetries; iRetries--)
 		{
-			const auto rnd = static_cast<std::uint32_t>(std::rand()); // FIXME: better replacement for UnsyncedRandom()?
+			const auto rnd = static_cast<std::uint32_t>(std::rand()); // FIXME(legacyclonk/LegacyClonk#000): better replacement for UnsyncedRandom()?
 			std::memcpy(addrgen, &rnd, sizeof(rnd));
 
 			// "high-order bit of the Group ID will be the same value as the T flag"
@@ -3279,6 +3279,18 @@ bool C4NetIOUDP::SendDirect(C4NetIOPacket &&rPacket) // (mt-safe)
 
 	// send it
 	return C4NetIOSimpleUDP::Send(C4NetIOPacket(rPacket.getRef(), toaddr));
+}
+
+bool C4NetIOUDP::SendClosePacket(const addr_t &to) // (mt-safe)
+{
+	// Byte-identical to the close Peer::Close emits, so the receiver-side
+	// PeerAddr check (Peer::OnRecv, case IPID_Close) passes on the
+	// dormant client's zombie conn: retransmit == original close.
+	ClosePacket Pkt;
+	Pkt.StatusByte = IPID_Close;
+	Pkt.Nr = 0;
+	Pkt.Addr = to;
+	return SendDirect(C4NetIOPacket(&Pkt, sizeof(Pkt), false, to));
 }
 
 bool C4NetIOUDP::DoLoopbackTest()

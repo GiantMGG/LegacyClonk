@@ -19,6 +19,7 @@
 #include "C4StartupWelcomeDlg.h"
 
 #include "C4Game.h"
+#include "C4GuiResource.h"
 #include "C4OpenURL.h"
 #include "C4Startup.h"
 #include "C4Gui.h"
@@ -33,8 +34,8 @@ constexpr int32_t kWelcomeBtnHgt = C4GUI_BigButtonHgt;
 constexpr int32_t kWelcomeBtnWdt = 160;
 constexpr int32_t kWelcomeBtnGap = 20;
 
-// Hardcoded English strings for now; follow-up TODO wires these through
-// LoadResStr + the engine string table for DE/other locales.
+// TODO(legacyclonk/LegacyClonk#000): Hardcoded English strings for now; follow-up
+// wires these through LoadResStr + the engine string table for DE/other locales.
 constexpr const char *kWelcomeTitle = "Welcome to LegacyClonk";
 constexpr const char *kWelcomeBody =
 	"Clonk is a tactical action game of digging, building and commanding.\n"

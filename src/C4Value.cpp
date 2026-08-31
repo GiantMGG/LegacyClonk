@@ -746,13 +746,20 @@ void C4Value::CompileFunc(StdCompiler *pComp)
 		// these are 32-bit integers
 		iTmp = Data.Int;
 		pComp->Value(iTmp);
-		Data.Int = iTmp;
+		// Write the full 64-bit union with the sign-extended value. A
+		// 32-bit Data.Int write would leave the upper half zeroed (by
+		// the Set0 above), so a negative int restored from a savegame
+		// would carry Raw 0x00000000ffffffff while a freshly
+		// constructed one carries 0xffffffffffffffff — making the
+		// 64-bit raw comparison in C4V_Data::operator== report two
+		// identical ints as unequal.
+		Data.Raw = iTmp;
 		return;
 
 	case C4V_C4ID:
 		iTmp = static_cast<int32_t>(Data.ID);
 		pComp->Value(iTmp);
-		Data.ID = static_cast<C4ID>(iTmp);
+		Data.Raw = iTmp;
 		return;
 
 	// object: save object number instead
@@ -767,7 +774,8 @@ void C4Value::CompileFunc(StdCompiler *pComp)
 		if (fCompiler)
 		{
 			Type = C4V_C4ObjectEnum;
-			Data.Int = iTmp; // must be denumerated later
+			// Full-width sign-extended write, see the C4V_Int case above.
+			Data.Raw = iTmp; // must be denumerated later
 		}
 		return;
 

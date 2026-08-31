@@ -9,7 +9,6 @@
 
 namespace C4ScriptHelpers {
 
-
 	template <typename T>
 	struct WrappedOrT_s { using type = T; };
 
@@ -48,13 +47,11 @@ namespace C4ScriptHelpers {
 		constexpr operator Wrapped() const requires (!std::same_as<Wrapped, T>) { return value; }
 	};
 
-
 	template<typename U, typename T>
 	concept equals_comparable_with = requires (const T& t, const U& u)
 	{
 		{t == u} -> std::same_as<bool>;
 	};
-
 
 	// Wrapper type, which is used to automatically do nullptr/nil checks on script function arguments before calling the actual function
 	// Also rejects zero values if nonZero = true.

@@ -66,6 +66,11 @@ add_test_target(C4AulParse
 	LINK_ENGINE
 )
 
+add_test_target(C4IdText
+	SOURCES "${CMAKE_SOURCE_DIR}/tests/TstC4IdText.cpp"
+	        "${CMAKE_SOURCE_DIR}/src/C4Id.cpp"
+)
+
 add_test_target(StdAdaptorsWarn
 	SOURCES "${CMAKE_SOURCE_DIR}/tests/TstStdAdaptorsWarn.cpp"
 	LINK_ENGINE
@@ -88,6 +93,48 @@ add_test_target(C4Rollback
 	LINK_ENGINE
 )
 
+add_test_target(C4Reconnect
+	SOURCES
+		"${CMAKE_SOURCE_DIR}/tests/TstC4Reconnect.cpp"
+		"${CMAKE_SOURCE_DIR}/tests/C4ReconnectHarness.hpp"
+	LINK_ENGINE
+)
+
+add_test_target(C4RecordRoundtrip
+	SOURCES "${CMAKE_SOURCE_DIR}/tests/TstC4RecordRoundtrip.cpp"
+	LINK_ENGINE
+)
+
+add_test_target(C4PacketReconn
+	SOURCES
+		"${CMAKE_SOURCE_DIR}/tests/TstC4PacketReconn.cpp"
+		"${CMAKE_SOURCE_DIR}/tests/C4ReconnectHarness.hpp"
+	LINK_ENGINE
+)
+
+add_test_target(C4MaterialReactions
+	SOURCES "${CMAKE_SOURCE_DIR}/tests/TstC4MaterialReactions.cpp"
+	LINK_ENGINE
+)
+
+# --- Offline pre-game options (spec pregame-options-parity) ----------------
+add_test_target(OptionsOverride
+	SOURCES "${CMAKE_SOURCE_DIR}/tests/TstC4GameOptions.cpp"
+	LINK_ENGINE
+)
+
+add_test(NAME parameter_override_smoke
+	COMMAND "$<TARGET_FILE:clonk>" --console --smoke-run 350
+		--parameter TeamDist=Random --parameter RandomTeamCount=2
+		--parameter TeamColors=1
+		-s "${CMAKE_SOURCE_DIR}/../content/WeatherEvents.c4d/Tests.c4f/OptionsOverride.c4s"
+	WORKING_DIRECTORY "${CMAKE_BINARY_DIR}")
+set_tests_properties(parameter_override_smoke PROPERTIES
+	TIMEOUT 60
+	LABELS "smoke"
+	PASS_REGULAR_EXPRESSION "OptionsOverride PASS"
+	FAIL_REGULAR_EXPRESSION "FatalError|\\[error\\]|\\[fatal\\]")
+
 # --- Headless scenario smoke harness -------------------------------------
 # Discovers content/**/Tests.c4f/*Smoke.c4s scenarios and registers one
 # CTest entry per scenario. See spec headless-scenario-smoke-harness.
@@ -99,7 +146,10 @@ add_test_target(C4Rollback
 set(LEGACYCLONK_CONTENT_DIR "${CMAKE_SOURCE_DIR}/../content")
 
 file(GLOB SMOKE_SCENARIOS
-  "${LEGACYCLONK_CONTENT_DIR}/**/Tests.c4f/*Smoke.c4s")
+  "${LEGACYCLONK_CONTENT_DIR}/*/Tests.c4f/*Smoke.c4s"
+  "${LEGACYCLONK_CONTENT_DIR}/*/*/Tests.c4f/*Smoke.c4s"
+  "${LEGACYCLONK_CONTENT_DIR}/*/*/*/Tests.c4f/*Smoke.c4s"
+  "${LEGACYCLONK_CONTENT_DIR}/*/*/*/*/Tests.c4f/*Smoke.c4s")
 
 foreach(scenario ${SMOKE_SCENARIOS})
   get_filename_component(scenario_name "${scenario}" NAME_WE)  # e.g. EventSmoke
@@ -130,8 +180,134 @@ foreach(pack ${CONTENT_PACKS})
   endif()
 endforeach()
 
+# --- CCAN smoke gate -------------------------------------------------------
+# Two-tier gate for curated CCAN packs (see spec ccan-smoke-gate).
+# Tier A: structural probe via `c4group <pack> -l` (sub-second).
+# Tier B: engine-load smoke via `clonk --smoke-run 350` (seconds).
+
+# Resolve c4group: $C4GROUP env, then ${CMAKE_BINARY_DIR}/c4group.
+set(_c4group_candidate "$ENV{C4GROUP}")
+if(NOT _c4group_candidate OR NOT EXISTS "${_c4group_candidate}")
+  set(_c4group_candidate "${CMAKE_BINARY_DIR}/c4group")
+endif()
+
+if(EXISTS "${_c4group_candidate}")
+  set(CCAN_C4GROUP "${_c4group_candidate}")
+else()
+  message(WARNING "c4group not found; skipping tier-A (ccan_struct_*) registration. Build c4group via `cmake --build build` before running tier A.")
+  set(CCAN_C4GROUP "")
+endif()
+
+# Tier A — structural probe (c4group -l)
+file(GLOB CCAN_STRUCT_MARKERS
+  "${CMAKE_SOURCE_DIR}/../content-community/*/Tests.c4f/*Struct.txt")
+foreach(marker ${CCAN_STRUCT_MARKERS})
+  file(READ "${marker}" _pack_path)
+  string(STRIP "${_pack_path}" _pack_path)
+  get_filename_component(_struct_name "${marker}" NAME_WE)
+  string(REPLACE "Struct" "" _pack_name "${_struct_name}")
+  if(CCAN_C4GROUP)
+    add_test(NAME "ccan_struct_${_pack_name}"
+      COMMAND "${CCAN_C4GROUP}" "${_pack_path}" "-l"
+      WORKING_DIRECTORY "${CMAKE_BINARY_DIR}")
+    set_tests_properties("ccan_struct_${_pack_name}" PROPERTIES
+      TIMEOUT 30
+      LABELS "ccan;ccan_struct")
+  endif()
+endforeach()
+
+# Tier B — engine-load smoke (clonk --smoke-run 350)
+file(GLOB CCAN_SMOKE_SCENARIOS
+  "${CMAKE_SOURCE_DIR}/../content-community/*/Tests.c4f/*Smoke.c4s")
+foreach(scenario ${CCAN_SMOKE_SCENARIOS})
+  get_filename_component(scenario_name "${scenario}" NAME_WE)
+  string(REPLACE "Smoke" "" pack_name "${scenario_name}")
+  add_test(NAME "ccan_smoke_${pack_name}"
+    COMMAND "$<TARGET_FILE:clonk>"
+            --console --smoke-run 350
+            -s "${scenario}"
+    WORKING_DIRECTORY "${CMAKE_BINARY_DIR}")
+  set_tests_properties("ccan_smoke_${pack_name}" PROPERTIES
+    TIMEOUT 60
+    LABELS "ccan;ccan_smoke;smoke"
+    PASS_REGULAR_EXPRESSION "${pack_name} PASS"
+    FAIL_REGULAR_EXPRESSION "FatalError|\\[error\\]|\\[fatal\\]")
+endforeach()
+
+# Symlink content-community packs into the build dir so bare definition
+# names like "DWMedalSystem.c4d" resolve during smoke runs. Covers
+# top-level packs and sub-defs inside .c4s/.c4f packs.
+file(GLOB CCAN_COMMUNITY_PACKS
+  "${CMAKE_SOURCE_DIR}/../content-community/*/*.c4d"
+  "${CMAKE_SOURCE_DIR}/../content-community/*/*.c4f"
+  "${CMAKE_SOURCE_DIR}/../content-community/*/*.c4s"
+  "${CMAKE_SOURCE_DIR}/../content-community/*/*/*.c4d"
+  "${CMAKE_SOURCE_DIR}/../content-community/*/*/*.c4f"
+  "${CMAKE_SOURCE_DIR}/../content-community/*/*/*.c4s")
+foreach(pack ${CCAN_COMMUNITY_PACKS})
+  get_filename_component(pack_name "${pack}" NAME)
+  set(link_target "${CMAKE_BINARY_DIR}/${pack_name}")
+  if(NOT EXISTS "${link_target}")
+    file(CREATE_LINK "${pack}" "${link_target}" SYMBOLIC)
+  endif()
+endforeach()
+
 # --- Engine unit tests for the SmokeRunTicks state semantics -------------
 add_test_target(SmokeRunFlag
 	SOURCES "${CMAKE_SOURCE_DIR}/tests/TstSmokeRunFlag.cpp"
 	LINK_ENGINE
 )
+
+# --- Network desync CI smoke ---------------------------------------------
+# See spec network-desync-ci-smoke. Runs two headless engine instances on
+# localhost with tc netem impairment (Linux only), asserting no desync fatal
+# errors over N ticks.
+find_program(TC tc)
+find_program(PYTHON3 python3)
+
+if (PYTHON3)
+	set(tc_args "")
+	if (TC)
+		list(APPEND tc_args "--tc-program" "${TC}")
+	endif()
+	add_test(NAME net_desync_smoke
+		COMMAND "${PYTHON3}"
+			"${CMAKE_SOURCE_DIR}/tools/net_desync_smoke.py"
+			"--engine" "$<TARGET_FILE:clonk>"
+			"--scenario" "${CMAKE_SOURCE_DIR}/tests/fixtures/NetSyncSmoke.c4s"
+			"--ticks" "2000"
+			"--timeout" "120"
+			"--state-hash"
+			${tc_args}
+		WORKING_DIRECTORY "${CMAKE_BINARY_DIR}")
+	set_tests_properties(net_desync_smoke PROPERTIES
+		TIMEOUT 180
+		LABELS "network;smoke"
+		RUN_SERIAL TRUE)
+endif()
+
+# --- Live reconnect smoke ----------------------------------------------
+# See spec live-network-test-harness. Boots two headless engine instances
+# on loopback, partitions the client via tc-by-port (or SIGSTOP fallback),
+# and verifies the disconnect -> dormancy -> PID_Reconn -> snapshot-restore
+# -> state-hash-convergence path.
+if (PYTHON3)
+	set(live_reconn_tc_args "")
+	if (TC)
+		list(APPEND live_reconn_tc_args "--tc-program" "${TC}")
+	endif()
+	add_test(NAME live_reconnect_smoke
+		COMMAND "${PYTHON3}"
+			"${CMAKE_SOURCE_DIR}/tools/live_reconnect_smoke.py"
+			"--engine" "$<TARGET_FILE:clonk>"
+			"--scenario" "${CMAKE_SOURCE_DIR}/tests/fixtures/NetSyncSmoke.c4s"
+			"--ticks" "2000"
+			"--timeout" "120"
+			"--state-hash"
+			${live_reconn_tc_args}
+		WORKING_DIRECTORY "${CMAKE_BINARY_DIR}")
+	set_tests_properties(live_reconnect_smoke PROPERTIES
+		TIMEOUT 180
+		LABELS "network;smoke"
+		RUN_SERIAL TRUE)
+endif()

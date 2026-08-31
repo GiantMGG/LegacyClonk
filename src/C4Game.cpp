@@ -47,6 +47,7 @@
 #include <C4GameOverDlg.h>
 #include <C4ObjectMenu.h>
 #include <C4GameLobby.h>
+#include "C4OfflineOptionsDlg.h"
 #include <C4ChatDlg.h>
 #include "C4KeyboardInput.h"
 #include "C4Thread.h"
@@ -369,6 +370,12 @@ bool C4Game::OpenScenario()
 				Parameters.MaxPlayers = restoreCount;
 			}
 		}
+
+		// Apply --parameter overrides (spec pregame-options-parity).
+		// Skipped on replay playback: overrides would desync the recorded
+		// stream (spec edge case 1 — same guard as the dialog call site).
+		if (!GameC4S.Head.Replay)
+			ApplyParameterOverrides();
 	}
 
 	// Title
@@ -636,9 +643,25 @@ bool C4Game::Init()
 		// Init network
 		if (!InitNetworkHost()) return false;
 		SetInitProgress(7);
+#ifndef USE_CONSOLE
+		// Offline pre-game options dialog (spec pregame-options-parity):
+		// fullscreen, non-console, non-replay offline starts only.
+		if (Application.isFullScreen && !Console.Active
+			&& !GameC4S.Head.Replay && Game.pGUI
+			&& lpDDraw->GetEngine() != GFXENGN_NOGFX)
+		{
+			if (!C4OfflineOptionsDlg::Show()) return false;
+		}
+#endif
 	}
 
 	Application.SetGameTickDelay(defaultIngameGameTickDelay);
+	// SetGameTickDelay calls ResetTimer, clobbering a --frame-rate-cap
+	// parsed earlier (both land in Application.Delay). Re-apply the cap so
+	// the headless smoke loop is paced at the requested rate.
+	// Spec: frame-rate-cap-engine-option (cycle-64 deferred fix).
+	if (FrameRateCap > 0)
+		Application.ResetTimer(static_cast<unsigned int>(1000 / FrameRateCap));
 	// now free all startup gfx to make room for game gfx
 	C4Startup::Unload();
 
@@ -872,8 +895,14 @@ bool C4Game::GameOverCheck()
 	if (Control.isReplay()) return false;
 
 	// All players eliminated: game over
-	if (!Players.GetCountNotEliminated())
-		fDoGameOver = true;
+	// Smoke-run mode: playerless smoke scenarios must survive to the
+	// --smoke-run N tick cap (or their own GameOver() call); the
+	// elimination auto-game-over would quit them at the first 35-tick
+	// boundary. Script GameOver() is unaffected (FnGameOver routes
+	// through DoGameOver directly).
+	if (!SmokeRunActive())
+		if (!Players.GetCountNotEliminated())
+			fDoGameOver = true;
 
 	// Cooperative game over (obsolete with new game goal objects, kept for
 	// downward compatibility with CreateObjects,ClearObjects,ClearMaterial settings)
@@ -1582,6 +1611,8 @@ void C4Game::Default()
 	IsRunning = false;
 	FrameCounter = 0;
 	SmokeRunTicks = 0;  // reset on Clear()->Default() (spec headless-scenario-smoke-harness)
+	FrameRateCap = 0;   // likewise reset (spec frame-rate-cap-engine-option)
+	ParameterOverrides.clear();  // likewise reset (spec pregame-options-parity)
 	GameOver = GameOverDlgShown = false;
 	ScenarioFilename[0] = 0;
 	PlayerFilenames[0] = 0;
@@ -1723,8 +1754,11 @@ void C4Game::Ticks()
 	if (FrameCounter % FrameSkip) DoSkipFrame = true;
 	// Control
 	Control.Ticks();
-	// Full speed
-	if (GameGo) Application.NextTick(false); // short-circuit the timer
+	// Full speed: short-circuit the timer (run unbounded) unless an
+	// explicit frame-rate cap is set, in which case let the Delay timer
+	// pace the loop (spec frame-rate-cap-engine-option).
+	if (GameGo && FrameRateCap == 0)
+		Application.NextTick(false); // short-circuit the timer
 	// statistics
 	if (pNetworkStatistics) pNetworkStatistics->ExecuteFrame();
 }
@@ -1886,7 +1920,7 @@ bool C4Game::SaveData(C4Group &hGroup, bool fInitial, bool fSaveExact)
 	// Initial?
 	if (fInitial && GameText.GetData())
 	{
-		// HACK: Reinsert player sections, if any.
+		// HACK(legacyclonk/LegacyClonk#000): Reinsert player sections, if any.
 		const char *pPlayerSections = strstr(GameText.GetData(), "[Player");
 		if (pPlayerSections)
 		{
@@ -2721,7 +2755,6 @@ bool C4Game::InitControl()
 	return true;
 }
 
-
 void C4Game::ParseCommandLine(const char *szCmdLine)
 {
 	LogNTr("Command line: "); LogNTr(szCmdLine);
@@ -2808,6 +2841,72 @@ void C4Game::ParseCommandLine(const char *szCmdLine)
 				++iPar;  // consume the value token
 			}
 		}
+		// Frame-rate cap (headless pacing; spec frame-rate-cap-engine-option).
+		// Colon form: "--frame-rate-cap:35" / "/frame-rate-cap:35".
+		if (SEqual2NoCase(szParameter, "/frame-rate-cap:")
+		 || SEqual2NoCase(szParameter, "--frame-rate-cap:"))
+		{
+			const char *colon = std::strchr(szParameter, ':');
+			FrameRateCap = colon ? std::atol(colon + 1) : 0;
+			if (FrameRateCap > 0)
+				Application.ResetTimer(static_cast<unsigned int>(1000 / FrameRateCap));
+		}
+		// Two-arg form: "--frame-rate-cap 35" / "/frame-rate-cap 35".
+		if (SEqualNoCase(szParameter, "/frame-rate-cap")
+		 || SEqualNoCase(szParameter, "--frame-rate-cap"))
+		{
+			char szValue[_MAX_PATH + 1];
+			if (SGetParameter(szCmdLine, iPar + 1, szValue, _MAX_PATH))
+			{
+				FrameRateCap = std::atol(szValue);
+				if (FrameRateCap > 0)
+					Application.ResetTimer(static_cast<unsigned int>(1000 / FrameRateCap));
+				++iPar;  // consume the value token
+			}
+		}
+		// Parameter override (spec pregame-options-parity).
+		// Colon form: "--parameter:TeamDist=Random" / "/parameter:TeamDist=Random".
+		if (SEqual2NoCase(szParameter, "/parameter:")
+		 || SEqual2NoCase(szParameter, "--parameter:"))
+		{
+			AddParameterOverride(szParameter + (SEqual2NoCase(szParameter, "/parameter:") ? 11 : 12));
+		}
+		// Two-arg form: "--parameter TeamDist=Random" / "/parameter TeamDist=Random".
+		if (SEqualNoCase(szParameter, "/parameter")
+		 || SEqualNoCase(szParameter, "--parameter"))
+		{
+			char szValue[_MAX_PATH + 1];
+			if (SGetParameter(szCmdLine, iPar + 1, szValue, _MAX_PATH))
+			{
+				AddParameterOverride(szValue);
+				++iPar;  // consume the value token
+			}
+		}
+		// Bind-address filter (spec client-bind-address-fix).
+		// Colon form: "/bind-address:127.0.0.1" / "--bind-address:127.0.0.1".
+		if (SEqual2NoCase(szParameter, "/bind-address:")
+		 || SEqual2NoCase(szParameter, "--bind-address:"))
+		{
+			const char *colon = std::strchr(szParameter, ':');
+			Config.Network.BindAddress.Copy(colon ? colon + 1 : "");
+		}
+		// Two-arg form: "/bind-address 127.0.0.1" / "--bind-address 127.0.0.1".
+		if (SEqualNoCase(szParameter, "/bind-address")
+		 || SEqualNoCase(szParameter, "--bind-address"))
+		{
+			char szValue[_MAX_PATH + 1];
+			if (SGetParameter(szCmdLine, iPar + 1, szValue, _MAX_PATH))
+			{
+				Config.Network.BindAddress.Copy(szValue);
+				++iPar;  // consume the value token
+			}
+		}
+		// Log per-tick sync check fields for deterministic state-hash comparison.
+		if (SEqualNoCase(szParameter, "/log-sync-checks")
+		 || SEqualNoCase(szParameter, "--log-sync-checks"))
+		{
+			LogSyncChecks = true;
+		}
 		// Network
 		if (SEqualNoCase(szParameter, "/network"))
 			NetworkActive = true;
@@ -2889,8 +2988,8 @@ void C4Game::ParseCommandLine(const char *szCmdLine)
 		// network game comment
 		if (SEqual2NoCase(szParameter, "/comment:"))
 			Config.Network.Comment.CopyValidated(szParameter + 9);
-#ifndef NDEBUG
-		// debug configs
+		// debug configs (also available in release for CI smoke tests;
+		// see spec network-desync-ci-smoke)
 		if (SEqualNoCase(szParameter, "/host"))
 		{
 			NetworkActive = true;
@@ -2907,7 +3006,6 @@ void C4Game::ParseCommandLine(const char *szCmdLine)
 			Config.Network.PortTCP = 11112 + 2 * (atoi(szParameter + 8) + 1);
 			Config.Network.PortUDP = 11113 + 2 * (atoi(szParameter + 8) + 1);
 		}
-#endif
 	}
 
 	// Check for fullscreen switch in command line
@@ -2916,6 +3014,99 @@ void C4Game::ParseCommandLine(const char *szCmdLine)
 
 	// startup dialog required?
 	Application.UseStartupDialog = Application.isFullScreen && !*DirectJoinAddress && !*ScenarioFilename && !RecordStream.getSize();
+}
+
+namespace
+{
+	// Parse a TeamDist value for --parameter (names mirror FillTeamDistOptions)
+	bool TeamDistFromString(const char *szValue, C4TeamList::TeamDist &eOut)
+	{
+		if (SEqualNoCase(szValue, "Free"))      { eOut = C4TeamList::TEAMDIST_Free;      return true; }
+		if (SEqualNoCase(szValue, "Host"))      { eOut = C4TeamList::TEAMDIST_Host;      return true; }
+		if (SEqualNoCase(szValue, "None"))      { eOut = C4TeamList::TEAMDIST_None;      return true; }
+		if (SEqualNoCase(szValue, "Random"))    { eOut = C4TeamList::TEAMDIST_Random;    return true; }
+		if (SEqualNoCase(szValue, "RandomInv")) { eOut = C4TeamList::TEAMDIST_RandomInv; return true; }
+		return false;
+	}
+}
+
+void C4Game::AddParameterOverride(const char *szKV)
+{
+	const char *szEqual = std::strchr(szKV, '=');
+	if (!szEqual)
+	{
+		LogNTr("--parameter: value without '=' ignored: {}", szKV);
+		return;
+	}
+	// StdStrBuf(pData, iLength) copies iLength+1 bytes and assumes the char
+	// at pData[iLength] is the NUL terminator. The key substring is not
+	// NUL-terminated in szKV, so build it via Copy(pnData, iChars), which
+	// appends the terminator.
+	StdStrBuf Key, Value;
+	Key.Copy(szKV, static_cast<size_t>(szEqual - szKV));
+	Value.Copy(szEqual + 1);
+	ParameterOverrides.emplace_back(std::move(Key), std::move(Value));
+}
+
+void C4Game::ApplyParameterOverrides()
+{
+	for (const auto &[Key, Value] : ParameterOverrides)
+	{
+		// ControlRate=<1..C4MaxControlRate>
+		if (SEqualNoCase(Key.getData(), "ControlRate"))
+		{
+			const int32_t iRate = atoi(Value.getData());
+			if (!Inside(iRate, 1, C4MaxControlRate))
+			{
+				LogNTr("--parameter: ControlRate value out of range [1..{}]: {}", C4MaxControlRate, Value.getData());
+				continue;
+			}
+			Parameters.ControlRate = iRate;
+		}
+		// TeamDist=<Free|Host|None|Random|RandomInv>
+		else if (SEqualNoCase(Key.getData(), "TeamDist"))
+		{
+			C4TeamList::TeamDist eDist;
+			if (!TeamDistFromString(Value.getData(), eDist))
+			{
+				LogNTr("--parameter: unknown TeamDist value ignored: {}", Value.getData());
+				continue;
+			}
+			if (eDist == C4TeamList::TEAMDIST_None && !Teams.IsAutoGenerateTeams())
+			{
+				LogNTr("--parameter: TeamDist=None rejected (scenario does not auto-generate teams)");
+				continue;
+			}
+			Teams.SetTeamDistribution(eDist);
+		}
+		// TeamColors=<0|1>
+		else if (SEqualNoCase(Key.getData(), "TeamColors"))
+		{
+			const int32_t iVal = atoi(Value.getData());
+			if (!Inside(iVal, 0, 1))
+			{
+				LogNTr("--parameter: TeamColors value out of range [0..1]: {}", Value.getData());
+				continue;
+			}
+			Teams.SetTeamColors(!!iVal);
+		}
+		// RandomTeamCount=<0|N>
+		else if (SEqualNoCase(Key.getData(), "RandomTeamCount"))
+		{
+			const int32_t iVal = atoi(Value.getData());
+			if (iVal < 0)
+			{
+				LogNTr("--parameter: RandomTeamCount value out of range: {}", Value.getData());
+				continue;
+			}
+			Teams.SetRandomTeamCount(iVal);
+		}
+		// unknown key
+		else
+		{
+			LogNTr("--parameter: unknown key ignored: {}", Key.getData());
+		}
+	}
 }
 
 bool C4Game::LoadScenarioComponents()
@@ -3126,7 +3317,7 @@ bool C4Game::InitKeyboard()
 	return true;
 }
 
-std::uint32_t C4Game::CreateSection(const char *const name, std::string callback, C4Section &sourceSection, C4Object *const	target, const C4Value &value)
+std::uint32_t C4Game::CreateSection(const char *const name, std::string callback, C4Section &sourceSection, C4Object *const target, const C4Value &value)
 {
 	C4Section *const section{SectionsLoading.emplace_back(std::make_unique<C4Section>(name), std::move(callback), sourceSection.Number, target ? target->Number : 0, value).Section.get()};
 
@@ -3677,6 +3868,12 @@ bool C4Game::InitNetworkHost()
 		// Clear client list
 		if (!GameC4S.Head.Replay)
 			Clients.Init();
+		// Init local control early, so the offline pre-game options dialog
+		// can change options through DoInput (spec pregame-options-parity).
+		// Idempotent with the later InitLocal call in InitControl.
+		if (!GameC4S.Head.Replay)
+			if (!Control.InitLocal(Clients.getLocal()))
+				return false;
 		return true;
 	}
 	// network not active?

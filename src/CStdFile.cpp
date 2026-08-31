@@ -331,6 +331,3 @@ size_t UncompressedFileSize(const char *szFilename)
 		return 0;
 	}
 }
-
-
-

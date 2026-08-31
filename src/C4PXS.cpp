@@ -61,9 +61,19 @@ void C4PXS::Execute(C4Section &section)
 		Deactivate(section); return;
 	}
 
-	// Gravity
-	ydir += section.Landscape.Gravity;
+	// Gravity / buoyancy: Buoyancy is upward acceleration in percent of
+	// gravity (150 = 1.5x gravity upward). 0 (default) applies full gravity;
+	// buoyant PXS get no gravity at all, only the buoyant acceleration.
+	// Integer-only math keeps this sync-critical path deterministic.
+	const int32_t iBuoyancy = section.Material.Map[Mat].Buoyancy;
+	if (iBuoyancy)
+		ydir -= (section.Landscape.Gravity * iBuoyancy) / 100; // buoyant: rise
+	else
+		ydir += section.Landscape.Gravity; // default: fall
 
+	// Saltation threshold: supported PXS hop downwind once |wind|
+	// exceeds it. 0 (default) disables the branch.
+	const int32_t iSaltation = section.Material.Map[Mat].Saltation;
 	if (section.Landscape.GetDensity(iX, iY + 1) < section.Material.Map[Mat].Density)
 	{
 		// Air speed: Wind plus some random
@@ -75,6 +85,21 @@ void C4PXS::Execute(C4Section &section)
 		int32_t iWindDrift = (std::max)(section.Material.Map[Mat].WindDrift - 20, 0);
 		xdir += ((txdir - xdir) * iWindDrift) * WindDrift_Factor;
 		ydir += ((tydir - ydir) * iWindDrift) * WindDrift_Factor;
+	}
+	else if (iSaltation)
+	{
+		// Saltation: supported PXS hop downwind once |wind| exceeds
+		// the material's Saltation threshold. Fires ~1/3 of
+		// supported ticks. GBackWind returns 0 inside tunnels/IFT,
+		// so buried grains never hop underground.
+		const int32_t iWind = section.GBackWind(iX, iY);
+		if (Abs(iWind) >= iSaltation && !Random(3))
+		{
+			// Downwind impulse: wind/30 px per tick, +-0.25 jitter.
+			xdir += itofix(iWind, 30) + FIXED256(Random(128) - 64);
+			// Upward kick: ~1.0-1.25 px/tick against Gravity (~0.2).
+			ydir -= FIXED100(100) + FIXED256(Random(64));
+		}
 	}
 
 	C4Fixed ctcox = x + xdir;

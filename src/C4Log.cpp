@@ -82,7 +82,6 @@ public:
 	}
 };
 
-
 class LoggerNameIfExistsFormatterFlag : public spdlog::custom_flag_formatter
 {
 public:

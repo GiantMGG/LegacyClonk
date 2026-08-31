@@ -1,0 +1,179 @@
+name: ASan
+
+on:
+  push:
+    branches: '*'
+    tags-ignore: '*'
+    paths:
+      - 'src/**'
+      - 'tests/**'
+      - 'cmake/**'
+      - 'CMakeLists.txt'
+      - '.github/workflows/asan.yml'
+  pull_request:
+    paths:
+      - 'src/**'
+      - 'tests/**'
+      - 'cmake/**'
+      - 'CMakeLists.txt'
+      - '.github/workflows/asan.yml'
+  schedule:
+    - cron: '0 3 * * *'
+  workflow_dispatch: {}
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  asan-pr:
+    name: ASan (unit)
+    runs-on: ubuntu-22.04
+    timeout-minutes: 30
+    env:
+      DEPS_VERSION: '2026-07-25'
+      GCC_VERSION: '16.1.0'
+      GCC_ARCH: 'x86_64'
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          submodules: recursive
+
+      - name: "Configure Platform"
+        run: autobuild/platforms/Linux.sh
+
+      - name: "Configure Platform Architecture"
+        run: autobuild/platforms/Linux-x64.sh
+
+      - name: "Install CMake"
+        uses: lukka/get-cmake@v4.4.2
+        with:
+          useCloudCache: false
+
+      - name: "Linux: Setup"
+        run: $CHROOT autobuild/platforms/setup_linux.sh
+
+      - name: "Dependencies"
+        run: |
+          set -euo pipefail
+          source tools/deps-lock.sh
+          PLATFORM="Linux-x64"
+          EXPECTED_SHA="$(lock_get tarballs "$PLATFORM")"
+          TARBALL="lc_deps-${PLATFORM}.tar.gz"
+          curl -fL -o "$TARBALL" \
+            "https://github.com/legacyclonk/deps/releases/download/$DEPS_VERSION/$TARBALL"
+          ACTUAL_SHA="$(sha256sum "$TARBALL" | cut -d' ' -f1)"
+          if [ "$ACTUAL_SHA" != "$EXPECTED_SHA" ]; then
+            echo "ERROR: deps tarball SHA-256 mismatch for $PLATFORM" >&2
+            echo "  expected: $EXPECTED_SHA" >&2
+            echo "  actual:   $ACTUAL_SHA" >&2
+            exit 1
+          fi
+          mkdir deps
+          tar -xzf "$TARBALL" -C deps
+          ( cd deps && ./fix_paths.sh )
+
+      - name: "Configure"
+        run: |
+          cmake -B build . -G Ninja \
+            -DCMAKE_BUILD_TYPE=Debug \
+            -DUSE_SANITIZER=address,undefined \
+            -DUSE_TESTS=On \
+            -DCMAKE_CTEST_ARGUMENTS='--output-on-failure;--no-tests=error' \
+            $CMAKE_CONFIGURE_ARGS
+
+      - name: "Build"
+        run: cmake --build build $CMAKE_BUILD_ARGS
+
+      - name: "Test (Catch2 unit tests only)"
+        env:
+          ASAN_OPTIONS: 'detect_leaks=0:abort_on_error=1:halt_on_error=0:symbolize=1:allocator_may_return_null=1'
+          UBSAN_OPTIONS: 'print_stacktrace=1:halt_on_error=0'
+        run: |
+          ctest --test-dir build -E 'smoke|net_' --output-on-failure -j2
+
+      - name: "Upload LastTest.log"
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: asan-pr-LastTest-log
+          path: build/Testing/Temporary/LastTest.log
+          if-no-files-found: warn
+
+  asan-nightly:
+    name: ASan (full)
+    runs-on: ubuntu-22.04
+    timeout-minutes: 30
+    # Only run the full suite on schedule and manual dispatch. The push/PR
+    # triggers above select the asan-pr job only.
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    env:
+      DEPS_VERSION: '2026-07-25'
+      GCC_VERSION: '16.1.0'
+      GCC_ARCH: 'x86_64'
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          submodules: recursive
+
+      - name: "Configure Platform"
+        run: autobuild/platforms/Linux.sh
+
+      - name: "Configure Platform Architecture"
+        run: autobuild/platforms/Linux-x64.sh
+
+      - name: "Install CMake"
+        uses: lukka/get-cmake@v4.4.2
+        with:
+          useCloudCache: false
+
+      - name: "Linux: Setup"
+        run: $CHROOT autobuild/platforms/setup_linux.sh
+
+      - name: "Dependencies"
+        run: |
+          set -euo pipefail
+          source tools/deps-lock.sh
+          PLATFORM="Linux-x64"
+          EXPECTED_SHA="$(lock_get tarballs "$PLATFORM")"
+          TARBALL="lc_deps-${PLATFORM}.tar.gz"
+          curl -fL -o "$TARBALL" \
+            "https://github.com/legacyclonk/deps/releases/download/$DEPS_VERSION/$TARBALL"
+          ACTUAL_SHA="$(sha256sum "$TARBALL" | cut -d' ' -f1)"
+          if [ "$ACTUAL_SHA" != "$EXPECTED_SHA" ]; then
+            echo "ERROR: deps tarball SHA-256 mismatch for $PLATFORM" >&2
+            echo "  expected: $EXPECTED_SHA" >&2
+            echo "  actual:   $ACTUAL_SHA" >&2
+            exit 1
+          fi
+          mkdir deps
+          tar -xzf "$TARBALL" -C deps
+          ( cd deps && ./fix_paths.sh )
+
+      - name: "Configure"
+        run: |
+          cmake -B build . -G Ninja \
+            -DCMAKE_BUILD_TYPE=Debug \
+            -DUSE_SANITIZER=address,undefined \
+            -DUSE_TESTS=On \
+            -DCMAKE_CTEST_ARGUMENTS='--output-on-failure;--no-tests=error' \
+            $CMAKE_CONFIGURE_ARGS
+
+      - name: "Build"
+        run: cmake --build build $CMAKE_BUILD_ARGS
+
+      - name: "Test (full suite, bumped timeouts)"
+        env:
+          ASAN_OPTIONS: 'detect_leaks=0:abort_on_error=1:halt_on_error=0:symbolize=1:allocator_may_return_null=1'
+          UBSAN_OPTIONS: 'print_stacktrace=1:halt_on_error=0'
+        run: |
+          ctest --test-dir build --output-on-failure --no-tests=error --timeout 180 -j2
+          ctest --test-dir build -R net_desync_smoke --timeout 600 -j1
+
+      - name: "Upload LastTest.log"
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: asan-nightly-LastTest-log
+          path: build/Testing/Temporary/LastTest.log
+          if-no-files-found: warn

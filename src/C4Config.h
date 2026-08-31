@@ -205,6 +205,7 @@ public:
 	bool LeagueServerSignUp;
 	bool UseAlternateServer;
 	int32_t PortTCP, PortUDP, PortDiscovery, PortRefServer;
+	StdStrBuf BindAddress;  // Config.Network.BindAddress: filter advertised client addresses
 	int32_t ControlMode;
 	ValidatedStdStrBuf<C4InVal::VAL_NameNoEmpty> LocalName;
 	ValidatedStdStrBuf<C4InVal::VAL_NameAllowEmpty> Nick;
@@ -225,6 +226,8 @@ public:
 	bool RollbackEnabled;              // opt-in rollback primitive
 	int32_t RollbackSnapshotInterval;  // K: control ticks between snapshots
 	int32_t RollbackWindowSnapshots;   // W: ring buffer size
+	bool ReconnectEnabled;             // opt-in reconnect handshake (spec: reconnect)
+	uint32_t ReconnectGraceSec;        // dormancy grace window in seconds
 	bool UseCurl;
 	bool EnableUPnP;
 

@@ -138,6 +138,13 @@ std::expected<void, std::error_code> C4File::Flush()
 
 std::expected<void, std::error_code> C4File::Rewind()
 {
+	// std::rewind() does not reset errno on success (POSIX): an application
+	// wishing to check for errors must clear errno first, then check it
+	// afterwards. Without this, a stale errno from a prior failed syscall
+	// (e.g. ENOTDIR left by an earlier stat() of a packed-group child path)
+	// is falsely reported as a rewind failure, which throws an uncaught
+	// exception up through C4Group and terminates the engine.
+	errno = 0;
 	std::rewind(file.get());
 
 	if (const int error{errno}; error == 0)

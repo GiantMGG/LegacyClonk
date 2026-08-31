@@ -39,8 +39,20 @@ const ReactionFuncMapEntry ReactionFuncMap[] =
 	{ "Poof",    &C4MaterialMap::mrfPoof },
 	{ "Corrode", &C4MaterialMap::mrfCorrode },
 	{ "Insert",  &C4MaterialMap::mrfInsert },
+	{ "React",   &C4MaterialMap::mrfReact },
 	{ nullptr, &C4MaterialReaction::NoReaction }
 };
+
+int32_t ResolveReactProduct(const StdStrBuf &sProduct, int32_t iResolvedMat)
+{
+	if (!sProduct.getLength()) return -2; // key omitted: no-op
+	if (iResolvedMat != MNone) return iResolvedMat; // valid material index
+	if (SEqualNoCase(sProduct.getData(), C4TLS_MatSky)) return MNone; // "Sky": vanish
+	// Unknown material name: warn and treat as omitted - a typo must never
+	// silently acquire the destructive "Sky" vanish semantics.
+	DebugLog(spdlog::level::warn, "Unknown React product material \"{}\"", sProduct.getData());
+	return -2;
+}
 
 void C4MaterialReaction::CompileFunc(StdCompiler *pComp)
 {
@@ -63,6 +75,11 @@ void C4MaterialReaction::CompileFunc(StdCompiler *pComp)
 	pComp->Value(mkNamingAdapt(iDepth,          "Depth",         0));
 	pComp->Value(mkNamingAdapt(sConvertMat,     "ConvertMat",    StdStrBuf()));
 	pComp->Value(mkNamingAdapt(iCorrosionRate,  "CorrosionRate", 100));
+	pComp->Value(mkNamingAdapt(sLSProduct,      "LSProduct",     StdStrBuf()));
+	pComp->Value(mkNamingAdapt(sPXSProduct,     "PXSProduct",    StdStrBuf()));
+	pComp->Value(mkNamingAdapt(sByProduct,      "ByProduct",     StdStrBuf()));
+	pComp->Value(mkNamingAdapt(iByProductRate,  "ByProductRate", 0));
+	pComp->Value(mkNamingAdapt(iRate,           "Rate",          100));
 }
 
 void C4MaterialReaction::ResolveScriptFuncs(const char *szMatName)
@@ -110,6 +127,8 @@ void C4MaterialCore::Clear()
 	MaxAirSpeed = 0;
 	MaxSlide = 0;
 	WindDrift = 0;
+	Buoyancy = 0;
+	Saltation = 0;
 	Inflammable = 0;
 	Incindiary = 0;
 	Extinguisher = 0;
@@ -190,6 +209,8 @@ void C4MaterialCore::CompileFunc(StdCompiler *pComp)
 		pComp->Value(mkNamingAdapt(MaxAirSpeed,                                                      "MaxAirSpeed",         0));
 		pComp->Value(mkNamingAdapt(MaxSlide,                                                         "MaxSlide",            0));
 		pComp->Value(mkNamingAdapt(WindDrift,                                                        "WindDrift",           0));
+		pComp->Value(mkNamingAdapt(Buoyancy,                                                        "Buoyancy",            0));
+		pComp->Value(mkNamingAdapt(Saltation,                                                      "Saltation",           0));
 		pComp->Value(mkNamingAdapt(Inflammable,                                                      "Inflammable",         0));
 		pComp->Value(mkNamingAdapt(Incindiary,                                                       "Incindiary",          0));
 		pComp->Value(mkNamingAdapt(Corrode,                                                          "Corrode",             0));
@@ -396,6 +417,14 @@ void C4MaterialMap::CrossMapMaterials(C4Section &section) // Called after load
 		{
 			C4MaterialReaction *pReact = &(pMat->CustomReactionList[iRCnt]);
 			if (pReact->sConvertMat.getLength()) pReact->iConvertMat = Get(pReact->sConvertMat.getData()); else pReact->iConvertMat = -1;
+			// resolve React product fields (sentinel convention: see ResolveReactProduct)
+			const auto ResolveProduct = [this](const StdStrBuf &sProduct)
+			{
+				return ResolveReactProduct(sProduct, sProduct.getLength() ? Get(sProduct.getData()) : MNone);
+			};
+			pReact->iLSProduct = ResolveProduct(pReact->sLSProduct);
+			pReact->iPXSProduct = ResolveProduct(pReact->sPXSProduct);
+			pReact->iByProduct = ResolveProduct(pReact->sByProduct);
 			// evaluate target spec
 			int32_t tmat;
 			if (section.MatValid(tmat = Get(pReact->TargetSpec.getData())))
@@ -702,6 +731,69 @@ bool C4MaterialMap::mrfPoof(C4MaterialReaction *pReaction, C4Section &section, i
 	return false;
 }
 
+bool C4MaterialMap::mrfReact(C4MaterialReaction *pReaction, C4Section &section, int32_t &iX, int32_t &iY, int32_t iLSPosX, int32_t iLSPosY, C4Fixed &fXDir, C4Fixed &fYDir, int32_t &iPxsMat, int32_t iLsMat, MaterialInteractionEvent evEvent, bool *pfPosChanged)
+{
+	if (pReaction->fUserDefined) if (!mrfUserCheck(pReaction, section, iX, iY, iLSPosX, iLSPosY, fXDir, fYDir, iPxsMat, iLsMat, evEvent, pfPosChanged)) return false;
+
+	// Rate gate: the reaction fires iff Random(100) < Rate (default 100).
+	if (Random(100) >= pReaction->iRate) return false;
+
+	// LSProduct: transform the static landscape pixel at the contact point.
+	if (pReaction->iLSProduct >= 0)
+	{
+		section.Landscape.SetPix(iLSPosX, iLSPosY,
+			section.Mat2PixColDefault(pReaction->iLSProduct) + section.Landscape.GBackIFT(iLSPosX, iLSPosY));
+		section.Landscape.CheckInstabilityRange(iLSPosX, iLSPosY);
+	}
+	else if (pReaction->iLSProduct == MNone)
+	{
+		// "Sky": the static pixel vanishes.
+		section.Landscape.ExtractMaterial(iLSPosX, iLSPosY);
+	}
+	// -2: key omitted - static pixel untouched.
+
+	// PXSProduct: transform the moving PXS in place. On meeMassMove there
+	// is no PXS involved; the caller extracts the mover pixel when the
+	// reaction reports success (mover + neighbor -> LSProduct pixel).
+	if (evEvent == meeMassMove) return true;
+
+	if (evEvent == meePXSPos)
+	{
+		// meePXSPos serves two callers: the PXS pre-move check (a real
+		// moving PXS embedded in material) and InsertMaterial's
+		// reaction-with-material-below probe (a static insertion
+		// attempt - no PXS exists there). Consume the PXS/insertion in
+		// both cases (return true): the product is cast as a fresh PXS
+		// at the probed position, mirroring the in-place conversion
+		// (velocity zeroed), so PXS-only products never insert
+		// statically. Product omitted -> the PXS/insertion still dies.
+		if (pReaction->iPXSProduct >= 0)
+			section.PXS.Create(pReaction->iPXSProduct, itofix(iX), itofix(iY));
+		return true;
+	}
+
+	if (pReaction->iPXSProduct >= 0)
+	{
+		// The PXS survives as its product material (mrfConvert in-place pattern).
+		iPxsMat = pReaction->iPXSProduct;
+		fXDir = fYDir = 0;
+		if (pfPosChanged) *pfPosChanged = true;
+	}
+	else if (pReaction->iPXSProduct == MNone)
+	{
+		// "Sky": the PXS vanishes.
+		return true;
+	}
+
+	// ByProduct: cast a second PXS at the contact point, rate-gated. The
+	// 10k PXS budget exhaustion is tolerated silently (Create returns false).
+	if (pReaction->iByProduct >= 0 && Random(100) < pReaction->iByProductRate)
+		section.PXS.Create(pReaction->iByProduct, itofix(iLSPosX), itofix(iLSPosY));
+
+	// PXS survives (possibly as its product material).
+	return false;
+}
+
 bool C4MaterialMap::mrfCorrode(C4MaterialReaction *pReaction, C4Section &section, int32_t &iX, int32_t &iY, int32_t iLSPosX, int32_t iLSPosY, C4Fixed &fXDir, C4Fixed &fYDir, int32_t &iPxsMat, int32_t iLsMat, MaterialInteractionEvent evEvent, bool *pfPosChanged)
 {
 	if (pReaction->fUserDefined) if (!mrfUserCheck(pReaction, section, iX, iY, iLSPosX, iLSPosY, fXDir, fYDir, iPxsMat, iLsMat, evEvent, pfPosChanged)) return false;
@@ -766,7 +858,11 @@ bool C4MaterialMap::mrfIncinerate(C4MaterialReaction *pReaction, C4Section &sect
 	{
 	case meeMassMove: // MassMover-movement
 	case meePXSPos: // PXS check before movement
-		if (section.Landscape.Incinerate(iX, iY)) return true;
+		// Incinerate the contacted landscape pixel (for the PXS pre-move
+		// check and the InsertMaterial probe, iLSPos is the PXS's own
+		// cell / the material below the insertion point; for the
+		// MassMover probe it is the blocked neighbor cell).
+		if (section.Landscape.Incinerate(iLSPosX, iLSPosY)) return true;
 		break;
 
 	case meePXSMove: // PXS movement
@@ -774,8 +870,9 @@ bool C4MaterialMap::mrfIncinerate(C4MaterialReaction *pReaction, C4Section &sect
 		if (!mrfInsertCheck(section, iX, iY, fXDir, fYDir, iPxsMat, iLsMat, pfPosChanged))
 			// either splash or slide prevented interaction
 			return false;
-		// evaluate inflammation (should always succeed)
-		if (section.Landscape.Incinerate(iX, iY)) return true;
+		// evaluate inflammation (should always succeed): the contacted
+		// landscape pixel ignites, not the PXS's own (air) cell
+		if (section.Landscape.Incinerate(iLSPosX, iLSPosY)) return true;
 		// Else: dead. Insert material here
 		section.Landscape.InsertMaterial(iPxsMat, iX, iY);
 		return true;

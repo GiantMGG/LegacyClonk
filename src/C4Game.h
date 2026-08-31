@@ -101,7 +101,6 @@ public:
 		C4ObjectLink *extraLink;
 	};
 
-
 private:
 	// used as StdCompiler-parameter
 	struct CompileSettings
@@ -213,6 +212,13 @@ public:
 	// headless-scenario-smoke-harness). Not serialized — process-lifetime flag.
 	int32_t SmokeRunTicks{0};
 	bool SmokeRunActive() const { return SmokeRunTicks > 0; }
+	bool LogSyncChecks{false};  // --log-sync-checks: log per-tick sync check fields
+	int32_t FrameRateCap{0};    // --frame-rate-cap N: 0 = uncapped, N = pace at N FPS
+
+	// --parameter Key=Value overrides, collected by ParseCommandLine and
+	// applied by ApplyParameterOverrides() after Parameters.Load (spec
+	// pregame-options-parity). Not serialized — process-lifetime flags.
+	std::vector<std::pair<StdStrBuf, StdStrBuf>> ParameterOverrides;
 	int32_t iTick2, iTick3, iTick5, iTick10, iTick35, iTick255, iTick500, iTick1000;
 	bool TimeGo;
 	int32_t Time;
@@ -265,6 +271,8 @@ public:
 	bool PreInit();
 	void InitLogger();
 	void ParseCommandLine(const char *szCmdLine);
+	void AddParameterOverride(const char *szKV); // parse one --parameter value into ParameterOverrides
+	void ApplyParameterOverrides(); // apply ParameterOverrides to Parameters/Teams
 	bool Execute();
 	class C4Player *JoinPlayer(const char *szFilename, int32_t iAtClient, const char *szAtClientName, C4PlayerInfo *pInfo);
 	bool DoGameOver();
@@ -452,7 +460,6 @@ public:
 
 protected:
 	bool CompileRuntimeData(C4ComponentHost &rGameData, std::function<C4Section &(StdCompiler &)> mainSectionProvider);
-
 
 	bool ToggleDebugMode(); // dbg modeon/off if allowed
 

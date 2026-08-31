@@ -1,0 +1,44 @@
+# Bilingual keyword -> verdict mapping for CCAN license triage.
+# Consumed by `import_ccan.py discover`.
+#
+# Verdicts:
+#   "ok"        - default CC BY-NC 4.0, permissive enough for content-community/
+#   "skip"      - explicit no-reupload / do-not-redistribute
+#   "ambiguous" - conflicting signals (e.g. "please ask first")
+#
+# Keywords are matched case-insensitively as substrings against the
+# concatenated description_de + description_us + comments fields.
+# The FIRST matching rule (in file order) wins.
+
+[[rule]]
+verdict = "skip"
+keyword = "no reupload"
+language = "en"
+
+[[rule]]
+verdict = "skip"
+keyword = "kein reupload"
+language = "de"
+
+[[rule]]
+verdict = "skip"
+keyword = "do not redistribute"
+language = "en"
+
+[[rule]]
+verdict = "skip"
+keyword = "nicht weiterverbreiten"
+language = "de"
+
+[[rule]]
+verdict = "ambiguous"
+keyword = "please ask"
+language = "en"
+
+[[rule]]
+verdict = "ambiguous"
+keyword = "bitte fragen"
+language = "de"
+
+[default]
+verdict = "ok"

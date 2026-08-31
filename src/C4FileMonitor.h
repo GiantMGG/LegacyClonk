@@ -35,7 +35,6 @@
 #include <CoreServices/CoreServices.h>
 #endif
 
-
 class C4FileMonitor : public C4InteractiveThread::Callback
 {
 public:

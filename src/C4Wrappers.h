@@ -41,7 +41,6 @@
 int32_t ValidPlr(int32_t plr);
 int32_t Hostile(int32_t plr1, int32_t plr2);
 
-
 // Density
 
 inline bool DensitySolid(int32_t dens)

@@ -543,7 +543,7 @@ bool fxSmokeExec(C4Particle *pPrt, C4Section &section, C4Object *pTarget)
 		// decrease init-time
 		pPrt->life -= 0x010000;
 		// increase color value
-		pPrt->b -= 0x10000000;
+		pPrt->b = int32_t(uint32_t(pPrt->b) - 0x10000000u);
 		// if full-grown, adjust to lifetime
 		if (!(pPrt->life & 0x7fff0000))
 			pPrt->b = (pPrt->b & 0xffffff) | ((255 - pPrt->life) << 24);

@@ -294,6 +294,7 @@ def test_integration_import_sample_pack_end_to_end(
 	# Drive the import via cmd_import's internals: call _import_one directly.
 	I._import_one(
 		entry=sample_manifest_entry,
+		entries=[sample_manifest_entry],
 		content_community=content_community,
 		c4group=c4group,
 		force=False,
@@ -329,9 +330,280 @@ def test_integration_import_sample_pack_end_to_end(
 	# 5. --force re-imports.
 	I._import_one(
 		entry=sample_manifest_entry,
+		entries=[sample_manifest_entry],
 		content_community=content_community,
 		c4group=c4group,
 		force=True,
 		rate_limit=0,
 	)
 	assert (pack_dir / "Sample.c4d").is_dir(), "force re-import lost the pack"
+
+def test_load_manifest_parses_requires_field(tmp_path: Path):
+	p = tmp_path / "manifest.toml"
+	p.write_text(
+		"[entry.100]\n"
+		'title = "A"\nccan_id = 100\nauthor_nick = "x"\nauthor_uid = 1\n'
+		'uploaded = "2026-01-01"\nengine = "LC"\n'
+		'license = "CC-BY-NC-4.0"\nlicense_rationale = "r"\n'
+		'filename = "a.c4s"\ndestination = "A"\nnotes = "n"\n'
+		'requires = ["B", "C"]\n',
+		encoding="utf-8",
+	)
+	entries = I.load_manifest(p)
+	assert entries[0].requires == ["B", "C"]
+
+def test_load_manifest_requires_defaults_to_empty(tmp_path: Path):
+	p = tmp_path / "manifest.toml"
+	p.write_text(
+		"[entry.100]\n"
+		'title = "A"\nccan_id = 100\nauthor_nick = "x"\nauthor_uid = 1\n'
+		'uploaded = "2026-01-01"\nengine = "LC"\n'
+		'license = "CC-BY-NC-4.0"\nlicense_rationale = "r"\n'
+		'filename = "a.c4s"\ndestination = "A"\nnotes = "n"\n',
+		encoding="utf-8",
+	)
+	entries = I.load_manifest(p)
+	assert entries[0].requires == []
+
+def test_load_manifest_parses_smoke_subtable(tmp_path: Path):
+	p = tmp_path / "manifest.toml"
+	p.write_text(
+		"[entry.100]\n"
+		'title = "A"\nccan_id = 100\nauthor_nick = "x"\nauthor_uid = 1\n'
+		'uploaded = "2026-01-01"\nengine = "LC"\n'
+		'license = "CC-BY-NC-4.0"\nlicense_rationale = "r"\n'
+		'filename = "a.c4s"\ndestination = "A"\nnotes = "n"\n'
+		'[entry.100.smoke]\n'
+		'ticks = 500\n'
+		'skip = true\n'
+		'curator_script = true\n',
+		encoding="utf-8",
+	)
+	entries = I.load_manifest(p)
+	assert entries[0].smoke.ticks == 500
+	assert entries[0].smoke.skip is True
+	assert entries[0].smoke.curator_script is True
+
+def test_load_manifest_smoke_defaults(tmp_path: Path):
+	p = tmp_path / "manifest.toml"
+	p.write_text(
+		"[entry.100]\n"
+		'title = "A"\nccan_id = 100\nauthor_nick = "x"\nauthor_uid = 1\n'
+		'uploaded = "2026-01-01"\nengine = "LC"\n'
+		'license = "CC-BY-NC-4.0"\nlicense_rationale = "r"\n'
+		'filename = "a.c4s"\ndestination = "A"\nnotes = "n"\n'
+		'[entry.100.smoke]\n',
+		encoding="utf-8",
+	)
+	entries = I.load_manifest(p)
+	assert entries[0].smoke.ticks == 350
+	assert entries[0].smoke.skip is False
+	assert entries[0].smoke.curator_script is False
+
+def _make_entry(ccan_id, destination, requires=None):
+	return I.ManifestEntry(
+		ccan_id=ccan_id,
+		title=f"Pack{ccan_id}",
+		author_nick="x",
+		author_uid=1,
+		uploaded="2026-01-01",
+		engine="LC",
+		license="CC-BY-NC-4.0",
+		license_rationale="r",
+		filename=f"{destination}.c4s",
+		destination=destination,
+		notes="n",
+		requires=requires or [],
+	)
+
+def test_resolve_requires_fails_fast_on_missing_dep(tmp_path: Path):
+	a = _make_entry(1, "A", requires=["B"])
+	with pytest.raises(SystemExit, match="does not exist"):
+		I.resolve_requires(a, [a], tmp_path)
+
+def test_resolve_requires_detects_cycle(tmp_path: Path):
+	a = _make_entry(1, "A", requires=["B"])
+	b = _make_entry(2, "B", requires=["A"])
+	(tmp_path / "A").mkdir()
+	(tmp_path / "B").mkdir()
+	with pytest.raises(SystemExit, match="cycle"):
+		I.resolve_requires(a, [a, b], tmp_path)
+
+def test_resolve_requires_returns_transitive_closure(tmp_path: Path):
+	a = _make_entry(1, "A", requires=["B"])
+	b = _make_entry(2, "B", requires=["C"])
+	c = _make_entry(3, "C", requires=[])
+	(tmp_path / "B").mkdir()
+	(tmp_path / "C").mkdir()
+	result = I.resolve_requires(a, [a, b, c], tmp_path)
+	assert result == ["B", "C"]
+
+def test_resolve_requires_empty_when_no_deps(tmp_path: Path):
+	a = _make_entry(1, "A", requires=[])
+	assert I.resolve_requires(a, [a], tmp_path) == []
+
+def _setup_pack(tmp_path: Path, name: str = "MyPack", requires=None, smoke=None):
+	"""Create a minimal pack layout: tmp_path/name/MyPack.c4s/ with one sub-def."""
+	entry = I.ManifestEntry(
+		ccan_id=1,
+		title=name,
+		author_nick="x",
+		author_uid=1,
+		uploaded="2026-01-01",
+		engine="LC",
+		license="CC-BY-NC-4.0",
+		license_rationale="r",
+		filename=f"{name}.c4s",
+		destination=name,
+		notes="n",
+		requires=requires or [],
+		smoke=smoke or I.SmokeConfig(),
+	)
+	dest_dir = tmp_path / name
+	dest_dir.mkdir()
+	unpack_path = dest_dir / f"{name}.c4s"
+	unpack_path.mkdir()
+	(unpack_path / "Objects.c4d").mkdir()  # sub-def
+	return entry, dest_dir, unpack_path
+
+def test_emit_smoke_artefacts_creates_struct_marker(tmp_path: Path):
+	entry, dest_dir, unpack_path = _setup_pack(tmp_path)
+	I.emit_smoke_artefacts(
+		entry=entry,
+		dest_dir=dest_dir,
+		unpack_path=unpack_path,
+		requires_closure=[],
+		content_community=tmp_path,
+	)
+	marker = dest_dir / "Tests.c4f" / "MyPackStruct.txt"
+	assert marker.is_file()
+	content = marker.read_text(encoding="utf-8").strip()
+	assert content == str(unpack_path.resolve())
+
+def test_emit_smoke_artefacts_creates_smoke_scenario(tmp_path: Path):
+	entry, dest_dir, unpack_path = _setup_pack(tmp_path)
+	I.emit_smoke_artefacts(
+		entry=entry,
+		dest_dir=dest_dir,
+		unpack_path=unpack_path,
+		requires_closure=[],
+		content_community=tmp_path,
+	)
+	smoke_dir = dest_dir / "Tests.c4f" / "MyPackSmoke.c4s"
+	assert (smoke_dir / "Scenario.txt").is_file()
+	assert (smoke_dir / "Script.c").is_file()
+	assert (smoke_dir / "Title.txt").is_file()
+	assert (smoke_dir / "Map.bmp").is_file()
+	# Script.c logs "<PackName> PASS" for the PASS_REGULAR_EXPRESSION match.
+	script = (smoke_dir / "Script.c").read_text(encoding="utf-8")
+	assert 'Log("MyPack PASS")' in script
+
+def test_emit_smoke_artefacts_skips_when_skip_true(tmp_path: Path):
+	entry, dest_dir, unpack_path = _setup_pack(
+		tmp_path, smoke=I.SmokeConfig(skip=True)
+	)
+	I.emit_smoke_artefacts(
+		entry=entry,
+		dest_dir=dest_dir,
+		unpack_path=unpack_path,
+		requires_closure=[],
+		content_community=tmp_path,
+	)
+	assert not (dest_dir / "Tests.c4f").exists()
+
+def test_emit_smoke_artefacts_preserves_curator_script(tmp_path: Path):
+	entry, dest_dir, unpack_path = _setup_pack(
+		tmp_path, smoke=I.SmokeConfig(curator_script=True)
+	)
+	# Pre-existing curator Script.c.
+	smoke_dir = dest_dir / "Tests.c4f" / "MyPackSmoke.c4s"
+	smoke_dir.mkdir(parents=True)
+	curator_script = "# Curator authored\n#strict 2\n"
+	(smoke_dir / "Script.c").write_text(curator_script, encoding="utf-8")
+	I.emit_smoke_artefacts(
+		entry=entry,
+		dest_dir=dest_dir,
+		unpack_path=unpack_path,
+		requires_closure=[],
+		content_community=tmp_path,
+	)
+	assert (smoke_dir / "Script.c").read_text(encoding="utf-8") == curator_script
+
+def test_emit_smoke_artefacts_writes_definitions_closure(tmp_path: Path):
+	entry, dest_dir, unpack_path = _setup_pack(tmp_path, requires=["Dep"])
+	# Dep dir with a sub-def Dep.c4d.
+	dep_dir = tmp_path / "Dep"
+	dep_dir.mkdir()
+	(dep_dir / "Dep.c4d").mkdir()
+	I.emit_smoke_artefacts(
+		entry=entry,
+		dest_dir=dest_dir,
+		unpack_path=unpack_path,
+		requires_closure=["Dep"],
+		content_community=tmp_path,
+	)
+	scenario = (
+		dest_dir / "Tests.c4f" / "MyPackSmoke.c4s" / "Scenario.txt"
+	)
+	text = scenario.read_text(encoding="utf-8")
+	# Pack's own sub-def (Objects.c4d) listed.
+	assert "Definition1=Objects.c4d" in text
+	# Dep's pack (Dep.c4d) listed.
+	assert "Dep.c4d" in text
+
+def test_import_one_emits_smoke_artefacts(tmp_path: Path, monkeypatch):
+	"""_import_one calls emit_smoke_artefacts after a successful import."""
+	entry = I.ManifestEntry(
+		ccan_id=4242,
+		title="Sample",
+		author_nick="SampleAuthor",
+		author_uid=9999,
+		uploaded="2026-08-27",
+		engine="LC",
+		license="CC-BY-NC-4.0",
+		license_rationale="Synthetic fixture for offline integration test.",
+		filename="Sample.c4d",
+		destination="Sample",
+		notes="Test fixture.",
+		requires=[],
+		smoke=I.SmokeConfig(),
+	)
+	content_community = tmp_path / "cc"
+	content_community.mkdir()
+
+	# Mock emit_smoke_artefacts to track it was called with the right args.
+	called = {}
+
+	def fake_emit(entry, dest_dir, unpack_path, requires_closure, content_community):
+		called["entry"] = entry
+		called["dest_dir"] = dest_dir
+		called["unpack_path"] = unpack_path
+		called["requires_closure"] = requires_closure
+		called["content_community"] = content_community
+
+	monkeypatch.setattr(I, "emit_smoke_artefacts", fake_emit)
+	monkeypatch.setattr(I, "resolve_requires", lambda *a, **kw: [])
+	monkeypatch.setattr(I, "fetch_metadata_html", lambda *a, **kw: "")
+	monkeypatch.setattr(I, "parse_ccan_metadata", lambda *a, **kw: I.CcanMetadata(
+		ccan_id=4242, title="Sample", author_nick="x", author_uid=1,
+		uploaded="2026-08-27", engine="LC", filename="Sample.c4d",
+		description_de="", description_us="",
+	))
+	monkeypatch.setattr(I, "fetch_pack", lambda *a, **kw: tmp_path / "blob")
+	monkeypatch.setattr(I, "unpack", lambda *a, **kw: a[1] / "Sample.c4d")
+	monkeypatch.setattr(I, "validate", lambda *a, **kw: (True, "ok"))
+	# Make unpack_path exist so resolve + emit work.
+	(cc_dir := content_community / "Sample").mkdir()
+	(cc_dir / "Sample.c4d").mkdir()
+
+	I._import_one(
+		entry=entry,
+		entries=[entry],
+		content_community=content_community,
+		c4group=Path("/bin/true"),
+		force=True,
+		rate_limit=0,
+	)
+
+	assert called.get("entry") is entry
+	assert called.get("requires_closure") == []

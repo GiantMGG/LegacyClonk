@@ -1452,7 +1452,7 @@ static std::optional<C4ValueInt> FnGetValue(C4AulContext *cthr, C4Object *pObj, 
 		}
 		else
 		{
-			return {}; // FIXME
+			return {}; // FIXME(legacyclonk/LegacyClonk#000)
 		}
 	}
 
@@ -2087,7 +2087,6 @@ static C4Object *FnFindBase(C4AulContext *cthr, C4ValueInt iOwner, C4ValueInt iI
 	return cthr->GetSection().FindBase(iOwner, iIndex);
 }
 
-
 enum class C4FindObjectSectionInfo : std::int32_t
 {
 	AnySection = -1,
@@ -2453,6 +2452,11 @@ static C4ValueInt FnGetMaterialCount(C4AulContext *cthr, C4ValueInt iMaterial, b
 		return section.Landscape.EffectiveMatCount[iMaterial];
 }
 
+static C4ValueInt FnGetPXSCount(C4AulContext *cthr)
+{
+	return cthr->GetSection().PXS.Count;
+}
+
 static C4ValueInt FnGetMaterial(C4AulContext *cthr, C4ValueInt x, C4ValueInt y)
 {
 	if (cthr->Obj) { x += cthr->Obj->x; y += cthr->Obj->y; }
@@ -2642,6 +2646,11 @@ static C4String *FnFormat(C4AulContext *cthr, C4String *szFormat, C4Value iPar0,
 static C4ID FnC4Id(C4AulContext *cthr, C4String *szID)
 {
 	return C4Id(FnStringPar(szID));
+}
+
+static C4String *FnC4IdText(C4AulContext *cthr, C4ID id)
+{
+	return String(C4IdText(id));
 }
 
 static bool FnPlayerMessage(C4AulContext *cthr, C4ValueInt iPlayer, C4String *szMessage, C4Object *pObj, C4Value iPar0, C4Value iPar1, C4Value iPar2, C4Value iPar3, C4Value iPar4, C4Value iPar5, C4Value iPar6)
@@ -7512,6 +7521,7 @@ void InitFunctionMap(C4AulScriptEngine *pEngine)
 	AddFunc(pEngine, "PlaceAnimal",                     FnPlaceAnimal);
 	AddFunc(pEngine, "GameOver",                        FnGameOver);
 	AddFunc(pEngine, "C4Id",                            FnC4Id);
+	AddFunc(pEngine, "C4IdText",                        FnC4IdText);
 	AddFunc(pEngine, "ScriptGo",                        FnScriptGo);
 	AddFunc(pEngine, "GetHiRank",                       FnGetHiRank);
 	AddFunc(pEngine, "GetCrew",                         FnGetCrew);
@@ -7537,6 +7547,7 @@ void InitFunctionMap(C4AulScriptEngine *pEngine)
 	AddFunc(pEngine, "GetMaterial",                     FnGetMaterial);
 	AddFunc(pEngine, "GetTexture",                      FnGetTexture);
 	AddFunc(pEngine, "GetMaterialCount",                FnGetMaterialCount);
+	AddFunc(pEngine, "GetPXSCount",                    FnGetPXSCount);
 	AddFunc(pEngine, "GBackSolid",                      FnGBackSolid);
 	AddFunc(pEngine, "GBackSemiSolid",                  FnGBackSemiSolid);
 	AddFunc(pEngine, "GBackLiquid",                     FnGBackLiquid);

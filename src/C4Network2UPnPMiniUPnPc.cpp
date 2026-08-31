@@ -215,7 +215,9 @@ private:
 		}
 		else
 		{
-			logger->error(
+			// Best-effort: a router refusing the mapping is a routine
+			// environmental condition, not an engine error.
+			logger->warn(
 						"Failed to add port mapping {} {} -> {}:{}: {}",
 						mapping.Protocol.data(),
 						mapping.ExternalPort.data(),

@@ -11,8 +11,13 @@ LOCK_FILE="${LOCK_FILE:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/deps.lo
 
 lock_get() {
 	local section="$1" key="$2"
-	awk -v section="^\\[${section}\\]" -v key="^${key}[[:space:]]*=" '
-		$0 ~ section { in_section = 1; next }
+	# NOTE: pass the section header as a plain string ("[tarballs]") and match
+	# with `==` (exact string compare). Building a dynamic regex via
+	# -v section="^\[...\]" breaks under gawk: `\[` inside a -v string value is
+	# collapsed to a plain `[` (with a warning), degenerating the regex into
+	# the character class `[tarballs]` which never matches the header line.
+	awk -v section="[$section]" -v key="^${key}[[:space:]]*=" '
+		$0 == section { in_section = 1; next }
 		/^\[/ { in_section = 0 }
 		in_section && $0 ~ key {
 			sub(/^[^=]*=[[:space:]]*/, "")
@@ -25,8 +30,8 @@ lock_get() {
 
 lock_get_section() {
 	local section="$1"
-	awk -v section="^\\[${section}\\]" '
-		$0 ~ section { in_section = 1; next }
+	awk -v section="[$section]" '
+		$0 == section { in_section = 1; next }
 		/^\[/ { in_section = 0 }
 		in_section && /=/ { print }
 	' "$LOCK_FILE"

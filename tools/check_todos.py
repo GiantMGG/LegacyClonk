@@ -32,7 +32,6 @@ ISSUE_LINK_RE = re.compile(r"\b(TODO|FIXME|HACK|XXX|BUG)\(legacyclonk/LegacyClon
 BROAD_MARKER_RE = re.compile(r"\b(TODO|FIXME|HACK|XXX|BUG)\b")
 ALLOWLIST_PATH = REPO_ROOT / "tools" / "todo-legacy-allowlist.txt"
 
-
 def load_allowlist() -> set[str]:
     if not ALLOWLIST_PATH.exists():
         return set()
@@ -41,7 +40,6 @@ def load_allowlist() -> set[str]:
         for line in ALLOWLIST_PATH.read_text(encoding="utf-8").splitlines()
         if line.strip() and not line.startswith("#")
     }
-
 
 def scan_file(path: Path, allowlist: set[str]) -> list[str]:
     rel = path.relative_to(REPO_ROOT).as_posix()
@@ -65,14 +63,12 @@ def scan_file(path: Path, allowlist: set[str]) -> list[str]:
         )
     return errors
 
-
 def scan_tree(target: Path, allowlist: set[str]) -> list[str]:
     errors: list[str] = []
     for ext in ("*.cpp", "*.h"):
         for path in sorted(target.rglob(ext)):
             errors.extend(scan_file(path, allowlist))
     return errors
-
 
 def check_stale_allowlist(allowlist: set[str]) -> list[str]:
     warnings: list[str] = []
@@ -97,7 +93,6 @@ def check_stale_allowlist(allowlist: set[str]) -> list[str]:
         if not BROAD_MARKER_RE.search(lines[line_no - 1]):
             warnings.append(f"stale allowlist entry (no marker at line): {entry}")
     return warnings
-
 
 def main() -> int:
     args = sys.argv[1:]
@@ -125,7 +120,6 @@ def main() -> int:
         print(f"\n{len(errors)} marker(s) do not match the required format.", file=sys.stderr)
         return 1
     return 0
-
 
 if __name__ == "__main__":
     sys.exit(main())

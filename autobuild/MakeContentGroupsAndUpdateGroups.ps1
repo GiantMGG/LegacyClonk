@@ -88,7 +88,12 @@ if ($OutDir) {
 New-Item -Path $combinedGroup -ItemType Directory | Out-Null
 
 foreach ($groupPath in $groupPaths) {
-    Copy-Item -Path $($groupPath.Path + ".c4u") -Destination $combinedGroup
+    $updateFile = "$($groupPath.Path).c4u"
+    if (Test-Path -LiteralPath $updateFile) {
+        Copy-Item -Path $updateFile -Destination $combinedGroup
+    } else {
+        Write-Output "No update group for $(Split-Path -Leaf $groupPath) (absent from all parts); skipping"
+    }
 }
 
 & $Env:C4GROUP "$combinedGroup" -p

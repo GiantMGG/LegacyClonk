@@ -71,7 +71,7 @@ public:
 
 private:
 	explicit constexpr C4Fixed(int32_t iVal)
-		: val(iVal * FIXED_FPF) {}
+		: val(int32_t(uint32_t(iVal) * FIXED_FPF)) {}
 	explicit constexpr C4Fixed(int32_t iVal, int32_t iPrec)
 		: val(iPrec < FIXED_FPF
 			? iVal * (FIXED_FPF / iPrec) + (iVal * (FIXED_FPF % iPrec)) / iPrec

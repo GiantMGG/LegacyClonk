@@ -29,7 +29,6 @@
 #include <memory>
 #include <vector>
 
-
 #include <cstring>
 #include <vector>
 
@@ -453,6 +452,12 @@ public:
 
 	virtual bool Send(const C4NetIOPacket &rPacket) override;
 	bool SendDirect(C4NetIOPacket &&packet); // (mt-safe)
+	// Reactive close retransmit (QUIC closing state, RFC 9000 §10.2.1):
+	// send one raw IPID_Close datagram to `to`, byte-identical in
+	// addressing to what Peer::Close emitted. Bypasses the Peer entirely
+	// (a dormant client's host-side Peer is CS_Closed, invisible to
+	// GetPeer, and Peer::Close early-returns when already closed).
+	bool SendClosePacket(const addr_t &to); // (mt-safe)
 	virtual bool Broadcast(const C4NetIOPacket &rPacket) override;
 	virtual bool SetBroadcast(const addr_t &addr, bool fSet = true) override;
 

@@ -147,7 +147,6 @@ struct C4EnumInfo<C4AulScriptStrict>
 	);
 };
 
-
 void C4ConfigDeveloper::ConsoleScriptStrictnessWrapper::CompileFunc(StdCompiler *const comp)
 {
 	comp->Value(mkEnumAdapt(Strictness));
@@ -252,6 +251,7 @@ void C4ConfigNetwork::CompileFunc(StdCompiler *pComp)
 	pComp->Value(mkNamingAdapt(PortUDP,       "PortUDP",       C4NetStdPortUDP,       false, true));
 	pComp->Value(mkNamingAdapt(PortDiscovery, "PortDiscovery", C4NetStdPortDiscovery, false, true));
 	pComp->Value(mkNamingAdapt(PortRefServer, "PortRefServer", C4NetStdPortRefServer, false, true));
+	pComp->Value(mkNamingAdapt(BindAddress, "BindAddress", StdStrBuf{}, false, true));
 
 	pComp->Value(mkNamingAdapt(ControlMode,        "ControlMode",        0,              false, true));
 	pComp->Value(mkNamingAdapt(LocalName,          "LocalName",          "Unknown",      false, true));
@@ -272,6 +272,8 @@ void C4ConfigNetwork::CompileFunc(StdCompiler *pComp)
 	pComp->Value(mkNamingAdapt(RollbackEnabled,           "RollbackEnabled",        false, false, true));
 	pComp->Value(mkNamingAdapt(RollbackSnapshotInterval,  "RollbackSnapshotInterval", C4Rollback::DefaultSnapshotInterval, false, true));
 	pComp->Value(mkNamingAdapt(RollbackWindowSnapshots,   "RollbackWindowSnapshots",  C4Rollback::DefaultWindowSnapshots,   false, true));
+	pComp->Value(mkNamingAdapt(ReconnectEnabled,          "ReconnectEnabled",        false,                         false, true));
+	pComp->Value(mkNamingAdapt(ReconnectGraceSec,         "ReconnectGraceSec",       C4Reconnect::DefaultGraceSec, false, true));
 
 	pComp->Value(mkNamingAdapt(s(PuncherAddress), "PuncherAddress", DefaultPuncherServer, false, true));
 
@@ -932,7 +934,6 @@ std::uint8_t C4Config::GetCharsetCode(const char *const charset) noexcept
 	// Default
 	return 0; // ANSI_CHARSET
 }
-
 
 std::int32_t C4Config::GetCharsetCodePage(const char *const charset) noexcept
 {

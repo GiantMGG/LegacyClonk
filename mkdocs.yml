@@ -46,7 +46,11 @@ markdown_extensions:
 
 nav:
   - Home: index.md
-  - Quickstart: quickstart.md
+  - Changelog: changelog.md
+  - Tutorials:
+      - First object: tutorials/first-object.md
+      - First scenario: tutorials/first-scenario.md
+      - C4D pack anatomy: tutorials/c4d-anatomy.md
   - C4Script guide:
       - Overview: c4script/index.md
       - Syntax: c4script/syntax.md
@@ -67,8 +71,14 @@ nav:
   - Contributors:
       - Overview: contributors/index.md
       - Architecture: contributors/architecture.md
+      - Contributing: contributors/contributing.md
+      - Troubleshooting: contributors/troubleshooting.md
+      - C4Aul deep dive: contributors/c4aul.md
+      - Network lockstep deep dive: contributors/network.md
+      - Rendering pipeline deep dive: contributors/rendering.md
   - Players:
       - First game: players/first-game.md
+      - Controls reference: players/controls.md
   - Porting:
       - BSD port: BSD_PORT.md
   - Reference:
@@ -84,6 +94,7 @@ nav:
       - Functions: reference/functions/index.md
       - Constants: reference/constants.md
       - DefCore.txt fields: reference/defcore.md
+      - Material reactions: reference/materials.md
 
 extra:
   version:

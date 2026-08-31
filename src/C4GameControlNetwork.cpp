@@ -731,7 +731,12 @@ void C4GameControlNetwork::CheckCompleteCtrl(bool fSetEvent) // by both
 		// ok, control for this tick is ready
 		iControlReady++;
 		// set event, yield
-		if (fSetEvent && Game.GameGo && iControlReady >= Game.Control.ControlTick)
+		// With an explicit frame-rate cap, NextTick(true) sets DoNotDelay
+		// and would zero the scheduler wait on every tick, bypassing
+		// Delay-based pacing. Gate on the cap (mirrors C4Game::Ticks()).
+		// Spec: frame-rate-cap-engine-option (cycle-64 deferred fix).
+		if (fSetEvent && Game.GameGo && iControlReady >= Game.Control.ControlTick
+			&& Game.FrameRateCap == 0)
 			Application.NextTick(true);
 	}
 	// clear old ctrl

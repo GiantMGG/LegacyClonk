@@ -1,0 +1,27 @@
+name: Format Lint
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  format-lint:
+    name: Check auto_format dirt
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Run auto_format
+        run: python3 tools/auto_format.py . -w
+
+      - name: Fail on dirt
+        run: |
+          git diff --stat
+          git diff --exit-code
+
+      - name: Formatting help
+        if: failure()
+        run: >
+          echo "::error::auto_format dirt detected — run
+          'python3 tools/auto_format.py . -w' and commit the
+          output as a 'style:' commit"

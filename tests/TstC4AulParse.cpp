@@ -240,3 +240,52 @@ TEST_CASE("Parser: empty script Preparse succeeds", "[C4Aul][Parser]")
 	// An empty script produces no bytecode.
 	REQUIRE(script->Code.empty());
 }
+
+// ---------------------------------------------------------------------------
+// Regression (cycle 78): Parse_Function's ATT_BLCLOSE case computed the
+// previous bytecode element as GetCodeByPos(max(GetCodePos(), 1) - 1).
+// When Code is empty — the close of the first new-format function of any
+// script — the clamp yields index 0 and GetCodeByPos does &Code[0] on an
+// empty std::vector: an out-of-bounds read that assert-aborts every
+// Debug/ASan-Debug build via _GLIBCXX_ASSERTIONS.
+// ---------------------------------------------------------------------------
+
+TEST_CASE("Parser: preparse of script with first new-format function", "[C4Aul][Parser]")
+{
+	C4AulScriptEngine engine;
+
+	auto *script = new TestScript();
+	script->Script.Copy("#strict 2\nfunc Foo() {}");
+	script->Reg2List(&engine, &engine);
+
+	REQUIRE(script->Preparse());
+	REQUIRE(script->State == ASS_PREPARSED);
+}
+
+// ---------------------------------------------------------------------------
+// PARSER-mode leg: an empty-body first function must get the implicit
+// AB_NIL, AB_RETURN pair (CPos == nullptr -> !CPos branch). Exact-shape
+// assertions so any regression of the !CPos branch fails loudly instead
+// of re-introducing silent UB.
+// ---------------------------------------------------------------------------
+
+TEST_CASE("Parser: empty-body first function gets implicit return", "[C4Aul][Parser]")
+{
+	C4AulScriptEngine engine;
+
+	auto *script = new TestScript();
+	script->Strict = C4AulScriptStrict::MAXSTRICT;
+	script->State = ASS_LINKED;
+	script->Reg2List(&engine, &engine);
+
+	auto *fn = new C4AulScriptFunc(script, "Foo");
+	fn->Script = "}";
+	fn->bNewFormat = true;
+	fn->pOrgScript = script;
+
+	script->ParseFn(fn, false);
+
+	REQUIRE(script->Code.size() == 2);
+	REQUIRE(script->Code[0].bccType == AB_NIL);
+	REQUIRE(script->Code[1].bccType == AB_RETURN);
+}

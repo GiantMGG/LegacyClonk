@@ -1706,7 +1706,6 @@ C4Console::GCharStringWrapper C4Console::ClonkToGtk(const std::string_view text)
 	return {TextEncodingConverter.ClonkToUtf8(text)};
 }
 
-
 // GTK+ callbacks
 
 void C4Console::OnScriptEntry(GtkWidget *entry, gpointer data)

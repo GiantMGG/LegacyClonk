@@ -1,0 +1,5 @@
+[DefCore]
+id=GWST
+Name=Glow Stone
+Category=C4D_StaticBack
+Version=4,9,8

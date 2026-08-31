@@ -1,0 +1,2 @@
+[Names]
+1=Glow Stone

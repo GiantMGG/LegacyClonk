@@ -1,0 +1,89 @@
+name: Live Network Smokes
+
+on:
+  schedule:
+    - cron: '30 3 * * *'
+  workflow_dispatch: {}
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  live-network:
+    name: "Live network smokes (net_desync + live_reconnect)"
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    env:
+      DEPS_VERSION: '2026-07-25'
+      GCC_VERSION: '16.1.0'
+      GCC_ARCH: 'x86_64'
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          submodules: recursive
+
+      - name: "Configure Platform"
+        run: autobuild/platforms/Linux.sh
+
+      - name: "Configure Platform Architecture"
+        run: autobuild/platforms/Linux-x64.sh
+
+      - name: "Install CMake"
+        uses: lukka/get-cmake@v4.4.2
+        with:
+          useCloudCache: false
+
+      - name: "Linux: Setup"
+        run: $CHROOT autobuild/platforms/setup_linux.sh
+
+      - name: "Ensure tc is available"
+        run: |
+          command -v tc || {
+            sudo apt-get update
+            sudo DEBIAN_FRONTEND=noninteractive apt-get install --no-install-recommends iproute2 -y
+          }
+          command -v tc
+
+      - name: "Dependencies"
+        run: |
+          set -euo pipefail
+          source tools/deps-lock.sh
+          PLATFORM="Linux-x64"
+          EXPECTED_SHA="$(lock_get tarballs "$PLATFORM")"
+          TARBALL="lc_deps-${PLATFORM}.tar.gz"
+          curl -fL -o "$TARBALL" \
+            "https://github.com/legacyclonk/deps/releases/download/$DEPS_VERSION/$TARBALL"
+          ACTUAL_SHA="$(sha256sum "$TARBALL" | cut -d' ' -f1)"
+          if [ "$ACTUAL_SHA" != "$EXPECTED_SHA" ]; then
+            echo "ERROR: deps tarball SHA-256 mismatch for $PLATFORM" >&2
+            echo "  expected: $EXPECTED_SHA" >&2
+            echo "  actual:   $ACTUAL_SHA" >&2
+            exit 1
+          fi
+          mkdir deps
+          tar -xzf "$TARBALL" -C deps
+          ( cd deps && ./fix_paths.sh )
+
+      - name: "Configure"
+        run: |
+          cmake -B build . -G Ninja \
+            -DCMAKE_BUILD_TYPE=RelWithDebInfo \
+            -DUSE_TESTS=On \
+            $CMAKE_CONFIGURE_ARGS
+
+      - name: "Build"
+        run: cmake --build build $CMAKE_BUILD_ARGS
+
+      - name: "Test (both network smokes, serial, 600 s budget)"
+        run: |
+          ctest --test-dir build -R 'live_reconnect_smoke|net_desync_smoke' \
+            --output-on-failure --timeout 600 -j1
+
+      - name: "Upload LastTest.log"
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: live-network-LastTest-log
+          path: build/Testing/Temporary/LastTest.log
+          if-no-files-found: warn

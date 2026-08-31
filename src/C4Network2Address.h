@@ -37,7 +37,6 @@
 #define SOCK_CLOEXEC 0
 #endif
 
-
 class C4Network2HostAddress
 {
 public:

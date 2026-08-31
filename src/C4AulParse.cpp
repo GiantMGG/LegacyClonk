@@ -1208,7 +1208,7 @@ namespace
 void C4AulParseState::SetNoRef()
 {
 	if (Type != PARSER) return;
-	for(auto CPos = a->Code.rbegin(); CPos != a->Code.rend(); )
+	for (auto CPos = a->Code.rbegin(); CPos != a->Code.rend(); )
 	{
 		switch (CPos->bccType)
 		{
@@ -1859,7 +1859,8 @@ void C4AulParseState::Parse_Function()
 		if (Fn->bNewFormat)
 		{
 			// all ok, insert a return
-			C4AulBCC *CPos = a->GetCodeByPos(std::max<size_t>(a->GetCodePos(), 1) - 1);
+			const size_t iCodePos = a->GetCodePos();
+			C4AulBCC *CPos = iCodePos ? a->GetCodeByPos(iCodePos - 1) : nullptr;
 			if (!CPos || CPos->bccType != AB_RETURN || fJump)
 			{
 				AddBCC(AB_NIL);

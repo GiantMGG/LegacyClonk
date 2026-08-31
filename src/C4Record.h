@@ -111,6 +111,7 @@ struct C4RecordChunkHead // record file chunk head
 	uint8_t iFrm; // frame
 	uint8_t Type; // chunk type
 };
+#pragma pack()
 
 struct C4RecordChunk
 {
@@ -131,6 +132,8 @@ public:
 	virtual void CompileFunc(StdCompiler *pComp);
 	virtual ~C4RecordChunk() {}
 };
+
+#pragma pack(1)
 
 struct C4RCSetPix
 {

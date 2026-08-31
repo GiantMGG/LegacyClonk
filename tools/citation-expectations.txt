@@ -1,0 +1,8 @@
+# Citation content expectations
+# Format: doc_rel:doc_lineno -> snippet
+# The gate fails when the cited line(s) no longer contain the snippet
+# (normalized: NFC, smart quotes/dashes -> ASCII, casefold, whitespace
+# collapse). An expectation whose doc line no longer carries a citation
+# fails as an orphan — update this file when citations move.
+#
+docs/contributors/troubleshooting.md:167 -> won't start

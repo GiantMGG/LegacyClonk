@@ -168,4 +168,3 @@ public:
 private:
 	std::unique_ptr<FILE, decltype([](FILE *const file) { std::fclose(file); })> file;
 };
-

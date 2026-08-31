@@ -19,7 +19,7 @@ jobs:
         with:
           python-version: '3.12'
       - run: pip install -r docs/requirements.txt
-      - run: pytest tools/test_harvest_callbacks.py -v
+      - run: pytest tools/test_harvest_callbacks.py tools/test_check_citations.py -v
 
   docs-build:
     name: Build + deploy docs
@@ -52,3 +52,14 @@ jobs:
           TAG="${GITHUB_REF#refs/tags/}"
           mike deploy --update-aliases "$TAG" latest
           mike set-alias latest "$TAG"
+
+  citation-freshness:
+    name: Citation freshness gate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Run citation freshness linter
+        run: python3 tools/check_citations.py --budget 0 docs/

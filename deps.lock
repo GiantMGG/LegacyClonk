@@ -39,8 +39,8 @@ git_hash = 27cb4c76708608465c413f6d0e6b8d99a4d84302
 # Only the raw clonk + c4group binaries are baselined — AppImage packaging
 # is excluded (linuxdeploy introduces its own nondeterminism).
 #
-# NOTE: Baseline entries are absent in this commit because the engine build
-# is currently broken (glibc conflict). Once the toolchain is fixed, a
-# maintainer should run `tools/verify-repro.sh --update-baseline` on each
-# platform to populate this section. Absent entries cause verify-repro.sh
-# to print SKIP (not a failure) for that platform.
+# Entries are keyed `<Platform>.<binary>` and recorded via
+# `tools/verify-repro.sh --update-baseline` or the record-baseline
+# workflow_dispatch job in .github/workflows/repro-check.yml.
+# verify-repro.sh exit codes: 0 = MATCH, 1 = MISMATCH, 3 = SKIP
+# (no entry for the platform — CI warns, does not fail).

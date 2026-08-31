@@ -21,6 +21,7 @@
 #include "C4Network2IO.h"
 #include "C4PacketBase.h"
 #include "C4Client.h"
+#include "C4Reconnect.h"
 #include "C4Network2Address.h"
 
 #include <cstddef>
@@ -42,6 +43,7 @@ enum C4Network2ClientStatus
 	NCS_NotReady, // client is behind (status not acknowledged)
 	NCS_Ready,    // client acknowledged network status
 	NCS_Remove,   // client is to be removed
+	NCS_Dormant,  // client dropped but within reconnect grace window (spec: reconnect)
 };
 
 class C4Network2Client
@@ -84,6 +86,15 @@ protected:
 	time_t iNextConnAttempt;
 	std::unique_ptr<C4NetIOTCP::Socket> tcpSimOpenSocket;
 
+	// Reconnect (spec: live-reconnect-smoke-verification): the token from
+	// the fresh-join JoinData. Reconnect join data carries a zero token and
+	// is routed to HandleReconnectJoinData before HandleJoinData, so the
+	// fresh-join token is never overwritten. The deadline is armed on
+	// host-loss detection (now + ReconnectGraceSec).
+	C4Reconnect::Token reconnectToken{};
+	bool hasReconnectToken{false};
+	time_t reconnectDeadline{0};
+
 	// part of client list
 	C4Network2Client *pNext;
 	class C4Network2ClientList *pParent;
@@ -113,10 +124,20 @@ public:
 	bool                   isReady()     const { return getStatus() == NCS_Ready; }
 	bool                   isWaitedFor() const { return getStatus() == NCS_NotReady || getStatus() == NCS_Ready; }
 	bool                   isRemoved()   const { return getStatus() == NCS_Remove; }
+	bool                   isDormant()   const { return getStatus() == NCS_Dormant; }
 
 	bool                isConnected()        const { return !!pMsgConn; }
 	time_t              getNextConnAttempt() const { return iNextConnAttempt; }
 	int32_t             getLastActivity()    const { return iLastActivity; }
+	const C4Reconnect::Token &GetReconnectToken() const { return reconnectToken; }
+	bool HasReconnectToken() const { return hasReconnectToken; }
+	time_t GetReconnectDeadline() const { return reconnectDeadline; }
+	void SetReconnectToken(const C4Reconnect::Token &token)
+	{
+		reconnectToken = token;
+		hasReconnectToken = token != C4Reconnect::Token{};
+	}
+	void SetReconnectDeadline(time_t deadline) { reconnectDeadline = deadline; }
 	class C4TableGraph *getStatPing()        const { return pstatPing; }
 
 	C4Network2Client *getNext() const { return pNext; }

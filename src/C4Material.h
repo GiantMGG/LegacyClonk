@@ -57,15 +57,30 @@ struct C4MaterialReaction
 	StdStrBuf sConvertMat; // in mat conversion material (string)
 	int32_t iConvertMat; // in mat conversion material; evaluated in CrossMapMaterials
 	int32_t iCorrosionRate; // chance of doing a corrosion
+	StdStrBuf sLSProduct; // React: LSProduct material (string)
+	int32_t iLSProduct; // React: resolved LSProduct (sentinel, see mrfReact)
+	StdStrBuf sPXSProduct; // React: PXSProduct material (string)
+	int32_t iPXSProduct; // React: resolved PXSProduct (sentinel)
+	StdStrBuf sByProduct; // React: ByProduct material (string)
+	int32_t iByProduct; // React: resolved ByProduct (sentinel)
+	int32_t iByProductRate; // React: chance of casting the byproduct PXS
+	int32_t iRate; // React: chance of the reaction firing
 
-	C4MaterialReaction(C4MaterialReactionFunc pFunc) : pFunc(pFunc), fUserDefined(false), pScriptFunc(nullptr), iExecMask(~0u), fReverse(false), fInverseSpec(false), fInsertionCheck(true), iDepth(0), iConvertMat(-1), iCorrosionRate(100) {}
-	C4MaterialReaction() : pFunc(&NoReaction), fUserDefined(true), pScriptFunc(nullptr), iExecMask(~0u), fReverse(false), fInverseSpec(false), fInsertionCheck(true), iDepth(0), iConvertMat(-1), iCorrosionRate(100) {}
+	C4MaterialReaction(C4MaterialReactionFunc pFunc) : pFunc(pFunc), fUserDefined(false), pScriptFunc(nullptr), iExecMask(~0u), fReverse(false), fInverseSpec(false), fInsertionCheck(true), iDepth(0), iConvertMat(-1), iCorrosionRate(100), iLSProduct(-2), iPXSProduct(-2), iByProduct(-2), iByProductRate(0), iRate(100) {}
+	C4MaterialReaction() : pFunc(&NoReaction), fUserDefined(true), pScriptFunc(nullptr), iExecMask(~0u), fReverse(false), fInverseSpec(false), fInsertionCheck(true), iDepth(0), iConvertMat(-1), iCorrosionRate(100), iLSProduct(-2), iPXSProduct(-2), iByProduct(-2), iByProductRate(0), iRate(100) {}
 
 	void CompileFunc(StdCompiler *pComp);
 	void ResolveScriptFuncs(const char *szMatName);
 
 	bool operator==(const C4MaterialReaction &rCmp) const { return false; } // never actually called; only comparing with empty vector of C4MaterialReactions
 };
+
+// Resolve a React product name to the mrfReact sentinel convention:
+//   >= 0     resolved material index
+//   MNone    product is "Sky" (vanish semantics)
+//   -2       key omitted / unknown name (no-op)
+// iResolvedMat is C4MaterialMap::Get(sProduct) (MNone for unknown names).
+int32_t ResolveReactProduct(const StdStrBuf &sProduct, int32_t iResolvedMat);
 
 class C4MaterialCore
 {
@@ -95,6 +110,8 @@ public:
 	int32_t MaxAirSpeed;
 	int32_t MaxSlide;
 	int32_t WindDrift;
+	int32_t Buoyancy; // upward acceleration in percent of gravity (PXS only; 0 = default gravity)
+	int32_t Saltation; // |wind| threshold at which supported PXS of this material hop downwind (0 = never)
 	int32_t Inflammable;
 	int32_t Incindiary;
 	int32_t Extinguisher;
@@ -163,6 +180,7 @@ public:
 	// default reactions
 	static bool mrfConvert   (C4MaterialReaction *pReaction, C4Section &section, int32_t &iX, int32_t &iY, int32_t iLSPosX, int32_t iLSPosY, C4Fixed &fXDir, C4Fixed &fYDir, int32_t &iPxsMat, int32_t iLsMat, MaterialInteractionEvent evEvent, bool *pfPosChanged);
 	static bool mrfPoof      (C4MaterialReaction *pReaction, C4Section &section, int32_t &iX, int32_t &iY, int32_t iLSPosX, int32_t iLSPosY, C4Fixed &fXDir, C4Fixed &fYDir, int32_t &iPxsMat, int32_t iLsMat, MaterialInteractionEvent evEvent, bool *pfPosChanged);
+	static bool mrfReact     (C4MaterialReaction *pReaction, C4Section &section, int32_t &iX, int32_t &iY, int32_t iLSPosX, int32_t iLSPosY, C4Fixed &fXDir, C4Fixed &fYDir, int32_t &iPxsMat, int32_t iLsMat, MaterialInteractionEvent evEvent, bool *pfPosChanged);
 	static bool mrfCorrode   (C4MaterialReaction *pReaction, C4Section &section, int32_t &iX, int32_t &iY, int32_t iLSPosX, int32_t iLSPosY, C4Fixed &fXDir, C4Fixed &fYDir, int32_t &iPxsMat, int32_t iLsMat, MaterialInteractionEvent evEvent, bool *pfPosChanged);
 	static bool mrfIncinerate(C4MaterialReaction *pReaction, C4Section &section, int32_t &iX, int32_t &iY, int32_t iLSPosX, int32_t iLSPosY, C4Fixed &fXDir, C4Fixed &fYDir, int32_t &iPxsMat, int32_t iLsMat, MaterialInteractionEvent evEvent, bool *pfPosChanged);
 	static bool mrfInsert    (C4MaterialReaction *pReaction, C4Section &section, int32_t &iX, int32_t &iY, int32_t iLSPosX, int32_t iLSPosY, C4Fixed &fXDir, C4Fixed &fYDir, int32_t &iPxsMat, int32_t iLsMat, MaterialInteractionEvent evEvent, bool *pfPosChanged);

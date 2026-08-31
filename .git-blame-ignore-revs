@@ -1,0 +1,5 @@
+# LegacyClonk auto-format sweep commits.
+# Hide from git blame (GitHub web blame honors this natively).
+# CLI opt-in: git config blame.ignoreRevsFile .git-blame-ignore-revs
+82bf1ecd57aaa37f624a82c656f467bed06b044e
+b667bb70f15ff876c53cf6a9b8cfc6e1242118ba

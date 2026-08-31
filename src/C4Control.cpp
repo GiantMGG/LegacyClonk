@@ -479,6 +479,13 @@ void C4ControlSyncCheck::Set()
 		ObjectCount += section->Objects.ObjectCount();
 		SectShapeSum += section->Objects.Sectors.getShapeSum();
 	}
+
+	if (Game.LogSyncChecks)
+	{
+		spdlog::info("SyncCheck: Frm={} Ctrl={} Rn3={} Rnc={} Cpx={} PXS={} MMi={} Obc={} Oei={} Sct={}",
+			Frame, ControlTick, Random3, RandomCount, AllCrewPosX,
+			PXSCount, MassMoverIndex, ObjectCount, ObjectEnumerationIndex, SectShapeSum);
+	}
 }
 
 int32_t C4ControlSyncCheck::GetAllCrewPosX()
@@ -667,7 +674,7 @@ void C4ControlClientRemove::Execute(const std::shared_ptr<spdlog::logger> &) con
 	C4Client *pClient = Game.Clients.getClientByID(iID);
 	if (!pClient)
 	{
-		// TODO: in replays, client list is not yet synchronized
+		// TODO(legacyclonk/LegacyClonk#000): in replays, client list is not yet synchronized
 		// remove players anyway
 		if (Game.Control.isReplay()) Game.Players.RemoveAtClient(iID, true);
 		return;

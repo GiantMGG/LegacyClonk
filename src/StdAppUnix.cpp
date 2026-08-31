@@ -20,6 +20,7 @@
 #include "spdlog/common.h"
 
 #include <array>
+#include <csignal>
 #include <string>
 
 #include <poll.h>
@@ -109,6 +110,14 @@ void CStdApp::Init(const int argc, char **const argv)
 	setlocale(LC_ALL, "");
 	setlocale(LC_NUMERIC, "C");
 
+	// A send() to a socket whose peer has closed raises SIGPIPE, whose
+	// default disposition terminates the process. A network engine must
+	// instead see the EPIPE error and handle it as a connection failure
+	// (the IO layer already does). Without this, a client dies the
+	// moment it writes to a connection the host tore down -- e.g. the
+	// SIGSTOP-partitioned live reconnect smoke.
+	signal(SIGPIPE, SIG_IGN);
+
 #ifdef USE_X11
 	// Clear XMODIFIERS as key input gets evaluated twice otherwise
 	unsetenv("XMODIFIERS");
@@ -141,8 +150,6 @@ void CStdApp::Init(const int argc, char **const argv)
 	szCmdLine = s.c_str();
 
 #ifdef WITH_GLIB
-
-
 
 	loop = g_main_loop_new(nullptr, false);
 #endif
@@ -384,7 +391,7 @@ C4AppHandleResult CStdApp::HandleMessage(const unsigned int timeout, const bool 
 
 	if (timeoutHandle && !timeoutElapsed)
 	{
-		// FIXME: do not add a new timeout instead of deleting the old one in the next call
+		// FIXME(legacyclonk/LegacyClonk#000): do not add a new timeout instead of deleting the old one in the next call
 		g_source_remove(timeoutHandle);
 	}
 
@@ -690,7 +697,7 @@ void CStdApp::HandleXMessage()
 
 	case ButtonPress:
 		// We can take this directly since there are no key presses
-		// involved. TODO: We probably need to correct button state
+		// involved. TODO(legacyclonk/LegacyClonk#000): We probably need to correct button state
 		// here though.
 		KeyMask = event.xbutton.state;
 		LastEventTime = event.xbutton.time;

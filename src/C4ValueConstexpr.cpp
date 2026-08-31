@@ -8,7 +8,6 @@
 #include "C4Value.h"
 #include "StdHelpers.h"
 
-
 std::strong_ordering C4ValueConstexpr::operator<=>(const C4Value &other) const
 {
 	using O = std::strong_ordering;

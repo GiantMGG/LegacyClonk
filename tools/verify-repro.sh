@@ -11,6 +11,12 @@
 #   --workdir <dir>             Override default work dir ($REPO_ROOT/.repro-work).
 #   --help                      Print this help.
 #
+# Exit codes:
+#   0  MATCH (reproducible) — or baseline updated (--update-baseline)
+#   1  MISMATCH / error
+#   2  unknown argument (argument parsing)
+#   3  SKIP — no baseline entry for this platform yet
+#
 # Requires: bash 4+, curl, sha256sum, tar, cmake, ninja, awk.
 
 set -euo pipefail
@@ -126,10 +132,12 @@ echo "[4/6] Extracting deps + fix_paths.sh ... ok"
 BUILD_DIR="$WORKDIR/build"
 rm -rf "$BUILD_DIR"
 echo "[5/6] Configuring ..."
+echo "  CMAKE_CONFIGURE_ARGS='${CMAKE_CONFIGURE_ARGS:-}'"
 cmake -B "$BUILD_DIR" -S "$REPO_ROOT" -G Ninja \
 	-DCMAKE_BUILD_TYPE=RelWithDebInfo \
 	-DUSE_TESTS=On \
-	-DEXTRA_DEPS_DIR="$DEPS_DIR"
+	-DEXTRA_DEPS_DIR="$DEPS_DIR" \
+	${CMAKE_CONFIGURE_ARGS:-}
 
 # --- [6/6] Build from scratch ---
 echo "[6/6] Building from scratch ..."
@@ -161,32 +169,37 @@ if [ "$UPDATE_BASELINE" -eq 1 ]; then
 	exit 0
 fi
 
-RC=0
+SKIPPED=0
 compare() {
 	local name="$1" expected="$2" actual="$3"
 	if [ -z "$expected" ]; then
 		echo "  $name  SKIP (no baseline entry for $PLATFORM)"
+		SKIPPED=1
 		return 0
 	fi
 	if [ "$actual" = "$expected" ]; then
 		echo "  $name  MATCH"
 		return 0
-	else
-		echo "  $name  MISMATCH"
-		echo "    expected: $expected"
-		echo "    actual:   $actual"
-		return 1
 	fi
+	echo "  $name  MISMATCH"
+	echo "    expected: $expected"
+	echo "    actual:   $actual"
+	return 1
 }
 
 RC=0
 compare clonk   "$EXPECTED_CLONK"   "$ACTUAL_CLONK"   || RC=1
 compare c4group "$EXPECTED_C4GROUP" "$ACTUAL_C4GROUP" || RC=1
 
-if [ "$RC" -eq 0 ]; then
-	echo "RESULT: reproducible — all binary hashes match the baseline."
-else
+if [ "$RC" -ne 0 ]; then
 	echo "RESULT: NON-REPRODUCIBLE — binary hash mismatch." >&2
-	echo "Hint: if intentional, re-run with --update-baseline." >&2
+	echo "Hint: if intentional, re-run with --update-baseline (or dispatch record-baseline)." >&2
+	exit 1
 fi
-exit $RC
+if [ "$SKIPPED" -eq 1 ]; then
+	echo "RESULT: skipped — no (or partial) [baseline.binaries] entry for $PLATFORM in deps.lock."
+	echo "Hint: dispatch the Reproducibility Check workflow with record-baseline=true, then commit the produced deps.lock."
+	exit 3
+fi
+echo "RESULT: reproducible — all binary hashes match the baseline."
+exit 0

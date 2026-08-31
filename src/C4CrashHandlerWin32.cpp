@@ -39,13 +39,13 @@ namespace
 #define LC_MACHINE_X64     0x2
 #define LC_MACHINE_ARM64   0x3
 #if defined(_M_X64) || defined(__amd64)
-#	define LC_MACHINE LC_MACHINE_X64
+# define LC_MACHINE LC_MACHINE_X64
 #elif defined(_M_IX86) || defined(__i386__)
-#	define LC_MACHINE LC_MACHINE_X86
+# define LC_MACHINE LC_MACHINE_X86
 #elif defined(_M_ARM64) || defined(__aarch64__)
-#	define LC_MACHINE LC_MACHINE_ARM64
+# define LC_MACHINE LC_MACHINE_ARM64
 #else
-#	error Unknown architecture
+# error Unknown architecture
 #endif
 
 	constexpr size_t DumpBufferSize = 2048;
@@ -56,33 +56,33 @@ namespace
 	void SafeTextDump(LPEXCEPTION_POINTERS exc, int fd, const char *dumpFilename)
 	{
 #if defined(_MSC_VER)
-#	define LOG_SNPRINTF _snprintf
+# define LOG_SNPRINTF _snprintf
 #else
-#	define LOG_SNPRINTF snprintf
+# define LOG_SNPRINTF snprintf
 #endif
 #define LOG_STATIC_TEXT(text) write(fd, text, sizeof(text) - 1)
 #define LOG_DYNAMIC_TEXT(...) write(fd, DumpBuffer, LOG_SNPRINTF(DumpBuffer, DumpBufferSize-1, __VA_ARGS__))
 
 		// Figure out which kind of format string will output a pointer in hex
 #if defined(PRIdPTR)
-#	define POINTER_FORMAT_SUFFIX PRIdPTR
+# define POINTER_FORMAT_SUFFIX PRIdPTR
 #elif defined(_MSC_VER)
-#	define POINTER_FORMAT_SUFFIX "Ix"
+# define POINTER_FORMAT_SUFFIX "Ix"
 #elif defined(__GNUC__)
-#	define POINTER_FORMAT_SUFFIX "zx"
+# define POINTER_FORMAT_SUFFIX "zx"
 #else
-#	define POINTER_FORMAT_SUFFIX "p"
+# define POINTER_FORMAT_SUFFIX "p"
 #endif
 #if LC_MACHINE == LC_MACHINE_X64 || LC_MACHINE == LC_MACHINE_ARM64
-#	define POINTER_FORMAT "0x%016" POINTER_FORMAT_SUFFIX
+# define POINTER_FORMAT "0x%016" POINTER_FORMAT_SUFFIX
 #elif LC_MACHINE == LC_MACHINE_X86
-#	define POINTER_FORMAT "0x%08" POINTER_FORMAT_SUFFIX
+# define POINTER_FORMAT "0x%08" POINTER_FORMAT_SUFFIX
 #else
-#	define POINTER_FORMAT "0x%" POINTER_FORMAT_SUFFIX
+# define POINTER_FORMAT "0x%" POINTER_FORMAT_SUFFIX
 #endif
 
 #ifndef STATUS_ASSERTION_FAILURE
-#	define STATUS_ASSERTION_FAILURE ((DWORD)0xC0000420L)
+# define STATUS_ASSERTION_FAILURE ((DWORD)0xC0000420L)
 #endif
 
 		LOG_STATIC_TEXT("**********************************************************************\n");
@@ -132,9 +132,9 @@ namespace
 			switch (exc->ExceptionRecord->ExceptionInformation[0])
 			{
 #ifndef EXCEPTION_READ_FAULT
-#	define EXCEPTION_READ_FAULT 0
-#	define EXCEPTION_WRITE_FAULT 1
-#	define EXCEPTION_EXECUTE_FAULT 8
+# define EXCEPTION_READ_FAULT 0
+# define EXCEPTION_WRITE_FAULT 1
+# define EXCEPTION_EXECUTE_FAULT 8
 #endif
 			case EXCEPTION_READ_FAULT: LOG_STATIC_TEXT("tried to read from memory"); break;
 			case EXCEPTION_WRITE_FAULT: LOG_STATIC_TEXT("tried to write to memory"); break;
@@ -204,28 +204,28 @@ namespace
 
 		const auto cpsr = exc->ContextRecord->Cpsr;
 		LOG_DYNAMIC_TEXT("Flags: %c%c%c%c %c%c%c\n",
-						 (cpsr >> 31) & 1 ? 'N' : '.',	// Negative
-						 (cpsr >> 30) & 1 ? 'Z' : '.',	// Zero
-						 (cpsr >> 28) & 1 ? 'V' : '.',	// Overflow
-						 (cpsr >> 24) & 1 ? 'F' : '.',	// FP exception
+						 (cpsr >> 31) & 1 ? 'N' : '.', // Negative
+						 (cpsr >> 30) & 1 ? 'Z' : '.', // Zero
+						 (cpsr >> 28) & 1 ? 'V' : '.', // Overflow
+						 (cpsr >> 24) & 1 ? 'F' : '.', // FP exception
 
 						 // exception masks
-						 (cpsr >>  8) & 1 ? 'A' : '.',	// Asynchronous abort
-						 (cpsr >>  7) & 1 ? 'I' : '.',	// IRQ
-						 (cpsr >>  6) & 1 ? 'F' : '.');	// FIQ
+						 (cpsr >>  8) & 1 ? 'A' : '.', // Asynchronous abort
+						 (cpsr >>  7) & 1 ? 'I' : '.', // IRQ
+						 (cpsr >>  6) & 1 ? 'F' : '.'); // FIQ
 
 		LOG_DYNAMIC_TEXT("  CurrentEL:              %u\n", (cpsr >> 2) & 0x3);
 		LOG_DYNAMIC_TEXT("  SPSel:                  %u\n", (cpsr >> 0) & 1);
 #endif
 #if LC_MACHINE == LC_MACHINE_X64 || LC_MACHINE == LC_MACHINE_X86
 		LOG_DYNAMIC_TEXT("EFLAGS: 0x%08x (%c%c%c%c%c%c%c)\n", static_cast<unsigned int>(exc->ContextRecord->EFlags),
-						 exc->ContextRecord->EFlags & 0x800 ? 'O' : '.',	// overflow
-						 exc->ContextRecord->EFlags & 0x400 ? 'D' : '.',	// direction
-						 exc->ContextRecord->EFlags & 0x80 ? 'S' : '.',	// sign
-						 exc->ContextRecord->EFlags & 0x40 ? 'Z' : '.',	// zero
-						 exc->ContextRecord->EFlags & 0x10 ? 'A' : '.',	// auxiliary carry
-						 exc->ContextRecord->EFlags & 0x4 ? 'P' : '.',	// parity
-						 exc->ContextRecord->EFlags & 0x1 ? 'C' : '.');	// carry
+						 exc->ContextRecord->EFlags & 0x800 ? 'O' : '.', // overflow
+						 exc->ContextRecord->EFlags & 0x400 ? 'D' : '.', // direction
+						 exc->ContextRecord->EFlags & 0x80 ? 'S' : '.', // sign
+						 exc->ContextRecord->EFlags & 0x40 ? 'Z' : '.', // zero
+						 exc->ContextRecord->EFlags & 0x10 ? 'A' : '.', // auxiliary carry
+						 exc->ContextRecord->EFlags & 0x4 ? 'P' : '.', // parity
+						 exc->ContextRecord->EFlags & 0x1 ? 'C' : '.'); // carry
 #endif
 
 		// Dump stack
@@ -657,7 +657,7 @@ void InstallCrashHandler()
 	const GetProcessUserModeExceptionPolicyProc GetProcessUserModeExceptionPolicy =
 		(GetProcessUserModeExceptionPolicyProc) GetProcAddress(kernel32, "GetProcessUserModeExceptionPolicy");
 #ifndef PROCESS_CALLBACK_FILTER_ENABLED
-#	define PROCESS_CALLBACK_FILTER_ENABLED 0x1
+# define PROCESS_CALLBACK_FILTER_ENABLED 0x1
 #endif
 	if (SetProcessUserModeExceptionPolicy && GetProcessUserModeExceptionPolicy)
 	{
