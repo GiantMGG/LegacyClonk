@@ -123,6 +123,18 @@ add_test_target(OptionsOverride
 	LINK_ENGINE
 )
 
+add_test(NAME parameter_override_smoke
+	COMMAND "$<TARGET_FILE:clonk>" --console --smoke-run 350
+		--parameter TeamDist=Random --parameter RandomTeamCount=2
+		--parameter TeamColors=1
+		-s "${CMAKE_SOURCE_DIR}/../content/WeatherEvents.c4d/Tests.c4f/OptionsOverride.c4s"
+	WORKING_DIRECTORY "${CMAKE_BINARY_DIR}")
+set_tests_properties(parameter_override_smoke PROPERTIES
+	TIMEOUT 60
+	LABELS "smoke"
+	PASS_REGULAR_EXPRESSION "OptionsOverride PASS"
+	FAIL_REGULAR_EXPRESSION "FatalError|\\[error\\]|\\[fatal\\]")
+
 # --- Headless scenario smoke harness -------------------------------------
 # Discovers content/**/Tests.c4f/*Smoke.c4s scenarios and registers one
 # CTest entry per scenario. See spec headless-scenario-smoke-harness.
