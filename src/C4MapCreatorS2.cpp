@@ -479,7 +479,7 @@ bool C4MCOverlay::CheckMask(int32_t iX, int32_t iY)
 					dX += Sin(((dX / 7 + itofix(Seed2) / ZoomX + dY) / j + d) * Rad2Grad) * j / 2;
 					dY += Cos(((dY / 7 + itofix(Seed2) / ZoomY + dX) / j - d) * Rad2Grad) * j / 2;
 				}
-				Seed2 = (int32_t(uint32_t(Seed) * uint32_t(Seed2 << 3)) + 0x4465) & 0xffff;
+				Seed2 = int32_t((uint32_t(Seed) * uint32_t(Seed2 << 3) + 0x4465u) & 0xffffu);
 			}
 			j += 3;
 		}
