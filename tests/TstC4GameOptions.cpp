@@ -17,6 +17,11 @@
 // TstSmokeRunFlag.cpp). These tests therefore exercise ApplyParameterOverrides
 // directly on a hand-filled ParameterOverrides vector. The parse path (both
 // --parameter forms) is regression-gated end-to-end by parameter_override_smoke.
+//
+// The replay-skip guard (spec edge case 1) is NOT unit-testable here: it lives
+// at the OpenScenario apply site (src/C4Game.cpp) behind
+// !GameC4S.Head.Replay, and reaching it requires a loaded scenario
+// (GameC4S.Load + Parameters.Load), i.e. a booted game.
 
 #include <catch2/catch_all.hpp>
 

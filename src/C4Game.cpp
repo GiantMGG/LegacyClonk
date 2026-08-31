@@ -371,8 +371,11 @@ bool C4Game::OpenScenario()
 			}
 		}
 
-		// Apply --parameter overrides (spec pregame-options-parity)
-		ApplyParameterOverrides();
+		// Apply --parameter overrides (spec pregame-options-parity).
+		// Skipped on replay playback: overrides would desync the recorded
+		// stream (spec edge case 1 — same guard as the dialog call site).
+		if (!GameC4S.Head.Replay)
+			ApplyParameterOverrides();
 	}
 
 	// Title
