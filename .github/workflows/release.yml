@@ -32,7 +32,7 @@ jobs:
     steps:
       - uses: actions/checkout@v6
         with:
-          ref: main
+          ref: master
           fetch-depth: 0
 
       - name: Render commit digest (git-cliff)
@@ -54,16 +54,16 @@ jobs:
             --changelog CHANGELOG.md \
             --docs-mirror docs/changelog.md
 
-      - name: Commit CHANGELOG.md + docs mirror back to main
+      - name: Commit CHANGELOG.md + docs mirror back to master
         shell: bash
         run: |
           git config user.name  "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add CHANGELOG.md docs/changelog.md
           git commit -m "chore(changelog): update for ${{ env.TAG }} [skip ci]"
-          git fetch origin main
-          git rebase origin/main
-          git push origin HEAD:main
+          git fetch origin master
+          git rebase origin/master
+          git push origin HEAD:master
 
       - name: Upload release notes
         uses: actions/upload-artifact@v7
@@ -99,6 +99,7 @@ jobs:
         with:
           repository: ${{ github.repository_owner }}/content
           ref: v${{ env.OBJVERSION }}
+          token: ${{ secrets.CONTENT_REPO_TOKEN }}
           path: content
 
       - uses: actions/download-artifact@v8
@@ -273,7 +274,7 @@ jobs:
   publish-portable:
     name: Publish Portable Archives
     runs-on: ${{ matrix.runner }}
-    needs: [generate-ci-config, pack-zips]
+    needs: [generate-ci-config, pack-zips, publish-github]
     strategy:
       fail-fast: false
       max-parallel: 1
@@ -642,6 +643,7 @@ jobs:
     name: Publish To Itch.io
     runs-on: ${{ matrix.runner }}
     needs: [generate-ci-config, publish-github]
+    if: github.repository_owner == 'legacyclonk'
     strategy:
       fail-fast: false
       matrix:

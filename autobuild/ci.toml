@@ -19,6 +19,8 @@ parts = [
     'https://update.clonkspot.org/lc/lc_49112.zip',
 ]
 
+[groups.content.'Desert.c4d']
+
 [groups.content.'Fantasy.c4d']
 
 [groups.content.'Fantasy.c4f']
@@ -45,15 +47,25 @@ parts = [
 
 [groups.content.'Objects.c4d']
 
+[groups.content.'OceanTrade.c4d']
+
+[groups.content.'OceanTrade.c4f']
+
+[groups.content.'PixelPhysics.c4d']
+
 [groups.content.'Races.c4f']
 
 [groups.content.'Sound.c4g']
 
 [groups.content.'Tutorial.c4f']
 
+[groups.content.'WeatherEvents.c4d']
+
 [groups.content.'Western.c4d']
 
 [groups.content.'Western.c4f']
+
+[groups.content.'Wildlife.c4d']
 
 [groups.content.'Worlds.c4f']
 
