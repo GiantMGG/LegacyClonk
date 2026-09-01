@@ -30,6 +30,7 @@
 	#define SOCKET int
 	#define INVALID_SOCKET (-1)
 	#include <arpa/inet.h>
+	#include <netinet/in.h>
 	#include <sys/socket.h>
 #endif
 

@@ -434,7 +434,7 @@ void C4SDisasters::CompileFunc(StdCompiler *pComp)
 void C4SEventEntry::CompileFunc(StdCompiler *pComp)
 {
 	// Serialize id as a C4ID, weight + season bounds as int32.
-	pComp->Value(mkNamingAdapt(id,        "id",        C4ID_None));
+	pComp->Value(mkNamingAdapt(mkC4IDAdapt(id), "id", C4ID_None));
 	pComp->Value(mkNamingAdapt(Weight,    "Weight",    0));
 	pComp->Value(mkNamingAdapt(SeasonMin, "SeasonMin", -1));
 	pComp->Value(mkNamingAdapt(SeasonMax, "SeasonMax", -1));

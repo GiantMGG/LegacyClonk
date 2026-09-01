@@ -28,6 +28,7 @@
 #pragma once
 
 #include "C4Gui.h"
+#include "C4GuiDialogs.h"
 #include "C4Replay.h"
 
 class C4ReplayViewerDlg : public C4GUI::Dialog
