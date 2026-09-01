@@ -19,6 +19,10 @@ jobs:
     # Cache-miss runs build cmake 4 from source plus the engine + tests;
     # 30 minutes is too tight for that.
     timeout-minutes: 60
+    # FreeBSD base libc++ lacks std::jthread/std::stop_token (engine
+    # requirement since 2024-04); needs the llvm pkg or a base update.
+    # Tracked as roadmap item freebsd-llvm-toolchain-lane.
+    continue-on-error: true
     steps:
       - uses: actions/checkout@v4
         with:
