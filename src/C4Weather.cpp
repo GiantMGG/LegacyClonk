@@ -386,7 +386,7 @@ void C4Weather::CompileFunc(StdCompiler *pComp)
 	pComp->Value(mkNamingAdapt(EarthquakeLevel,  "EarthquakeLevel",  0));
 	pComp->Value(mkNamingAdapt(LightningLevel,   "LightningLevel",   0));
 	pComp->Value(mkNamingAdapt(NoGamma,          "NoGamma",          false));
-	pComp->Value(mkNamingAdapt(ActiveEventID,    "ActiveEventID",    C4ID_None));
+	pComp->Value(mkNamingAdapt(mkC4IDAdapt(ActiveEventID), "ActiveEventID", C4ID_None));
 	pComp->Value(mkNamingAdapt(EventIntensity,   "EventIntensity",   0));
 	pComp->Value(mkNamingAdapt(EventDuration,    "EventDuration",    0));
 	pComp->Value(mkNamingAdapt(EventCooldown,    "EventCooldown",    0));
