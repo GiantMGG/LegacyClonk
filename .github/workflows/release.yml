@@ -13,7 +13,7 @@ on:
     - cron: '0 4 * * *'
 
 env:
-  DRY_RUN: ${{ github.event_name == 'schedule' || inputs.dry_run == true }}
+  DRY_RUN: ${{ github.event_name == 'schedule' || github.event.inputs.dry_run == 'true' }}
 
 defaults:
   run:
