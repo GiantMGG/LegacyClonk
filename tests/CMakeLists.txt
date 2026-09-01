@@ -196,6 +196,32 @@ foreach(scenario ${SMOKE_SCENARIOS})
     FAIL_REGULAR_EXPRESSION "FatalError|\\[error\\]|\\[fatal\\]")
 endforeach()
 
+# --- PXS perf gate (spec pxs-particle-budget-benchmark) --------------------
+# Raw-throughput companion to smoke_PXSPerfSmoke: --frame-rate-cap 1000
+# lifts the 28 ms/tick pace so per-window wall-clock reflects simulation
+# cost (spec frame-rate-cap-engine-option, cycle 64).
+if(NOT USE_SANITIZER)
+	add_test(NAME pxs_perf_gate
+		COMMAND "$<TARGET_FILE:clonk>"
+			--console --smoke-run 350 --frame-rate-cap 1000
+			-s "${LEGACYCLONK_CONTENT_DIR}/PixelPhysics.c4d/Tests.c4f/PXSPerfSmoke.c4s"
+		WORKING_DIRECTORY "${CMAKE_BINARY_DIR}")
+	set_tests_properties(pxs_perf_gate PROPERTIES
+		TIMEOUT 60
+		LABELS "smoke"
+		PASS_REGULAR_EXPRESSION "PXSPerfSmoke PASS"
+		FAIL_REGULAR_EXPRESSION "FatalError|\\[error\\]|\\[fatal\\]")
+endif()
+
+# ASan/UBSan inflate wall-clock 2-5x — a wall-clock gate would flake.
+# The glob still registers smoke_PXSPerfSmoke before this point, so
+# `if(TEST ...)` resolves; disable it under sanitizers.
+if(USE_SANITIZER)
+	if(TEST smoke_PXSPerfSmoke)
+		set_tests_properties(smoke_PXSPerfSmoke PROPERTIES DISABLED TRUE)
+	endif()
+endif()
+
 # Symlink content packs into the build directory so the engine (CWD=build/
 # after chdir) can resolve bare definition names like "WeatherEvents.c4d"
 # during smoke runs.
