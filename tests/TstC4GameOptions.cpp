@@ -45,9 +45,13 @@ TEST_CASE("ParameterOverrides_AppliedToParametersAndTeams", "[parameter-override
 	Game.Parameters.ControlRate = 1;  // deterministic start
 
 	AddOverride("ControlRate", "5");
-	AddOverride("TeamDist", "Random");
 	AddOverride("TeamColors", "1");
+	// RandomTeamCount must be applied while the team distribution is still
+	// the default (Free): SetRandomTeamCount reassigns teams when a random
+	// mode is active (C4Teams.cpp), and ReassignAllTeams asserts ctrl-host
+	// in Debug builds — the unit-test harness has no Control host set up.
 	AddOverride("RandomTeamCount", "3");
+	AddOverride("TeamDist", "Random");
 
 	Game.ApplyParameterOverrides();
 
