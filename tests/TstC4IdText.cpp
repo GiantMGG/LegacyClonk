@@ -14,16 +14,20 @@
 
 #include <C4Id.h>
 
-#include <string_view>
+#include <string>
+
+// Compare via std::string, not std::string_view: the prebuilt Windows
+// Catch2.lib does not define StringMaker<std::string_view>::convert
+// (LNK2001), while StringMaker<std::string>::convert links everywhere.
 
 TEST_CASE("C4IdText formats literal IDs", "[C4IdText]")
 {
-	REQUIRE(std::string_view{C4IdText(C4Id("BLZD"))} == "BLZD");
-	REQUIRE(std::string_view{C4IdText(C4Id("STRM"))} == "STRM");
-	REQUIRE(std::string_view{C4IdText(C4Id("NONE"))} == "NONE");
+	REQUIRE(std::string{C4IdText(C4Id("BLZD"))} == "BLZD");
+	REQUIRE(std::string{C4IdText(C4Id("STRM"))} == "STRM");
+	REQUIRE(std::string{C4IdText(C4Id("NONE"))} == "NONE");
 }
 
 TEST_CASE("C4IdText formats numerical IDs", "[C4IdText]")
 {
-	REQUIRE(std::string_view{C4IdText(C4Id("1337"))} == "1337");
+	REQUIRE(std::string{C4IdText(C4Id("1337"))} == "1337");
 }

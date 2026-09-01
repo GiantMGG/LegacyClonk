@@ -341,7 +341,7 @@ if (USE_TESTS)
 endif ()
 
 if (USE_TESTS)
-	add_executable(clonk "${CMAKE_CURRENT_SOURCE_DIR}/src/C4WinMain.cpp")
+	add_executable(clonk WIN32 MACOSX_BUNDLE "${CMAKE_CURRENT_SOURCE_DIR}/src/C4WinMain.cpp")
 else ()
 	if (USE_CONSOLE)
 		add_executable(clonk ${CLONK_SOURCES})
