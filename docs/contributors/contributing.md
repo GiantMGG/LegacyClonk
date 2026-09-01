@@ -335,7 +335,7 @@ The matrix distils to:
 |---|---|---|---|
 | Windows | x86, x64, aarch64, debugrec | yes | x64 only |
 | Linux | x64, aarch64, debugrec, cxx26 | yes | (release pipeline) |
-| macOS | x64, aarch64, universal | yes | universal only |
+| macOS | aarch64, universal | yes | universal only |
 
 Every lane runs `cmake --build` and `ctest`. The `debugrec` lanes build with
 `DEBUGREC=On -DUSE_PCH=Off`. The `cxx26` lane builds with `-DUSE_CXX_26=ON`
@@ -358,7 +358,6 @@ is the main build matrix.
 | Linux | aarch64 | (default) | release pipeline | `ubuntu-22.04-arm` runner |
 | Linux | x64 | `debugrec` | no | `exclude-release`, `DEBUGREC=On` |
 | Linux | x64 | `cxx26` | no | `exclude-release`, `-DUSE_CXX_26=ON` |
-| macOS | x64 | (default) | no | `build-only`, `macos-15-intel` |
 | macOS | aarch64 | (default) | no | `build-only`, `macos-latest` |
 | macOS | universal | (default) | **yes** | `publish-only` |
 
