@@ -200,7 +200,9 @@ endforeach()
 # Raw-throughput companion to smoke_PXSPerfSmoke: --frame-rate-cap 1000
 # lifts the 28 ms/tick pace so per-window wall-clock reflects simulation
 # cost (spec frame-rate-cap-engine-option, cycle 64).
-if(NOT USE_SANITIZER)
+# EXISTS guard: the Autobuild CI has no content checkout — without it the
+# entry would point at a missing scenario and fail on every leg.
+if(NOT USE_SANITIZER AND EXISTS "${LEGACYCLONK_CONTENT_DIR}/PixelPhysics.c4d/Tests.c4f/PXSPerfSmoke.c4s")
 	add_test(NAME pxs_perf_gate
 		COMMAND "$<TARGET_FILE:clonk>"
 			--console --smoke-run 350 --frame-rate-cap 1000
