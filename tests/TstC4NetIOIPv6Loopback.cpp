@@ -41,12 +41,48 @@
 	#include <unistd.h>
 #endif
 
+// On Windows, Winsock must be initialized (WSAStartup) before any socket
+// API call — including the raw ::socket() probe below. The engine's
+// C4NetIO::Init() would do it implicitly, but this test calls raw sockets
+// directly (find_free_ipv6_port), so initialize it up front, once, for
+// the whole test binary.
+#ifdef _WIN32
+namespace
+{
+	struct WinsockSession
+	{
+		WinsockSession() { AcquireWinSock(); }
+		~WinsockSession() { ReleaseWinSock(); }
+	};
+
+	const WinsockSession winsock_session; // namespace-scope: constructed before main
+}
+#endif
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
 namespace
 {
+	// Can we create an AF_INET6 socket at all? Run AFTER Winsock is up.
+	// GitHub Windows runners may lack IPv6 connectivity; the IPv6 loopback
+	// tests SKIP in that case rather than fail.
+	bool ipv6_available()
+	{
+		const int s = ::socket(AF_INET6, SOCK_STREAM, IPPROTO_TCP);
+		if (s == INVALID_SOCKET)
+		{
+			return false;
+		}
+#ifdef _WIN32
+		::closesocket(s);
+#else
+		::close(s);
+#endif
+		return true;
+	}
+
 	// RAII socket guard: closes the FD on destruction via closesocket()
 	// (Windows) or close() (POSIX). Ensures the probe socket in
 	// find_free_ipv6_port() is released even when a REQUIRE throws.
@@ -133,6 +169,8 @@ TEST_CASE("AsIPv4() is a no-op for pure IPv6 addresses", "[C4NetIO][IPv6]")
 
 TEST_CASE("C4Network2EndpointAddress round-trips pure IPv6 through ToString/SetAddress", "[C4NetIO][IPv6][serial]")
 {
+	if (!ipv6_available()) SKIP("IPv6 stack not available on this host");
+
 	C4Network2EndpointAddress original{StdStrBuf{"[2001:db8::1]:1234"}};
 	REQUIRE(original.GetFamily() == C4Network2HostAddress::IPv6);
 	REQUIRE(original.GetPort() == 1234);
@@ -156,6 +194,8 @@ TEST_CASE("C4Network2EndpointAddress round-trips pure IPv6 through ToString/SetA
 
 TEST_CASE("C4NetIOSimpleUDP round-trips a packet over IPv6 loopback", "[C4NetIO][IPv6][UDP]")
 {
+	if (!ipv6_available()) SKIP("IPv6 stack not available on this host");
+
 	const std::uint16_t portA = find_free_ipv6_port();
 	const std::uint16_t portB = find_free_ipv6_port();
 
@@ -195,6 +235,8 @@ TEST_CASE("C4NetIOSimpleUDP round-trips a packet over IPv6 loopback", "[C4NetIO]
 
 TEST_CASE("C4NetIOTCP round-trips a packet over IPv6 loopback", "[C4NetIO][IPv6][TCP]")
 {
+	if (!ipv6_available()) SKIP("IPv6 stack not available on this host");
+
 	const std::uint16_t port = find_free_ipv6_port();
 
 	Recorder serverRec, clientRec;
