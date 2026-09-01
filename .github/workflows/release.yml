@@ -193,7 +193,7 @@ jobs:
 
   pack-zips:
     name: Pack ZIP Archives
-    if: ${{ env.DRY_RUN != 'true' }}
+    if: ${{ github.event_name != 'schedule' && github.event.inputs.dry_run != 'true' }}
     runs-on: ${{ matrix.runner }}
     needs: [generate-ci-config, build-content, build-system-graphics-updates]
     strategy:
@@ -285,7 +285,7 @@ jobs:
 
   publish-portable:
     name: Publish Portable Archives
-    if: ${{ env.DRY_RUN != 'true' }}
+    if: ${{ github.event_name != 'schedule' && github.event.inputs.dry_run != 'true' }}
     runs-on: ${{ matrix.runner }}
     needs: [generate-ci-config, pack-zips, publish-github]
     strategy:
@@ -374,7 +374,7 @@ jobs:
 
   publish-portable-sums:
     name: Publish Portable Checksum Manifest
-    if: ${{ env.DRY_RUN != 'true' }}
+    if: ${{ github.event_name != 'schedule' && github.event.inputs.dry_run != 'true' }}
     runs-on: ubuntu-latest
     needs: [publish-portable]
     steps:
@@ -481,7 +481,7 @@ jobs:
 
   build-setup:
     name: Build Setup
-    if: ${{ env.DRY_RUN != 'true' }}
+    if: ${{ github.event_name != 'schedule' && github.event.inputs.dry_run != 'true' }}
     runs-on: windows-latest
     needs: [generate-ci-config, build-content, build-system-graphics-updates]
     env:
@@ -543,7 +543,7 @@ jobs:
 
   publish-github:
     name: Publish To GitHub Release
-    if: ${{ env.DRY_RUN != 'true' }}
+    if: ${{ github.event_name != 'schedule' && github.event.inputs.dry_run != 'true' }}
     runs-on: ${{ matrix.runner }}
     needs:
       - generate-ci-config
@@ -659,7 +659,7 @@ jobs:
     name: Publish To Itch.io
     runs-on: ${{ matrix.runner }}
     needs: [generate-ci-config, publish-github]
-    if: github.repository_owner == 'legacyclonk' && env.DRY_RUN != 'true'
+    if: github.repository_owner == 'legacyclonk' && github.event_name != 'schedule' && github.event.inputs.dry_run != 'true'
     strategy:
       fail-fast: false
       matrix:
