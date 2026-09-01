@@ -23,6 +23,14 @@ function (add_test_target TEST_NAME)
 	endif ()
 	target_link_libraries("${TARGET}" PRIVATE Catch2::Catch2WithMain standard ${ADD_TEST_LIBRARIES})
 
+	if (WIN32)
+		# Match clonk_engine's cppwinrt include path: TstEngineGlobals.cpp.obj
+		# (and any test TU pulling in WinRT headers) must embed the same
+		# C++/WinRT version and source-location mode as the clonk_engine PCH
+		# objects, or the MSVC linker fails with LNK2038/LNK1319.
+		target_include_directories("${TARGET}" PRIVATE "${CMAKE_BINARY_DIR}/generated/cppwinrt")
+	endif ()
+
 	if (ADD_TEST_LINK_ENGINE)
 		target_link_libraries("${TARGET}" PRIVATE clonk_engine)
 		# Provide the Game/Application/Console/FullScreen/Config globals that
@@ -40,12 +48,23 @@ add_test_target(C4Math SOURCES "${CMAKE_SOURCE_DIR}/tests/TstC4Math.cpp")
 add_test_target(StdBuf SOURCES "${CMAKE_SOURCE_DIR}/tests/TstStdBuf.cpp")
 add_test_target(C4Fixed SOURCES "${CMAKE_SOURCE_DIR}/tests/TstC4Fixed.cpp" "${CMAKE_SOURCE_DIR}/src/Fixed.cpp")
 
+# The standalone C4NetIO test targets compile src/C4NetIO.cpp directly, so on
+# Windows they need the Winsock/IPHelper/system libs that clonk links
+# (CMakeLists.txt "Link C++/WinRT" / win32 block); on Unix the socket calls
+# live in libc and no extra libs are needed.
+if (WIN32)
+	set(C4NETIO_WIN_LIBS ws2_32 iphlpapi winmm)
+else ()
+	set(C4NETIO_WIN_LIBS "")
+endif ()
+
 add_test_target(C4NetIO
 	SOURCES
 		"${CMAKE_SOURCE_DIR}/tests/TstC4NetIO.cpp"
 		"${CMAKE_SOURCE_DIR}/src/C4NetIO.cpp"
 		"${CMAKE_SOURCE_DIR}/src/C4Network2Address.cpp"
 		"${CMAKE_SOURCE_DIR}/src/StdSync.cpp"
+	LIBRARIES ${C4NETIO_WIN_LIBS}
 )
 
 add_test_target(C4NetIOIPv6Loopback
@@ -54,6 +73,7 @@ add_test_target(C4NetIOIPv6Loopback
 		"${CMAKE_SOURCE_DIR}/src/C4NetIO.cpp"
 		"${CMAKE_SOURCE_DIR}/src/C4Network2Address.cpp"
 		"${CMAKE_SOURCE_DIR}/src/StdSync.cpp"
+	LIBRARIES ${C4NETIO_WIN_LIBS}
 )
 set_tests_properties(C4NetIOIPv6Loopback PROPERTIES TIMEOUT 30)
 
