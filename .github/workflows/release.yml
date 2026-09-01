@@ -98,7 +98,7 @@ jobs:
         with:
           repository: ${{ github.repository_owner }}/content
           ref: v${{ env.OBJVERSION }}
-          token: ${{ secrets.CONTENT_REPO_TOKEN }}
+          token: ${{ secrets.CONTENT_REPO_TOKEN || github.token }}
           path: content
 
       - uses: actions/download-artifact@v8
