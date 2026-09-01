@@ -57,6 +57,13 @@ add_test_target(C4NetIOIPv6Loopback
 )
 set_tests_properties(C4NetIOIPv6Loopback PROPERTIES TIMEOUT 30)
 
+# The standalone C4NetIO test targets compile src/C4NetIO.cpp, whose include
+# chain reaches C4ResStrTable.h -> the generated string-table header. Without
+# an explicit dependency, their C++ module dependency scans (.ddi) race the
+# generation custom command on a fresh build dir (GCC 16 + CMake 4.x).
+add_dependencies(test_C4NetIO res_str_table)
+add_dependencies(test_C4NetIOIPv6Loopback res_str_table)
+
 add_test_target(C4ValueCoercion
 	SOURCES "${CMAKE_SOURCE_DIR}/tests/TstC4ValueCoercion.cpp"
 	LINK_ENGINE
@@ -123,17 +130,21 @@ add_test_target(OptionsOverride
 	LINK_ENGINE
 )
 
-add_test(NAME parameter_override_smoke
-	COMMAND "$<TARGET_FILE:clonk>" --console --smoke-run 350
-		--parameter TeamDist=Random --parameter RandomTeamCount=2
-		--parameter TeamColors=1
-		-s "${CMAKE_SOURCE_DIR}/../content/WeatherEvents.c4d/Tests.c4f/OptionsOverride.c4s"
-	WORKING_DIRECTORY "${CMAKE_BINARY_DIR}")
-set_tests_properties(parameter_override_smoke PROPERTIES
-	TIMEOUT 60
-	LABELS "smoke"
-	PASS_REGULAR_EXPRESSION "OptionsOverride PASS"
-	FAIL_REGULAR_EXPRESSION "FatalError|\\[error\\]|\\[fatal\\]")
+# The scenario lives in the content repo (sibling checkout); only register
+# the smoke test when that file is actually present.
+if(EXISTS "${CMAKE_SOURCE_DIR}/../content/WeatherEvents.c4d/Tests.c4f/OptionsOverride.c4s")
+	add_test(NAME parameter_override_smoke
+		COMMAND "$<TARGET_FILE:clonk>" --console --smoke-run 350
+			--parameter TeamDist=Random --parameter RandomTeamCount=2
+			--parameter TeamColors=1
+			-s "${CMAKE_SOURCE_DIR}/../content/WeatherEvents.c4d/Tests.c4f/OptionsOverride.c4s"
+		WORKING_DIRECTORY "${CMAKE_BINARY_DIR}")
+	set_tests_properties(parameter_override_smoke PROPERTIES
+		TIMEOUT 60
+		LABELS "smoke"
+		PASS_REGULAR_EXPRESSION "OptionsOverride PASS"
+		FAIL_REGULAR_EXPRESSION "FatalError|\\[error\\]|\\[fatal\\]")
+endif()
 
 # --- Headless scenario smoke harness -------------------------------------
 # Discovers content/**/Tests.c4f/*Smoke.c4s scenarios and registers one
@@ -262,10 +273,14 @@ add_test_target(SmokeRunFlag
 # See spec network-desync-ci-smoke. Runs two headless engine instances on
 # localhost with tc netem impairment (Linux only), asserting no desync fatal
 # errors over N ticks.
+#
+# Console builds only: the smoke harness runs the engine binary directly,
+# and GUI builds (WITH_DEVELOPER_MODE=On) call gtk_init at startup, which
+# exits(1) on headless CI runners before any smoke output.
 find_program(TC tc)
 find_program(PYTHON3 python3)
 
-if (PYTHON3)
+if (PYTHON3 AND USE_CONSOLE)
 	set(tc_args "")
 	if (TC)
 		list(APPEND tc_args "--tc-program" "${TC}")
@@ -291,7 +306,9 @@ endif()
 # on loopback, partitions the client via tc-by-port (or SIGSTOP fallback),
 # and verifies the disconnect -> dormancy -> PID_Reconn -> snapshot-restore
 # -> state-hash-convergence path.
-if (PYTHON3)
+#
+# Console builds only, for the same headless-engine reason as above.
+if (PYTHON3 AND USE_CONSOLE)
 	set(live_reconn_tc_args "")
 	if (TC)
 		list(APPEND live_reconn_tc_args "--tc-program" "${TC}")
