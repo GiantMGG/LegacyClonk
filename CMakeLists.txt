@@ -374,6 +374,13 @@ add_custom_command(
 	VERBATIM
 )
 
+# Target-level handle for the generated string table. Targets that compile
+# translation units whose include chain reaches C4ResStrTable.h must not run
+# their C++ module dependency scans before the header exists.
+add_custom_target(res_str_table
+	DEPENDS "${RES_STR_TABLE_OUTPUT_CPP}" "${RES_STR_TABLE_OUTPUT_H}"
+)
+
 if (USE_TESTS)
 	target_sources(clonk_engine PRIVATE ${RES_STR_TABLE_OUTPUT_CPP} ${RES_STR_TABLE_OUTPUT_H})
 else ()
@@ -500,6 +507,10 @@ if (WITH_DEVELOPER_MODE)
 	if (USE_TESTS)
 		target_include_directories(clonk_engine PRIVATE ${GTK3_INCLUDE_DIRS})
 		target_link_libraries(clonk_engine PUBLIC ${GTK3_LIBRARIES})
+		# WITH_DEVELOPER_MODE propagates to `standard` and the test targets
+		# (macro loop below), and C4PropertyDlg.h includes <gtk/gtk.h> under
+		# that define — so those targets need the GTK include dirs as well.
+		target_include_directories(standard PUBLIC ${GTK3_INCLUDE_DIRS})
 	endif ()
 	target_compile_definitions(clonk PRIVATE GTK_DISABLE_SINGLE_INCLUDES GDK_DISABLE_DEPRECATED GSEAL_ENABLE)
 endif ()

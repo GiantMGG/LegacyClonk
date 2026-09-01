@@ -36,15 +36,15 @@ public:
 	C4ReplayViewerDlg();
 	~C4ReplayViewerDlg() override = default;
 
-	// C4GUI callbacks
-	void OnPlayPause();
-	void OnStepForward();
-	void OnStepBackward();
+	// C4GUI callbacks (DlgCallback<...>::Func signature: Control* parameter)
+	void OnPlayPause(C4GUI::Control *pButton);
+	void OnStepForward(C4GUI::Control *pButton);
+	void OnStepBackward(C4GUI::Control *pButton);
 	void OnSpeedPreset(float fSpeed);
 	void OnTimelineDrag(uint32_t iTargetFrame);
-	void OnClose();
+	void OnClose(C4GUI::Control *pButton);
 
-	void Draw(C4Facet &cgo, float iDrawZ = 0.0f);
+	void Draw(C4FacetEx &cgo) override;
 
 private:
 	C4ReplayController &GetController() const;

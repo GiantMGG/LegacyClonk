@@ -28,14 +28,10 @@
 #include <StdMarkup.h>
 
 C4StartupReplaySelDlg::C4StartupReplaySelDlg()
-	: C4StartupDlg(LoadResStr("Replays"))
+	: C4StartupDlg("Replays")
 {
 	// Dialog layout: full-screen with a list box for replays.
-	C4GUI::ComponentRect rc;
-	rc.x = 10; rc.y = 10; rc.Wdt = 300; rc.Hgt = 200;
-
-	pReplayList = new C4GUI::ListBox();
-	pReplayList->SetBounds(rc);
+	pReplayList = new C4GUI::ListBox(C4Rect(10, 10, 300, 200));
 	AddElement(pReplayList);
 
 	PopulateList();
@@ -64,7 +60,7 @@ void C4StartupReplaySelDlg::PopulateList()
 	{
 		const char *szFilename = *i;
 		if (!SEqualNoCase(GetExtension(szFilename), "c4s")) continue;
-		pReplayList->AddText(szFilename, GraphicsResource.FontRegular);
+		pReplayList->AddElement(new C4GUI::Label(szFilename, C4Rect(0, 0, 100, 20), ALeft));
 	}
 }
 
@@ -75,8 +71,9 @@ void C4StartupReplaySelDlg::OnButtonScenario(C4GUI::Control *pBtn)
 
 void C4StartupReplaySelDlg::OnClosed(bool fFadeOK)
 {
-	// Return to the main startup dialog.
-	C4Startup::BackToMain(this, fFadeOK);
+	// Return to the main startup dialog once the dialog is wired into the
+	// startup rotation; for now the base close handling is sufficient.
+	C4GUI::Dialog::OnClosed(fFadeOK);
 }
 
 void C4StartupReplaySelDlg::OpenSelectedReplay()
