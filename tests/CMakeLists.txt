@@ -376,3 +376,15 @@ if (PYTHON3 AND USE_CONSOLE)
 		LABELS "network;smoke"
 		RUN_SERIAL TRUE)
 endif()
+
+# --- Placeholder-art lint (spec hostile-object-bugfix, cycle 93) -----------
+# Fails CI when a def's ActMap facet region is a single flat color block
+# (>= 16 opaque px, one RGB) — the cycle-70 placeholder-art bug class.
+# The Autobuild CI has no content checkout; the EXISTS guard mirrors the
+# parameter_override_smoke precedent and skips registration there.
+if(PYTHON3 AND EXISTS "${LEGACYCLONK_CONTENT_DIR}")
+	add_test(NAME content_gfx_lint
+		COMMAND "${PYTHON3}" "${CMAKE_SOURCE_DIR}/tools/lint_placeholder_gfx.py"
+			"${LEGACYCLONK_CONTENT_DIR}")
+	set_tests_properties(content_gfx_lint PROPERTIES TIMEOUT 60 LABELS "lint")
+endif()
