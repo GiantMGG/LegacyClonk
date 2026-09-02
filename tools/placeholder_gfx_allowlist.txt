@@ -1,0 +1,80 @@
+# placeholder_gfx_allowlist.txt — legit-flat / known-debt def dirs,
+# one per line, relative to content/. Applies to the hard checks only.
+#
+# Seeded from the verified --report survey (cycle 93). The plan's expected
+# seed was 7 entries, but the plan's decoder had 3 bugs (IHDR 7-field unpack,
+# 6-component Facet rects, wrong Paeth predictor) that masked findings; the
+# corrected, PIL-cross-validated decoder (200/200 exact pixel match) shows
+# 64 def dirs with hard findings. All are pre-existing legacy debt — the
+# allowlist grandfather pattern (todo-lint/citation-lint precedent) pins the
+# class: a NEW flat-block def cannot ship green. The scorpion is NOT here.
+#
+# --- The plan's original 7-entry seed ---
+Desert.c4d/Camel.c4d                                            # cycle-70 placeholder — follow-up
+Desert.c4d/DatePalm.c4d                                         # cycle-70 placeholder — follow-up
+Fantasy.c4d/Magic.c4d/Fishskin.c4d/FishClonk.c4d                # transparent 64x64 stub skin — debt
+Hazard.c4d/Crew.c4d/AIPlayer.c4d/Waypoint.c4d                   # Vis/Path markers — legit flat
+Hazard.c4d/Effects.c4d/Light.c4d                                # glow attachment — legit flat
+Hazard.c4d/Items.c4d/Mines.c4d/Lasermine.c4d/Laser.c4d/Light.c4d # laser dot — legit flat
+Worlds.c4f/Desert.c4s/Lenseflare.c4d                            # lens-flare flecks — legit flat
+#
+# --- Survey-missed FLAT_FACET debt (plan 3.5 / spec edge 5: allowlist over threshold) ---
+Agriculture.c4d/Animals.c4d/Lobster.c4d                         # flat placeholder sheet — debt
+Agriculture.c4d/Items.c4d/CookedLobster.c4d                     # flat placeholder — debt
+Agriculture.c4d/Items.c4d/DeadLobster.c4d                       # flat placeholder — debt
+Agriculture.c4d/Items.c4d/Pearl.c4d                             # flat placeholder — debt
+Agriculture.c4d/Structures.c4d/Oyster.c4d                       # flat placeholder — debt
+Agriculture.c4d/Structures.c4d/TidalPool.c4d                    # flat placeholder — debt
+Agriculture.c4d/Tools.c4d/LobsterTrap.c4d                       # flat placeholder — debt
+Hazard.c4d/Crew.c4d/AIPlayer.c4d/Waypoint.c4d/Path.c4d          # path marker pips — legit flat
+Hazard.c4f/Tutorial.c4s/CommunicationScreen.c4d                 # flat screen fill — debt
+Missions.c4f/SevenKeys.c4s/Warp.c4d                             # flat warp facet — debt
+Objects.c4d/Crew.c4d/MagiClonk.c4d/Ringmenu.c4d/MagicSpark.c4d  # flat spark overlay — legit flat
+Objects.c4d/Environment.c4d/Lenseflare.c4d                      # lens-flare flecks — legit flat
+#
+# --- Survey-missed INVISIBLE_ACTION debt (fully transparent sampled facets) ---
+Agriculture.c4d/Structures.c4d/Smokehouse.c4d                   # transparent Idle facet — debt
+Agriculture.c4d/Structures.c4d/Windmill.c4d                     # transparent Idle facet — debt
+Agriculture.c4d/Structures.c4d/Windmill.c4d/Wing.c4d            # transparent Turn facet — debt
+Agriculture.c4d/Tools.c4d/FishTrap.c4d                          # transparent Idle facet — debt
+Agriculture.c4d/Tools.c4d/FishingNet.c4d                        # transparent Idle facet — debt
+Agriculture.c4d/Tools.c4d/FishingRod.c4d                        # transparent throw/fish facets — debt
+Agriculture.c4d/Vegetation.c4d/AppleTree.c4d                    # transparent Idle facet — debt
+Agriculture.c4d/Vegetation.c4d/Wheat.c4d                        # transparent growth facets — debt
+Airships.c4d/Vehicles.c4d/HotAirBalloon.c4d                     # transparent action facets — debt
+Airships.c4d/Vehicles.c4d/Steampack.c4d                         # transparent Idle facet — debt
+Coastal.c4d/Dock.c4d                                            # transparent Idle facet — debt
+Coastal.c4d/Fog.c4d                                             # transparent Idle facet — debt
+Coastal.c4d/Lighthouse.c4d                                      # transparent Idle facet — debt
+Coastal.c4d/Tide.c4d                                            # transparent Idle facet — debt
+Fantasy.c4f/Drachenfels.c4s/FoWGenerator.c4d                     # transparent placement facets — debt
+FarWorlds.c4d/Arctic.c4d/Magic.c4d/Fishdead.c4d                 # transparent Active facet — debt
+FarWorlds.c4d/Arctic.c4d/Magic.c4d/Sealdead.c4d                 # transparent Active facet — debt
+FarWorlds.c4d/Deep.c4d/Structures.c4d/Workshop.c4d              # transparent Build facet — debt
+FarWorlds.c4d/Jungle.c4d/Magic.c4d/Animaldead.c4d               # transparent Active facet — debt
+FarWorlds.c4d/Jungle.c4d/Magic.c4d/Plague.c4d                   # transparent Active facet — debt
+Hazard.c4d/Arena.c4d/BonusSpawnpoint.c4d                        # transparent Invis facet — debt
+Hazard.c4d/Arena.c4d/Spawnpoint.c4d                             # transparent Invis facet — debt
+Hazard.c4d/Crew.c4d/HazardClonk.c4d/Crosshair.c4d               # transparent crosshair facet — debt
+Hazard.c4d/Items.c4d/Weapons.c4d/FlameThrower.c4d/Flame.c4d     # transparent Fly facet — debt
+Hazard.c4d/Items.c4d/Weapons.c4d/FlameThrower.c4d/Flameball.c4d # transparent Fly facet — debt
+Hazard.c4d/Structural.c4d/Base.c4d/Handrails.c4d/Barrier Tape.c4d  # transparent rail facets — debt
+Hazard.c4d/Structural.c4d/Base.c4d/Handrails.c4d/Metalrail Round.c4d  # transparent rail facets — debt
+Hazard.c4d/Structural.c4d/Base.c4d/Handrails.c4d/Metalrail White.c4d  # transparent rail facets — debt
+Hazard.c4d/Structural.c4d/Base.c4d/Handrails.c4d/Metalrail.c4d  # transparent rail facets — debt
+Hazard.c4f/DM_Baldoon.c4s/Überladungen.c4d/Tree4.c4d            # transparent Still/Breeze facets — debt
+Missions.c4f/SevenKeys.c4s/Warp.c4d/FlyingKey.c4d               # transparent fire facets — debt
+Objects.c4d/Animals.c4d/Fish.c4d/Dead.c4d                       # transparent Dead facet — debt
+Objects.c4d/Effects.c4d/Bubble.c4d                              # empty 64x64 sheet — debt
+Objects.c4d/GlowStone.c4d                                       # transparent Idle facet — debt
+OceanTrade.c4d/Cog.c4d                                          # transparent Sailing facet — debt
+OceanTrade.c4d/PirateSloop.c4d                                  # transparent Float facet — debt
+Tutorial.c4f/Objects.c4d/MenuDeco.c4d                           # transparent menu facets — debt
+Western.c4d/Animals.c4d/Wildhorse.c4d                           # facets point at empty rows — debt
+Western.c4d/Magic.c4d/Plague.c4d                                # transparent Active facet — debt
+Western.c4d/Structures.c4d/Fort.c4d/Banner.c4d                  # transparent banner facets — debt
+Western.c4d/Structures.c4d/Fort.c4d/Tower.c4d/Battlement.c4d    # transparent attach facet — debt
+Western.c4d/Vehicles.c4d/Cannon.c4d                             # transparent Ready/Head facets — debt
+Western.c4d/Vehicles.c4d/Gatling.c4d                            # transparent Head facet — debt
+Western.c4f/Goldrush.c4s/Locals.c4d/CoachBandits.c4d            # transparent Drive facets — debt
+Western.c4f/Goldrush.c4s/Locals.c4d/Sheriff.c4d                 # transparent action facets — debt
