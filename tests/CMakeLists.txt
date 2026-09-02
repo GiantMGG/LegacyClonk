@@ -215,6 +215,25 @@ if(NOT USE_SANITIZER AND EXISTS "${LEGACYCLONK_CONTENT_DIR}/PixelPhysics.c4d/Tes
 		FAIL_REGULAR_EXPRESSION "FatalError|\\[error\\]|\\[fatal\\]")
 endif()
 
+# --- LavaWallLong D3500 dig-delay pin (spec pixel-physics-regression-pin) --
+# The only Ashes-Instable discriminator (cycle-92 MUT-3). 3900 ticks exceeds
+# the glob's hardcoded --smoke-run 350, so an explicit entry is required
+# (pxs_perf_gate precedent). The scenario name has NO Smoke suffix
+# (parameter_override_smoke precedent): a *Smoke.c4s name would be
+# double-registered by the glob at 350 ticks — permanently RED.
+if(NOT USE_SANITIZER AND EXISTS "${LEGACYCLONK_CONTENT_DIR}/PixelPhysics.c4d/Tests.c4f/LavaWallLong.c4s")
+	add_test(NAME lava_wall_long_gate
+		COMMAND "$<TARGET_FILE:clonk>"
+			--console --smoke-run 3900 --frame-rate-cap 1000
+			-s "${LEGACYCLONK_CONTENT_DIR}/PixelPhysics.c4d/Tests.c4f/LavaWallLong.c4s"
+		WORKING_DIRECTORY "${CMAKE_BINARY_DIR}")
+	set_tests_properties(lava_wall_long_gate PROPERTIES
+		TIMEOUT 90
+		LABELS "smoke"
+		PASS_REGULAR_EXPRESSION "LavaWallLong PASS"
+		FAIL_REGULAR_EXPRESSION "FatalError|\\[error\\]|\\[fatal\\]")
+endif()
+
 # ASan/UBSan inflate wall-clock 2-5x — a wall-clock gate would flake.
 # The glob still registers smoke_PXSPerfSmoke before this point, so
 # `if(TEST ...)` resolves; disable it under sanitizers.

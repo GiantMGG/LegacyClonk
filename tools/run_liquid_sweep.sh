@@ -22,9 +22,9 @@ cleanup() { for d in ${GENERATED[@]+"${GENERATED[@]}"}; do rm -rf "$d"; done; }
 trap cleanup EXIT
 
 declare -A REPRO=(
-  [Water]=PaintGapRepro
-  [Oil]=OilImmobileRepro
-  [Lava]=LavaWallRepro
+  [Water]=PaintGapSmoke
+  [Oil]=OilImmobileSmoke
+  [Lava]=LavaWallSmoke
 )
 
 printf '%-7s %7s %9s %8s %7s %6s\n' liquid delay smoke_run verdict drain famB
