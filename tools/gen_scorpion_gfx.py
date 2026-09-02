@@ -49,7 +49,6 @@ PHASE1 = [
 	"....................",
 ]
 
-
 def phase_pixels(rows, name):
 	if len(rows) != PHASE_H or any(len(r) != PHASE_W for r in rows):
 		raise SystemExit(f"{name}: map must be {PHASE_H} rows x {PHASE_W} cols")
@@ -64,7 +63,6 @@ def phase_pixels(rows, name):
 				raise SystemExit(f"{name}: bad char {ch!r}")
 	return px
 
-
 def check_invariants(p0, p1):
 	for name, p in (("phase0", p0), ("phase1", p1)):
 		colors = {v for v in p.values() if v[3] > 0}
@@ -76,7 +74,6 @@ def check_invariants(p0, p1):
 	diff = sum(1 for k in p0 if p0[k] != p1[k])
 	if diff < 8:
 		raise SystemExit(f"phases differ in only {diff} px (minimum 8)")
-
 
 def make_png():
 	p0 = phase_pixels(PHASE0, "PHASE0")
@@ -100,7 +97,6 @@ def make_png():
 	        + chunk(b"IDAT", zlib.compress(bytes(raw), 9))
 	        + chunk(b"IEND", b""))
 
-
 def main():
 	ap = argparse.ArgumentParser(description=__doc__)
 	ap.add_argument("output", nargs="?", default=OUT_DEFAULT)
@@ -120,7 +116,6 @@ def main():
 		f.write(png)
 	print(f"wrote {args.output} ({len(png)} bytes)")
 	return 0
-
 
 if __name__ == "__main__":
 	sys.exit(main())

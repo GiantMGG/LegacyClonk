@@ -25,10 +25,8 @@ import zlib
 THRESHOLD = 16
 ALLOWLIST_FILENAME = "placeholder_gfx_allowlist.txt"
 
-
 class PngError(Exception):
 	pass
-
 
 def png_rgba(data):
 	"""Decode PNG -> (width, height, rows[[ (r,g,b,a) ]]). Stdlib only."""
@@ -114,11 +112,9 @@ def png_rgba(data):
 		rows.append(row)
 	return width, height, rows
 
-
 def parse_int(s, default):
 	s = s.strip()
 	return int(s) if s else default
-
 
 def parse_actions(text):
 	"""Parse [Action] blocks -> list of dicts with raw string values."""
@@ -138,7 +134,6 @@ def parse_actions(text):
 			cur[key.strip().lower()] = value.strip()
 	return actions
 
-
 def rect(values):
 	parts = [p.strip() for p in values.split(",")]
 	if len(parts) < 4:
@@ -146,7 +141,6 @@ def rect(values):
 	# ActMap Facet may carry 2 extra offset ints (x,y,w,h,ox,oy);
 	# the sampled rect is the first 4 components.
 	return tuple(int(p) for p in parts[:4])
-
 
 def sample(rows, x, y, w, h):
 	"""Return (opaque_count, {rgb colors}) for an in-bounds rect."""
@@ -158,7 +152,6 @@ def sample(rows, x, y, w, h):
 				opaque += 1
 				colors.add((r, g, b))
 	return opaque, colors
-
 
 def check_def(def_dir, rel, allow):
 	"""Return (hard_findings, warnings) for one def dir."""
@@ -226,7 +219,6 @@ def check_def(def_dir, rel, allow):
 		findings = []  # allowlisted: hard checks skipped, warnings kept
 	return findings, warns
 
-
 def main():
 	ap = argparse.ArgumentParser(description=__doc__)
 	ap.add_argument("content_dir")
@@ -262,7 +254,6 @@ def main():
 		return 1
 	print("placeholder-gfx lint clean")
 	return 0
-
 
 if __name__ == "__main__":
 	sys.exit(main())
