@@ -362,6 +362,22 @@ void C4Effect::Execute(C4Object *pObj)
 		}
 		else
 		{
+			// Compiled effects with a missing saved section field fall back
+			// to section number 0 (C4Effect::CompileFunc "assuming 0" path),
+			// which no live section ever has: the denumerated section
+			// pointer stays null and every callback would bind a null
+			// C4Section&. Mark the effect dead -- the IsDead branch removes
+			// it next cycle without callbacks (Kill() would dereference the
+			// null section too).
+			if (!pEffect->section)
+			{
+				DebugLog(spdlog::level::warn,
+					"Effect '{}' has no section; dropping it", pEffect->Name);
+				pEffect->SetDead();
+				ppPrevEffect = &pEffect->pNext;
+				pEffect = pEffect->pNext;
+				continue;
+			}
 			// execute effect: time elapsed
 			++pEffect->iTime;
 			// check timer execution
