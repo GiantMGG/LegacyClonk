@@ -101,7 +101,8 @@ def build_engine_args(engine: str, scenario: Path, ticks: int, role: str,
                       player_file: Path | None = None,
                       log_sync_checks: bool = False) -> list[str]:
     """Build the command-line args for a host or client engine instance."""
-    args = [engine, "--console", "--smoke-run", str(ticks)]
+    args = [engine, "--console", "--smoke-run", str(ticks),
+            "--bind-address", "127.0.0.1"]
     if log_sync_checks:
         args.append("--log-sync-checks")
     if role == "host":
