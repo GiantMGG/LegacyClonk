@@ -12,6 +12,11 @@ Flow:
   3. Splice the digest into CHANGELOG.md above the marker comment.
      - Refuse if CHANGELOG.md already has a ``## [{buildversion}]`` line.
   4. Mirror CHANGELOG.md -> docs/changelog.md.
+
+Pass ``--skip-splice`` to skip steps 3-4: CHANGELOG.md and the docs mirror
+are left untouched. The nightly Release dry-run passes this (wired via the
+workflow's ``DRY_RUN`` env) because the splice is stateful and the nightly's
+commit-back is skipped anyway.
 """
 from __future__ import annotations
 
@@ -80,6 +85,8 @@ def main() -> int:
     p.add_argument("--out", required=True, type=Path)
     p.add_argument("--changelog", required=True, type=Path)
     p.add_argument("--docs-mirror", required=True, type=Path)
+    p.add_argument("--skip-splice", action="store_true",
+                   help="Skip the CHANGELOG.md splice + docs mirror (dry-run mode).")
     args = p.parse_args()
 
     highlights = load_highlights(args.buildversion, args.tag, args.highlights_dir)
@@ -87,8 +94,12 @@ def main() -> int:
     release_notes = assemble_release_notes(highlights, digest)
     args.out.write_text(release_notes, encoding="utf-8")
 
-    splice_changelog(args.changelog, digest, args.buildversion)
-    shutil.copyfile(args.changelog, args.docs_mirror)
+    if args.skip_splice:
+        print("--skip-splice: CHANGELOG.md and the docs mirror are left untouched",
+              file=sys.stderr)
+    else:
+        splice_changelog(args.changelog, digest, args.buildversion)
+        shutil.copyfile(args.changelog, args.docs_mirror)
     return 0
 
 if __name__ == "__main__":

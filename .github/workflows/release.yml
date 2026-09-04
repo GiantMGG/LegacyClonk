@@ -62,7 +62,7 @@ jobs:
             --highlights-dir docs/changelog \
             --out release-notes.md \
             --changelog CHANGELOG.md \
-            --docs-mirror docs/changelog.md
+            --docs-mirror docs/changelog.md ${{ env.DRY_RUN == 'true' && '--skip-splice' || '' }}
 
       - name: Commit CHANGELOG.md + docs mirror back to master
         if: env.DRY_RUN != 'true'

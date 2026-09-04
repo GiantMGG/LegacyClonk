@@ -184,3 +184,140 @@ def test_docs_mirror_copied(tmp_path: Path) -> None:
     assert notes.startswith("## Highlights\n")
     assert "## Full changelog" in notes
     assert "## [366] - 2026-08-29" in notes
+
+# ---------------------------------------------------------------------------
+# --skip-splice (nightly dry-run path)
+# ---------------------------------------------------------------------------
+
+_DIGEST = (
+    "## [366] - 2026-08-29\n\n"
+    "### Added\n"
+    "- **network**: test (abcdef0)\n"
+)
+
+_PRE_SPLICED_CHANGELOG = (
+    _SEED_CHANGELOG
+    + "\n## [366] - 2026-09-01\n\n### Added\n\n- **network**: test (abcdef0)\n"
+)
+
+def _invoke_main(argv: list[str]) -> int:
+    """Run brn.main() with a synthetic argv (the workflow invocation shape)."""
+    old_argv = sys.argv
+    sys.argv = ["build_release_notes.py", *argv]
+    try:
+        return brn.main()
+    finally:
+        sys.argv = old_argv
+
+def _seed_tree(tmp_path: Path) -> tuple[Path, Path, Path, Path, Path]:
+    """Seed a workflow-shaped tree with a PRE-SPLICED changelog (master's
+    current state). Returns (highlights_dir, digest, changelog, out, mirror)."""
+    highlights_dir = tmp_path / "docs" / "changelog"
+    highlights_dir.mkdir(parents=True)
+    (highlights_dir / "v366.highlights.md").write_text(
+        "- bullet one\n- bullet two\n- bullet three\n", encoding="utf-8"
+    )
+    digest = tmp_path / "digest.md"
+    digest.write_text(_DIGEST, encoding="utf-8")
+    changelog = tmp_path / "CHANGELOG.md"
+    changelog.write_text(_PRE_SPLICED_CHANGELOG, encoding="utf-8")
+    mirror = tmp_path / "docs" / "changelog.md"
+    mirror.write_text("SENTINEL-MIRROR", encoding="utf-8")
+    return highlights_dir, digest, changelog, tmp_path / "release-notes.md", mirror
+
+def test_skip_splice_leaves_changelog_and_mirror_untouched(
+    tmp_path: Path, capsys
+) -> None:
+    """(a) --skip-splice on the pre-spliced nightly state: rc 0, notes written,
+    CHANGELOG.md + docs mirror byte-identical, stderr notice emitted."""
+    highlights_dir, digest, changelog, out, mirror = _seed_tree(tmp_path)
+    original = changelog.read_text(encoding="utf-8")
+    sentinel = mirror.read_text(encoding="utf-8")
+
+    rc = _invoke_main([
+        "--buildversion", "366",
+        "--tag", "v366",
+        "--digest", str(digest),
+        "--highlights-dir", str(highlights_dir),
+        "--out", str(out),
+        "--changelog", str(changelog),
+        "--docs-mirror", str(mirror),
+        "--skip-splice",
+    ])
+
+    assert rc == 0
+    err = capsys.readouterr().err
+    assert "--skip-splice" in err
+    assert "untouched" in err
+    notes = out.read_text(encoding="utf-8")
+    assert notes.startswith("## Highlights\n")
+    assert "## Full changelog" in notes
+    assert "abcdef0" in notes
+    assert changelog.read_text(encoding="utf-8") == original
+    assert mirror.read_text(encoding="utf-8") == sentinel
+
+def test_skip_splice_still_requires_highlights(tmp_path: Path) -> None:
+    """(b) --skip-splice does NOT bypass the highlights guard: stable tag +
+    missing fragment still exits 1 before writing anything."""
+    highlights_dir = tmp_path / "docs" / "changelog"
+    highlights_dir.mkdir(parents=True)
+    digest = tmp_path / "digest.md"
+    digest.write_text(_DIGEST, encoding="utf-8")
+    out = tmp_path / "release-notes.md"
+
+    with pytest.raises(SystemExit) as exc:
+        _invoke_main([
+            "--buildversion", "366",
+            "--tag", "v366",
+            "--digest", str(digest),
+            "--highlights-dir", str(highlights_dir),
+            "--out", str(out),
+            "--changelog", str(tmp_path / "CHANGELOG.md"),
+            "--docs-mirror", str(tmp_path / "docs" / "changelog.md"),
+            "--skip-splice",
+        ])
+    assert exc.value.code != 0
+    assert "highlights fragment missing" in str(exc.value)
+    assert not out.exists()
+
+def test_duplicate_guard_fires_through_main(tmp_path: Path) -> None:
+    """(c) WITHOUT the flag, main() hits the duplicate-section guard on the
+    pre-spliced changelog — the pre-fix nightly red, reproduced end-to-end."""
+    highlights_dir, digest, changelog, out, mirror = _seed_tree(tmp_path)
+    original = changelog.read_text(encoding="utf-8")
+
+    with pytest.raises(SystemExit) as exc:
+        _invoke_main([
+            "--buildversion", "366",
+            "--tag", "v366",
+            "--digest", str(digest),
+            "--highlights-dir", str(highlights_dir),
+            "--out", str(out),
+            "--changelog", str(changelog),
+            "--docs-mirror", str(mirror),
+        ])
+    assert exc.value.code != 0
+    assert "already contains section" in str(exc.value)
+    assert changelog.read_text(encoding="utf-8") == original
+
+def test_skip_splice_still_requires_changelog_args(tmp_path: Path) -> None:
+    """(d) Arg contract unchanged: --changelog/--docs-mirror stay required even
+    under --skip-splice (argparse usage error, exit 2)."""
+    highlights_dir = tmp_path / "docs" / "changelog"
+    highlights_dir.mkdir(parents=True)
+    (highlights_dir / "v366.highlights.md").write_text(
+        "- bullet one\n- bullet two\n- bullet three\n", encoding="utf-8"
+    )
+    digest = tmp_path / "digest.md"
+    digest.write_text(_DIGEST, encoding="utf-8")
+
+    with pytest.raises(SystemExit) as exc:
+        _invoke_main([
+            "--buildversion", "366",
+            "--tag", "v366",
+            "--digest", str(digest),
+            "--highlights-dir", str(highlights_dir),
+            "--out", str(tmp_path / "release-notes.md"),
+            "--skip-splice",
+        ])
+    assert exc.value.code == 2
