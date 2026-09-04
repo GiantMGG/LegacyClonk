@@ -407,3 +407,15 @@ if(PYTHON3 AND EXISTS "${LEGACYCLONK_CONTENT_DIR}")
 			"${LEGACYCLONK_CONTENT_DIR}")
 	set_tests_properties(content_gfx_lint PROPERTIES TIMEOUT 60 LABELS "lint")
 endif()
+
+# --- Release-content lint (spec release-content-groups-lint, cycle 96) ------
+# Models the release manifest against the content tree: every shipped
+# scenario's DefinitionN refs must resolve to shipped packs. Autobuild CI
+# has no content checkout; the EXISTS guard mirrors content_gfx_lint above.
+if(PYTHON3 AND EXISTS "${LEGACYCLONK_CONTENT_DIR}")
+	add_test(NAME content_release_lint
+		COMMAND "${PYTHON3}" "${CMAKE_SOURCE_DIR}/tools/lint_release_content.py"
+			"${CMAKE_SOURCE_DIR}/autobuild/ci.toml"
+			"${LEGACYCLONK_CONTENT_DIR}")
+	set_tests_properties(content_release_lint PROPERTIES TIMEOUT 60 LABELS "lint")
+endif()

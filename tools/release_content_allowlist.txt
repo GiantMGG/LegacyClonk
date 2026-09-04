@@ -1,0 +1,7 @@
+# release_content_allowlist.txt — content/ entries that deliberately do NOT
+# ship (not listed in autobuild/ci.toml [groups.content]). One per line,
+# "# reason" suffix. Removing an entry requires either listing the pack in
+# ci.toml or deleting it from content/.
+RollbackNet.c4d # test-only pack: rollback-restore CI fixtures; referenced only by its own DefCore.txt + own Tests.c4f smokes
+SavegameTests.c4d # test-only pack: savegame CI fixtures; referenced only by its own DefCore.txt + own Tests.c4f smokes
+SiegeRange.c4s # dev-only loose scenario at content/ root; not inside any pack, never shipped, no CTest entry

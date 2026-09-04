@@ -19,6 +19,16 @@ parts = [
     'https://update.clonkspot.org/lc/lc_49112.zip',
 ]
 
+[groups.content.'Agriculture.c4d']
+
+[groups.content.'Airships.c4d']
+
+[groups.content.'ArenaChampions.c4f']
+
+[groups.content.'CaveSystem.c4d']
+
+[groups.content.'Coastal.c4d']
+
 [groups.content.'Desert.c4d']
 
 [groups.content.'Fantasy.c4d']
@@ -28,6 +38,8 @@ parts = [
 [groups.content.'FarWorlds.c4d']
 
 [groups.content.'FarWorlds.c4f']
+
+[groups.content.'FuelSystem.c4d']
 
 [groups.content.'Hazard.c4d']
 
@@ -47,6 +59,8 @@ parts = [
 
 [groups.content.'Objects.c4d']
 
+[groups.content.'ObjectsAppend.c4d']
+
 [groups.content.'OceanTrade.c4d']
 
 [groups.content.'OceanTrade.c4f']
@@ -55,7 +69,13 @@ parts = [
 
 [groups.content.'Races.c4f']
 
+[groups.content.'SiegeEngines.c4d']
+
+[groups.content.'SilkRoad.c4f']
+
 [groups.content.'Sound.c4g']
+
+[groups.content.'TradeGoods.c4d']
 
 [groups.content.'Tutorial.c4f']
 

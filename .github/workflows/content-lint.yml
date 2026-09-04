@@ -1,0 +1,22 @@
+name: Content Lint
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  content-lint:
+    name: Content Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Checkout content
+        uses: actions/checkout@v6
+        with:
+          repository: ${{ github.repository_owner }}/content
+          token: ${{ secrets.CONTENT_REPO_TOKEN || github.token }}
+          path: content
+      - name: Release-content lint
+        run: python3 tools/lint_release_content.py autobuild/ci.toml content
+      - name: Placeholder-gfx lint
+        run: python3 tools/lint_placeholder_gfx.py content
