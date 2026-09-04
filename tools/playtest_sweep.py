@@ -140,12 +140,21 @@ def run_scenario(args, engine: Path, engine_dir: Path, grant_cfg: Path,
 		cls, note = "PASS", ""
 	elif rc == 1:
 		cls, note = "FAIL", ""
-	else:  # rc < 0 (signal; the shell shows 128+signo) or odd codes
+	else:
 		cls, note = "CRASH", ""
 	if cls in ("FAIL", "CRASH"):
 		note = first_fatal(log_text) or f"rc={rc}"
 	if cls == "PASS" and args.perf_budget and wall > args.perf_budget:
 		cls, note = "OVER-BUDGET", f"wall {wall:.1f}s > budget {args.perf_budget}s"
+	if cls != "PASS" and getattr(args, "log_dir", None):
+		try:
+			(Path(args.log_dir) / "playtest_logs").mkdir(parents=True, exist_ok=True)
+			saved = (Path(args.log_dir) / "playtest_logs"
+				/ (rel.replace("/", "__") + ".log"))
+			saved.write_text(log_text, encoding="utf-8")
+			note = f"{note} [log: {saved}]"
+		except OSError:
+			pass
 	return {"rel": rel, "cls": cls, "rc": rc, "wall": wall, "note": note}
 
 def main() -> int:
@@ -163,6 +172,8 @@ def main() -> int:
 		help="known-red allowlist (default: %(default)s)")
 	ap.add_argument("--report", default=None,
 		help="write a TSV report (scenario/class/rc/wall_s/note) to PATH")
+	ap.add_argument("--log-dir", default=None,
+		help="retain engine logs of non-PASS scenarios under DIR/playtest_logs")
 	ap.add_argument("--perf-budget", type=float, default=0.0,
 		help="fail PASS scenarios slower than SECONDS (0 = off)")
 	ap.add_argument("--playerful", action="store_true",

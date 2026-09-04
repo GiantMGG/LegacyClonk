@@ -432,6 +432,7 @@ if (PYTHON3 AND EXISTS "${LEGACYCLONK_CONTENT_DIR}")
 			"--content-dir" "${LEGACYCLONK_CONTENT_DIR}"
 			"--ci-toml" "${CMAKE_SOURCE_DIR}/autobuild/ci.toml"
 			"--report" "${CMAKE_BINARY_DIR}/playtest_sweep_report.tsv"
+			"--log-dir" "${CMAKE_BINARY_DIR}"
 		WORKING_DIRECTORY "${CMAKE_BINARY_DIR}")
 	set_tests_properties(playtest_sweep PROPERTIES
 		TIMEOUT 900

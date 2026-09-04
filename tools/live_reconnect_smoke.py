@@ -372,7 +372,8 @@ def main(argv: list[str] | None = None) -> int:
         print(f"Host: {shlex.join(host_cmd)}")
         with open(host_log_path, "w") as hf:
             host_proc = subprocess.Popen(
-                host_cmd, stdout=hf, stderr=subprocess.STDOUT, text=True)
+                host_cmd, stdout=hf, stderr=subprocess.STDOUT, text=True,
+                stdin=subprocess.DEVNULL)
 
         # --- Wait for reference server ----------------------------------
         if not wait_for_port("127.0.0.1", REF_SERVER_PORT, timeout=15.0):
@@ -403,7 +404,8 @@ def main(argv: list[str] | None = None) -> int:
         print(f"Client: {shlex.join(client_cmd)}")
         with open(client_log_path, "w") as cf:
             client_proc = subprocess.Popen(
-                client_cmd, stdout=cf, stderr=subprocess.STDOUT, text=True)
+                client_cmd, stdout=cf, stderr=subprocess.STDOUT, text=True,
+                stdin=subprocess.DEVNULL)
 
         # --- Wait for the client to fully join before partitioning ------
         print(f"Waiting {args.join_wait:.1f}s for client to join...")

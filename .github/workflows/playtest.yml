@@ -104,4 +104,5 @@ jobs:
           path: |
             LegacyClonk/build/Testing/Temporary/LastTest.log
             LegacyClonk/build/playtest_sweep_report.tsv
+            LegacyClonk/build/playtest_logs/
           if-no-files-found: warn

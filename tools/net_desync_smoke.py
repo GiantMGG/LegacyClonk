@@ -285,7 +285,7 @@ def main(argv: list[str] | None = None) -> int:
         print(f"Host: {shlex.join(host_cmd)}")
         host_proc = subprocess.Popen(
             host_cmd, stdout=host_log_file, stderr=subprocess.STDOUT,
-            text=True)
+            text=True, stdin=subprocess.DEVNULL)
 
         # --- Wait for reference server ----------------------------------
         if not wait_for_port("127.0.0.1", REF_SERVER_PORT, timeout=15.0):
@@ -318,7 +318,7 @@ def main(argv: list[str] | None = None) -> int:
         print(f"Client: {shlex.join(client_cmd)}")
         client_proc = subprocess.Popen(
             client_cmd, stdout=client_log_file, stderr=subprocess.STDOUT,
-            text=True)
+            text=True, stdin=subprocess.DEVNULL)
 
         # --- Wait for both to exit (bounded by --timeout) ----------------
         deadline = time.monotonic() + args.timeout
