@@ -3,10 +3,10 @@ name: Playtest
 on:
   push:
     branches: [development, master]
-    paths: ['src/**', 'tests/**', 'cmake/**', 'CMakeLists.txt',
+    paths: ['src/**', 'tests/**', 'tools/**', 'cmake/**', 'CMakeLists.txt',
             '.github/workflows/playtest.yml']
   pull_request:
-    paths: ['src/**', 'tests/**', 'cmake/**', 'CMakeLists.txt',
+    paths: ['src/**', 'tests/**', 'tools/**', 'cmake/**', 'CMakeLists.txt',
             '.github/workflows/playtest.yml']
   schedule:
     - cron: '30 4 * * *'   # off-peak vs asan.yml's 03:00
