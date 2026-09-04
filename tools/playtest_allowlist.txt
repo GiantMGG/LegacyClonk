@@ -1,0 +1,6 @@
+# playtest_allowlist.txt -- known-red shipped scenarios for
+# tools/playtest_sweep.py. One content-relative scenario path per line,
+# reason suffix. An allowlisted failure classifies KNOWN-RED and
+# does not fail the sweep; an allowlisted PASS classifies PASS-STALE
+# and prints a removal hint. REVIEW AT EVERY CONTENT CHANGE: a stale
+# KNOWN-RED hides real regressions.

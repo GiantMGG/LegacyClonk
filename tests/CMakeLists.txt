@@ -419,3 +419,21 @@ if(PYTHON3 AND EXISTS "${LEGACYCLONK_CONTENT_DIR}")
 			"${LEGACYCLONK_CONTENT_DIR}")
 	set_tests_properties(content_release_lint PROPERTIES TIMEOUT 60 LABELS "lint")
 endif()
+
+# --- Playtest sweep (spec scenario-playtest-harness, cycle 97) -----------
+# Runs every shipped playtest scenario (ci.toml [groups.content] set,
+# minus Tests.c4f) headless for N ticks via tools/playtest_sweep.py.
+# Same EXISTS guard as content_release_lint above: Autobuild CI has no
+# content checkout.
+if (PYTHON3 AND EXISTS "${LEGACYCLONK_CONTENT_DIR}")
+	add_test(NAME playtest_sweep
+		COMMAND "${PYTHON3}" "${CMAKE_SOURCE_DIR}/tools/playtest_sweep.py"
+			"--engine" "$<TARGET_FILE:clonk>"
+			"--content-dir" "${LEGACYCLONK_CONTENT_DIR}"
+			"--ci-toml" "${CMAKE_SOURCE_DIR}/autobuild/ci.toml"
+			"--report" "${CMAKE_BINARY_DIR}/playtest_sweep_report.tsv"
+		WORKING_DIRECTORY "${CMAKE_BINARY_DIR}")
+	set_tests_properties(playtest_sweep PROPERTIES
+		TIMEOUT 900
+		LABELS "playtest;smoke")
+endif()

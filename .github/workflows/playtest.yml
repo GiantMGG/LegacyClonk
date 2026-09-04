@@ -1,0 +1,107 @@
+name: Playtest
+
+on:
+  push:
+    branches: [development, master]
+    paths: ['src/**', 'tests/**', 'cmake/**', 'CMakeLists.txt',
+            '.github/workflows/playtest.yml']
+  pull_request:
+    paths: ['src/**', 'tests/**', 'cmake/**', 'CMakeLists.txt',
+            '.github/workflows/playtest.yml']
+  schedule:
+    - cron: '30 4 * * *'   # off-peak vs asan.yml's 03:00
+  workflow_dispatch: {}
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  playtest:
+    name: Playtest sweep
+    runs-on: ubuntu-22.04
+    timeout-minutes: 60
+    env:
+      DEPS_VERSION: '2026-07-25'
+      GCC_VERSION: '16.1.0'
+      GCC_ARCH: 'x86_64'
+    steps:
+      - name: "Checkout engine"
+        uses: actions/checkout@v6
+        with:
+          submodules: recursive
+          path: LegacyClonk
+
+      - name: "Checkout content"
+        uses: actions/checkout@v6
+        with:
+          repository: ${{ github.repository_owner }}/content
+          token: ${{ secrets.CONTENT_REPO_TOKEN || github.token }}
+          path: content
+
+      - name: "Configure Platform"
+        run: autobuild/platforms/Linux.sh
+        working-directory: LegacyClonk
+
+      - name: "Configure Platform Architecture"
+        run: autobuild/platforms/Linux-x64.sh
+        working-directory: LegacyClonk
+
+      - name: "Install CMake"
+        uses: lukka/get-cmake@v4.4.2
+        with:
+          useCloudCache: false
+
+      - name: "Linux: Setup"
+        run: $CHROOT autobuild/platforms/setup_linux.sh
+        working-directory: LegacyClonk
+
+      - name: "Dependencies"
+        run: |
+          set -euo pipefail
+          source tools/deps-lock.sh
+          PLATFORM="Linux-x64"
+          EXPECTED_SHA="$(lock_get tarballs "$PLATFORM")"
+          TARBALL="lc_deps-${PLATFORM}.tar.gz"
+          curl -fL -o "$TARBALL" \
+            "https://github.com/legacyclonk/deps/releases/download/$DEPS_VERSION/$TARBALL"
+          ACTUAL_SHA="$(sha256sum "$TARBALL" | cut -d' ' -f1)"
+          if [ "$ACTUAL_SHA" != "$EXPECTED_SHA" ]; then
+            echo "ERROR: deps tarball SHA-256 mismatch for $PLATFORM" >&2
+            echo "  expected: $EXPECTED_SHA" >&2
+            echo "  actual:   $ACTUAL_SHA" >&2
+            exit 1
+          fi
+          mkdir deps
+          tar -xzf "$TARBALL" -C deps
+          ( cd deps && ./fix_paths.sh )
+        working-directory: LegacyClonk
+
+      - name: "Configure"
+        run: |
+          cmake -B build . -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo \
+            -DUSE_TESTS=On -DUSE_CONSOLE=On \
+            '-DCMAKE_CTEST_ARGUMENTS=--output-on-failure;--no-tests=error' \
+            $CMAKE_CONFIGURE_ARGS
+        working-directory: LegacyClonk
+
+      - name: "Build"
+        run: cmake --build build $CMAKE_BUILD_ARGS
+        working-directory: LegacyClonk
+
+      - name: "Stage planet groups"
+        run: cp -r planet/Graphics.c4g planet/System.c4g build/
+        working-directory: LegacyClonk
+
+      - name: "Test"
+        run: ctest --test-dir LegacyClonk/build --output-on-failure --no-tests=error
+
+      - name: "Upload failure logs"
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: playtest-logs
+          path: |
+            LegacyClonk/build/Testing/Temporary/LastTest.log
+            LegacyClonk/build/playtest_sweep_report.tsv
+          if-no-files-found: warn
