@@ -6,6 +6,8 @@
   share and adapt the material for any purpose, even commercially, as long as you give
   appropriate credit, provide a link to the license, and distribute adaptations under the
   same license.
+- **Changes**: Unmodified original, renamed from
+  `Scorpion_Photograph_By_Shantanu_Kuveskar.jpg` (no changes made).
 
 This file is a **test fixture** used by `tools/vision_qa.py` as the oracle positive
 control. It is **not game content**.

@@ -8,7 +8,8 @@ a local ollama model, and prints GATE PASS / GATE FAIL.
 
 Startup oracle controls validate the instrument itself:
   1. photo positive control  — model must read "scorpion" on the fixture
-  2. flat-block negative A   — feature battery must FAIL on a flat block
+  2. flat-block negative A   — feature battery AND tail/arch read must
+     FAIL on a flat block (bounds both Q2 acceptance paths)
   3. flat-block negative B   — Q5 coherence must FAIL on a stacked flat pair
 Any control failing prints ORACLE FAIL and exits 2 — a broken instrument
 aborts, it never produces data.
@@ -37,7 +38,9 @@ DEFAULT_HOST = "http://localhost:11434"
 DEFAULT_MODEL = "qwen3.8:27b"
 DEFAULT_IMAGE = os.path.join("..", "content", "Desert.c4d", "Scorpion.c4d",
                              "Graphics.png")
-DEFAULT_FACET = (0, 0, 28, 20)
+# Default facet targets the committed content art (40x64 sheet = 2 phases
+# of 20x12); the stashed 28x20 rework bumps this when it lands.
+DEFAULT_FACET = (0, 0, 20, 12)
 PAIR_GAP = 4          # white rows between stacked frames (sprite pixels)
 FLAT_RGB = (90, 58, 31)
 FLAT_W, FLAT_H = 20, 12
@@ -68,7 +71,8 @@ Q5 = ("This image shows two frames stacked vertically. Do these two "
       "then one sentence justifying your answer. Be literal, only report "
       "what is actually visible.")
 
-# Q2 keyword sets (pinned v1, lowercased substring match).
+# Q2 keyword sets (pinned v1; matched with word boundaries — see
+# _keyword_re below. The sets themselves are unchanged from pinned v1.)
 ARCH_WORDS = ("arch", "arched", "arc", "curve", "curved", "curl", "curled",
               "hook", "hooked", "bent", "raised", "segment", "segmented",
               "segments")
@@ -84,10 +88,26 @@ TIP_WORDS = ("point", "pointed", "sting", "stinger", "barb", "barbed",
 # tail"). This is a mode mismatch, not missing art features. Revision:
 # the tip sub-criterion passes via Q2 as before (a), OR via cross-check
 # (b): >= 2 of the phase's 3 Q1 run answers contain a tip word from the
-# pinned set below (lowercased substring). Tail + arch criteria are
+# pinned set below (word-boundary match). Tail + arch criteria are
 # unchanged; no other keyword set, wording, or criterion is touched.
 Q1_TIP_WORDS = ("stinger", "sting", "telson", "barb", "pointed")
 TAIL_WORDS = ("tail", "telson")
+
+# Word-boundary keyword matching (cycle 98 review fix): the pinned sets
+# above and below are matched as \b-anchored prefixes, not raw
+# substrings. This kills the verified over-matches ("tail" in "detail",
+# "arc" in "search", "sting" in "distinguishing") while still catching
+# inflections the old substring match used to accept ("tails",
+# "arched", "stinging"). The keyword sets themselves are unchanged.
+def _keyword_re(words):
+    alt = "|".join(re.escape(w) for w in words)
+    return re.compile(r"\b(?:" + alt + r")")
+
+
+TAIL_RE = _keyword_re(TAIL_WORDS)
+ARCH_RE = _keyword_re(ARCH_WORDS)
+TIP_RE = _keyword_re(TIP_WORDS)
+Q1_TIP_RE = _keyword_re(Q1_TIP_WORDS)
 
 # Q1 classification sets (whole-word, case-insensitive).
 ARTHROPOD_WORDS = ("spider", "centipede", "ant", "crab", "insect", "beetle",
@@ -99,6 +119,11 @@ MAMMAL_REPTILE_WORDS = ("pig", "boar", "dog", "puppy", "cat", "kitten",
                         "toad", "turtle", "tortoise", "crocodile",
                         "alligator", "dinosaur", "dragon", "cattle",
                         "sheep", "goat")
+ARTHROPOD_RE = re.compile(
+    r"\b(?:" + "|".join(re.escape(w) for w in ARTHROPOD_WORDS) + r")\b")
+MAMMAL_REPTILE_RE = re.compile(
+    r"\b(?:" + "|".join(re.escape(w)
+                        for w in MAMMAL_REPTILE_WORDS) + r")\b")
 
 NUMBER_WORDS = {"one": 1, "two": 2, "three": 3, "four": 4, "five": 5,
                 "six": 6, "seven": 7, "eight": 8, "nine": 9, "ten": 10}
@@ -324,9 +349,13 @@ def strip_think(text):
 
 
 def yes_first(answer):
-    """Q3/Q5 pass rule: first token of the normalized answer is yes/y."""
+    """Q3/Q5 pass rule: first token of the normalized answer is yes/y.
+
+    Punctuation and leading markdown emphasis are stripped from the
+    first token ("**Yes**," -> "yes").
+    """
     toks = answer.strip().lower().split()
-    return bool(toks) and toks[0].strip(".,;:!?\"'()") in ("yes", "y")
+    return bool(toks) and toks[0].strip(".,;:!?\"'()_*`") in ("yes", "y")
 
 
 def leg_count(answer):
@@ -341,37 +370,37 @@ def leg_count(answer):
 
 
 def q2_pass(answer):
-	low = answer.lower()
-	return (any(w in low for w in TAIL_WORDS)
-	        and any(w in low for w in ARCH_WORDS)
-	        and any(w in low for w in TIP_WORDS))
+    low = answer.lower()
+    return (bool(TAIL_RE.search(low))
+            and bool(ARCH_RE.search(low))
+            and bool(TIP_RE.search(low)))
 
 
 def q2_tail_arch(answer):
-	"""Tail + arch sub-criteria (the tip word is evaluated separately —
-	see the Q2 tip revision comment at Q1_TIP_WORDS)."""
-	low = answer.lower()
-	return (any(w in low for w in TAIL_WORDS)
-	        and any(w in low for w in ARCH_WORDS))
+    """Tail + arch sub-criteria (the tip word is evaluated separately —
+    see the Q2 tip revision comment at Q1_TIP_WORDS)."""
+    low = answer.lower()
+    return (bool(TAIL_RE.search(low))
+            and bool(ARCH_RE.search(low)))
 
 
 def q2_tip_via(q2_answers, q1_answers):
-	"""Revised Q2 tip sub-criterion: "q2" | "q1_cross" | "none".
+    """Revised Q2 tip sub-criterion: "q2" | "q1_cross" | "none".
 
-	(a) "q2" — the Q2 majority carries the full tail+arch+tip read
-	    (unchanged behavior). (b) "q1_cross" — tail+arch majority in Q2
-	    plus >= 2 of 3 Q1 answers carrying a tip word (the mode-mismatch
-	    escape, see the comment at Q1_TIP_WORDS). "none" — the tip
-	    sub-criterion fails.
-	"""
-	if majority([q2_pass(a) for a in q2_answers]):
-		return "q2"
-	tail_arch = majority([q2_tail_arch(a) for a in q2_answers])
-	cross = sum(1 for a in q1_answers
-	            if any(w in a.lower() for w in Q1_TIP_WORDS)) >= 2
-	if tail_arch and cross:
-		return "q1_cross"
-	return "none"
+    (a) "q2" — the Q2 majority carries the full tail+arch+tip read
+        (unchanged behavior). (b) "q1_cross" — tail+arch majority in Q2
+        plus >= 2 of 3 Q1 answers carrying a tip word (the mode-mismatch
+        escape, see the comment at Q1_TIP_WORDS). "none" — the tip
+        sub-criterion fails.
+    """
+    if majority([q2_pass(a) for a in q2_answers]):
+        return "q2"
+    tail_arch = majority([q2_tail_arch(a) for a in q2_answers])
+    cross = sum(1 for a in q1_answers
+                if Q1_TIP_RE.search(a.lower())) >= 2
+    if tail_arch and cross:
+        return "q1_cross"
+    return "none"
 
 
 def q4_pass(answer):
@@ -383,12 +412,10 @@ def classify_q1(answer):
     low = answer.lower()
     if "scorpion" in low:
         return "scorpion"
-    for w in MAMMAL_REPTILE_WORDS:
-        if re.search(rf"\b{re.escape(w)}\b", low):
-            return "mammal-reptile"
-    for w in ARTHROPOD_WORDS:
-        if re.search(rf"\b{re.escape(w)}\b", low):
-            return "arthropod-adjacent"
+    if MAMMAL_REPTILE_RE.search(low):
+        return "mammal-reptile"
+    if ARTHROPOD_RE.search(low):
+        return "arthropod-adjacent"
     return "other"
 
 
@@ -445,15 +472,23 @@ def run_oracle(ask, scale, record):
     print(f"[oracle 2] block Q2: {a_b2}", flush=True)
     print(f"[oracle 2] block Q3: {a_b3}", flush=True)
     print(f"[oracle 2] block Q4: {a_b4}", flush=True)
-    battery_ok = not (q2_pass(a_b2) or yes_first(a_b3) or q4_pass(a_b4))
+    # Control 2 bounds every acceptance path of the revised Q2 gate:
+    # the block's Q2 answer must fail the full tail+arch+tip
+    # conjunction AND the tail/arch sub-criterion that feeds the Q1
+    # cross-check (q2_tip_via path (b)) — otherwise a judge that
+    # volunteers tip vocabulary in open-ended mode on tip-less art
+    # would pass the revised gate while this control stays green.
+    battery_ok = not (q2_pass(a_b2) or q2_tail_arch(a_b2)
+                      or yes_first(a_b3) or q4_pass(a_b4))
     no_scorpion = "scorpion" not in a_b1.lower()
     record["block_q1"] = a_b1
     record["block_battery"] = {"q2": a_b2, "q3": a_b3, "q4": a_b4}
+    record["block_q2_tail_arch"] = q2_tail_arch(a_b2)
     record["block_battery_failed"] = battery_ok
     record["block_q1_no_scorpion"] = no_scorpion
     if not battery_ok:
-        print("ORACLE FAIL: flat-block control - feature battery passed "
-              "(gate is vacuous)", flush=True)
+        print("ORACLE FAIL: flat-block control - feature battery or "
+              "tail/arch read passed (gate is vacuous)", flush=True)
         ok = False
     if not no_scorpion:
         print('ORACLE FAIL: flat-block control - Q1 answered "scorpion" '
@@ -576,7 +611,9 @@ def main():
     ap.add_argument("--image", default=DEFAULT_IMAGE,
                     help="target sprite sheet PNG")
     ap.add_argument("--facet", type=parse_facet, default=DEFAULT_FACET,
-                    help="facet rect X,Y,W,H (phase 0 at facet, phase i at X+i*W)")
+                    help="facet rect X,Y,W,H (phase 0 at facet, phase i "
+                         "at X+i*W); default targets the committed "
+                         "content art (2 phases of 20x12)")
     ap.add_argument("--phases", type=int, default=2,
                     help="number of phases laid out horizontally")
     ap.add_argument("--model", default=DEFAULT_MODEL)
@@ -649,12 +686,13 @@ def main():
     oracle_rec = {}
     battery_rec = {}
     verdict = None
+    oracle_ok = False
     try:
-        if not run_oracle(ask, args.scale, oracle_rec):
+        oracle_ok = run_oracle(ask, args.scale, oracle_rec)
+        if not oracle_ok:
             print("ORACLE FAIL: one or more oracle controls failed — "
                   "aborting", flush=True)
-            return 2
-        if args.oracle_only:
+        elif args.oracle_only:
             print("oracle controls green", flush=True)
         else:
             fx, fy, fw, fh = args.facet
@@ -688,7 +726,8 @@ def main():
         print(f"ERROR: judge failed mid-run: {e}", file=sys.stderr)
         return 2
 
-    # -- JSON record -----------------------------------------------------
+    # -- JSON record (written even on ORACLE FAIL — the control
+    #    transcript is the post-mortem artifact) ------------------------
     if args.json:
         record = {
             "model": args.model,
@@ -700,12 +739,20 @@ def main():
             "scale": args.scale,
             "oracle": oracle_rec,
             "battery": battery_rec,
-            "verdict": verdict or "oracle controls green",
+            "verdict": verdict or ("oracle controls green" if oracle_ok
+                                   else "ORACLE FAIL"),
         }
-        with open(args.json, "w") as f:
-            json.dump(record, f, indent=2)
-            f.write("\n")
+        try:
+            with open(args.json, "w") as f:
+                json.dump(record, f, indent=2)
+                f.write("\n")
+        except OSError as e:
+            print(f"ERROR: cannot write JSON record to {args.json}: {e}",
+                  file=sys.stderr)
+            return 2
 
+    if not oracle_ok:
+        return 2
     if verdict == "GATE FAIL":
         return 1
     return 0
