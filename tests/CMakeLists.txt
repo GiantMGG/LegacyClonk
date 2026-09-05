@@ -150,11 +150,17 @@ add_test_target(OptionsOverride
 	LINK_ENGINE
 )
 
+# Python 3 for the smoke-test engine wrapper (tools/run_engine_headless.py)
+# and the net-smoke drivers below. Hoisted above the first use: on a fresh
+# configure ${PYTHON3} would still be unset at the add_test() calls.
+find_program(PYTHON3 python3)
+
 # The scenario lives in the content repo (sibling checkout); only register
 # the smoke test when that file is actually present.
 if(EXISTS "${CMAKE_SOURCE_DIR}/../content/WeatherEvents.c4d/Tests.c4f/OptionsOverride.c4s")
 	add_test(NAME parameter_override_smoke
-		COMMAND "$<TARGET_FILE:clonk>" --console --smoke-run 350
+		COMMAND "${PYTHON3}" "${CMAKE_SOURCE_DIR}/tools/run_engine_headless.py"
+			"$<TARGET_FILE:clonk>" --console --smoke-run 350
 			--parameter TeamDist=Random --parameter RandomTeamCount=2
 			--parameter TeamColors=1
 			-s "${CMAKE_SOURCE_DIR}/../content/WeatherEvents.c4d/Tests.c4f/OptionsOverride.c4s"
@@ -185,7 +191,8 @@ file(GLOB SMOKE_SCENARIOS
 foreach(scenario ${SMOKE_SCENARIOS})
   get_filename_component(scenario_name "${scenario}" NAME_WE)  # e.g. EventSmoke
   add_test(NAME "smoke_${scenario_name}"
-    COMMAND "$<TARGET_FILE:clonk>"
+    COMMAND "${PYTHON3}" "${CMAKE_SOURCE_DIR}/tools/run_engine_headless.py"
+            "$<TARGET_FILE:clonk>"
             --console --smoke-run 350
             -s "${scenario}"
     WORKING_DIRECTORY "${CMAKE_BINARY_DIR}")
@@ -204,7 +211,8 @@ endforeach()
 # entry would point at a missing scenario and fail on every leg.
 if(NOT USE_SANITIZER AND EXISTS "${LEGACYCLONK_CONTENT_DIR}/PixelPhysics.c4d/Tests.c4f/PXSPerfSmoke.c4s")
 	add_test(NAME pxs_perf_gate
-		COMMAND "$<TARGET_FILE:clonk>"
+		COMMAND "${PYTHON3}" "${CMAKE_SOURCE_DIR}/tools/run_engine_headless.py"
+			"$<TARGET_FILE:clonk>"
 			--console --smoke-run 350 --frame-rate-cap 1000
 			-s "${LEGACYCLONK_CONTENT_DIR}/PixelPhysics.c4d/Tests.c4f/PXSPerfSmoke.c4s"
 		WORKING_DIRECTORY "${CMAKE_BINARY_DIR}")
@@ -223,7 +231,8 @@ endif()
 # double-registered by the glob at 350 ticks — permanently RED.
 if(NOT USE_SANITIZER AND EXISTS "${LEGACYCLONK_CONTENT_DIR}/PixelPhysics.c4d/Tests.c4f/LavaWallLong.c4s")
 	add_test(NAME lava_wall_long_gate
-		COMMAND "$<TARGET_FILE:clonk>"
+		COMMAND "${PYTHON3}" "${CMAKE_SOURCE_DIR}/tools/run_engine_headless.py"
+			"$<TARGET_FILE:clonk>"
 			--console --smoke-run 3900 --frame-rate-cap 1000
 			-s "${LEGACYCLONK_CONTENT_DIR}/PixelPhysics.c4d/Tests.c4f/LavaWallLong.c4s"
 		WORKING_DIRECTORY "${CMAKE_BINARY_DIR}")
@@ -345,7 +354,6 @@ add_test_target(SmokeRunFlag
 # and GUI builds (WITH_DEVELOPER_MODE=On) call gtk_init at startup, which
 # exits(1) on headless CI runners before any smoke output.
 find_program(TC tc)
-find_program(PYTHON3 python3)
 
 if (PYTHON3 AND USE_CONSOLE)
 	set(tc_args "")
