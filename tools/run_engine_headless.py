@@ -8,4 +8,9 @@ engine invocations."""
 import subprocess
 import sys
 
-sys.exit(subprocess.call(sys.argv[1:], stdin=subprocess.DEVNULL))
+rc = subprocess.call(sys.argv[1:], stdin=subprocess.DEVNULL)
+# Match the shell's signal-exit convention (128+signo), not Python's
+# 256-signo, so CTest sees the same code the bare engine would give.
+if rc < 0:
+    rc = 128 - rc
+sys.exit(rc)
