@@ -103,7 +103,6 @@ def _keyword_re(words):
     alt = "|".join(re.escape(w) for w in words)
     return re.compile(r"\b(?:" + alt + r")")
 
-
 TAIL_RE = _keyword_re(TAIL_WORDS)
 ARCH_RE = _keyword_re(ARCH_WORDS)
 TIP_RE = _keyword_re(TIP_WORDS)
@@ -138,7 +137,6 @@ THINK_OPEN_RE = re.compile(r"<think(?:ing)?>.*", re.DOTALL)
 
 CLASS_SEVERITY = ("mammal-reptile", "arthropod-adjacent", "other",
                   "scorpion")
-
 
 # ---------------------------------------------------------------------------
 # PNG decode (stdlib, no PIL): 8-bit, color types 0/2/3/4/6, non-interlaced
@@ -256,7 +254,6 @@ def png_decode(data):
         out.append(row)
     return w, h, out
 
-
 # ---------------------------------------------------------------------------
 # rendering: xN nearest on white, PNG RGB (stdlib encode)
 # ---------------------------------------------------------------------------
@@ -264,7 +261,6 @@ def png_decode(data):
 def png_chunk(tag, data):
     return (struct.pack(">I", len(data)) + tag + data
             + struct.pack(">I", zlib.crc32(tag + data) & 0xFFFFFFFF))
-
 
 def render_b64(grid, scale):
     """grid: list of rows of (r,g,b,a). Nearest xN upscale on white -> PNG -> base64."""
@@ -293,14 +289,12 @@ def render_b64(grid, scale):
            + png_chunk(b"IEND", b""))
     return base64.b64encode(png).decode()
 
-
 # ---------------------------------------------------------------------------
 # ollama client
 # ---------------------------------------------------------------------------
 
 class JudgeError(RuntimeError):
     """Mid-battery judge failure (broken instrument -> exit 2)."""
-
 
 def make_ask(host, model):
     """Return ask(image_b64, prompt) -> answer string (think blocks stripped)."""
@@ -335,7 +329,6 @@ def make_ask(host, model):
 
     return ask
 
-
 # ---------------------------------------------------------------------------
 # answer parsing (pinned evaluation rules)
 # ---------------------------------------------------------------------------
@@ -347,7 +340,6 @@ def strip_think(text):
     text = THINK_OPEN_RE.sub("", text)  # unterminated block: drop the rest
     return text.strip()
 
-
 def yes_first(answer):
     """Q3/Q5 pass rule: first token of the normalized answer is yes/y.
 
@@ -356,7 +348,6 @@ def yes_first(answer):
     """
     toks = answer.strip().lower().split()
     return bool(toks) and toks[0].strip(".,;:!?\"'()_*`") in ("yes", "y")
-
 
 def leg_count(answer):
     """First integer or spelled one..ten in the answer; None if absent."""
@@ -368,13 +359,11 @@ def leg_count(answer):
         return int(t)
     return NUMBER_WORDS[t]
 
-
 def q2_pass(answer):
     low = answer.lower()
     return (bool(TAIL_RE.search(low))
             and bool(ARCH_RE.search(low))
             and bool(TIP_RE.search(low)))
-
 
 def q2_tail_arch(answer):
     """Tail + arch sub-criteria (the tip word is evaluated separately —
@@ -382,7 +371,6 @@ def q2_tail_arch(answer):
     low = answer.lower()
     return (bool(TAIL_RE.search(low))
             and bool(ARCH_RE.search(low)))
-
 
 def q2_tip_via(q2_answers, q1_answers):
     """Revised Q2 tip sub-criterion: "q2" | "q1_cross" | "none".
@@ -402,11 +390,9 @@ def q2_tip_via(q2_answers, q1_answers):
         return "q1_cross"
     return "none"
 
-
 def q4_pass(answer):
     n = leg_count(answer)
     return n is not None and n >= 4
-
 
 def classify_q1(answer):
     low = answer.lower()
@@ -417,7 +403,6 @@ def classify_q1(answer):
     if ARTHROPOD_RE.search(low):
         return "arthropod-adjacent"
     return "other"
-
 
 def majority_class(classes):
     """Most frequent classification; ties broken toward the worse read."""
@@ -430,11 +415,9 @@ def majority_class(classes):
             return sev
     return "other"
 
-
 def majority(passes):
     """Strict majority of boolean per-run results; a split = fail."""
     return 2 * sum(passes) > len(passes)
-
 
 # ---------------------------------------------------------------------------
 # oracle controls (single-shot each)
@@ -509,7 +492,6 @@ def run_oracle(ask, scale, record):
 
     return ok
 
-
 # ---------------------------------------------------------------------------
 # battery
 # ---------------------------------------------------------------------------
@@ -568,7 +550,6 @@ def probe_phase(ask, grid, runs, scale, label, record):
 
     record[label] = res
 
-
 def probe_pair(ask, top_grid, bot_grid, fw, runs, scale, record):
     """Q5 x runs on the stacked pair (top above bottom, PAIR_GAP white rows)."""
     pair = (top_grid
@@ -587,7 +568,6 @@ def probe_pair(ask, top_grid, bot_grid, fw, runs, scale, record):
         "majority_pass": majority(passes),
     }
 
-
 # ---------------------------------------------------------------------------
 # main
 # ---------------------------------------------------------------------------
@@ -603,7 +583,6 @@ def parse_facet(s):
     if any(v < 0 for v in vals) or vals[2] <= 0 or vals[3] <= 0:
         raise argparse.ArgumentTypeError("--facet needs X,Y >= 0 and W,H > 0")
     return vals
-
 
 def main():
     ap = argparse.ArgumentParser(
@@ -756,7 +735,6 @@ def main():
     if verdict == "GATE FAIL":
         return 1
     return 0
-
 
 if __name__ == "__main__":
     sys.exit(main())
