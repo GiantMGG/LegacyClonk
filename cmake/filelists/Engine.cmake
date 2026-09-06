@@ -26,6 +26,8 @@ src/C4ComponentHost.h
 src/C4Components.h
 src/C4Config.cpp
 src/C4Config.h
+src/C4ControlPresets.cpp
+src/C4ControlPresets.h
 src/C4Console.cpp
 src/C4Console.h
 src/C4Constants.h

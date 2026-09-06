@@ -144,6 +144,11 @@ add_test_target(C4MaterialReactions
 	LINK_ENGINE
 )
 
+add_test_target(C4ControlPresets
+	SOURCES "${CMAKE_SOURCE_DIR}/tests/TstC4ControlPresets.cpp"
+	LINK_ENGINE
+)
+
 # --- Offline pre-game options (spec pregame-options-parity) ----------------
 add_test_target(OptionsOverride
 	SOURCES "${CMAKE_SOURCE_DIR}/tests/TstC4GameOptions.cpp"
