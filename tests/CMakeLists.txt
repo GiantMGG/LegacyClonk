@@ -177,6 +177,23 @@ if(EXISTS "${CMAKE_SOURCE_DIR}/../content/WeatherEvents.c4d/Tests.c4f/OptionsOve
 		FAIL_REGULAR_EXPRESSION "FatalError|\\[error\\]|\\[fatal\\]")
 endif()
 
+# --- Rules=/Goals= --parameter override smoke (spec pregame-options-parity-2).
+# Same EXISTS-guard + explicit-flags pattern as parameter_override_smoke above.
+# NO Smoke suffix in the scenario name: the glob must not double-register it.
+if(EXISTS "${CMAKE_SOURCE_DIR}/../content/WeatherEvents.c4d/Tests.c4f/RulesGoalsOverride.c4s")
+	add_test(NAME rules_goals_override_smoke
+		COMMAND "${PYTHON3}" "${CMAKE_SOURCE_DIR}/tools/run_engine_headless.py"
+			"$<TARGET_FILE:clonk>" --console --smoke-run 350
+			--parameter Rules=NMTT=1 --parameter Goals=MONE=1
+			-s "${CMAKE_SOURCE_DIR}/../content/WeatherEvents.c4d/Tests.c4f/RulesGoalsOverride.c4s"
+		WORKING_DIRECTORY "${CMAKE_BINARY_DIR}")
+	set_tests_properties(rules_goals_override_smoke PROPERTIES
+		TIMEOUT 60
+		LABELS "smoke"
+		PASS_REGULAR_EXPRESSION "RulesGoalsOverride PASS"
+		FAIL_REGULAR_EXPRESSION "FatalError|\\[error\\]|\\[fatal\\]")
+endif()
+
 # --- Headless scenario smoke harness -------------------------------------
 # Discovers content/**/Tests.c4f/*Smoke.c4s scenarios and registers one
 # CTest entry per scenario. See spec headless-scenario-smoke-harness.
