@@ -10,8 +10,11 @@
  * See accompanying file "TRADEMARK" for details.
  */
 
-// Offline pre-game options dialog (spec pregame-options-parity):
-// shown for fullscreen, non-console, non-replay offline starts.
+// Offline pre-game options dialog (spec pregame-options-parity-2):
+// two-pane pre-game screen — briefing (+ objectives/rules pickers) on the
+// left, the game options list on the right, Start/Abort at the bottom.
+// Shown for fullscreen, non-console, non-replay OFFLINE starts, after
+// InitGameFirstPart (definitions loaded — see the call site in C4Game.cpp).
 
 #pragma once
 
@@ -34,8 +37,13 @@ private:
 	void OnBtnStart(C4GUI::Control *btn);
 	void OnBtnAbort(C4GUI::Control *btn);
 
+	// left pane top: scenario title + RTF description (ScenDesc pattern)
+	void CreateBriefing(const C4Rect &rcBriefing);
+	void FillBriefing();
+
 	virtual class C4GUI::Control *GetDefaultControl() override { return pBtnStart; }
 
+	C4GUI::TextWindow *pBriefing;
 	C4GameOptionsList *pOptionsList;
 	C4GUI::CallbackButton<C4OfflineOptionsDlg> *pBtnStart;
 	C4GUI::CallbackButton<C4OfflineOptionsDlg> *pBtnAbort;
