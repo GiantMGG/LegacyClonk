@@ -449,6 +449,17 @@ if(PYTHON3 AND EXISTS "${LEGACYCLONK_CONTENT_DIR}/Desert.c4d/Camel.c4d/Graphics.
 	set_tests_properties(gfx_check_camel PROPERTIES TIMEOUT 60 LABELS "lint")
 endif()
 
+# --- Desert batch --check byte gates (spec placeholder-art-debt-drive-down,
+# cycle 100) --------------------------------------------------------------
+foreach(def DatePalm Date Oasis Quarry Quicksand SandDrift SandstoneBlock)
+	if(PYTHON3 AND EXISTS "${LEGACYCLONK_CONTENT_DIR}/Desert.c4d/${def}.c4d/Graphics.png")
+		add_test(NAME "gfx_check_${def}"
+			COMMAND "${PYTHON3}" "${CMAKE_SOURCE_DIR}/tools/gen_desert_gfx.py" "${def}"
+				"${LEGACYCLONK_CONTENT_DIR}/Desert.c4d/${def}.c4d/Graphics.png" --check)
+		set_tests_properties("gfx_check_${def}" PROPERTIES TIMEOUT 60 LABELS "lint")
+	endif()
+endforeach()
+
 # --- Playtest sweep (spec scenario-playtest-harness, cycle 97) -----------
 # Runs every shipped playtest scenario (ci.toml [groups.content] set,
 # minus Tests.c4f) headless for N ticks via tools/playtest_sweep.py.
