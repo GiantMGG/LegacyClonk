@@ -28,7 +28,7 @@
 //     (mutation: removing the ResetKey loop turns the PRIMARY assert RED)
 // G4: the Classic One-Hand and Right-Hand registry tables equal the literal
 //     pre-flip CompileFunc defaults (C4Config.cpp:345-356 / :371-382), on
-//     both locale branches (fGer-variant slots 6/9 classic, 5/8 right-hand).
+//     both locale branches (fGer-variant slots 6/9 classic, 5/8/11 right-hand).
 // G5: SetKeyboardControlKey writes BOTH the config table and the live named
 //     key (mutation: removing the RebindKey turns this RED).
 // P1-P5: the existing KeyConfig.txt delta-form behavior, pinned —
@@ -129,8 +129,8 @@ namespace
 		KEY('F', XK_f, SDL_SCANCODE_F),
 	};
 
-	// Literal pre-flip Kbd3 defaults (C4Config.cpp:371-382); slot 5 ('ö'/';')
-	// and slot 8 ('-'/'/') are the fGer variants.
+	// Literal pre-flip Kbd3 defaults (C4Config.cpp:371-382); slots 5 ('ö'/';'),
+	// 8 ('-'/'/') and 11 ('ü'/'[') are the fGer variants.
 	const int32_t RightHandTable[C4MaxKey] =
 	{
 		KEY('I', XK_i,          SDL_SCANCODE_I),
@@ -144,7 +144,7 @@ namespace
 		KEY(0xBF, XK_slash,     SDL_SCANCODE_SLASH),
 		KEY('M', XK_m,          SDL_SCANCODE_M),
 		KEY(222, XK_adiaeresis, SDL_SCANCODE_APOSTROPHE),
-		KEY(186, XK_udiaeresis, SDL_SCANCODE_LEFTBRACKET),
+		KEY(0xDB, XK_udiaeresis, SDL_SCANCODE_LEFTBRACKET),
 	};
 
 	const int32_t RightHandGerTable[C4MaxKey] =
@@ -294,8 +294,8 @@ TEST_CASE("PresetRegistry.LegacyGerParity", "[control-presets]")
 {
 	// G4: Classic One-Hand == the literal C4Config.cpp:345-356 transcription
 	// and Right-Hand == the literal :371-382 transcription, on fGer=false AND
-	// fGer=true (fGer-variant slots 6/9 classic, 5/8 right-hand). German
-	// veterans keep their Y/'<' and 'ö'/'-' keys.
+	// fGer=true (fGer-variant slots 6/9 classic, 5/8/11 right-hand). German
+	// veterans keep their Y/'<', 'ö'/'-' and 'ü'/'[' keys.
 	const C4ControlPreset classic = GetPreset(C4PR_Classic, false);
 	const C4ControlPreset classicGer = GetPreset(C4PR_Classic, true);
 	for (int32_t iKey = 0; iKey < C4MaxKey; ++iKey)
@@ -561,7 +561,7 @@ TEST_CASE("FreshDefaults.FlipWiringL1", "[control-presets]")
 	}
 
 	// Kbd2-4 == the literal CompileFunc defaults, resolved the same way
-	// CompileFunc does for the fGer-sensitive Kbd3 slots 5/8.
+	// CompileFunc does for the fGer-sensitive Kbd3 slots 5/8/11.
 	const int32_t (&rKbd3)[C4MaxKey] = isGermanSystem() ? RightHandGerTable : RightHandTable;
 	for (int32_t iKey = 0; iKey < C4MaxKey; ++iKey)
 	{

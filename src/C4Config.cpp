@@ -384,7 +384,7 @@ void C4ConfigControls::CompileFunc(StdCompiler *pComp, bool fKeysOnly)
 	pComp->Value(mkNamingAdapt(Keyboard[2][ 8], "Kbd3Key9",  fGer ? KEY(189, XK_minus,      SDL_SCANCODE_SLASH)   : KEY(0xBF, XK_slash,     SDL_SCANCODE_SLASH)));
 	pComp->Value(mkNamingAdapt(Keyboard[2][ 9], "Kbd3Key10", KEY('M', XK_m,          SDL_SCANCODE_M)));
 	pComp->Value(mkNamingAdapt(Keyboard[2][10], "Kbd3Key11", KEY(222, XK_adiaeresis, SDL_SCANCODE_APOSTROPHE)));
-	pComp->Value(mkNamingAdapt(Keyboard[2][11], "Kbd3Key12", KEY(186, XK_udiaeresis, SDL_SCANCODE_LEFTBRACKET)));
+	pComp->Value(mkNamingAdapt(Keyboard[2][11], "Kbd3Key12", fGer ? KEY(186, XK_udiaeresis, SDL_SCANCODE_LEFTBRACKET) : KEY(0xDB, XK_udiaeresis, SDL_SCANCODE_LEFTBRACKET))); // non-German Windows: '[' (VK_OEM_4); 186 (VK_OEM_1) would duplicate Kbd3Key6
 
 	pComp->Value(mkNamingAdapt(Keyboard[3][ 0], "Kbd4Key1",  KEY(VK_INSERT, XK_Insert,    SDL_SCANCODE_INSERT)));
 	pComp->Value(mkNamingAdapt(Keyboard[3][ 1], "Kbd4Key2",  KEY(VK_HOME,   XK_Home,      SDL_SCANCODE_HOME)));

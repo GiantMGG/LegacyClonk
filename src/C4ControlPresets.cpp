@@ -93,7 +93,7 @@ namespace
 	// Legacy presets transcribed line-for-line from the pre-flip CompileFunc
 	// defaults (spec §2.2): Classic = Kbd1 (C4Config.cpp:345-356, fGer-variant
 	// slots 6 and 9), Numpad = Kbd2 (:358-369), Right-Hand = Kbd3 (:371-382,
-	// fGer-variant slots 5 and 8), Nav Cluster = Kbd4 (:384-395).
+	// fGer-variant slots 5, 8 and 11), Nav Cluster = Kbd4 (:384-395).
 	constexpr int32_t ClassicKeys[C4MaxKey] =
 	{
 		KEY('Q', XK_q, SDL_SCANCODE_Q),
@@ -155,7 +155,7 @@ namespace
 		KEY(0xBF, XK_slash,     SDL_SCANCODE_SLASH),
 		KEY('M', XK_m,          SDL_SCANCODE_M),
 		KEY(222, XK_adiaeresis, SDL_SCANCODE_APOSTROPHE),
-		KEY(186, XK_udiaeresis, SDL_SCANCODE_LEFTBRACKET),
+		KEY(0xDB, XK_udiaeresis, SDL_SCANCODE_LEFTBRACKET), // non-German Windows: '[' (VK_OEM_4); 186 would duplicate slot 5
 	};
 
 	constexpr int32_t RightHandKeysGer[C4MaxKey] =
