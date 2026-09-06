@@ -201,6 +201,7 @@ protected:
 		C4GamePadOpener *pGamepadOpener; // opened gamepad for configuration
 		C4StartupOptionsDlg *pOptionsDlg;
 		class C4GUI::CheckBox *pGUICtrl;
+		class C4GUI::ComboBox *pPresetCombo; // "Preset:" dropdown - keyboard instance only, nullptr for the gamepad instance
 
 	public:
 		ControlConfigArea(const C4Rect &rcArea, int32_t iHMargin, int32_t iVMargin, bool fGamepad, C4StartupOptionsDlg *pOptionsDlg);
@@ -213,6 +214,8 @@ protected:
 		void OnCtrlKeyBtn(C4GUI::Control *btn);
 		void OnResetKeysBtn(C4GUI::Control *btn);
 		void OnGUIGamepadCheckChange(C4GUI::Element *pCheckBox);
+		void OnPresetComboFill(C4GUI::ComboBox_FillCB *pFiller);
+		bool OnPresetComboSelChange(C4GUI::ComboBox *pForCombo, int32_t idNewSelection);
 	};
 
 	// bindings tab

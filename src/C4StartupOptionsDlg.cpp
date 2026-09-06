@@ -306,7 +306,7 @@ C4StartupOptionsDlg::KeySelButton::KeySelButton(int32_t iKeyID, const C4Rect &rc
 // C4StartupOptionsDlg::ControlConfigArea
 
 C4StartupOptionsDlg::ControlConfigArea::ControlConfigArea(const C4Rect &rcArea, int32_t iHMargin, int32_t iVMargin, bool fGamepad, C4StartupOptionsDlg *pOptionsDlg)
-	: C4GUI::Window(), fGamepad(fGamepad), pGamepadOpener(nullptr), pOptionsDlg(pOptionsDlg), pGUICtrl(nullptr)
+	: C4GUI::Window(), fGamepad(fGamepad), pGamepadOpener(nullptr), pOptionsDlg(pOptionsDlg), pGUICtrl(nullptr), pPresetCombo(nullptr)
 {
 	CStdFont *pUseFont = &(C4Startup::Get()->Graphics.BookFont);
 	SetBounds(rcArea);
@@ -342,6 +342,22 @@ C4StartupOptionsDlg::ControlConfigArea::ControlConfigArea(const C4Rect &rcArea, 
 	caArea.ExpandTop(caArea.GetVMargin());
 	AddElement(new C4GUI::HorizontalLine(caArea.GetFromTop(2)));
 	caArea.ExpandTop(caArea.GetVMargin());
+	// preset dropdown - keyboard instance only: applies the selected stock preset
+	// to the currently selected keyboard set immediately (spec two-hand-control-presets §2.6)
+	if (!fGamepad)
+	{
+		C4GUI::ComponentAligner caPresetLine(caArea.GetFromTop(C4GUI::ComboBox::GetDefaultHeight()), 2, 0);
+		StdStrBuf sPresetLbl; sPresetLbl.Copy("Preset:");
+		int32_t iLblWdt, iLblHgt;
+		pUseFont->GetTextExtent(sPresetLbl.getData(), iLblWdt, iLblHgt, true);
+		AddElement(new C4GUI::Label(sPresetLbl.getData(), caPresetLine.GetFromLeft(iLblWdt + C4GUI_DefDlgSmallIndent), ALeft, C4StartupFontClr, pUseFont, false));
+		pPresetCombo = new C4GUI::ComboBox(caPresetLine.GetAll());
+		pPresetCombo->SetComboCB(new C4GUI::ComboBox_FillCallback<C4StartupOptionsDlg::ControlConfigArea>(this, &C4StartupOptionsDlg::ControlConfigArea::OnPresetComboFill, &C4StartupOptionsDlg::ControlConfigArea::OnPresetComboSelChange));
+		pPresetCombo->SetColors(C4StartupFontClr, C4StartupEditBGColor, C4StartupEditBorderColor);
+		pPresetCombo->SetFont(pUseFont);
+		pPresetCombo->SetDecoration(&(C4Startup::Get()->Graphics.fctContext));
+		AddElement(pPresetCombo);
+	}
 	C4Facet &rfctKey = Game.GraphicsResource.fctKey;
 	int32_t iKeyAreaMaxWdt = caArea.GetWidth() - 2 * caArea.GetHMargin(), iKeyAreaMaxHgt = caArea.GetHeight() - 2 * caArea.GetVMargin();
 	int32_t iKeyWdt = rfctKey.Wdt * 3 / 2, iKeyHgt = rfctKey.Hgt * 3 / 2;
@@ -446,6 +462,26 @@ void C4StartupOptionsDlg::ControlConfigArea::UpdateCtrlSet()
 	// show/hide gamepad-gui-control checkbox
 	if (fGamepad && pGUICtrl)
 		pGUICtrl->SetVisibility(iSelectedCtrlSet == 0);
+	// refresh the preset dropdown caption: show the stock preset that exactly matches
+	// the selected set's current table, if any; otherwise a neutral "Select preset..."
+	// (spec two-hand-control-presets §2.6 - the match need not be unique to be useful)
+	if (pPresetCombo)
+	{
+		const char *szCaption = "Select preset...";
+		for (int32_t iPreset = 0; iPreset < GetPresetCount(); ++iPreset)
+		{
+			const C4ControlPreset rPreset = GetPreset(iPreset);
+			bool fMatch = true;
+			for (int32_t iKey = 0; iKey < C4MaxKey; ++iKey)
+				if (Config.Controls.Keyboard[iSelectedCtrlSet][iKey] != rPreset.Keys[iKey]) { fMatch = false; break; }
+			if (fMatch)
+			{
+				szCaption = rPreset.szName;
+				break;
+			}
+		}
+		pPresetCombo->SetText(szCaption);
+	}
 }
 
 void C4StartupOptionsDlg::ControlConfigArea::OnCtrlKeyBtn(C4GUI::Control *btn)
@@ -494,6 +530,31 @@ void C4StartupOptionsDlg::ControlConfigArea::OnGUIGamepadCheckChange(C4GUI::Elem
 	Config.Controls.GamepadGuiControl = fChecked;
 	Game.pGUI->UpdateGamepadGUIControlEnabled();
 	pOptionsDlg->RecreateDialog(false);
+}
+
+void C4StartupOptionsDlg::ControlConfigArea::OnPresetComboFill(C4GUI::ComboBox_FillCB *pFiller)
+{
+	// the six stock presets, one entry each (spec two-hand-control-presets §2.2)
+	for (int32_t i = 0; i < GetPresetCount(); ++i)
+	{
+		const C4ControlPreset rPreset = GetPreset(i);
+		pFiller->AddEntry(rPreset.szName, i, rPreset.szDescription);
+	}
+}
+
+bool C4StartupOptionsDlg::ControlConfigArea::OnPresetComboSelChange(C4GUI::ComboBox *pForCombo, int32_t idNewSelection)
+{
+	// apply immediately to the currently selected keyboard set; the SaveConfig tail on
+	// dialog close (Config.Save + SaveCustomConfig) persists both layers - no explicit
+	// save here (spec two-hand-control-presets §2.6, §4.3)
+	if (idNewSelection >= 0 && idNewSelection < GetPresetCount())
+	{
+		const C4ControlPreset rPreset = GetPreset(idNewSelection);
+		ApplyPreset(iSelectedCtrlSet, rPreset);
+		UpdateCtrlSet(); // refresh the 12 key buttons and the combo caption
+	}
+	// return true: the caption is owned by UpdateCtrlSet's exact-match lookup
+	return true;
 }
 
 // C4StartupOptionsDlg::BindingsTab
