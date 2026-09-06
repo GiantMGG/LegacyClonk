@@ -643,16 +643,6 @@ bool C4Game::Init()
 		// Init network
 		if (!InitNetworkHost()) return false;
 		SetInitProgress(7);
-#ifndef USE_CONSOLE
-		// Offline pre-game options dialog (spec pregame-options-parity):
-		// fullscreen, non-console, non-replay offline starts only.
-		if (Application.isFullScreen && !Console.Active
-			&& !GameC4S.Head.Replay && Game.pGUI
-			&& lpDDraw->GetEngine() != GFXENGN_NOGFX)
-		{
-			if (!C4OfflineOptionsDlg::Show()) return false;
-		}
-#endif
 	}
 
 	Application.SetGameTickDelay(defaultIngameGameTickDelay);
@@ -2263,6 +2253,22 @@ bool C4Game::InitGame(C4Group &hGroup, bool fLoadSky)
 
 		CStdLock lock{&PreloadMutex};
 		if (!InitGameFirstPart()) return false;
+
+#ifndef USE_CONSOLE
+		// Offline pre-game options dialog (spec pregame-options-parity-2):
+		// post-def-load (Game.Defs is populated by InitGameFirstPart) so the
+		// briefing/pickers can resolve def names/icons; offline-only via
+		// !Network.isEnabled() (fixes the latent fullscreen net-host
+		// double-dialog, spec §4.1). Preload-path safe: Preload is
+		// net-lobby-only and this gate excludes it (spec §2.2 rationale).
+		if (Application.isFullScreen && !Console.Active
+			&& !GameC4S.Head.Replay && Game.pGUI
+			&& !Network.isEnabled()
+			&& lpDDraw->GetEngine() != GFXENGN_NOGFX)
+		{
+			if (!C4OfflineOptionsDlg::Show()) return false;
+		}
+#endif
 
 		// join local players for regular games
 		// should be done before record/replay is initialized, so the players are stored in PlayerInfos.txt
