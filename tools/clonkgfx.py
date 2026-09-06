@@ -20,7 +20,6 @@ from typing import Callable, Mapping, Sequence
 
 RGBA = tuple[int, int, int, int]
 
-
 class Palette:
 	"""Character -> RGBA color map. '.' is reserved for transparency."""
 
@@ -43,7 +42,6 @@ class Palette:
 
 	def __getitem__(self, key: str) -> RGBA:
 		return self.colors[key]
-
 
 class PhaseMap:
 	"""One ASCII phase map. Rows are palette chars; '.' = transparent."""
@@ -80,7 +78,6 @@ class PhaseMap:
 					raise SystemExit(f"{self.name}: bad char {ch!r}")
 		return px
 
-
 class Action:
 	"""One action's row band: >=1 phase, all phases the same size."""
 
@@ -102,7 +99,6 @@ class Action:
 	def facet_size(self) -> tuple[int, int]:
 		phase = self.phases[0]
 		return (phase.width, phase.height)
-
 
 class Invariants:
 	"""Per-def quality gates. Defaults mirror the scorpion's
@@ -137,7 +133,6 @@ class Invariants:
 				raise SystemExit(
 					f"{action.name} phases {i}/{i + 1}: differ in only "
 					f"{diff} px (minimum {self.min_phase_diff})")
-
 
 class Sheet:
 	"""Row-band packed sprite sheet plus deterministic PNG encode."""
@@ -215,7 +210,6 @@ class Sheet:
 				raise SystemExit(f"render_variant: {key!r} not in palette")
 			colors[key] = value
 		return self._encode(self._grid(Palette(colors)))
-
 
 def cli_main(description: str, out_default: str,
              make_png: Callable[[], bytes]) -> int:

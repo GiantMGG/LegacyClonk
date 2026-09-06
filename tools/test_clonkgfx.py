@@ -25,14 +25,12 @@ sys.path.insert(0, HERE)
 import clonkgfx
 from clonkgfx import Action, Invariants, Palette, PhaseMap, Sheet
 
-
 def load_png_rgba():
 	spec = importlib.util.spec_from_file_location(
 		"lint_placeholder_gfx", os.path.join(HERE, "lint_placeholder_gfx.py"))
 	mod = importlib.util.module_from_spec(spec)
 	spec.loader.exec_module(mod)
 	return mod.png_rgba
-
 
 png_rgba = load_png_rgba()
 
@@ -58,18 +56,15 @@ MAP_Q0 = [
 	"....",
 ]
 
-
 def make_palette():
 	return Palette({"K": (0, 0, 0, 255), "B": (255, 0, 0, 255),
 	                "H": (0, 255, 0, 255)})
-
 
 def make_sheet():
 	pal = make_palette()
 	walk = Action("Walk", [PhaseMap("P0", MAP_P0), PhaseMap("P1", MAP_P1)])
 	idle = Action("Idle", [PhaseMap("Q0", MAP_Q0)])
 	return Sheet(8, 6, pal, [walk, idle])
-
 
 class PhaseMapTests(unittest.TestCase):
 	def test_ragged_rows_rejected(self):
@@ -92,7 +87,6 @@ class PhaseMapTests(unittest.TestCase):
 	def test_dimensions(self):
 		pm = PhaseMap("ok", MAP_P0)
 		self.assertEqual((pm.width, pm.height), (4, 3))
-
 
 class SheetPackingTests(unittest.TestCase):
 	def test_facets_are_row_bands(self):
@@ -131,7 +125,6 @@ class SheetPackingTests(unittest.TestCase):
 		with self.assertRaises(SystemExit):
 			Sheet(0, 6, pal, [])
 
-
 class InvariantsTests(unittest.TestCase):
 	def test_below_window_rejected(self):
 		pal = make_palette()
@@ -166,12 +159,10 @@ class InvariantsTests(unittest.TestCase):
 		                 min_phase_diff=1)
 		inv.check(action, pal)  # no SystemExit
 
-
 class DeterminismTests(unittest.TestCase):
 	def test_png_bytes_deterministic(self):
 		sheet = make_sheet()
 		self.assertEqual(sheet.png_bytes(), sheet.png_bytes())
-
 
 class DecodeRoundTripTests(unittest.TestCase):
 	def test_decoded_pixels_match_maps(self):
@@ -192,7 +183,6 @@ class DecodeRoundTripTests(unittest.TestCase):
 		# Outside every band: fully transparent.
 		self.assertEqual(rows[0][7], (0, 0, 0, 0))  # right of Walk phase 1
 		self.assertEqual(rows[3][7], (0, 0, 0, 0))  # right of Idle band
-
 
 class RenderVariantTests(unittest.TestCase):
 	def test_variant_differs_from_base_and_is_deterministic(self):
@@ -221,7 +211,6 @@ class RenderVariantTests(unittest.TestCase):
 		sheet = make_sheet()
 		with self.assertRaises(SystemExit):
 			sheet.render_variant({".": (1, 1, 1, 255)})
-
 
 class CliMainTests(unittest.TestCase):
 	def test_generate_check_and_corrupt_cycle(self):
@@ -262,7 +251,6 @@ class CliMainTests(unittest.TestCase):
 				              captured.getvalue())
 			finally:
 				sys.argv = argv
-
 
 if __name__ == "__main__":
 	unittest.main()
