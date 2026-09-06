@@ -96,6 +96,21 @@ jobs:
       - name: "Test"
         run: ctest --test-dir LegacyClonk/build --output-on-failure --no-tests=error
 
+      - name: "Publish failure summary"
+        if: failure()
+        run: |
+          {
+            echo "## Failed tests"
+            echo '```'
+            sed -n '/The following tests FAILED:/,$p' \
+              LegacyClonk/build/Testing/Temporary/LastTest.log | head -60 || true
+            echo '```'
+            echo "## Playtest sweep report (tail)"
+            echo '```'
+            tail -30 LegacyClonk/build/playtest_sweep_report.tsv 2>/dev/null || true
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
       - name: "Upload failure logs"
         if: failure()
         uses: actions/upload-artifact@v7
