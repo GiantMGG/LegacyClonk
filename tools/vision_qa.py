@@ -606,6 +606,11 @@ def main():
     ap.add_argument("--json", default=None,
                     help="write the full record (verbatim answers, "
                          "majorities, verdict) to this path")
+    ap.add_argument("--gate-mode", choices=["full", "feature", "advisory"],
+                    default="full",
+                    help="gate strictness: full = complete scorpion battery; "
+                         "feature = per-phase Q4 legs + Q5 pair coherence; "
+                         "advisory = record-only, no gate evaluated")
     args = ap.parse_args()
 
     if args.runs < 1 or args.scale < 1:
@@ -699,7 +704,15 @@ def main():
                 and battery_rec[f"phase {i}"]["q1"]["gate_pass"]
                 for i in range(args.phases))
             gate = gate and battery_rec["pair_q5"]["majority_pass"]
-            verdict = "GATE PASS" if gate else "GATE FAIL"
+            if args.gate_mode == "feature":
+                gate = all(
+                    battery_rec[f"phase {i}"]["q4"]["majority_pass"]
+                    for i in range(args.phases))
+                gate = gate and battery_rec["pair_q5"]["majority_pass"]
+            if args.gate_mode == "advisory":
+                verdict = "ADVISORY"
+            else:
+                verdict = "GATE PASS" if gate else "GATE FAIL"
             print(verdict, flush=True)
     except JudgeError as e:
         print(f"ERROR: judge failed mid-run: {e}", file=sys.stderr)
@@ -716,6 +729,7 @@ def main():
             "phases": args.phases,
             "runs": args.runs,
             "scale": args.scale,
+            "gate_mode": args.gate_mode,
             "oracle": oracle_rec,
             "battery": battery_rec,
             "verdict": verdict or ("oracle controls green" if oracle_ok
