@@ -24,8 +24,8 @@ src/C4PlayerInfoListBox.cpp:353
 src/C4PlayerInfoListBox.cpp:761
 src/C4Section.cpp:1244
 src/C4Sky.cpp:189
-src/C4StartupPlrSelDlg.cpp:1104
-src/C4StartupPlrSelDlg.cpp:204
+src/C4StartupPlrSelDlg.cpp:1107
+src/C4StartupPlrSelDlg.cpp:207
 src/C4StartupScenSelDlg.cpp:1275
 src/C4Surface.cpp:471
 src/C4ToolsDlg.cpp:606
