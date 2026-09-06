@@ -18,6 +18,7 @@
 // Startup screen for non-parameterized engine start: Player selection dialog
 // Also contains player creation, editing and crew management
 
+#include "C4GuiComboBox.h"
 #include "C4GuiEdit.h"
 #include "C4GuiListBox.h"
 #include <C4StartupPlrSelDlg.h>
