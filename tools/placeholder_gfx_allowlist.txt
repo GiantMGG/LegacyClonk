@@ -10,7 +10,6 @@
 # class: a NEW flat-block def cannot ship green. The scorpion is NOT here.
 #
 # --- The plan's original 7-entry seed ---
-Desert.c4d/DatePalm.c4d                                         # cycle-70 placeholder — follow-up
 Fantasy.c4d/Magic.c4d/Fishskin.c4d/FishClonk.c4d                # transparent 64x64 stub skin — debt
 Hazard.c4d/Crew.c4d/AIPlayer.c4d/Waypoint.c4d                   # Vis/Path markers — legit flat
 Hazard.c4d/Effects.c4d/Light.c4d                                # glow attachment — legit flat
@@ -77,3 +76,4 @@ Western.c4d/Vehicles.c4d/Cannon.c4d                             # transparent Re
 Western.c4d/Vehicles.c4d/Gatling.c4d                            # transparent Head facet — debt
 Western.c4f/Goldrush.c4s/Locals.c4d/CoachBandits.c4d            # transparent Drive facets — debt
 Western.c4f/Goldrush.c4s/Locals.c4d/Sheriff.c4d                 # transparent action facets — debt
+Hazard.c4d/Arena.c4d/Bonuses.c4d/Heal.c4d                       # legacy flat red cross — FLAT_PICTURE grandfather (cycle 100)

@@ -9,6 +9,8 @@ math (C4Facet::DrawT + UpdateFlipDir).
 
 Hard fails (exit 1), skipped for allowlisted defs:
   FLAT_FACET        sampled rect has >= 16 opaque px, all one RGB
+  FLAT_PICTURE      actionless def whose explicit in-bounds Picture
+                    rect samples >= 16 opaque px, all one RGB
   INVISIBLE_ACTION  action with explicit Facet= whose every sampled
                     rect has 0 opaque px
 Warns (legacy debt, spec deviation D1):
@@ -175,11 +177,13 @@ def check_def(def_dir, rel, allow):
 	else:
 		actions = parse_actions(dc_text)
 	# Picture OOB (warn-only)
+	picture_rect = None
 	for line in dc_text.splitlines():
 		stripped = line.strip().rstrip("\r")
 		if stripped.lower().startswith("picture="):
 			try:
 				px, py, pw, ph = rect(stripped.split("=", 1)[1])
+				picture_rect = (px, py, pw, ph)
 				if px + pw > width or py + ph > height or px < 0 or py < 0:
 					warns.append(f"WARN {rel}: PICTURE_OOB Picture=({px},{py},{pw},{ph}) sheet={width}x{height}")
 			except Exception:
@@ -215,6 +219,12 @@ def check_def(def_dir, rel, allow):
 		# INVISIBLE only when at least one rect was actually sampled
 		if sampled_any and total_opaque == 0:
 			findings.append(f"FAIL {rel}: INVISIBLE_ACTION action={name} facet=({fx},{fy},{fw},{fh}) 0 opaque px")
+	if not actions and picture_rect is not None:
+		px, py, pw, ph = picture_rect
+		if px >= 0 and py >= 0 and px + pw <= width and py + ph <= height:
+			opaque, colors = sample(rows, px, py, pw, ph)
+			if opaque >= THRESHOLD and len(colors) == 1:
+				findings.append(f"FAIL {rel}: FLAT_PICTURE Picture=({px},{py},{pw},{ph}) {opaque} px, single color {next(iter(colors))}")
 	if rel in allow:
 		findings = []  # allowlisted: hard checks skipped, warnings kept
 	return findings, warns
