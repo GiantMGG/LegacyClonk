@@ -13,17 +13,31 @@
  * for the above references.
  */
 
-// Stage 1 unit tests for the stock control-preset registry (spec
-// two-hand-control-presets, §3, G1/G2/G4).
+// Stage 1+2 unit tests for the stock control-preset registry (spec
+// two-hand-control-presets, §3, G1-G5, P1-P5).
 //
 // G1: every preset's 12 slots are bound to a real key with no duplicates
 //     (guards the options-dialog crash invariant,
 //     C4StartupOptionsDlg.cpp:254-255), on both locale branches.
 // G2: the two-hand tables equal the §2.2 table exactly, on both locale
 //     branches, and are fGer-invariant.
+// G3: ApplyPreset's restart-survival — a seeded stale KeyConfig.txt delta
+//     must not be carried into the resaved file (PRIMARY assert), and layer 1
+//     (the config table, re-read by InitKeyboard) carries the binding across
+//     the simulated restart (SECONDARY assert).
+//     (mutation: removing the ResetKey loop turns the PRIMARY assert RED)
 // G4: the Classic One-Hand and Right-Hand registry tables equal the literal
 //     pre-flip CompileFunc defaults (C4Config.cpp:345-356 / :371-382), on
 //     both locale branches (fGer-variant slots 6/9 classic, 5/8 right-hand).
+// G5: SetKeyboardControlKey writes BOTH the config table and the live named
+//     key (mutation: removing the RebindKey turns this RED).
+// P1-P5: the existing KeyConfig.txt delta-form behavior, pinned —
+//     never-rebound keys emit no entry (P1), explicitly rebound keys emit
+//     theirs (P2), ResetKey-cleared keys emit none (P3), absent entries fall
+//     back to DefaultCodes on load (P4), and a one-delta state resaves to an
+//     INI containing ONLY the delta entry + ResetKey yields a bare [Keys]
+//     section (P5) (mutation: reverting the StdNamingDefaultAdapt write-side
+//     skip turns P1/P3/P5 RED).
 
 #include <catch2/catch_all.hpp>
 
@@ -31,7 +45,11 @@
 #include "C4Config.h"
 #include "C4Game.h"
 #include "C4KeyboardInput.h"
+#include "C4Wrappers.h"
 #include "StdCompiler.h"
+
+#include <format>
+#include <string>
 
 // Expectations are platform-resolved with the same triples the registry and
 // the pre-flip CompileFunc use (C4Config.cpp:336-341). SDL2 headers ship with
@@ -144,6 +162,36 @@ namespace
 			if (lhs.Keys[i] != rhs.Keys[i]) return false;
 		return true;
 	}
+
+	// Registers the 12 named keys of keyboard set iSet, mirroring the
+	// C4Game.cpp:3285-3294 registration loop (nullptr callback is fine — the
+	// C4CustomKey ctor guards it, C4KeyboardInput.cpp:484-489). Used both for
+	// "classic registration" and the simulated-restart re-registration.
+	void RegisterKbdSet(C4KeyboardInput &rInput, int32_t iSet, const int32_t (&rCodes)[C4MaxKey])
+	{
+		for (int32_t i = 0; i < C4MaxKey; ++i)
+		{
+			const std::string name = std::format("Kbd{}Key{}", iSet + 1, i + 1);
+			rInput.RegisterKey(new C4CustomKey(C4KeyCodeEx(rCodes[i]), name.c_str(),
+				KEYSCOPE_Control, nullptr, C4CustomKey::PRIO_PlrControl));
+		}
+	}
+
+	// The exact serialization SaveCustomConfig performs (C4KeyboardInput.cpp:
+	// 678-680): decompile the input to an INI string, no disk involved.
+	std::string ResaveToIni(C4KeyboardInput &rInput)
+	{
+		StdCompilerINIWrite iniWrite;
+		iniWrite.Decompile(rInput);
+		return iniWrite.getOutput();
+	}
+
+	// The exact deserialization LoadCustomConfig performs (C4KeyboardInput.cpp:
+	// 866): compile the INI string back into the input.
+	bool LoadFromIni(C4KeyboardInput &rInput, const std::string &rIni)
+	{
+		return CompileFromBuf_LogWarn<StdCompilerINIRead>(rInput, StdStrBuf(rIni), "test");
+	}
 }
 
 TEST_CASE("PresetRegistry.AllSlotsBoundNoDupes", "[control-presets]")
@@ -226,6 +274,224 @@ TEST_CASE("PresetRegistry.LegacyGerParity", "[control-presets]")
 		INFO("right-hand German slot " << iKey);
 		CHECK(rightHandGer.Keys[iKey] == RightHandGerTable[iKey]);
 	}
+}
+
+TEST_CASE("ApplyPreset.RestartSurvival", "[control-presets]")
+{
+	// G3: ApplyPreset's restart-survival — a seeded stale KeyConfig.txt delta
+	// must not be carried into the resaved file, and layer 1 (the config
+	// table, re-read by InitKeyboard at startup) must carry the applied
+	// binding across the simulated restart. The six steps follow the plan:
+	// mutation, removing the ResetKey loop from ApplyPreset, turns this RED
+	// on the step-5 PRIMARY assert.
+	//
+	// NOTE: a real C4KeyCodeEx delta is written quoted (RCT_Escaped) but read
+	// back via RCT_Idtf, which cannot consume a leading '"' — so a delta does
+	// not survive a load; the effective key falls back to its default. Layer 1
+	// is therefore what carries the applied preset across a restart. The
+	// ResetKey loop guarantees the resaved KeyConfig.txt carries NO stale
+	// delta, which is the property pinned in step 5.
+
+	// A code in neither the classic nor the two-hand table: seeds the stale delta.
+	const int32_t staleCode = KEY('T', XK_t, SDL_SCANCODE_T);
+	const C4ControlPreset twoHand = GetPreset(C4PR_TwoHandMouse, false);
+	const C4ControlPreset classic = GetPreset(C4PR_Classic, false);
+
+	// (1) Fresh global input, registered with the classic table.
+	Game.KeyboardInput.Clear();
+	RegisterKbdSet(Game.KeyboardInput, 0, classic.Keys);
+
+	// (2) Seed a stale delta on Kbd1Key7.
+	C4CustomKey *pKey7 = Game.KeyboardInput.GetKeyByName("Kbd1Key7");
+	REQUIRE(pKey7);
+	C4CustomKey::CodeList staleCodes;
+	staleCodes.push_back(C4KeyCodeEx(staleCode));
+	Game.KeyboardInput.RebindKey(pKey7, staleCodes);
+
+	// (3) Apply the two-hand preset to keyboard set 0 (table write + ResetKey x 12).
+	REQUIRE(ApplyPreset(0, twoHand));
+
+	// (4) Resave: SaveCustomConfig-shaped decompile, no disk.
+	const std::string saved = ResaveToIni(Game.KeyboardInput);
+
+	// (5) PRIMARY ASSERT (mutation discriminator): the resave contains NO
+	// Kbd1Key7 entry — after ResetKey, Codes == {} and the writer drops
+	// empty-Codes entries. Without the ResetKey loop the stale delta would
+	// survive the resave (Kbd1Key7="t") and this assert goes RED.
+	CHECK(saved.find("Kbd1Key7") == std::string::npos);
+	CHECK(saved.find('=') == std::string::npos);
+
+	// (6) SECONDARY (documents the truthful end state): simulate restart —
+	// re-register the 12 keys from the NEW table (what InitKeyboard does,
+	// C4Game.cpp:3289-3293), then load the saved INI back. All 12 effective
+	// codes must equal the applied two-hand table.
+	Game.KeyboardInput.Clear();
+	RegisterKbdSet(Game.KeyboardInput, 0, Config.Controls.Keyboard[0]);
+	REQUIRE(LoadFromIni(Game.KeyboardInput, saved));
+	for (int32_t i = 0; i < C4MaxKey; ++i)
+	{
+		INFO("slot " << i);
+		C4CustomKey *pKey = Game.KeyboardInput.GetKeyByName(std::format("Kbd1Key{}", i + 1).c_str());
+		REQUIRE(pKey);
+		CHECK(pKey->GetCodes().front().Key == static_cast<C4KeyCode>(twoHand.Keys[i]));
+	}
+}
+
+TEST_CASE("KeyConfigDeltaForm.NeverReboundWritesNothing", "[control-presets]")
+{
+	// P1: a never-rebound key (Codes == DefaultCodes — the post-load
+	// fallback state, StdAdaptors.h:126) emits no INI entry. The empty-[Keys]
+	// load puts every key into that default-equal state (what LoadCustomConfig
+	// does for absent entries). Mutation: reverting the
+	// StdNamingDefaultAdapt write-side skip turns this RED.
+	C4KeyboardInput input;
+	RegisterKbdSet(input, 0, ClassicTable);
+	REQUIRE(LoadFromIni(input, "[Keys]\r\n"));
+
+	const std::string out = ResaveToIni(input);
+	CHECK(out.find('=') == std::string::npos); // no entries at all
+}
+
+TEST_CASE("KeyConfigDeltaForm.ReboundKeyEmitsEntry", "[control-presets]")
+{
+	// P2: an explicitly rebound key (Codes != DefaultCodes) emits its entry.
+	C4KeyboardInput input;
+	RegisterKbdSet(input, 0, ClassicTable);
+
+	C4CustomKey *pKey = input.GetKeyByName("Kbd1Key2");
+	REQUIRE(pKey);
+	C4CustomKey::CodeList codes;
+	codes.push_back(C4KeyCodeEx(KEY('T', XK_t, SDL_SCANCODE_T)));
+	input.RebindKey(pKey, codes);
+
+	const std::string out = ResaveToIni(input);
+	CHECK(out.find("Kbd1Key2=") != std::string::npos);
+}
+
+TEST_CASE("KeyConfigDeltaForm.ResetKeyedWritesNothing", "[control-presets]")
+{
+	// P3: a ResetKey-cleared key (Codes == {}) emits nothing, even after a
+	// previous rebind created a delta. The sibling keys stay default-equal
+	// (post-load fallback) so the write-side skip must silence them.
+	// Mutation: reverting the write-side default skip turns this RED (the
+	// default-equal sibling keys then write).
+	C4KeyboardInput input;
+	RegisterKbdSet(input, 0, ClassicTable);
+	REQUIRE(LoadFromIni(input, "[Keys]\r\n"));
+
+	C4CustomKey *pKey = input.GetKeyByName("Kbd1Key2");
+	REQUIRE(pKey);
+	C4CustomKey::CodeList codes;
+	codes.push_back(C4KeyCodeEx(KEY('T', XK_t, SDL_SCANCODE_T)));
+	input.RebindKey(pKey, codes);
+
+	input.ResetKey(input.GetKeyByName("Kbd1Key2"));
+
+	const std::string out = ResaveToIni(input);
+	CHECK(out.find('=') == std::string::npos);
+	CHECK(out.find("Kbd1Key2") == std::string::npos);
+}
+
+TEST_CASE("KeyConfigDeltaForm.AbsentEntryFallsBackToDefault", "[control-presets]")
+{
+	// P4: on load, an absent entry falls back to Codes = DefaultCodes
+	// (StdAdaptors.h:126) — the key keeps working with its registered
+	// default, and a later save still skips it as default-equal.
+	C4KeyboardInput input;
+	RegisterKbdSet(input, 0, ClassicTable);
+
+	REQUIRE(LoadFromIni(input, "[Keys]\r\n"));
+
+	for (int32_t i = 0; i < C4MaxKey; ++i)
+	{
+		INFO("slot " << i);
+		C4CustomKey *pKey = input.GetKeyByName(std::format("Kbd1Key{}", i + 1).c_str());
+		REQUIRE(pKey);
+		CHECK(pKey->GetCodes().front().Key == static_cast<C4KeyCode>(ClassicTable[i]));
+	}
+
+	// The loaded-in fallback state is default-equal: a resave emits no entries.
+	const std::string out = ResaveToIni(input);
+	CHECK(out.find('=') == std::string::npos);
+}
+
+TEST_CASE("KeyConfigDeltaForm.OneDeltaStateResavesToDeltaOnly", "[control-presets]")
+{
+	// P5 (a): a one-delta state resaves to an INI containing ONLY the delta
+	// entry — the 11 default-equal siblings are skipped by the write-side
+	// default check (StdAdaptors.h:109-115). Mutation: reverting the
+	// write-side skip turns this RED (the sibling keys then leak entries).
+	//
+	// NOTE: the written delta does NOT survive a load — the value is written
+	// quoted (RCT_Escaped) but read back via RCT_Idtf, which cannot consume
+	// a leading '"', so the entry is dropped at load (and the effective key
+	// falls back to its default). Therefore a load->save byte-identity is
+	// mechanically impossible and is deliberately NOT asserted here (plan
+	// amendment, 2026-09-06).
+	C4KeyboardInput input;
+	RegisterKbdSet(input, 0, ClassicTable);
+	REQUIRE(LoadFromIni(input, "[Keys]\r\n")); // siblings -> default-equal
+
+	C4CustomKey *pKey = input.GetKeyByName("Kbd1Key2");
+	REQUIRE(pKey);
+	C4CustomKey::CodeList codes;
+	codes.push_back(C4KeyCodeEx(KEY('T', XK_t, SDL_SCANCODE_T)));
+	input.RebindKey(pKey, codes);
+
+	const std::string s1 = ResaveToIni(input);
+	CHECK(s1.find("Kbd1Key2=") != std::string::npos); // the delta entry
+	for (int32_t i = 0; i < C4MaxKey; ++i)
+	{
+		if (i == 1) continue; // slot 1 (Kbd1Key2) is the one delta
+		INFO("sibling slot " << i);
+		CHECK(s1.find(std::format("Kbd1Key{}=", i + 1)) == std::string::npos);
+	}
+}
+
+TEST_CASE("KeyConfigDeltaForm.ResetYieldsBareKeysSection", "[control-presets]")
+{
+	// P5 (b): after ResetKey on the rebound key + resave, the file is just
+	// the [Keys] section — the stale delta entry is dropped. Mutation:
+	// reverting the write-side skip turns this RED (the still-default
+	// sibling keys write their entries).
+	C4KeyboardInput input;
+	RegisterKbdSet(input, 0, ClassicTable);
+	REQUIRE(LoadFromIni(input, "[Keys]\r\n")); // siblings -> default-equal
+
+	C4CustomKey *pKey = input.GetKeyByName("Kbd1Key2");
+	REQUIRE(pKey);
+	C4CustomKey::CodeList codes;
+	codes.push_back(C4KeyCodeEx(KEY('T', XK_t, SDL_SCANCODE_T)));
+	input.RebindKey(pKey, codes);
+	input.ResetKey(input.GetKeyByName("Kbd1Key2"));
+
+	const std::string out = ResaveToIni(input);
+	CHECK(out.find('=') == std::string::npos);
+	CHECK(out.find("Kbd1Key2") == std::string::npos);
+}
+
+TEST_CASE("SetKeyboardControlKey.WritesBothLayers", "[control-presets]")
+{
+	// G5: the old-editor fix primitive must write the config-table slot AND
+	// rebind the live named key. Mutation: removing the RebindKey call turns
+	// this RED (the named key keeps its stale codes — the old-editor bug).
+	Game.KeyboardInput.Clear();
+
+	const int32_t code = KEY('T', XK_t, SDL_SCANCODE_T);
+	C4CustomKey::CodeList defCodes;
+	defCodes.push_back(C4KeyCodeEx(ClassicTable[2]));
+	Game.KeyboardInput.RegisterKey(new C4CustomKey(defCodes, "Kbd2Key3",
+		KEYSCOPE_Control, nullptr, C4CustomKey::PRIO_PlrControl));
+
+	SetKeyboardControlKey(1, 2, code);
+
+	// (a) Layer 1: the config-table write.
+	CHECK(Config.Controls.Keyboard[1][2] == code);
+	// (b) Layer 2: the live named key carries the new code.
+	C4CustomKey *pKey = Game.KeyboardInput.GetKeyByName("Kbd2Key3");
+	REQUIRE(pKey);
+	REQUIRE_FALSE(pKey->GetCodes().empty());
+	CHECK(pKey->GetCodes().front().Key == static_cast<C4KeyCode>(code));
 }
 
 #undef KEY

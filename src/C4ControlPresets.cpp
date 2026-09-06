@@ -13,11 +13,17 @@
  * for the above references.
  */
 
-/* Stock keyboard control presets (spec two-hand-control-presets, §2.1/§2.2) */
+/* Stock keyboard control presets (spec two-hand-control-presets, §2.1/§2.3/§2.4) */
 
 #include "C4ControlPresets.h"
 
+#include <C4Config.h>
+#include <C4Game.h>
+#include <C4KeyboardInput.h>
+#include <C4Math.h>
+
 #include <cstring>
+#include <format>
 
 // Keysym/scancode declarations, platform-resolved exactly like the
 // C4Config.cpp:336-341 precedent. SDL2 headers ship with the project deps on
@@ -235,6 +241,42 @@ C4ControlPreset GetPreset(int32_t iIndex, bool fGer)
 	preset.MouseMode = rTable.MouseMode;
 	std::memcpy(preset.Keys, fGer ? rTable.KeysGer : rTable.Keys, sizeof(preset.Keys));
 	return preset;
+}
+
+bool ApplyPreset(int32_t iSet, const C4ControlPreset &rPreset)
+{
+	if (!Inside<int32_t>(iSet, 0, C4MaxKeyboardSet - 1)) return false;
+	// Layer 1: the config table.
+	for (int32_t i = 0; i < C4MaxKey; ++i)
+		Config.Controls.Keyboard[iSet][i] = rPreset.Keys[i];
+	// Layer 2: the live named keys. ResetKey clears their Codes, so a later
+	// SaveCustomConfig writes no stale KeyConfig.txt override entries for
+	// this set. (KeyConfig.txt values are written quoted and read back as
+	// identifiers, so a written delta is dropped at load either way — the
+	// load-bearing effect of the reset is that the resaved file simply
+	// carries no stale entry; see spec §0 and the G3 test.) Keys not yet
+	// registered (console builds, pre-InitKeyboard calls) are tolerated:
+	// GetKeyByName returns nullptr.
+	for (int32_t i = 0; i < C4MaxKey; ++i)
+		if (C4CustomKey *pKey = Game.KeyboardInput.GetKeyByName(
+			std::format("Kbd{}Key{}", iSet + 1, i + 1).c_str()))
+			Game.KeyboardInput.ResetKey(pKey);
+	return true;
+}
+
+void SetKeyboardControlKey(int32_t iSet, int32_t iKey, int32_t iKeyCode)
+{
+	Config.Controls.Keyboard[iSet][iKey] = iKeyCode;
+	// Mirror the BindingsTab rebind (C4StartupOptionsDlg.cpp:627-629) so an
+	// old-editor rebind is applied to the live named key immediately — the
+	// old editor's root-cause fix (spec §2.4). The config-table write is
+	// what persists across restart.
+	if (C4CustomKey *pKey = Game.KeyboardInput.GetKeyByName(
+		std::format("Kbd{}Key{}", iSet + 1, iKey + 1).c_str()))
+	{
+		C4CustomKey::CodeList codes; codes.push_back(C4KeyCodeEx(iKeyCode));
+		Game.KeyboardInput.RebindKey(pKey, codes);
+	}
 }
 
 #undef KEY
