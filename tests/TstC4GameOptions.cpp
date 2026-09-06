@@ -136,3 +136,89 @@ TEST_CASE("ParameterOverrides_DefaultClearsOverrides", "[parameter-override]")
 	Game.Default();
 	REQUIRE(Game.ParameterOverrides.empty());
 }
+
+// --- Rules=/Goals= ID-list overrides (spec pregame-options-parity-2 §2.4) --
+// C1: a Rules override REPLACES the whole rules list (defaults gone, Goals untouched).
+TEST_CASE("ParameterOverrides_RulesOverrideReplacesList", "[parameter-override]")
+{
+	Game.Default();
+	Game.ParameterOverrides.clear();
+	Game.Parameters.Rules.Clear();
+	Game.Parameters.Rules.SetIDCount(C4Id("ENRG"), 1, true);
+	Game.Parameters.Goals.Clear();
+	Game.Parameters.Goals.SetIDCount(C4Id("MELE"), 1, true);
+
+	AddOverride("Rules", "NMTT=1;TACC=2");
+	Game.ApplyParameterOverrides();
+
+	REQUIRE(Game.Parameters.Rules.GetNumberOfIDs() == 2);
+	REQUIRE(Game.Parameters.Rules.GetIDCount(C4Id("NMTT")) == 1);
+	REQUIRE(Game.Parameters.Rules.GetIDCount(C4Id("TACC")) == 2);
+	REQUIRE(Game.Parameters.Rules.GetIDCount(C4Id("ENRG")) == 0);
+	REQUIRE(Game.Parameters.Goals.GetIDCount(C4Id("MELE")) == 1);
+}
+
+// C2: a Goals override REPLACES the whole goals list (Rules untouched).
+TEST_CASE("ParameterOverrides_GoalsOverrideReplacesList", "[parameter-override]")
+{
+	Game.Default();
+	Game.ParameterOverrides.clear();
+	Game.Parameters.Rules.Clear();
+	Game.Parameters.Rules.SetIDCount(C4Id("ENRG"), 1, true);
+	Game.Parameters.Goals.Clear();
+	Game.Parameters.Goals.SetIDCount(C4Id("MELE"), 1, true);
+
+	AddOverride("Goals", "MONE=1;VALG=2");
+	Game.ApplyParameterOverrides();
+
+	REQUIRE(Game.Parameters.Goals.GetNumberOfIDs() == 2);
+	REQUIRE(Game.Parameters.Goals.GetIDCount(C4Id("MONE")) == 1);
+	REQUIRE(Game.Parameters.Goals.GetIDCount(C4Id("VALG")) == 2);
+	REQUIRE(Game.Parameters.Goals.GetIDCount(C4Id("MELE")) == 0);
+	REQUIRE(Game.Parameters.Rules.GetIDCount(C4Id("ENRG")) == 1);
+}
+
+// C3: a bare ID parses with count 0 — the clamp must raise it to 1
+// (InitGoals places exactly iCount objects, C4Game.cpp:3975-3977 — spec §4.7 trap).
+TEST_CASE("ParameterOverrides_ZeroCountClampedToOne", "[parameter-override]")
+{
+	Game.Default();
+	Game.ParameterOverrides.clear();
+	Game.Parameters.Goals.Clear();
+
+	AddOverride("Goals", "MELE");
+	Game.ApplyParameterOverrides();
+
+	REQUIRE(Game.Parameters.Goals.GetNumberOfIDs() == 1);
+	REQUIRE(Game.Parameters.Goals.GetIDCount(C4Id("MELE")) == 1);
+}
+
+// C4: a malformed value is caught, logged, skipped — list unchanged, no crash.
+TEST_CASE("ParameterOverrides_MalformedIDListIgnoredNoCrash", "[parameter-override]")
+{
+	Game.Default();
+	Game.ParameterOverrides.clear();
+	Game.Parameters.Rules.Clear();
+	Game.Parameters.Rules.SetIDCount(C4Id("ENRG"), 1, true);
+
+	AddOverride("Rules", "%%invalid%%");
+	REQUIRE_NOTHROW(Game.ApplyParameterOverrides());
+
+	REQUIRE(Game.Parameters.Rules.GetNumberOfIDs() == 1);
+	REQUIRE(Game.Parameters.Rules.GetIDCount(C4Id("ENRG")) == 1);
+}
+
+// C5: two occurrences of the same key — the last one wins.
+TEST_CASE("ParameterOverrides_IDListLastOccurrenceWins", "[parameter-override]")
+{
+	Game.Default();
+	Game.ParameterOverrides.clear();
+	Game.Parameters.Rules.Clear();
+
+	AddOverride("Rules", "ENRG=1");
+	AddOverride("Rules", "NMTT=1");
+	Game.ApplyParameterOverrides();
+
+	REQUIRE(Game.Parameters.Rules.GetNumberOfIDs() == 1);
+	REQUIRE(Game.Parameters.Rules.GetIDCount(C4Id("NMTT")) == 1);
+}

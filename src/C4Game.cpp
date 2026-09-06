@@ -3054,6 +3054,50 @@ void C4Game::AddParameterOverride(const char *szKV)
 	ParameterOverrides.emplace_back(std::move(Key), std::move(Value));
 }
 
+namespace
+{
+	// Parse a --parameter Rules=/Goals= value "ID[=Count][;ID[=Count]...]"
+	// into rList, using the same INI machinery as the Scenario.txt [Game]
+	// Rules=/Goals= entries (C4IDList::CompileFunc + StdCompilerINIRead).
+	// Returns false iff the value is malformed — including a value that
+	// parses to zero IDs (rList left clear).
+	bool ParseIDListOverrideValue(const StdStrBuf &Value, C4IDList &rList)
+	{
+		rList.Clear();
+		// Wrap the value as a one-line "Rules=<value>" INI document so the
+		// naming adapt finds its entry; the list then parses the remainder.
+		StdStrBuf ParseBuf{std::format("Rules={}", Value.getData())};
+		try
+		{
+			CompileFromBuf<StdCompilerINIRead>(mkNamingAdapt(rList, "Rules"), ParseBuf);
+		}
+		catch (const StdCompiler::Exception &)
+		{
+			rList.Clear();
+			return false;
+		}
+		// The list container adapt treats a malformed entry as an early
+		// end-of-list (StdSTLContainerAdapt::CompileFunc catches
+		// NotFoundException), so garbage parses to an EMPTY list without
+		// throwing. Zero parsed IDs = malformed (spec §4.6: skipped, list
+		// unchanged) — never silently clear the target list.
+		if (rList.GetNumberOfIDs() == 0) return false;
+		return true;
+	}
+
+	// Bare IDs parse with count 0, and InitGoals places exactly iCount
+	// objects (C4Game.cpp:3975-3977) — a count of 0 would silently place
+	// nothing. Clamp every count to >= 1 (spec §4.7).
+	void ClampIDListCountsToOne(C4IDList &rList)
+	{
+		const auto numberOfIDs = rList.GetNumberOfIDs();
+		for (std::size_t i = 0; i < static_cast<std::size_t>(numberOfIDs); ++i)
+		{
+			if (rList.GetCount(i) < 1) rList.SetCount(i, 1);
+		}
+	}
+}
+
 void C4Game::ApplyParameterOverrides()
 {
 	for (const auto &[Key, Value] : ParameterOverrides)
@@ -3106,6 +3150,31 @@ void C4Game::ApplyParameterOverrides()
 				continue;
 			}
 			Teams.SetRandomTeamCount(iVal);
+		}
+		// Rules=ID[=Count][;ID[=Count]...] — replaces the whole rules list
+		// (spec pregame-options-parity-2 §2.4)
+		else if (SEqualNoCase(Key.getData(), "Rules"))
+		{
+			C4IDList NewList;
+			if (!ParseIDListOverrideValue(Value, NewList))
+			{
+				LogNTr("--parameter: Rules value malformed or empty, ignored: {}", Value.getData());
+				continue;
+			}
+			ClampIDListCountsToOne(NewList);
+			Parameters.Rules = NewList;
+		}
+		// Goals=ID[=Count][;ID[=Count]...] — replaces the whole goals list
+		else if (SEqualNoCase(Key.getData(), "Goals"))
+		{
+			C4IDList NewList;
+			if (!ParseIDListOverrideValue(Value, NewList))
+			{
+				LogNTr("--parameter: Goals value malformed or empty, ignored: {}", Value.getData());
+				continue;
+			}
+			ClampIDListCountsToOne(NewList);
+			Parameters.Goals = NewList;
 		}
 		// unknown key
 		else
