@@ -27,6 +27,89 @@
 #include <C4Log.h>
 #include <C4RTF.h>
 
+namespace
+{
+	// Def icon: buffered def picture, drawn per frame — the GoalPicture
+	// buffered-draw pattern (C4GameOverDlg.cpp:51-59).
+	class DefIcon : public C4GUI::Window
+	{
+	public:
+		DefIcon(const C4Rect &rcBounds, C4Def *pDef)
+		{
+			SetBounds(rcBounds);
+			if (pDef)
+			{
+				Picture.Create(rcBounds.Wdt, rcBounds.Hgt);
+				pDef->Draw(Picture, false, 0, nullptr);
+			}
+		}
+
+	protected:
+		virtual void DrawElement(C4FacetEx &cgo) override
+		{
+			C4Facet cgoDraw;
+			cgoDraw.Set(cgo.Surface, cgo.X + rcBounds.x + cgo.TargetX, cgo.Y + rcBounds.y + cgo.TargetY, rcBounds.Wdt, rcBounds.Hgt);
+			Picture.Draw(cgoDraw);
+		}
+
+	private:
+		C4FacetExSurface Picture;
+	};
+
+	// Per-def picker checkbox (spec §2.3): toggling writes through to the
+	// target C4IDList immediately — check on re-adds the ID with its initial
+	// count clamped >= 1; check off removes the ID from the list again.
+	class PickerCheckBox : public C4GUI::CheckBox
+	{
+	public:
+		PickerCheckBox(const C4Rect &rcBounds, const std::string &szCaption, bool fChecked,
+			C4IDList *pTargetList, C4ID idDef, int32_t iInitialCount)
+			: C4GUI::CheckBox(rcBounds, szCaption, fChecked)
+			, pTargetList(pTargetList), idDef(idDef), iInitialCount(iInitialCount)
+		{
+			SetOnChecked(new C4GUI::CallbackHandlerNoPar<PickerCheckBox>(this, &PickerCheckBox::OnToggle));
+		}
+
+	private:
+		void OnToggle()
+		{
+			if (GetChecked())
+			{
+				// re-check: restore the initial count, clamped >= 1 (spec §4.7)
+				pTargetList->SetIDCount(idDef, std::max(iInitialCount, 1), true);
+			}
+			else
+			{
+				// uncheck: remove the ID from the list again
+				const int32_t iIndex = pTargetList->GetIndex(idDef);
+				if (iIndex >= 0) pTargetList->DeleteItem(static_cast<std::size_t>(iIndex));
+			}
+		}
+
+		C4IDList *pTargetList;
+		C4ID idDef;
+		int32_t iInitialCount;
+	};
+
+	// One picker row: def icon left, checkbox right (spec §1: icon + name).
+	class DefPickerRow : public C4GUI::Window
+	{
+	public:
+		DefPickerRow(const C4Rect &rcRow, C4Def *pDef, C4IDList *pTargetList)
+		{
+			SetBounds(rcRow);
+			const C4ID idDef = pDef->id;
+			// pre-checked iff the list contains the ID (spec §1)
+			const bool fChecked = pTargetList->GetIndex(idDef) >= 0;
+			const int32_t iInitialCount = pTargetList->GetIDCount(idDef);
+			C4GUI::ComponentAligner caRow(GetContainedClientRect(), 2, 1);
+			const int32_t iIconSize = rcRow.Hgt - 4;
+			AddElement(new DefIcon(caRow.GetFromLeft(iIconSize, iIconSize), pDef));
+			AddElement(new PickerCheckBox(caRow.GetAll(), pDef->GetName(), fChecked, pTargetList, idDef, iInitialCount));
+		}
+	};
+}
+
 C4OfflineOptionsDlg::C4OfflineOptionsDlg()
 	: C4GUI::FullscreenDialog(LoadResStr(C4ResStrTableKey::IDS_DLG_OPTIONS), Game.Parameters.ScenarioTitle.getData()),
 	pBriefing(nullptr), pOptionsList(nullptr), pBtnStart(nullptr), pBtnAbort(nullptr)
@@ -36,10 +119,11 @@ C4OfflineOptionsDlg::C4OfflineOptionsDlg()
 	C4GUI::ComponentAligner caMain(GetClientRect(), 10, 10, true);
 	// bottom button area
 	C4GUI::ComponentAligner caBottom(caMain.GetFromBottom(C4GUI_ButtonHgt + 8), 10, 4);
-	// left pane: briefing on top (~45% of the pane); pickers land below (task 6)
+	// left pane: briefing on top (~45% of the pane), pickers below
 	const int32_t iLeftWdt = caMain.GetWidth() * 55 / 100;
 	C4GUI::ComponentAligner caLeft(caMain.GetFromLeft(iLeftWdt), 6, 4);
 	CreateBriefing(caLeft.GetFromTop(caLeft.GetHeight() * 45 / 100));
+	CreatePickers(caLeft.GetAll());
 	// right pane: options list (pre-game mode, same sheet as the network lobby)
 	pOptionsList = new C4GameOptionsList(caMain.GetAll(), true, false);
 	AddElement(pOptionsList);
@@ -80,6 +164,41 @@ void C4OfflineOptionsDlg::FillBriefing()
 	if (!!sDesc)
 		pBriefing->AddTextLine(sDesc.getData(), &rTextFont, C4GUI_MessageFontClr, false, true);
 	pBriefing->UpdateHeight();
+}
+
+void C4OfflineOptionsDlg::CreatePickers(const C4Rect &rcPickers)
+{
+	// Savegame resume (spec §1 + §4.3): InitRules/InitGoals are gated on
+	// LandscapeLoaded (C4Game.cpp:2358) and don't run for savegame resumes,
+	// so picker writes would be inert — the pickers are skipped and the
+	// briefing is shown read-only.
+	if (Game.GameC4S.Head.SaveGame) return;
+
+	pPickerList = new C4GUI::ListBox(rcPickers);
+	AddElement(pPickerList);
+	const int32_t iListWdt = pPickerList->GetItemWidth();
+
+	// Objectives — one checkbox row per loaded C4D_Goal def (spec §2.3;
+	// the enum constraint: ONLY C4D_Goal/C4D_Rule defs are enumerated)
+	AddPickerSectionHeader("Objectives");
+	for (std::size_t i = 0; C4Def *pDef = Game.Defs.GetDef(i, C4D_Goal); ++i)
+	{
+		pPickerList->AddElement(new DefPickerRow(C4Rect(0, 0, iListWdt, 36), pDef, &Game.Parameters.Goals));
+	}
+
+	// Rules — one checkbox row per loaded C4D_Rule def
+	AddPickerSectionHeader("Rules");
+	for (std::size_t i = 0; C4Def *pDef = Game.Defs.GetDef(i, C4D_Rule); ++i)
+	{
+		pPickerList->AddElement(new DefPickerRow(C4Rect(0, 0, iListWdt, 36), pDef, &Game.Parameters.Rules));
+	}
+}
+
+void C4OfflineOptionsDlg::AddPickerSectionHeader(const char *szSectionLabel)
+{
+	pPickerList->AddElement(new C4GUI::Label(szSectionLabel,
+		C4Rect(0, 0, pPickerList->GetItemWidth(), 20), ALeft,
+		C4GUI_CaptionFontClr, &C4GUI::GetRes()->CaptionFont));
 }
 
 void C4OfflineOptionsDlg::OnBtnStart(C4GUI::Control *btn)

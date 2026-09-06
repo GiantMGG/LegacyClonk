@@ -41,9 +41,14 @@ private:
 	void CreateBriefing(const C4Rect &rcBriefing);
 	void FillBriefing();
 
+	// left pane bottom: objectives/rules checkbox rows (spec §2.3)
+	void CreatePickers(const C4Rect &rcPickers);
+	void AddPickerSectionHeader(const char *szSectionLabel);
+
 	virtual class C4GUI::Control *GetDefaultControl() override { return pBtnStart; }
 
 	C4GUI::TextWindow *pBriefing;
+	C4GUI::ListBox *pPickerList{nullptr};
 	C4GameOptionsList *pOptionsList;
 	C4GUI::CallbackButton<C4OfflineOptionsDlg> *pBtnStart;
 	C4GUI::CallbackButton<C4OfflineOptionsDlg> *pBtnAbort;
