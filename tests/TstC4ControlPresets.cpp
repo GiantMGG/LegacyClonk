@@ -38,6 +38,13 @@
 //     INI containing ONLY the delta entry + ResetKey yields a bare [Keys]
 //     section (P5) (mutation: reverting the StdNamingDefaultAdapt write-side
 //     skip turns P1/P3/P5 RED).
+// L1: the flip wiring — ResetKeys() restores the registry Two-Hand WASD+Mouse
+//     table to Kbd1 and the unchanged literal Kbd2-4 defaults.
+// L2: registry ↔ CompileFunc legacy parity — the Numpad/Right-Hand/Nav-Cluster
+//     presets equal the CompileFunc Kbd2/3/4 defaults read back after
+//     ResetKeys(). Both SKIP under USE_CONSOLE: the console engine's
+//     CompileFunc key tables are zero-filled (C4Config.cpp:335) and ResetKeys
+//     is not defined there.
 
 #include <catch2/catch_all.hpp>
 
@@ -154,6 +161,40 @@ namespace
 		KEY('M', XK_m,          SDL_SCANCODE_M),
 		KEY(222, XK_adiaeresis, SDL_SCANCODE_APOSTROPHE),
 		KEY(186, XK_udiaeresis, SDL_SCANCODE_LEFTBRACKET),
+	};
+
+	// Literal Kbd2 defaults (C4Config.cpp:363-374) — locale-neutral.
+	const int32_t NumpadTable[C4MaxKey] =
+	{
+		KEY(103, XK_KP_Home,      SDL_SCANCODE_KP_7),
+		KEY(104, XK_KP_Up,        SDL_SCANCODE_KP_8),
+		KEY(105, XK_KP_Page_Up,   SDL_SCANCODE_KP_9),
+		KEY(100, XK_KP_Left,      SDL_SCANCODE_KP_4),
+		KEY(101, XK_KP_Begin,     SDL_SCANCODE_KP_5),
+		KEY(102, XK_KP_Right,     SDL_SCANCODE_KP_6),
+		KEY( 97, XK_KP_End,       SDL_SCANCODE_KP_1),
+		KEY( 98, XK_KP_Down,      SDL_SCANCODE_KP_2),
+		KEY( 99, XK_KP_Page_Down, SDL_SCANCODE_KP_3),
+		KEY( 96, XK_KP_Insert,    SDL_SCANCODE_KP_0),
+		KEY(110, XK_KP_Delete,    SDL_SCANCODE_KP_PERIOD),
+		KEY(107, XK_KP_Add,       SDL_SCANCODE_KP_PLUS),
+	};
+
+	// Literal Kbd4 defaults (C4Config.cpp:389-400) — locale-neutral.
+	const int32_t NavClusterTable[C4MaxKey] =
+	{
+		KEY(VK_INSERT, XK_Insert,    SDL_SCANCODE_INSERT),
+		KEY(VK_HOME,   XK_Home,      SDL_SCANCODE_HOME),
+		KEY(VK_PRIOR,  XK_Page_Up,   SDL_SCANCODE_PAGEUP),
+		KEY(VK_DELETE, XK_Delete,    SDL_SCANCODE_DELETE),
+		KEY(VK_UP,     XK_Up,        SDL_SCANCODE_UP),
+		KEY(VK_NEXT,   XK_Page_Down, SDL_SCANCODE_PAGEDOWN),
+		KEY(VK_LEFT,   XK_Left,      SDL_SCANCODE_LEFT),
+		KEY(VK_DOWN,   XK_Down,      SDL_SCANCODE_DOWN),
+		KEY(VK_RIGHT,  XK_Right,     SDL_SCANCODE_RIGHT),
+		KEY(VK_END,    XK_End,       SDL_SCANCODE_END),
+		KEY(VK_RETURN, XK_Return,    SDL_SCANCODE_RETURN),
+		KEY(VK_BACK,   XK_BackSpace, SDL_SCANCODE_BACKSPACE),
 	};
 
 	bool KeysEqual(const C4ControlPreset &lhs, const C4ControlPreset &rhs)
@@ -492,6 +533,71 @@ TEST_CASE("SetKeyboardControlKey.WritesBothLayers", "[control-presets]")
 	REQUIRE(pKey);
 	REQUIRE_FALSE(pKey->GetCodes().empty());
 	CHECK(pKey->GetCodes().front().Key == static_cast<C4KeyCode>(code));
+}
+
+TEST_CASE("FreshDefaults.FlipWiringL1", "[control-presets]")
+{
+	// L1 (the flip wiring, spec §3): Config.Controls.ResetKeys() restores
+	// the CompileFunc defaults — which after the flip are the single-sourced
+	// registry Two-Hand WASD+Mouse table for Kbd1 (spec §2.7) and the
+	// unchanged literal Kbd2-4 defaults. A hand-duplicated Kbd1 default that
+	// drifts from the registry fails here. (See §4.7: resetting now flips a
+	// classic Kbd1 to two-hand.)
+#ifdef USE_CONSOLE
+	SKIP("console build: CompileFunc key tables are zero-filled (F5)");
+#else
+	Config.Controls.ResetKeys();
+
+	// Kbd1 == C4PR_TwoHandMouse on both locale branches (the two-hand table
+	// is locale-neutral by construction — no QWERTZ variants).
+	for (bool fGer : { false, true })
+	{
+		const C4ControlPreset twoHand = GetPreset(C4PR_TwoHandMouse, fGer);
+		for (int32_t iKey = 0; iKey < C4MaxKey; ++iKey)
+		{
+			INFO("Kbd1 fGer " << fGer << " slot " << iKey);
+			CHECK(Config.Controls.Keyboard[0][iKey] == twoHand.Keys[iKey]);
+		}
+	}
+
+	// Kbd2-4 == the literal CompileFunc defaults, resolved the same way
+	// CompileFunc does for the fGer-sensitive Kbd3 slots 5/8.
+	const int32_t (&rKbd3)[C4MaxKey] = isGermanSystem() ? RightHandGerTable : RightHandTable;
+	for (int32_t iKey = 0; iKey < C4MaxKey; ++iKey)
+	{
+		INFO("Kbd2 slot " << iKey);
+		CHECK(Config.Controls.Keyboard[1][iKey] == NumpadTable[iKey]);
+		INFO("Kbd3 slot " << iKey);
+		CHECK(Config.Controls.Keyboard[2][iKey] == rKbd3[iKey]);
+		INFO("Kbd4 slot " << iKey);
+		CHECK(Config.Controls.Keyboard[3][iKey] == NavClusterTable[iKey]);
+	}
+#endif
+}
+
+TEST_CASE("FreshDefaults.LegacyParityL2", "[control-presets]")
+{
+	// L2 (registry ↔ CompileFunc legacy parity, spec §3): the registry
+	// Numpad/Right-Hand/Nav-Cluster presets equal the CompileFunc Kbd2/3/4
+	// defaults read back after ResetKeys(). A registry transcription that
+	// drifts from the CompileFunc literals (or a CompileFunc change left
+	// unmirrored in the registry) fails here.
+#ifdef USE_CONSOLE
+	SKIP("console build: CompileFunc key tables are zero-filled (F5)");
+#else
+	const bool fGer = isGermanSystem(); // what CompileFunc resolved during ResetKeys()
+	Config.Controls.ResetKeys();
+
+	for (int32_t iPreset : { C4PR_Numpad, C4PR_RightHand, C4PR_NavCluster })
+	{
+		const C4ControlPreset preset = GetPreset(iPreset, fGer);
+		for (int32_t iKey = 0; iKey < C4MaxKey; ++iKey)
+		{
+			INFO("preset " << iPreset << " slot " << iKey);
+			CHECK(preset.Keys[iKey] == Config.Controls.Keyboard[iPreset][iKey]);
+		}
+	}
+#endif
 }
 
 #undef KEY

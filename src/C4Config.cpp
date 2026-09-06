@@ -18,6 +18,7 @@
 
 #include <C4Config.h>
 
+#include "C4ControlPresets.h"
 #include "C4Version.h"
 #ifdef C4ENGINE
 #include <C4Application.h>
@@ -342,18 +343,22 @@ void C4ConfigControls::CompileFunc(StdCompiler *pComp, bool fKeysOnly)
 
 	bool fGer = isGermanSystem();
 
-	pComp->Value(mkNamingAdapt(Keyboard[0][ 0], "Kbd1Key1",  KEY('Q', XK_q, SDL_SCANCODE_Q)));
-	pComp->Value(mkNamingAdapt(Keyboard[0][ 1], "Kbd1Key2",  KEY('W', XK_w, SDL_SCANCODE_W)));
-	pComp->Value(mkNamingAdapt(Keyboard[0][ 2], "Kbd1Key3",  KEY('E', XK_e, SDL_SCANCODE_E)));
-	pComp->Value(mkNamingAdapt(Keyboard[0][ 3], "Kbd1Key4",  KEY('A', XK_a, SDL_SCANCODE_A)));
-	pComp->Value(mkNamingAdapt(Keyboard[0][ 4], "Kbd1Key5",  KEY('S', XK_s, SDL_SCANCODE_S)));
-	pComp->Value(mkNamingAdapt(Keyboard[0][ 5], "Kbd1Key6",  KEY('D', XK_d, SDL_SCANCODE_D)));
-	pComp->Value(mkNamingAdapt(Keyboard[0][ 6], "Kbd1Key7",  fGer ? KEY('Y', XK_y,    SDL_SCANCODE_Z)    : KEY('Z', XK_z, SDL_SCANCODE_Z)));
-	pComp->Value(mkNamingAdapt(Keyboard[0][ 7], "Kbd1Key8",  KEY('X', XK_x, SDL_SCANCODE_X)));
-	pComp->Value(mkNamingAdapt(Keyboard[0][ 8], "Kbd1Key9",  KEY('C', XK_c, SDL_SCANCODE_C)));
-	pComp->Value(mkNamingAdapt(Keyboard[0][ 9], "Kbd1Key10", fGer ? KEY(226, XK_less, SDL_SCANCODE_NONUSBACKSLASH) : KEY('R', XK_r, SDL_SCANCODE_R)));
-	pComp->Value(mkNamingAdapt(Keyboard[0][10], "Kbd1Key11", KEY('V', XK_v, SDL_SCANCODE_V)));
-	pComp->Value(mkNamingAdapt(Keyboard[0][11], "Kbd1Key12", KEY('F', XK_f, SDL_SCANCODE_F)));
+	// Kbd1 defaults are single-sourced from the preset registry: fresh
+	// installs start on Two-Hand WASD+Mouse (spec two-hand-control-presets,
+	// §2.7). The classic one-hand table lives only in the registry (C4PR_Classic).
+	const C4ControlPreset rKbd1Default = GetPreset(C4PR_TwoHandMouse, fGer);
+	pComp->Value(mkNamingAdapt(Keyboard[0][ 0], "Kbd1Key1",  rKbd1Default.Keys[ 0]));
+	pComp->Value(mkNamingAdapt(Keyboard[0][ 1], "Kbd1Key2",  rKbd1Default.Keys[ 1]));
+	pComp->Value(mkNamingAdapt(Keyboard[0][ 2], "Kbd1Key3",  rKbd1Default.Keys[ 2]));
+	pComp->Value(mkNamingAdapt(Keyboard[0][ 3], "Kbd1Key4",  rKbd1Default.Keys[ 3]));
+	pComp->Value(mkNamingAdapt(Keyboard[0][ 4], "Kbd1Key5",  rKbd1Default.Keys[ 4]));
+	pComp->Value(mkNamingAdapt(Keyboard[0][ 5], "Kbd1Key6",  rKbd1Default.Keys[ 5]));
+	pComp->Value(mkNamingAdapt(Keyboard[0][ 6], "Kbd1Key7",  rKbd1Default.Keys[ 6]));
+	pComp->Value(mkNamingAdapt(Keyboard[0][ 7], "Kbd1Key8",  rKbd1Default.Keys[ 7]));
+	pComp->Value(mkNamingAdapt(Keyboard[0][ 8], "Kbd1Key9",  rKbd1Default.Keys[ 8]));
+	pComp->Value(mkNamingAdapt(Keyboard[0][ 9], "Kbd1Key10", rKbd1Default.Keys[ 9]));
+	pComp->Value(mkNamingAdapt(Keyboard[0][10], "Kbd1Key11", rKbd1Default.Keys[10]));
+	pComp->Value(mkNamingAdapt(Keyboard[0][11], "Kbd1Key12", rKbd1Default.Keys[11]));
 
 	pComp->Value(mkNamingAdapt(Keyboard[1][ 0], "Kbd2Key1",  KEY(103, XK_KP_Home,      SDL_SCANCODE_KP_7)));
 	pComp->Value(mkNamingAdapt(Keyboard[1][ 1], "Kbd2Key2",  KEY(104, XK_KP_Up,        SDL_SCANCODE_KP_8)));

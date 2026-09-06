@@ -11,6 +11,15 @@ minutes on the shipped **Colony Bay** scenario.
     [installation manual](https://clonkspot.org/lc-en#installation-1) if the
     scenario browser in step 1 doesn't list it.
 
+!!! note "Controls on a fresh install"
+    Fresh installs start on the **Two-Hand WASD+Mouse** control preset:
+    move with <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd>, cycle the
+    cursor with <kbd>Q</kbd>/<kbd>E</kbd>, dig with <kbd>I</kbd>, and aim
+    with the mouse. The first-run player-properties dialog and
+    **Options → Keyboard** carry a **Preset** dropdown, so switching to
+    the traditional **Classic One-Hand** layout is one click away — see
+    the [controls reference](controls.md) for all presets and keys.
+
 ---
 
 ## 1. Start Colony Bay
