@@ -308,7 +308,12 @@ void C4GameOptionsList::InitOptions()
 	// read-only "no net" row (spec pregame-options-parity)
 	if (Game.Control.isNetwork())
 		new OptionControlMode(this);
-	new OptionControlRate(this);
+	// ControlRate is network-only: offline games use the fixed local rate
+	// (spec pregame-options-parity-2 §2.1). Network.isEnabled() — NOT
+	// Control.isNetwork() — is the correct predicate: it is true for net
+	// hosts AND clients at lobby time (spec §0 Fact 2).
+	if (Game.Network.isEnabled())
+		new OptionControlRate(this);
 	if (Game.Network.isHost())
 	{
 		new OptionRuntimeJoin(this);
