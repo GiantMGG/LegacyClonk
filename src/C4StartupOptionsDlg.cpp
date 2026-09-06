@@ -28,6 +28,7 @@
 
 #include <C4StartupMainDlg.h>
 #include <C4KeyboardInput.h>
+#include "C4ControlPresets.h"
 #include <C4Language.h>
 #include <C4GamePadCon.h>
 #include <C4Game.h>
@@ -466,7 +467,9 @@ void C4StartupOptionsDlg::ControlConfigArea::OnCtrlKeyBtn(C4GUI::Control *btn)
 	if (fGamepad)
 		Config.Gamepads[iSelectedCtrlSet].Button[idKey] = key;
 	else
-		Config.Controls.Keyboard[iSelectedCtrlSet][idKey] = key;
+		// old-editor fix: also rebind the live named key, so the rebind works
+		// immediately and stays consistent on restart (spec two-hand-control-presets §2.4)
+		SetKeyboardControlKey(iSelectedCtrlSet, idKey, key);
 }
 
 void C4StartupOptionsDlg::ControlConfigArea::OnResetKeysBtn(C4GUI::Control *btn)

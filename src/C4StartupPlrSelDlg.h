@@ -23,6 +23,7 @@
 #include "C4InfoCore.h"
 #include "C4Group.h"
 #include "C4Startup.h"
+#include "C4ControlPresets.h"
 
 // startup dialog: Player selection
 class C4StartupPlrSelDlg : public C4StartupDlg
@@ -256,6 +257,9 @@ protected:
 	C4GUI::Picture *pCtrlImg;
 	C4GUI::IconButton *pMouseBtn, *pJumpNRunBtn, *pClassicBtn, *pPictureBtn;
 	C4PlayerInfoCore C4P; // player info core copy currently being edited
+	int32_t iSelectedPreset{C4PR_None}; // staged control-preset choice; applied on OK only (spec §2.5)
+	void OnPresetComboFill(C4GUI::ComboBox_FillCB *pFiller);
+	bool OnPresetComboSelChange(C4GUI::ComboBox *pForCombo, int32_t idNewSelection);
 	C4FacetExSurface fctOldBigIcon;
 	C4FacetExSurface fctNewPicture, fctNewBigIcon; // if assigned, save new picture/bigicon
 	bool fClearPicture, fClearBigIcon; // if true, delete current picture/bigicon

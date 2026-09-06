@@ -25,8 +25,10 @@
 #include <C4StartupMainDlg.h>
 #include <C4Random.h>
 #include <C4Game.h>
+#include <C4KeyboardInput.h>
 #include <C4FileSelDlg.h>
 #include <C4Log.h>
+#include "C4ControlPresets.h"
 #include "C4TextEncoding.h"
 
 #include <format>
@@ -1203,6 +1205,21 @@ C4StartupPlrPropertiesDlg::C4StartupPlrPropertiesDlg(C4StartupPlrSelDlg::PlayerL
 	pPictureBtn->SetToolTip(LoadResStr(C4ResStrTableKey::IDS_DESC_SELECTAPICTUREANDORLOBBYI));
 	UpdateBigIcon();
 	UpdatePlayerColor(true);
+	// place control-preset picker directly below the control-arrows row.
+	// The selection is staged in iSelectedPreset and applied on OK only;
+	// cancelling the dialog discards it (spec two-hand-control-presets §2.5/§4.8).
+	C4GUI::ComponentAligner caPresetLine(caMain.GetFromTop(C4GUI::ComboBox::GetDefaultHeight()), 2, 0);
+	StdStrBuf sPresetLbl; sPresetLbl.Copy("Preset:");
+	int32_t iLblWdt, iLblHgt;
+	pUseFont->GetTextExtent(sPresetLbl.getData(), iLblWdt, iLblHgt, true);
+	AddElement(new C4GUI::Label(sPresetLbl.getData(), caPresetLine.GetFromLeft(iLblWdt + C4GUI_DefDlgSmallIndent), ALeft, C4StartupFontClr, pUseFont, false));
+	C4GUI::ComboBox *pPresetCombo = new C4GUI::ComboBox(caPresetLine.GetAll());
+	pPresetCombo->SetComboCB(new C4GUI::ComboBox_FillCallback<C4StartupPlrPropertiesDlg>(this, &C4StartupPlrPropertiesDlg::OnPresetComboFill, &C4StartupPlrPropertiesDlg::OnPresetComboSelChange));
+	pPresetCombo->SetColors(C4StartupFontClr, C4StartupEditBGColor, C4StartupEditBorderColor);
+	pPresetCombo->SetFont(pUseFont);
+	pPresetCombo->SetDecoration(&(C4Startup::Get()->Graphics.fctContext));
+	pPresetCombo->SetText("(keep current)");
+	AddElement(pPresetCombo);
 	caMain.ExpandTop(-BetweenElementDist);
 	// place AutoStopControl label
 	AddElement(new C4GUI::Label(std::format("{}:", LoadResStr(C4ResStrTableKey::IDS_DLG_MOVEMENT)).c_str(), caMain.GetFromTop(pSmallFont->GetLineHeight()), ALeft, C4StartupFontClr, pSmallFont, false));
@@ -1246,6 +1263,25 @@ C4StartupPlrPropertiesDlg::C4StartupPlrPropertiesDlg(C4StartupPlrSelDlg::PlayerL
 	// when called from player selection screen: input dlg always closed in the end
 	// otherwise, modal proc will delete
 	if (pMainDlg) SetDelOnClose();
+}
+
+void C4StartupPlrPropertiesDlg::OnPresetComboFill(C4GUI::ComboBox_FillCB *pFiller)
+{
+	// (keep current) is the default no-op selection; then the six stock presets
+	pFiller->AddEntry("(keep current)", C4PR_None);
+	for (int32_t i = 0; i < GetPresetCount(); ++i)
+	{
+		const C4ControlPreset rPreset = GetPreset(i);
+		pFiller->AddEntry(rPreset.szName, i, rPreset.szDescription);
+	}
+}
+
+bool C4StartupPlrPropertiesDlg::OnPresetComboSelChange(C4GUI::ComboBox *pForCombo, int32_t idNewSelection)
+{
+	// stage the selection only; it is applied in OnClosed(fOK) (spec §2.5)
+	iSelectedPreset = idNewSelection;
+	// return false: default behaviour displays the selected preset in the combo
+	return false;
 }
 
 void C4StartupPlrPropertiesDlg::DrawElement(C4FacetEx &cgo)
@@ -1375,6 +1411,20 @@ void C4StartupPlrPropertiesDlg::OnClosed(bool fOK)
 		if (C4StartupPlrSelDlg::CheckPlayerName(PlrName, filename, pForPlayer ? &pForPlayer->GetFilename() : nullptr, true))
 		{
 			SCopy(PlrName.getData(), C4P.PrefName, C4MaxName);
+			// Apply a staged control preset before the per-branch player-core
+			// writes: the PrefMouse recommendation must land in the player file
+			// (C4InfoCore.cpp:174). The keyboard-set guard keeps the picker inert
+			// for players on gamepad sets. Both persistence layers are written
+			// explicitly here because this dialog does not pass through the options
+			// SaveConfig tail (spec two-hand-control-presets §2.5).
+			if (iSelectedPreset != C4PR_None && C4P.PrefControl < C4MaxKeyboardSet)
+			{
+				const C4ControlPreset rPreset = GetPreset(iSelectedPreset);
+				if (rPreset.MouseMode >= 0) C4P.PrefMouse = rPreset.MouseMode; // saved into the player core
+				ApplyPreset(C4P.PrefControl, rPreset);
+				Config.Save();                          // layer 1 → config INI
+				Game.KeyboardInput.SaveCustomConfig();  // layer 2 → Extra.c4g/KeyConfig.txt
+			}
 			C4Group PlrGroup;
 			bool fSucc = false;
 			// existent player: update file
