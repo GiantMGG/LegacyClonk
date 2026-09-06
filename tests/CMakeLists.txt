@@ -428,6 +428,27 @@ if(PYTHON3 AND EXISTS "${LEGACYCLONK_CONTENT_DIR}")
 	set_tests_properties(content_release_lint PROPERTIES TIMEOUT 60 LABELS "lint")
 endif()
 
+# --- clonkgfx library selftest (spec clonk-gfx-skill, cycle 99) -----------
+if(PYTHON3)
+	add_test(NAME clonkgfx_selftest
+		COMMAND "${PYTHON3}" "${CMAKE_SOURCE_DIR}/tools/test_clonkgfx.py")
+	set_tests_properties(clonkgfx_selftest PROPERTIES TIMEOUT 60 LABELS "lint")
+endif()
+
+# --- Generator --check byte gates (spec clonk-gfx-skill, cycle 99) --------
+if(PYTHON3 AND EXISTS "${LEGACYCLONK_CONTENT_DIR}/Desert.c4d/Scorpion.c4d/Graphics.png")
+	add_test(NAME gfx_check_scorpion
+		COMMAND "${PYTHON3}" "${CMAKE_SOURCE_DIR}/tools/gen_scorpion_gfx.py"
+			"${LEGACYCLONK_CONTENT_DIR}/Desert.c4d/Scorpion.c4d/Graphics.png" --check)
+	set_tests_properties(gfx_check_scorpion PROPERTIES TIMEOUT 60 LABELS "lint")
+endif()
+if(PYTHON3 AND EXISTS "${LEGACYCLONK_CONTENT_DIR}/Desert.c4d/Camel.c4d/Graphics.png")
+	add_test(NAME gfx_check_camel
+		COMMAND "${PYTHON3}" "${CMAKE_SOURCE_DIR}/tools/gen_camel_gfx.py"
+			"${LEGACYCLONK_CONTENT_DIR}/Desert.c4d/Camel.c4d/Graphics.png" --check)
+	set_tests_properties(gfx_check_camel PROPERTIES TIMEOUT 60 LABELS "lint")
+endif()
+
 # --- Playtest sweep (spec scenario-playtest-harness, cycle 97) -----------
 # Runs every shipped playtest scenario (ci.toml [groups.content] set,
 # minus Tests.c4f) headless for N ticks via tools/playtest_sweep.py.

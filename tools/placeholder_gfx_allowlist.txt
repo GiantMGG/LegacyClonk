@@ -10,7 +10,6 @@
 # class: a NEW flat-block def cannot ship green. The scorpion is NOT here.
 #
 # --- The plan's original 7-entry seed ---
-Desert.c4d/Camel.c4d                                            # cycle-70 placeholder — follow-up
 Desert.c4d/DatePalm.c4d                                         # cycle-70 placeholder — follow-up
 Fantasy.c4d/Magic.c4d/Fishskin.c4d/FishClonk.c4d                # transparent 64x64 stub skin — debt
 Hazard.c4d/Crew.c4d/AIPlayer.c4d/Waypoint.c4d                   # Vis/Path markers — legit flat
