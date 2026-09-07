@@ -51,7 +51,6 @@ RUNS = [
     ("D", ["--parameter", "Seed=3373", "--parameter", "Amplitude=60"]),
 ]
 
-
 def run_engine(wrapper, clonk, scenario, overrides, engine_cwd):
     """Run the engine once; return (checksum, pass_seen, diagnostic_tail)."""
     cmd = ([sys.executable, wrapper, clonk, "--console", "--smoke-run", RUN_TICKS]
@@ -68,7 +67,6 @@ def run_engine(wrapper, clonk, scenario, overrides, engine_cwd):
     if checksum is None or not passed:
         return None, False, "checksum/PASS line missing; output tail:\n" + stdout[-800:]
     return checksum, True, ""
-
 
 def main(argv):
     if len(argv) != 3:
@@ -109,7 +107,6 @@ def main(argv):
 
     print("landscape_seed_smoke PASS (same-seed deterministic, seed- and amplitude-sensitive)")
     return 0
-
 
 if __name__ == "__main__":
     sys.exit(main(sys.argv))
