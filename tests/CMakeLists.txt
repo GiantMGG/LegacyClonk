@@ -195,19 +195,18 @@ if(EXISTS "${CMAKE_SOURCE_DIR}/../content/WeatherEvents.c4d/Tests.c4f/RulesGoals
 endif()
 
 # --- Seed=/Amplitude= --parameter override smoke (spec landscape-generator-research).
-# Same EXISTS-guard + explicit-flags pattern as rules_goals_override_smoke above.
-# NO Smoke suffix in the scenario name: the glob must not double-register it.
+# Relative-determinism driver: the map generator's output is machine/build-
+# dependent (FP in the creator chain), so the pin is same-seed-equality across
+# two runs + seed/amplitude sensitivity — never an absolute baked checksum.
 if(EXISTS "${CMAKE_SOURCE_DIR}/../content/WeatherEvents.c4d/Tests.c4f/LandscapeSeed.c4s")
 	add_test(NAME landscape_seed_smoke
-		COMMAND "${PYTHON3}" "${CMAKE_SOURCE_DIR}/tools/run_engine_headless.py"
-			"$<TARGET_FILE:clonk>" --console --smoke-run 350
-			--parameter Seed=3373 --parameter Amplitude=45
-			-s "${CMAKE_SOURCE_DIR}/../content/WeatherEvents.c4d/Tests.c4f/LandscapeSeed.c4s"
+		COMMAND "${PYTHON3}" "${CMAKE_SOURCE_DIR}/tools/landscape_seed_smoke.py"
+			"$<TARGET_FILE:clonk>" "${CMAKE_SOURCE_DIR}/../content/WeatherEvents.c4d/Tests.c4f/LandscapeSeed.c4s"
 		WORKING_DIRECTORY "${CMAKE_BINARY_DIR}")
 	set_tests_properties(landscape_seed_smoke PROPERTIES
-		TIMEOUT 60
+		TIMEOUT 120
 		LABELS "smoke"
-		PASS_REGULAR_EXPRESSION "LandscapeSeed PASS"
+		PASS_REGULAR_EXPRESSION "landscape_seed_smoke PASS"
 		FAIL_REGULAR_EXPRESSION "FatalError|\\[error\\]|\\[fatal\\]")
 endif()
 
