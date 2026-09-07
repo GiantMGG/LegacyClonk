@@ -139,6 +139,49 @@ void C4OfflineOptionsDlg::SeedEdit::OnTextChange()
 	pDlg->OnSeedChanged();
 }
 
+// C4OfflineOptionsDlg::LandscapeParamEdit — nested (the SeedEdit/ScaleEdit
+// precedent): one stepper class shared across the five C4SLandscape C4SVal
+// fields via a C4SVal C4SLandscape::* member pointer.
+
+class C4OfflineOptionsDlg::LandscapeParamEdit : public C4GUI::SpinBox<int32_t>
+{
+public:
+	LandscapeParamEdit(const C4Rect &rcBounds, C4SVal C4SLandscape::*pField, C4OfflineOptionsDlg *pDlg);
+
+protected:
+	virtual void OnTextChange() override;
+
+private:
+	C4SVal C4SLandscape::*pField;
+	C4OfflineOptionsDlg *pDlg;
+};
+
+C4OfflineOptionsDlg::LandscapeParamEdit::LandscapeParamEdit(const C4Rect &rcBounds,
+	C4SVal C4SLandscape::*pField, C4OfflineOptionsDlg *pDlg)
+	: C4GUI::SpinBox<int32_t>{rcBounds, false}
+	, pField(pField)
+	, pDlg(pDlg)
+{
+	const C4SVal &rVal = Game.GetActiveSections().front()->C4S.Landscape.*pField;
+	SetMinimum(rVal.Min);
+	SetMaximum(rVal.Max);
+	SetValue(rVal.Std, false);
+}
+
+void C4OfflineOptionsDlg::LandscapeParamEdit::OnTextChange()
+{
+	C4GUI::SpinBox<int32_t>::OnTextChange();
+	const int32_t iValue = GetValue();
+	// dual write-through (spec §2.2): the section copy the generator reads
+	// (C4Landscape.cpp:562) + GameC4S (template consistency) — the same
+	// Set(clamp(x), 0, Min, Max) semantics as the headless override.
+	C4SVal &rSectionVal = Game.GetActiveSections().front()->C4S.Landscape.*pField;
+	rSectionVal.Set(iValue, 0, rSectionVal.Min, rSectionVal.Max);
+	C4SVal &rTemplateVal = Game.GameC4S.Landscape.*pField;
+	rTemplateVal.Set(iValue, 0, rTemplateVal.Min, rTemplateVal.Max);
+	pDlg->RenderLandscapePreview();
+}
+
 C4OfflineOptionsDlg::C4OfflineOptionsDlg()
 	: C4GUI::FullscreenDialog(LoadResStr(C4ResStrTableKey::IDS_DLG_OPTIONS), Game.Parameters.ScenarioTitle.getData()),
 	pBriefing(nullptr), pOptionsList(nullptr), pBtnStart(nullptr), pBtnAbort(nullptr)
@@ -154,7 +197,11 @@ C4OfflineOptionsDlg::C4OfflineOptionsDlg()
 	C4GUI::ComponentAligner caLeft(caMain.GetFromLeft(iLeftWdt), 6, 4);
 	CreateBriefing(caLeft.GetFromTop(caLeft.GetHeight() * 45 / 100));
 	const bool fLandscapePanel = LandscapePanelVisible();
-	const C4Rect rcLandscape = fLandscapePanel ? caLeft.GetFromBottom(128) : C4Rect{};
+	const bool fClassicParams = fLandscapePanel
+		&& !Game.ScenarioFile.AccessEntry(C4CFN_DynLandscape);
+	const C4Rect rcLandscape = fLandscapePanel
+		? caLeft.GetFromBottom(fClassicParams ? 256 : 128)
+		: C4Rect{};
 	CreatePickers(caLeft.GetAll());
 	if (fLandscapePanel) CreateLandscapePanel(rcLandscape);
 	// right pane: options list (pre-game mode, same sheet as the network lobby)
@@ -266,6 +313,30 @@ void C4OfflineOptionsDlg::CreateLandscapePanel(const C4Rect &rcPanel)
 	// (the DefIcon buffered-facet pattern; spec §2.3's 28 ms/frame budget)
 	pPreviewPicture = new C4GUI::Picture(caPanel.GetFromTop(64), true);
 	pLandscapePanel->AddElement(pPreviewPicture);
+
+	// classic-generator parameter rows (spec §2.2): hidden for
+	// Landscape.txt scenarios — the S2 generator reads Landscape.txt,
+	// not these C4SVals (the CR editor greyed them out for the same
+	// reason); the same discriminator the round uses (C4Landscape.cpp:577).
+	if (!Game.ScenarioFile.AccessEntry(C4CFN_DynLandscape))
+	{
+		static const struct { const char *szLabel; C4SVal C4SLandscape::*pField; } ParamRows[] =
+		{
+			{"Amplitude",   &C4SLandscape::Amplitude},
+			{"Phase",       &C4SLandscape::Phase},
+			{"Period",      &C4SLandscape::Period},
+			{"Random",      &C4SLandscape::Random},
+			{"LiquidLevel", &C4SLandscape::LiquidLevel},
+		};
+		C4GUI::ComponentAligner caParams(caPanel.GetFromBottom(5 * 22 + 8), 4, 2);
+		for (const auto &ParamRow : ParamRows)
+		{
+			C4GUI::ComponentAligner caRow(caParams.GetFromBottom(22), 2, 1);
+			pLandscapePanel->AddElement(new C4GUI::Label(ParamRow.szLabel,
+				caRow.GetFromLeft(110), ALeft, C4GUI_MessageFontClr, &C4GUI::GetRes()->TextFont));
+			pLandscapePanel->AddElement(new LandscapeParamEdit(caRow.GetAll(), ParamRow.pField, this));
+		}
+	}
 
 	// seed row at the bottom of the panel: label + stepper + reroll button
 	C4GUI::ComponentAligner caSeed(caPanel.GetFromBottom(C4GUI_ButtonHgt), 4, 2);

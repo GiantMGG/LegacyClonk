@@ -57,6 +57,7 @@ private:
 	virtual class C4GUI::Control *GetDefaultControl() override { return pBtnStart; }
 
 	class SeedEdit; // nested: needs access to the dialog's private OnSeedChanged
+	class LandscapeParamEdit; // nested: ditto (RenderLandscapePreview + privates)
 	C4GUI::TextWindow *pBriefing;
 	C4GUI::ListBox *pPickerList{nullptr};
 	C4GUI::Window *pLandscapePanel{nullptr};
