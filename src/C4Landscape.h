@@ -296,6 +296,12 @@ public:
 	bool FindClosestFree(int32_t &rX, int32_t &rY, int32_t iAngle1, int32_t iAngle2, int32_t iExcludeAngle1, int32_t iExcludeAngle2);
 	bool ConstructionCheck(C4ID id, int32_t iX, int32_t iY, C4Object *pByObj = nullptr);
 
+	// Render the exact 8-bit map the round will get for the given seed, on
+	// a private C4Random{seed} that mirrors the round's consumption order
+	// (PrepareInit's MapSeed roll included) — C4Random::Default is never
+	// touched (spec landscape-generator-research §2.3).
+	std::unique_ptr<CSurface8> CreatePreviewMap(int32_t iSeed);
+
 protected:
 	void ExecuteScan();
 	int32_t DoScan(int32_t x, int32_t y, int32_t mat, int32_t dir);

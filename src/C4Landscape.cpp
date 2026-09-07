@@ -571,6 +571,29 @@ std::unique_ptr<CSurface8> C4Landscape::CreateMap(C4Random &random)
 	return surfaceMap;
 }
 
+std::unique_ptr<CSurface8> C4Landscape::CreatePreviewMap(int32_t iSeed)
+{
+	// Private RNG mirroring the round's consumption order (spec
+	// landscape-generator-research §2.3): PrepareInit rolls MapSeed with
+	// one random.Random(3133700) call, then CreateMap/CreateMapS2 consume
+	// the same stream. C4Random::Default is never touched.
+	C4Random random{static_cast<uint32_t>(iSeed)};
+	random.Random(3133700);
+
+	if (Section.Group.AccessEntry(C4CFN_DynLandscape))
+	{
+		// LOCAL creator — must NOT touch this->pMapCreator (the round's
+		// creator): C4Landscape::DrawMap precedent (C4Landscape.cpp:3130-3139).
+		C4MapCreatorS2 creator{Section, random, &Section.C4S.Landscape,
+			&Section.TextureMap, &Section.Material, Game.Parameters.StartupPlayerCount};
+		creator.ReadFile(C4CFN_DynLandscape, &Section.Group, random, true);
+		return creator.Render(nullptr);
+	}
+
+	// the real classic path (C4Landscape.cpp:556-572)
+	return CreateMap(random);
+}
+
 std::unique_ptr<CSurface8> C4Landscape::CreateMapS2(C4Group &ScenFile, C4Random &random, const bool allowScript)
 {
 	// file present?
