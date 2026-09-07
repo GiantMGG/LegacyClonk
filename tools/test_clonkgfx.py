@@ -252,5 +252,44 @@ class CliMainTests(unittest.TestCase):
 			finally:
 				sys.argv = argv
 
+class HiResTests(unittest.TestCase):
+	def test_solid_block_identity(self):
+		hr = clonkgfx.HiRes(2, 1, 4)
+		hr.draw_rect(0, 0, 8, 4, (255, 0, 0, 255))
+		self.assertEqual(hr.emit_maps(make_palette()), ["BB"])
+	def test_alpha_threshold(self):
+		hr = clonkgfx.HiRes(3, 1, 2)
+		hr.draw_rect(0, 0, 2, 2, (255, 0, 0, 255))  # full block -> opaque
+		hr.draw_rect(2, 0, 2, 2, (255, 0, 0, 128))  # avg alpha 128 -> opaque
+		hr.draw_rect(4, 0, 1, 1, (255, 0, 0, 255))  # 1 of 4 px -> transparent
+		# blocks: opaque, opaque, transparent -> "BB."
+		self.assertEqual(hr.emit_maps(make_palette()), ["BB."])
+	def test_emit_maps_deterministic(self):
+		hr = clonkgfx.HiRes(4, 3, 3)
+		hr.draw_rect(0, 0, 12, 9, (255, 0, 0, 255))
+		hr.draw_rect(3, 3, 6, 3, (0, 255, 0, 255))
+		self.assertEqual(hr.emit_maps(make_palette()),
+		                 hr.emit_maps(make_palette()))
+	def test_mixed_block_quantizes_to_nearest(self):
+		hr = clonkgfx.HiRes(1, 1, 2)
+		hr.draw_rect(0, 0, 2, 1, (255, 0, 0, 255))  # 2 px B
+		hr.draw_rect(0, 1, 1, 1, (255, 0, 0, 255))  # 1 px B
+		hr.draw_rect(1, 1, 1, 1, (0, 255, 0, 255))  # 1 px H
+		# block avg (191,63,0) -> nearest is B (d=8065 vs H 73345, K 40450)
+		self.assertEqual(hr.emit_maps(make_palette()), ["B"])
+	def test_round_trip_through_sheet(self):
+		hr = clonkgfx.HiRes(4, 3, 2)
+		hr.draw_rect(0, 0, 4, 4, (255, 0, 0, 255))
+		hr.draw_rect(4, 0, 4, 4, (0, 255, 0, 255))
+		rows = hr.emit_maps(make_palette())
+		self.assertEqual(rows, ["BBHH", "BBHH", "...."])
+		action = Action("A", [PhaseMap("p0", rows)])
+		sheet = Sheet(4, 3, make_palette(), [action])
+		width, height, decoded = png_rgba(sheet.png_bytes())
+		self.assertEqual((width, height), (4, 3))
+		self.assertEqual(decoded[0][0], (255, 0, 0, 255))
+		self.assertEqual(decoded[0][2], (0, 255, 0, 255))
+		self.assertEqual(decoded[2][0], (0, 0, 0, 0))
+
 if __name__ == "__main__":
 	unittest.main()

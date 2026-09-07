@@ -211,6 +211,84 @@ class Sheet:
 			colors[key] = value
 		return self._encode(self._grid(Palette(colors)))
 
+class HiRes:
+	"""Art-pipeline-v2: authoring canvas at factor× the target size."""
+	def __init__(self, width, height, factor):
+		if width <= 0 or height <= 0 or factor < 1:
+			raise SystemExit("HiRes: bad dimensions or factor")
+		self.width, self.height, self.factor = width, height, factor
+		self.pixels = {}
+	def draw_rect(self, x, y, w, h, color):
+		if w <= 0 or h <= 0:
+			raise SystemExit("HiRes.draw_rect: non-positive size")
+		for py in range(y, y + h):
+			for px in range(x, x + w):
+				self.pixels[(px, py)] = color
+	def draw_ellipse(self, x, y, w, h, color):
+		if w <= 0 or h <= 0:
+			raise SystemExit("HiRes.draw_ellipse: non-positive size")
+		cx, cy, rx, ry = x + (w - 1) / 2, y + (h - 1) / 2, w / 2, h / 2
+		for py in range(y, y + h):
+			for px in range(x, x + w):
+				if ((px - cx) / rx) ** 2 + ((py - cy) / ry) ** 2 <= 1.0:
+					self.pixels[(px, py)] = color
+	def draw_line(self, x0, y0, x1, y1, color, thickness=1):
+		if thickness < 1:
+			raise SystemExit("HiRes.draw_line: thickness < 1")
+		off = (thickness - 1) // 2
+		dx, dy = abs(x1 - x0), -abs(y1 - y0)
+		sx, sy = (1 if x0 < x1 else -1), (1 if y0 < y1 else -1)
+		err = dx + dy
+		while True:
+			self.draw_rect(x0 - off, y0 - off, thickness, thickness, color)
+			if x0 == x1 and y0 == y1:
+				break
+			e2 = 2 * err
+			if e2 >= dy:
+				err += dy
+				x0 += sx
+			if e2 <= dx:
+				err += dx
+				y0 += sy
+	def box_downscale(self):
+		f, n = self.factor, self.factor * self.factor
+		grid = {}
+		for y in range(self.height):
+			for x in range(self.width):
+				block = [self.pixels.get((x * f + bx, y * f + by),
+				                          (0, 0, 0, 0))
+				         for bx in range(f) for by in range(f)]
+				rs = sum(c[0] for c in block)
+				gs = sum(c[1] for c in block)
+				bs = sum(c[2] for c in block)
+				asum = sum(c[3] for c in block)
+				grid[(x, y)] = ((rs // n, gs // n, bs // n, 255)
+				                if asum >= 128 * n else (0, 0, 0, 0))
+		return grid
+	def quantize(self, grid, palette):
+		out = {}
+		for key, color in grid.items():
+			if color[3] == 0:
+				out[key] = (0, 0, 0, 0)
+				continue
+			best, best_d = None, None
+			for rgba in palette.colors.values():
+				d = ((color[0] - rgba[0]) ** 2 + (color[1] - rgba[1]) ** 2
+				     + (color[2] - rgba[2]) ** 2)
+				if best_d is None or d < best_d:
+					best, best_d = rgba, d
+			out[key] = best
+		return out
+	def emit_maps(self, palette):
+		grid = self.quantize(self.box_downscale(), palette)
+		rev = {v: k for k, v in palette.colors.items()}
+		rows = []
+		for y in range(self.height):
+			rows.append("".join(
+				"." if grid[(x, y)][3] == 0 else rev[grid[(x, y)]]
+				for x in range(self.width)))
+		return rows
+
 def cli_main(description: str, out_default: str,
              make_png: Callable[[], bytes]) -> int:
 	"""Shared per-def generator CLI (the gen_scorpion_gfx.py main()
