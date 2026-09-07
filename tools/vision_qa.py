@@ -308,6 +308,10 @@ def make_ask(host, model):
                 "images": [image_b64],
             }],
             "stream": False,
+            # Second-highest ollama think level (ladder: false < low <
+            # medium < high < max) — user directive 2026-09-07: the vision
+            # judge runs at "high", not the model default ("max"/true).
+            "think": "high",
             "options": {"temperature": 0},
         }).encode()
         req = urllib.request.Request(host.rstrip("/") + "/api/chat", data=body,
