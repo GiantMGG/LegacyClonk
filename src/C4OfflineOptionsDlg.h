@@ -20,6 +20,7 @@
 
 #include "C4Gui.h"
 #include "C4GuiDialogs.h"
+#include "C4GuiSpinBox.h"
 
 #ifndef USE_CONSOLE
 
@@ -45,10 +46,19 @@ private:
 	void CreatePickers(const C4Rect &rcPickers);
 	void AddPickerSectionHeader(const char *szSectionLabel);
 
+	// left pane very bottom: landscape panel (spec landscape-generator-research §2.2)
+	bool LandscapePanelVisible() const;
+	void CreateLandscapePanel(const C4Rect &rcPanel);
+	void OnSeedChanged();
+	void OnBtnNewSeed(C4GUI::Control *btn);
+
 	virtual class C4GUI::Control *GetDefaultControl() override { return pBtnStart; }
 
+	class SeedEdit; // nested: needs access to the dialog's private OnSeedChanged
 	C4GUI::TextWindow *pBriefing;
 	C4GUI::ListBox *pPickerList{nullptr};
+	C4GUI::Window *pLandscapePanel{nullptr};
+	SeedEdit *pSeedEdit{nullptr};
 	C4GameOptionsList *pOptionsList;
 	C4GUI::CallbackButton<C4OfflineOptionsDlg> *pBtnStart;
 	C4GUI::CallbackButton<C4OfflineOptionsDlg> *pBtnAbort;

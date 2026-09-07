@@ -27,6 +27,8 @@
 #include <C4Log.h>
 #include <C4RTF.h>
 
+#include <ctime>
+
 namespace
 {
 	// Def icon: buffered def picture, drawn per frame — the GoalPicture
@@ -110,6 +112,33 @@ namespace
 	};
 }
 
+// C4OfflineOptionsDlg::SeedEdit — nested so it can reach the dialog's
+// private OnSeedChanged (the ScaleEdit precedent).
+
+class C4OfflineOptionsDlg::SeedEdit : public C4GUI::SpinBox<int32_t>
+{
+public:
+	SeedEdit(const C4Rect &rcBounds, C4OfflineOptionsDlg *pDlg);
+
+protected:
+	virtual void OnTextChange() override;
+
+private:
+	C4OfflineOptionsDlg *pDlg;
+};
+
+C4OfflineOptionsDlg::SeedEdit::SeedEdit(const C4Rect &rcBounds, C4OfflineOptionsDlg *pDlg)
+	: C4GUI::SpinBox<int32_t>{rcBounds, true}
+	, pDlg(pDlg)
+{
+}
+
+void C4OfflineOptionsDlg::SeedEdit::OnTextChange()
+{
+	C4GUI::SpinBox<int32_t>::OnTextChange();
+	pDlg->OnSeedChanged();
+}
+
 C4OfflineOptionsDlg::C4OfflineOptionsDlg()
 	: C4GUI::FullscreenDialog(LoadResStr(C4ResStrTableKey::IDS_DLG_OPTIONS), Game.Parameters.ScenarioTitle.getData()),
 	pBriefing(nullptr), pOptionsList(nullptr), pBtnStart(nullptr), pBtnAbort(nullptr)
@@ -119,11 +148,15 @@ C4OfflineOptionsDlg::C4OfflineOptionsDlg()
 	C4GUI::ComponentAligner caMain(GetClientRect(), 10, 10, true);
 	// bottom button area
 	C4GUI::ComponentAligner caBottom(caMain.GetFromBottom(C4GUI_ButtonHgt + 8), 10, 4);
-	// left pane: briefing on top (~45% of the pane), pickers below
+	// left pane: briefing on top (~45% of the pane), pickers in the middle,
+	// landscape panel carved from the bottom (spec landscape-generator-research §2.2)
 	const int32_t iLeftWdt = caMain.GetWidth() * 55 / 100;
 	C4GUI::ComponentAligner caLeft(caMain.GetFromLeft(iLeftWdt), 6, 4);
 	CreateBriefing(caLeft.GetFromTop(caLeft.GetHeight() * 45 / 100));
+	const bool fLandscapePanel = LandscapePanelVisible();
+	const C4Rect rcLandscape = fLandscapePanel ? caLeft.GetFromBottom(128) : C4Rect{};
 	CreatePickers(caLeft.GetAll());
+	if (fLandscapePanel) CreateLandscapePanel(rcLandscape);
 	// right pane: options list (pre-game mode, same sheet as the network lobby)
 	pOptionsList = new C4GameOptionsList(caMain.GetAll(), true, false);
 	AddElement(pOptionsList);
@@ -199,6 +232,63 @@ void C4OfflineOptionsDlg::AddPickerSectionHeader(const char *szSectionLabel)
 	pPickerList->AddElement(new C4GUI::Label(szSectionLabel,
 		C4Rect(0, 0, pPickerList->GetItemWidth(), 20), ALeft,
 		C4GUI_CaptionFontClr, &C4GUI::GetRes()->CaptionFont));
+}
+
+bool C4OfflineOptionsDlg::LandscapePanelVisible() const
+{
+	// Panel self-hides (spec §2.2 + §4.2/§4.3): savegame resumes (the
+	// landscape loads from the saved surface, C4Landscape.cpp:863-884),
+	// exact landscapes, and static maps (Map.bmp/Landscape.bmp in the
+	// scenario group — the same entries C4Landscape::Init's static-map
+	// branch reads, C4Landscape.cpp:808-831).
+	const C4SLandscape &rLS = Game.GameC4S.Landscape;
+	if (Game.GameC4S.Head.SaveGame || rLS.ExactLandscape) return false;
+	return !Game.ScenarioFile.AccessEntry(C4CFN_Map)
+		&& !Game.ScenarioFile.AccessEntry(C4CFN_Landscape);
+}
+
+void C4OfflineOptionsDlg::CreateLandscapePanel(const C4Rect &rcPanel)
+{
+	pLandscapePanel = new C4GUI::Window();
+	pLandscapePanel->SetBounds(rcPanel);
+	AddElement(pLandscapePanel);
+
+	// children are laid out in the panel's own coordinate space
+	// (the DefPickerRow GetContainedClientRect discipline)
+	C4GUI::ComponentAligner caPanel(C4Rect(0, 0, rcPanel.Wdt, rcPanel.Hgt), 6, 3, true);
+
+	// header (hardcoded-English precedent: the picker section headers)
+	pLandscapePanel->AddElement(new C4GUI::Label("Landscape",
+		caPanel.GetFromTop(16), ALeft, C4GUI_CaptionFontClr, &C4GUI::GetRes()->CaptionFont));
+
+	// seed row at the bottom of the panel: label + stepper + reroll button
+	C4GUI::ComponentAligner caSeed(caPanel.GetFromBottom(C4GUI_ButtonHgt), 4, 2);
+	pLandscapePanel->AddElement(new C4GUI::Label("Seed", caSeed.GetFromLeft(70), ALeft,
+		C4GUI_MessageFontClr, &C4GUI::GetRes()->TextFont));
+	pSeedEdit = new SeedEdit(caSeed.GetFromLeft(120), this);
+	pSeedEdit->SetValue(Game.Parameters.RandomSeed, false);
+	pLandscapePanel->AddElement(pSeedEdit);
+	pLandscapePanel->AddElement(new C4GUI::CallbackButton<C4OfflineOptionsDlg>(
+		"New", caSeed.GetFromLeft(70), &C4OfflineOptionsDlg::OnBtnNewSeed));
+}
+
+void C4OfflineOptionsDlg::OnSeedChanged()
+{
+	// immediate write-through: the displayed seed IS the round seed
+	// (FixRandom consumes Parameters.RandomSeed, C4Game.cpp:2500)
+	Game.Parameters.RandomSeed = pSeedEdit->GetValue();
+}
+
+void C4OfflineOptionsDlg::OnBtnNewSeed(C4GUI::Control *btn)
+{
+	// fresh seed: the engine's own default-seed source
+	// (C4GameParameters.cpp:424) + a salt so double-clicks within one
+	// second differ. SafeRandom is NOT usable here: pre-dialog rand() is
+	// unseeded; FixedRandom's srand(time) runs only later (C4Game.cpp:2500).
+	// SetValue fires OnTextChange -> OnSeedChanged: single write path.
+	static int32_t iRerollSalt = 0;
+	const int32_t iNewSeed = static_cast<int32_t>(time(nullptr)) + ++iRerollSalt;
+	pSeedEdit->SetValue(iNewSeed, false);
 }
 
 void C4OfflineOptionsDlg::OnBtnStart(C4GUI::Control *btn)
