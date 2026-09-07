@@ -486,6 +486,19 @@ if(PYTHON3 AND EXISTS "${LEGACYCLONK_CONTENT_DIR}/Desert.c4d/Camel.c4d/Graphics.
 			"${LEGACYCLONK_CONTENT_DIR}/Desert.c4d/Camel.c4d/Graphics.png" --check)
 	set_tests_properties(gfx_check_camel PROPERTIES TIMEOUT 60 LABELS "lint")
 endif()
+if(PYTHON3 AND EXISTS "${LEGACYCLONK_CONTENT_DIR}/Desert.c4d/Scorpion.c4d/Graphics.png")
+	add_test(NAME vision_qa_scorpion
+		COMMAND "${PYTHON3}" "${CMAKE_SOURCE_DIR}/tools/vision_qa.py"
+			--image "${LEGACYCLONK_CONTENT_DIR}/Desert.c4d/Scorpion.c4d/Graphics.png"
+			--facet 0,0,36,26 --phases 2 --gate-mode feature
+			--json "${CMAKE_BINARY_DIR}/vision_qa_scorpion.json")
+	set_tests_properties(vision_qa_scorpion PROPERTIES
+		TIMEOUT 900
+		LABELS "vision_qa;lint"
+		PASS_REGULAR_EXPRESSION "GATE PASS"
+		FAIL_REGULAR_EXPRESSION "GATE FAIL|ORACLE FAIL"
+		SKIP_REGULAR_EXPRESSION "^SKIP: ")
+endif()
 
 # --- Desert batch --check byte gates (spec placeholder-art-debt-drive-down,
 # cycle 100) --------------------------------------------------------------
