@@ -261,6 +261,12 @@ void C4OfflineOptionsDlg::CreateLandscapePanel(const C4Rect &rcPanel)
 	pLandscapePanel->AddElement(new C4GUI::Label("Landscape",
 		caPanel.GetFromTop(16), ALeft, C4GUI_CaptionFontClr, &C4GUI::GetRes()->CaptionFont));
 
+	// live preview: renders the exact 8-bit map the round will get, on
+	// demand only (seed edit / reroll / param change) — never per frame
+	// (the DefIcon buffered-facet pattern; spec §2.3's 28 ms/frame budget)
+	pPreviewPicture = new C4GUI::Picture(caPanel.GetFromTop(64), true);
+	pLandscapePanel->AddElement(pPreviewPicture);
+
 	// seed row at the bottom of the panel: label + stepper + reroll button
 	C4GUI::ComponentAligner caSeed(caPanel.GetFromBottom(C4GUI_ButtonHgt), 4, 2);
 	pLandscapePanel->AddElement(new C4GUI::Label("Seed", caSeed.GetFromLeft(70), ALeft,
@@ -270,6 +276,52 @@ void C4OfflineOptionsDlg::CreateLandscapePanel(const C4Rect &rcPanel)
 	pLandscapePanel->AddElement(pSeedEdit);
 	pLandscapePanel->AddElement(new C4GUI::CallbackButton<C4OfflineOptionsDlg>(
 		"New", caSeed.GetFromLeft(70), &C4OfflineOptionsDlg::OnBtnNewSeed));
+
+	// render the preview for the current seed once, on panel creation
+	RenderLandscapePreview();
+}
+
+void C4OfflineOptionsDlg::BuildPreviewPalette(uint32_t dwPalette[256]) const
+{
+	// Preview palette (spec §2.3, cosmetic latitude): map pixel 0 = sky;
+	// material pixels are texture-map index + MapIFT(128); liquid pixels
+	// are the raw texture-map index (C4Map.cpp:92,133-141). Colors come
+	// from the material's base color (C4MaterialCore::GetDWordColor).
+	const C4Section &rSection = *Game.GetActiveSections().front();
+	for (int32_t i = 0; i < 256; ++i) dwPalette[i] = 0xff7f7f7f; // fallback grey
+	dwPalette[0] = 0xffbf5f1f; // sky blue (0xAABBGGRR)
+	for (int32_t iTex = 1; iTex < C4M_MaxTexIndex; ++iTex)
+	{
+		const C4TexMapEntry *pEntry = rSection.TextureMap.GetEntry(iTex);
+		if (!pEntry || pEntry->isNull()) continue;
+		C4Material *pMaterial = pEntry->GetMaterial();
+		if (!pMaterial) continue;
+		const uint32_t dwClr = pMaterial->GetDWordColor(0);
+		dwPalette[iTex] = dwClr;        // liquid pixel (raw tex index)
+		dwPalette[iTex + 128] = dwClr;  // material pixel (tex index + MapIFT)
+	}
+}
+
+void C4OfflineOptionsDlg::RenderLandscapePreview()
+{
+	// on-demand re-render only (spec §2.3): per-frame cost is one buffered
+	// facet blit; the generation runs on a private seeded RNG inside
+	// C4Landscape::CreatePreviewMap (C4Random::Default untouched).
+	if (!pPreviewPicture) return;
+	auto sfcMap = Game.GetActiveSections().front()->Landscape.CreatePreviewMap(Game.Parameters.RandomSeed);
+	if (!sfcMap) return;
+
+	uint32_t dwPalette[256];
+	BuildPreviewPalette(dwPalette);
+
+	auto &facet = pPreviewPicture->GetMFacet();
+	if (!facet.Create(sfcMap->Wdt, sfcMap->Hgt)) return;
+	C4Surface *pSfc = facet.Surface;
+	if (!pSfc || !pSfc->Lock()) return;
+	for (int32_t y = 0; y < sfcMap->Hgt; ++y)
+		for (int32_t x = 0; x < sfcMap->Wdt; ++x)
+			pSfc->SetPixDw(x, y, dwPalette[sfcMap->_GetPix(x, y)]);
+	pSfc->Unlock();
 }
 
 void C4OfflineOptionsDlg::OnSeedChanged()
@@ -277,6 +329,7 @@ void C4OfflineOptionsDlg::OnSeedChanged()
 	// immediate write-through: the displayed seed IS the round seed
 	// (FixRandom consumes Parameters.RandomSeed, C4Game.cpp:2500)
 	Game.Parameters.RandomSeed = pSeedEdit->GetValue();
+	RenderLandscapePreview();
 }
 
 void C4OfflineOptionsDlg::OnBtnNewSeed(C4GUI::Control *btn)

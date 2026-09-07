@@ -49,6 +49,8 @@ private:
 	// left pane very bottom: landscape panel (spec landscape-generator-research §2.2)
 	bool LandscapePanelVisible() const;
 	void CreateLandscapePanel(const C4Rect &rcPanel);
+	void BuildPreviewPalette(uint32_t dwPalette[256]) const;
+	void RenderLandscapePreview();
 	void OnSeedChanged();
 	void OnBtnNewSeed(C4GUI::Control *btn);
 
@@ -59,6 +61,7 @@ private:
 	C4GUI::ListBox *pPickerList{nullptr};
 	C4GUI::Window *pLandscapePanel{nullptr};
 	SeedEdit *pSeedEdit{nullptr};
+	C4GUI::Picture *pPreviewPicture{nullptr};
 	C4GameOptionsList *pOptionsList;
 	C4GUI::CallbackButton<C4OfflineOptionsDlg> *pBtnStart;
 	C4GUI::CallbackButton<C4OfflineOptionsDlg> *pBtnAbort;
