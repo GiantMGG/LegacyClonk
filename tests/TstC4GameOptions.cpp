@@ -222,3 +222,101 @@ TEST_CASE("ParameterOverrides_IDListLastOccurrenceWins", "[parameter-override]")
 	REQUIRE(Game.Parameters.Rules.GetNumberOfIDs() == 1);
 	REQUIRE(Game.Parameters.Rules.GetIDCount(C4Id("NMTT")) == 1);
 }
+
+// --- Seed=/landscape-param overrides (spec landscape-generator-research §2.1) --
+// C7: a Seed override writes Parameters.RandomSeed (negative values are
+// legal — the LCG takes a uint32 seed, C4Random.h:34, and the flow already
+// passes arbitrary int32).
+TEST_CASE("ParameterOverrides_SeedOverrideWritesRandomSeed", "[parameter-override]")
+{
+	Game.Default();
+	Game.ParameterOverrides.clear();
+	Game.Parameters.RandomSeed = 1;
+
+	AddOverride("Seed", "1234");
+	Game.ApplyParameterOverrides();
+
+	REQUIRE(Game.Parameters.RandomSeed == 1234);
+
+	Game.ParameterOverrides.clear();
+	AddOverride("Seed", "-5");
+	Game.ApplyParameterOverrides();
+
+	REQUIRE(Game.Parameters.RandomSeed == -5);
+}
+
+// C8: malformed seed values are logged and skipped — parameters unchanged.
+// 2147483648 is int32 overflow — atoi would be UB here (spec §2.1a).
+TEST_CASE("ParameterOverrides_SeedOverrideMalformedIgnored", "[parameter-override]")
+{
+	Game.Default();
+	Game.ParameterOverrides.clear();
+	Game.Parameters.RandomSeed = 4711;
+
+	AddOverride("Seed", "");
+	AddOverride("Seed", "abc");
+	AddOverride("Seed", "2147483648");
+	AddOverride("Seed", "12x");
+	REQUIRE_NOTHROW(Game.ApplyParameterOverrides());
+
+	REQUIRE(Game.Parameters.RandomSeed == 4711);
+}
+
+// C9: a landscape-param override clamps into the scenario C4SVal bounds,
+// zeroes the deviation, and preserves Min/Max (spec §2.1b).
+TEST_CASE("ParameterOverrides_LandscapeParamOverrideClampsToSValBounds", "[parameter-override]")
+{
+	Game.Default();
+	Game.ParameterOverrides.clear();
+
+	Game.GameC4S.Landscape.Amplitude.Set(10, 5, 0, 100);
+	Game.GameC4S.Landscape.LiquidLevel.Set(50, 10, 0, 100);
+
+	AddOverride("Amplitude", "150");
+	AddOverride("LiquidLevel", "45");
+	Game.ApplyParameterOverrides();
+
+	REQUIRE(Game.GameC4S.Landscape.Amplitude.Std == 100);
+	REQUIRE(Game.GameC4S.Landscape.Amplitude.Rnd == 0);
+	REQUIRE(Game.GameC4S.Landscape.Amplitude.Min == 0);
+	REQUIRE(Game.GameC4S.Landscape.Amplitude.Max == 100);
+	REQUIRE(Game.GameC4S.Landscape.LiquidLevel.Std == 45);
+	REQUIRE(Game.GameC4S.Landscape.LiquidLevel.Rnd == 0);
+
+	// in-bounds value: the mean moves to it exactly
+	Game.ParameterOverrides.clear();
+	AddOverride("Amplitude", "30");
+	Game.ApplyParameterOverrides();
+
+	REQUIRE(Game.GameC4S.Landscape.Amplitude.Std == 30);
+	REQUIRE(Game.GameC4S.Landscape.Amplitude.Rnd == 0);
+}
+
+// C10: malformed landscape-param values are logged and skipped — field unchanged.
+TEST_CASE("ParameterOverrides_LandscapeParamOverrideMalformedIgnored", "[parameter-override]")
+{
+	Game.Default();
+	Game.ParameterOverrides.clear();
+	Game.GameC4S.Landscape.Amplitude.Set(30, 0, 0, 100);
+
+	AddOverride("Amplitude", "");
+	AddOverride("Amplitude", "xyz");
+	REQUIRE_NOTHROW(Game.ApplyParameterOverrides());
+
+	REQUIRE(Game.GameC4S.Landscape.Amplitude.Std == 30);
+	REQUIRE(Game.GameC4S.Landscape.Amplitude.Rnd == 0);
+}
+
+// C11: two occurrences of Seed= — the last one wins (the override list is
+// applied in order; same semantics the cycle-84 TeamDist case pins).
+TEST_CASE("ParameterOverrides_SeedLastOccurrenceWins", "[parameter-override]")
+{
+	Game.Default();
+	Game.ParameterOverrides.clear();
+
+	AddOverride("Seed", "1");
+	AddOverride("Seed", "2");
+	Game.ApplyParameterOverrides();
+
+	REQUIRE(Game.Parameters.RandomSeed == 2);
+}

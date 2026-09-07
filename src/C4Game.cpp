@@ -56,6 +56,7 @@
 #include <StdGL.h>
 #include <StdPNG.h>
 
+#include <charconv>
 #include <format>
 #include <iterator>
 #include <numeric>
@@ -3096,6 +3097,52 @@ namespace
 			if (rList.GetCount(i) < 1) rList.SetCount(i, 1);
 		}
 	}
+
+	// Parse a full-string int32 --parameter value (spec
+	// landscape-generator-research §2.1a). std::from_chars rejects
+	// empty/non-numeric input (invalid_argument), out-of-int32-range
+	// values (result_out_of_range — atoi would be UB here, and seeds
+	// are full-range int32), and trailing garbage via the consumed-end
+	// check.
+	bool ParseInt32OverrideValue(const StdStrBuf &Value, int32_t &riOut)
+	{
+		const char *szBegin = Value.getData();
+		const std::size_t iLength = Value.getLength();
+		if (!szBegin || iLength == 0) return false;
+		const char *szEnd = szBegin + iLength;
+		int32_t iResult{};
+		const auto [pAfter, ec] = std::from_chars(szBegin, szEnd, iResult);
+		if (ec != std::errc{} || pAfter != szEnd) return false;
+		riOut = iResult;
+		return true;
+	}
+
+	// --parameter Amplitude=/Phase=/Period=/Random=/LiquidLevel=<int>
+	// (spec landscape-generator-research §2.1b): fix the classic
+	// generator's C4SVal mean to the requested value, clamped into the
+	// scenario's own bounds; zero the deviation so C4SVal::Evaluate
+	// returns exactly the clamped value. Returns true iff the key is one
+	// of the five landscape keys (malformed values are logged + skipped
+	// and also return true — the key was consumed either way).
+	bool ApplyLandscapeParamOverride(const StdStrBuf &Key, const StdStrBuf &Value, C4SLandscape &rLS)
+	{
+		C4SVal *pVal = nullptr;
+		if (SEqualNoCase(Key.getData(), "Amplitude")) pVal = &rLS.Amplitude;
+		else if (SEqualNoCase(Key.getData(), "Phase")) pVal = &rLS.Phase;
+		else if (SEqualNoCase(Key.getData(), "Period")) pVal = &rLS.Period;
+		else if (SEqualNoCase(Key.getData(), "Random")) pVal = &rLS.Random;
+		else if (SEqualNoCase(Key.getData(), "LiquidLevel")) pVal = &rLS.LiquidLevel;
+		if (!pVal) return false;
+
+		int32_t iVal{};
+		if (!ParseInt32OverrideValue(Value, iVal))
+		{
+			LogNTr("--parameter: {} value malformed, ignored: {}", Key.getData(), Value.getData());
+			return true;
+		}
+		pVal->Set(BoundBy(iVal, pVal->Min, pVal->Max), 0, pVal->Min, pVal->Max);
+		return true;
+	}
 }
 
 void C4Game::ApplyParameterOverrides()
@@ -3175,6 +3222,24 @@ void C4Game::ApplyParameterOverrides()
 			}
 			ClampIDListCountsToOne(NewList);
 			Parameters.Goals = NewList;
+		}
+		// Seed=<int32> — the round seed FixRandom consumes (spec
+		// landscape-generator-research §2.1a). Negative values are legal.
+		else if (SEqualNoCase(Key.getData(), "Seed"))
+		{
+			int32_t iSeed{};
+			if (!ParseInt32OverrideValue(Value, iSeed))
+			{
+				LogNTr("--parameter: Seed value malformed, ignored: {}", Value.getData());
+				continue;
+			}
+			Parameters.RandomSeed = iSeed;
+		}
+		// Amplitude/Phase/Period/Random/LiquidLevel=<int> — classic-generator
+		// C4SVal overrides (spec landscape-generator-research §2.1b)
+		else if (ApplyLandscapeParamOverride(Key, Value, GameC4S.Landscape))
+		{
+			// handled inside the helper (malformed values: logged + skipped)
 		}
 		// unknown key
 		else
