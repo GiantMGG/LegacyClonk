@@ -647,6 +647,24 @@ bool C4Game::Init()
 			LogFatal(C4ResStrTableKey::IDS_PRC_ERRLOADER); return false;
 		}
 
+#ifndef USE_CONSOLE
+		// Net-host pre-round settings stage (spec net-preround-settings-fix):
+		// same surface as the offline dialog, shown BEFORE the network
+		// initializes so every write lands in Game.Parameters / GameC4S
+		// before any JoinData snapshot exists. Offline keeps its own site
+		// (C4Game.cpp:2258-2272). League signups skip the stage: the league
+		// server owns the parameters (C4Network2.cpp:2662-2671).
+		if (NetworkActive && !fObserve
+			&& !Config.Network.LeagueServerSignUp
+			&& Application.isFullScreen && !Console.Active
+			&& !GameC4S.Head.Replay && Game.pGUI
+			&& lpDDraw->GetEngine() != GFXENGN_NOGFX)
+		{
+			if (!InitGameFirstPart()) return false;   // defs for the pickers (§4.3)
+			if (!C4OfflineOptionsDlg::Show()) return false;
+		}
+#endif
+
 		// Init network
 		if (!InitNetworkHost()) return false;
 		SetInitProgress(7);
@@ -2405,7 +2423,7 @@ bool C4Game::InitGameFirstPart()
 		return true;
 	}
 
-	if (PreloadStatus == PreloadLevel::None && NetworkActive && !Network.isHost())
+	if (PreloadStatus == PreloadLevel::None && Network.isEnabled() && !Network.isHost())
 	{
 		// get scenario
 		SetInitProgress(6);
