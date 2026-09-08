@@ -61,7 +61,6 @@ HOST_PARAMS_SEED_ONLY = [
     "--parameter", "Seed=3373",
 ]
 
-
 def pick_free_port() -> int:
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     try:
@@ -69,7 +68,6 @@ def pick_free_port() -> int:
         return sock.getsockname()[1]
     finally:
         sock.close()
-
 
 def wait_for_port(host: str, port: int, timeout: float,
                   interval: float = 0.1) -> bool:
@@ -82,7 +80,6 @@ def wait_for_port(host: str, port: int, timeout: float,
             time.sleep(interval)
     return False
 
-
 def kill_proc(proc: subprocess.Popen | None) -> None:
     if proc is None or proc.poll() is not None:
         return
@@ -92,11 +89,9 @@ def kill_proc(proc: subprocess.Popen | None) -> None:
     except subprocess.TimeoutExpired:
         proc.kill()
 
-
 def tail(text: str, n: int = 20) -> str:
     lines = text.splitlines()
     return "\n".join(lines[-n:])
-
 
 def build_engine_args(engine: str, ticks: int, role: str,
                       tcp_port: int, udp_port: int, scenario: Path,
@@ -117,7 +112,6 @@ def build_engine_args(engine: str, ticks: int, role: str,
     if player_file is not None:
         args.append(str(player_file))
     return args
-
 
 def run_pair(engine: str, scenario: Path, ticks: int, timeout: int,
              host_params: list[str], host_player: Path,
@@ -214,7 +208,6 @@ def run_pair(engine: str, scenario: Path, ticks: int, timeout: int,
             except OSError:
                 pass
 
-
 def make_player_copies(player_file: Path) -> tuple[Path, Path, Path]:
     """The engine writes player state back into the .c4p on game over;
     copy the fixture to a fresh temp dir so the original stays pristine
@@ -226,7 +219,6 @@ def make_player_copies(player_file: Path) -> tuple[Path, Path, Path]:
     shutil.copyfile(player_file, host_player)
     shutil.copyfile(player_file, client_player)
     return tmp_dir, host_player, client_player
-
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
@@ -349,7 +341,6 @@ def main(argv: list[str] | None = None) -> int:
 
     print("net_settings_sync_smoke PASS")
     return 0
-
 
 if __name__ == "__main__":
     sys.exit(main())
