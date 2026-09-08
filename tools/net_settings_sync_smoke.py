@@ -12,6 +12,8 @@ client joining via reference-server discovery (/client:0). Asserts:
   (e) a second pass with Seed ONLY (no Amplitude=) logs a DIFFERENT
       host "LandscapeFP:" -- the cross-pass diff proves the Amplitude
       override is live end-to-end
+  (f) in the second pass, host and client again log the SAME
+      "LandscapeFP:" value
 
 See spec net-preround-settings-fix.
 
@@ -213,16 +215,17 @@ def run_pair(engine: str, scenario: Path, ticks: int, timeout: int,
                 pass
 
 
-def make_player_copies(player_file: Path) -> tuple[Path, Path]:
+def make_player_copies(player_file: Path) -> tuple[Path, Path, Path]:
     """The engine writes player state back into the .c4p on game over;
-    copy the fixture to a temp dir so the original stays pristine (the
-    net_desync_smoke.py pattern)."""
+    copy the fixture to a fresh temp dir so the original stays pristine
+    (the net_desync_smoke.py pattern). Returns (tmp_dir, host_player,
+    client_player); the caller owns tmp_dir and must remove it."""
     tmp_dir = tempfile.mkdtemp(prefix="net_settings_plr_")
     host_player = Path(tmp_dir) / "HostPlayer.c4p"
     client_player = Path(tmp_dir) / "ClientPlayer.c4p"
     shutil.copyfile(player_file, host_player)
     shutil.copyfile(player_file, client_player)
-    return host_player, client_player
+    return tmp_dir, host_player, client_player
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -258,9 +261,14 @@ def main(argv: list[str] | None = None) -> int:
         return 2
 
     # --- Pass 1: full host --parameter set --------------------------------
-    host_player, client_player = make_player_copies(player_path)
-    r1 = run_pair(engine_path, scenario_path, args.ticks, args.timeout,
-                  HOST_PARAMS_FULL, host_player, client_player, "pass1")
+    # Fresh player copies per pass -- the engine writes player state back
+    # into the .c4p on game over, so pass 2 must not reuse pass-1's files.
+    player_dir, host_player, client_player = make_player_copies(player_path)
+    try:
+        r1 = run_pair(engine_path, scenario_path, args.ticks, args.timeout,
+                      HOST_PARAMS_FULL, host_player, client_player, "pass1")
+    finally:
+        shutil.rmtree(player_dir, ignore_errors=True)
     if r1 is None:
         return 1
 
@@ -296,8 +304,13 @@ def main(argv: list[str] | None = None) -> int:
         return 1
 
     # --- Pass 2: Seed ONLY (Amplitude sensitivity) ------------------------
-    r2 = run_pair(engine_path, scenario_path, args.ticks, args.timeout,
-                  HOST_PARAMS_SEED_ONLY, host_player, client_player, "pass2")
+    player_dir, host_player, client_player = make_player_copies(player_path)
+    try:
+        r2 = run_pair(engine_path, scenario_path, args.ticks, args.timeout,
+                      HOST_PARAMS_SEED_ONLY, host_player, client_player,
+                      "pass2")
+    finally:
+        shutil.rmtree(player_dir, ignore_errors=True)
     if r2 is None:
         return 1
 
@@ -308,6 +321,13 @@ def main(argv: list[str] | None = None) -> int:
         failures.append(
             f"(e) Amplitude override not live: pass1 host_fp="
             f"{r1['host_fp']} == pass2 host_fp={r2['host_fp']}")
+    # (f) pass-2 host/client LandscapeFP equality
+    if r2["host_fp"] is None or r2["client_fp"] is None:
+        failures.append("(f) missing pass-2 LandscapeFP line in a peer log")
+    elif r2["host_fp"] != r2["client_fp"]:
+        failures.append(
+            f"(f) pass-2 LandscapeFP divergence: host={r2['host_fp']} "
+            f"client={r2['client_fp']}")
 
     if failures:
         for f in failures:
