@@ -219,6 +219,16 @@ public:
 	// applied by ApplyParameterOverrides() after Parameters.Load (spec
 	// pregame-options-parity). Not serialized — process-lifetime flags.
 	std::vector<std::pair<StdStrBuf, StdStrBuf>> ParameterOverrides;
+
+	// Staged landscape overrides received via JoinData (spec
+	// net-preround-settings-fix): staged client-side by
+	// C4Network2::HandleJoinData/HandleReconnectJoinData before
+	// OpenScenario runs, applied to GameC4S.Landscape right after
+	// GameC4S.Load and before LoadSections. Not serialized —
+	// process-lifetime join state.
+	C4LandscapeOverrides StagedLandscapeOverrides;
+	bool HasStagedLandscapeOverrides{false};
+
 	int32_t iTick2, iTick3, iTick5, iTick10, iTick35, iTick255, iTick500, iTick1000;
 	bool TimeGo;
 	int32_t Time;
@@ -273,6 +283,8 @@ public:
 	void ParseCommandLine(const char *szCmdLine);
 	void AddParameterOverride(const char *szKV); // parse one --parameter value into ParameterOverrides
 	void ApplyParameterOverrides(); // apply ParameterOverrides to Parameters/Teams
+	void StageLandscapeOverrides(const C4LandscapeOverrides &overrides);
+	void ApplyStagedLandscapeOverrides();
 	bool Execute();
 	class C4Player *JoinPlayer(const char *szFilename, int32_t iAtClient, const char *szAtClientName, C4PlayerInfo *pInfo);
 	bool DoGameOver();

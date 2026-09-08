@@ -290,6 +290,12 @@ bool C4Game::OpenScenario()
 		LogFatal(C4ResStrTableKey::IDS_PRC_FILEINVALID); return false;
 	}
 
+	// Apply staged landscape overrides (spec net-preround-settings-fix):
+	// the host's JoinData landscape block, staged on the client before
+	// OpenScenario ran. Must fire BEFORE LoadSections so the section
+	// copies inherit the values. No-op for hosts/offline (nothing staged).
+	ApplyStagedLandscapeOverrides();
+
 	// Check minimum engine version
 	if (CompareVersion(GameC4S.Head.C4XVer[0], GameC4S.Head.C4XVer[1], GameC4S.Head.C4XVer[2], GameC4S.Head.C4XVer[3], GameC4S.Head.C4XVer[4]) > 0)
 	{
@@ -1604,6 +1610,7 @@ void C4Game::Default()
 	SmokeRunTicks = 0;  // reset on Clear()->Default() (spec headless-scenario-smoke-harness)
 	FrameRateCap = 0;   // likewise reset (spec frame-rate-cap-engine-option)
 	ParameterOverrides.clear();  // likewise reset (spec pregame-options-parity)
+	HasStagedLandscapeOverrides = false;  // likewise reset (spec net-preround-settings-fix)
 	GameOver = GameOverDlgShown = false;
 	ScenarioFilename[0] = 0;
 	PlayerFilenames[0] = 0;
@@ -3247,6 +3254,19 @@ void C4Game::ApplyParameterOverrides()
 			LogNTr("--parameter: unknown key ignored: {}", Key.getData());
 		}
 	}
+}
+
+void C4Game::StageLandscapeOverrides(const C4LandscapeOverrides &overrides)
+{
+	StagedLandscapeOverrides = overrides;
+	HasStagedLandscapeOverrides = true;
+}
+
+void C4Game::ApplyStagedLandscapeOverrides()
+{
+	if (!HasStagedLandscapeOverrides) return;
+	HasStagedLandscapeOverrides = false;
+	StagedLandscapeOverrides.ApplyTo(GameC4S.Landscape);
 }
 
 bool C4Game::LoadScenarioComponents()

@@ -320,3 +320,47 @@ TEST_CASE("ParameterOverrides_SeedLastOccurrenceWins", "[parameter-override]")
 
 	REQUIRE(Game.Parameters.RandomSeed == 2);
 }
+
+// --- JoinData landscape-override staging (spec net-preround-settings-fix) --
+// C12: a staged block applies to GameC4S.Landscape (the client-side join
+// path: HandleJoinData stages, OpenScenario applies after GameC4S.Load).
+TEST_CASE("StagedLandscapeOverridesApply", "[parameter-override]")
+{
+	Game.Default();
+	Game.GameC4S.Landscape.Amplitude.Set(30, 0, 0, 100);
+	Game.GameC4S.Landscape.Phase.Set(31, 0, 0, 100);
+	Game.GameC4S.Landscape.Period.Set(32, 0, 0, 100);
+	Game.GameC4S.Landscape.Random.Set(33, 0, 0, 100);
+	Game.GameC4S.Landscape.LiquidLevel.Set(34, 0, 0, 100);
+
+	C4SLandscape ls;
+	ls.Default();
+	ls.Amplitude.Set(45, 0, 0, 100);
+	ls.Phase.Set(46, 0, 0, 100);
+	ls.Period.Set(47, 0, 0, 100);
+	ls.Random.Set(48, 0, 0, 100);
+	ls.LiquidLevel.Set(49, 0, 0, 100);
+
+	C4LandscapeOverrides overrides;
+	overrides.SetFrom(ls);
+	Game.StageLandscapeOverrides(overrides);
+	Game.ApplyStagedLandscapeOverrides();
+
+	REQUIRE(Game.GameC4S.Landscape.Amplitude.Std == 45);
+	REQUIRE(Game.GameC4S.Landscape.Amplitude.Rnd == 0);
+	REQUIRE(Game.GameC4S.Landscape.Phase.Std == 46);
+	REQUIRE(Game.GameC4S.Landscape.Period.Std == 47);
+	REQUIRE(Game.GameC4S.Landscape.Random.Std == 48);
+	REQUIRE(Game.GameC4S.Landscape.LiquidLevel.Std == 49);
+}
+
+// C13: with nothing staged, apply is a no-op (host/offline paths).
+TEST_CASE("NoStagedBlockIsNoOp", "[parameter-override]")
+{
+	Game.Default();
+	Game.GameC4S.Landscape.Amplitude.Set(30, 0, 0, 100);
+
+	Game.ApplyStagedLandscapeOverrides();
+
+	REQUIRE(Game.GameC4S.Landscape.Amplitude.Std == 30);
+}

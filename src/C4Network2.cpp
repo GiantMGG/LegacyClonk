@@ -1686,6 +1686,10 @@ void C4Network2::HandleJoinData(const C4PacketJoinData &rPkt)
 	}
 	// copy parameters
 	Game.Parameters = rPkt.Parameters;
+	// Stage the landscape-override block: the client's GameC4S loads
+	// later (OpenScenario), which applies the staged block right after
+	// GameC4S.Load (spec net-preround-settings-fix §4.4).
+	Game.StageLandscapeOverrides(rPkt.LandscapeOverrides);
 	// set local client
 	C4Client *pLocalClient = Game.Clients.getClientByID(rPkt.getClientID());
 	if (!pLocalClient)
@@ -2015,6 +2019,11 @@ void C4Network2::SendJoinData(C4Network2Client *pClient)
 	JoinData.SetGameStatus(Status);
 	// parameters
 	JoinData.Parameters = Game.Parameters;
+	// Landscape overrides (spec net-preround-settings-fix): the five
+	// classic landscape params live only in GameC4S.Landscape, never in
+	// C4GameParameters — ship them so clients generate the identical
+	// landscape (host-side --parameter Amplitude=45 or stepper edits).
+	JoinData.LandscapeOverrides.SetFrom(Game.GameC4S.Landscape);
 	// core join data
 	JoinData.SetStartCtrlTick(iDynamicTick);
 	JoinData.SetDynamicCore(ResDynamic);
@@ -2053,6 +2062,7 @@ void C4Network2::SendReconnectJoinData(C4Network2Client *pClient, const C4Reconn
 	// the host in C4GameRes::CompileFunc (the null-check assert is
 	// compiled out under NDEBUG).
 	JoinData.Parameters = Game.Parameters;
+	JoinData.LandscapeOverrides.SetFrom(Game.GameC4S.Landscape);
 	// Copy the snapshot buffer into the packet's StdBuf field (raw binary).
 	JoinData.SetReconnectSnapshot(snap.buf);
 	pClient->SendMsg(MkC4NetIOPacket(PID_JoinData, JoinData));
@@ -2077,6 +2087,10 @@ void C4Network2::HandleReconnectJoinData(const C4PacketJoinData &rPkt)
 		return;
 	}
 	iDynamicTick = rPkt.GetReconnectSnapshotTick();
+	// Uniform landscape-override staging (spec net-preround-settings-fix
+	// §4.4 edge 5): reconnect restores from snapshot, but staging keeps
+	// the join paths uniform.
+	Game.StageLandscapeOverrides(rPkt.LandscapeOverrides);
 	// Re-anchor the control stream at the snapshot tick. The client's
 	// pre-drop control-ready is far behind the snapshot (the host kept
 	// simulating during the partition), and the host's control backlog
