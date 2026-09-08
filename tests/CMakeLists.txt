@@ -419,6 +419,24 @@ if (PYTHON3 AND USE_CONSOLE)
 		RUN_SERIAL TRUE)
 endif()
 
+# --- Network settings-sync CI smoke ---------------------------------------
+# See spec net-preround-settings-fix. Two headless engines on loopback;
+# asserts host->client landscape/rules/goals/seed sync via JoinData.
+if (PYTHON3 AND USE_CONSOLE)
+	add_test(NAME net_settings_sync_smoke
+		COMMAND "${PYTHON3}"
+			"${CMAKE_SOURCE_DIR}/tools/net_settings_sync_smoke.py"
+			"--engine" "$<TARGET_FILE:clonk>"
+			"--scenario" "${CMAKE_SOURCE_DIR}/tests/fixtures/NetSettingsSync.c4s"
+			"--ticks" "2000"
+			"--timeout" "100"
+		WORKING_DIRECTORY "${CMAKE_BINARY_DIR}")
+	set_tests_properties(net_settings_sync_smoke PROPERTIES
+		TIMEOUT 300
+		LABELS "network;smoke"
+		RUN_SERIAL TRUE)
+endif()
+
 # --- Live reconnect smoke ----------------------------------------------
 # See spec live-network-test-harness. Boots two headless engine instances
 # on loopback, partitions the client via tc-by-port (or SIGSTOP fallback),
