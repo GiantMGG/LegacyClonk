@@ -139,6 +139,11 @@ add_test_target(C4PacketReconn
 	LINK_ENGINE
 )
 
+add_test_target(JoinDataWire
+	SOURCES "${CMAKE_SOURCE_DIR}/tests/TstC4PacketJoinData.cpp"
+	LINK_ENGINE
+)
+
 add_test_target(C4MaterialReactions
 	SOURCES "${CMAKE_SOURCE_DIR}/tests/TstC4MaterialReactions.cpp"
 	LINK_ENGINE

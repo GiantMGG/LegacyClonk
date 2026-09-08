@@ -1683,6 +1683,13 @@ void C4PacketFwd::CompileFunc(StdCompiler *pComp)
 
 // *** C4PacketJoinData
 
+void C4LandscapeOverrides::CompileFunc(StdCompiler *pComp)
+{
+	for (int i = 0; i < 5; ++i)
+		pComp->Value(mkNamingAdapt(Vals[i], "Val"));
+	pComp->Value(mkNamingAdapt(Valid, "Valid", 0));
+}
+
 void C4PacketJoinData::CompileFunc(StdCompiler *pComp)
 {
 	pComp->Value(mkNamingAdapt(mkIntPackAdapt(iClientID),      "ClientID", C4ClientIDUnknown));
@@ -1706,6 +1713,7 @@ void C4PacketJoinData::CompileFunc(StdCompiler *pComp)
 	}
 	pComp->Value(mkNamingAdapt(reconnectSnapshotTick, "ReconnectSnapshotTick", -1));
 	pComp->Value(mkNamingAdapt(reconnectSnapshot,     "ReconnectSnapshot",     StdBuf{}));
+	pComp->Value(mkNamingAdapt(LandscapeOverrides, "LandscapeOverrides"));
 }
 
 // C4PacketReadyCheck

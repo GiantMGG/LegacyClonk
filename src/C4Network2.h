@@ -26,6 +26,7 @@
 #include "C4Network2IO.h"
 #include "C4Network2Players.h"
 #include "C4GameParameters.h"
+#include "C4Scenario.h"
 #include "C4Reconnect.h"
 
 #include "C4PlayerInfo.h"
@@ -462,6 +463,40 @@ private:
 
 // Packets
 
+// Landscape overrides carried in JoinData (spec net-preround-settings-fix).
+// The five classic landscape params live ONLY in GameC4S.Landscape
+// (C4Scenario.h:235-236) — never in C4GameParameters — so host-side
+// --parameter Amplitude=45 (or GUI stepper) writes did not sync and host
+// and clients generated different landscapes (lockstep desync). This
+// block ships the host's five full C4SVal states to every joiner.
+struct C4LandscapeOverrides
+{
+	C4SVal Vals[5];       // Amplitude, Phase, Period, Random, LiquidLevel
+	int32_t Valid{0};     // 0 = old-format packet: client must NOT apply
+
+	void SetFrom(const C4SLandscape &rLandscape)
+	{
+		Vals[0] = rLandscape.Amplitude;
+		Vals[1] = rLandscape.Phase;
+		Vals[2] = rLandscape.Period;
+		Vals[3] = rLandscape.Random;
+		Vals[4] = rLandscape.LiquidLevel;
+		Valid = 1;
+	}
+
+	void ApplyTo(C4SLandscape &rLandscape) const
+	{
+		if (!Valid) return;
+		rLandscape.Amplitude   = Vals[0];
+		rLandscape.Phase       = Vals[1];
+		rLandscape.Period      = Vals[2];
+		rLandscape.Random      = Vals[3];
+		rLandscape.LiquidLevel = Vals[4];
+	}
+
+	void CompileFunc(StdCompiler *pComp);
+};
+
 class C4PacketJoinData : public C4PacketBase
 {
 public:
@@ -488,6 +523,10 @@ protected:
 public:
 	// the game parameters
 	C4GameParameters Parameters;
+
+	// Landscape overrides (spec net-preround-settings-fix). Defaults keep
+	// old-format packets decodable: Valid == 0 → clients skip application.
+	C4LandscapeOverrides LandscapeOverrides;
 
 public:
 	const int32_t           &getClientID()      const { return iClientID; }
