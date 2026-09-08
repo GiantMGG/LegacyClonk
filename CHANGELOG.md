@@ -1186,4 +1186,145 @@ Spec: .opencode/specs/2026-08-29-1000-connection-migration-reconnect.md (cf8c883
 
 - Revert "chore(changelog): update for v366" (splice re-applied on re-tag) (0d13552)
 
+## [367] - 2026-09-08
+
+### Added
+
+- **tools**: Add gen_scorpion_gfx.py deterministic scorpion art generator (cycle 93) (5453fe7)
+
+- **tools**: Add lint_placeholder_gfx.py + seeded allowlist (cycle 93) (f2e1092)
+
+- **tools**: Add oracle-validated vision_qa.py battery harness (cycle 98) (59282af)
+
+- **tools**: Clonkgfx shared sprite library + selftest (cycle 99) (d749635)
+
+- **tools**: Vision_qa --gate-mode {full,feature,advisory} (strictly additive) (22c853f)
+
+- **tools**: Gen_camel_gfx - multi-action camel sheet (first clonkgfx customer) (21b5266)
+
+- **lint**: De-allowlist camel + wire clonkgfx selftest and gfx --check CTest gates (328c338)
+
+- **tools**: Gen_desert_gfx - batch desert generator (7 defs, per-def subcommands) (5cfbae1)
+
+- **lint**: FLAT_PICTURE check for actionless flat Picture rects; de-allowlist DatePalm, grandfather Heal (d63471d)
+
+- **controls**: Console-safe preset registry + table pins (G1/G2/G4) (d203387)
+
+- **controls**: Two-layer ApplyPreset + SetKeyboardControlKey + persistence pins (P1–P5, seeded G3, G5) (bccca0a)
+
+- **controls**: Old-editor live rebind + player-properties preset picker (9274aed)
+
+- **controls**: Options → Keyboard preset dropdown (5bd6ff0)
+
+- **controls**: Fresh-default flip to Two-Hand WASD+Mouse + linkage pins + docs (0863267)
+
+- **options**: Make the ControlRate row network-only (Network.isEnabled gate) (9469f33)
+
+- **overrides**: Rules=/Goals= --parameter ID-list overrides + Catch2 C1-C6 (02df52e)
+
+- **pregame**: Two-pane offline dialog shell + ScenDesc-style briefing (972a3ba)
+
+- **pregame**: Objectives/rules picker rows with write-through to Parameters (8b9abc0)
+
+- **overrides**: Seed=/landscape-param --parameter overrides + Catch2 C7-C11 (20a9d9b)
+
+- **landscape**: C4Landscape::CreatePreviewMap — seeded preview render helper (6ce67c3)
+
+- **pregame**: Landscape panel — seed line + reroll with write-through (a0ab651)
+
+- **pregame**: Live landscape preview — on-demand seeded render + palette colorize (9d6f5b3)
+
+- **pregame**: Classic-generator landscape parameter steppers with dual write-through (f0c5dc8)
+
+- **gfx**: Art-pipeline-v2 HiRes authoring + box-downscale + quantize (9060dcc)
+
+- **tools**: Vision judge at ollama think=high (2nd-highest effort) (8d931a8)
+
+- **gfx**: Scorpion 36x26 generator v2 on clonkgfx (cycle 105) (d1918ef)
+
+
+### Changed
+
+- **tools**: Fix auto_format dirt in cycle-93 gfx tools (cycle 93) (8c0cdfa)
+
+- **tools**: Auto_format vision_qa.py (Format Lint fix, cycle 98) (e3d612c)
+
+- **tools**: Auto_format clonkgfx + selftest (Format Lint fix, cycle 99) (5d51a51)
+
+- **smoke**: Auto_format landscape_seed_smoke driver (Format Lint red) (8de2930)
+
+
+### Fixed
+
+- **release**: Use github.event.inputs to avoid invalid inputs context (677d3d4)
+
+- **release**: Replace env context in job-level if with github event expression (57ba1dd)
+
+- **release**: Skip changelog splice on nightly dry-runs (cycle 95) (ae6f25d)
+
+- **ci**: Ship 12 missing content packs + release-content lint (cycle 96) (16e1337)
+
+- **effect**: Drop null-section effects in C4Effect::Execute (cycle 97) (787b861)
+
+- **net-smokes**: Stdin=DEVNULL on engine procs + sweep failure-log retention (c0dbb9d)
+
+- **net-desync-smoke**: Bind both peers to 127.0.0.1 (live_reconnect pattern) (07e70cf)
+
+- **smokes**: Wrap direct engine test invocations with stdin=/dev/null (f514ee6)
+
+- **wrapper**: Remap engine signal exits to shell convention (128+signo) (eb2b0b3)
+
+- **tools**: Vision_qa gate-soundness fixes from cycle-98 review (7293fdd)
+
+- **controls**: Include C4GuiComboBox.h in C4StartupPlrSelDlg (PCH-masked missing include) (626961c)
+
+- **lint**: Refresh stale todo-allowlist lines after picker insertion (aaf1a20)
+
+- **controls**: Kbd3 slot-12 VK collision on non-German Windows (186 → 0xDB base) (5364d57)
+
+- **game**: Move offline pre-game dialog post-def-load; offline-only via !Network.isEnabled() (5f2a0f7)
+
+- **smoke**: Landscape_seed_smoke relative-determinism driver (CI-red: absolute pin is machine-dependent) (bc42980)
+
+- **gfx**: Scorpion maps 4px claw-band drift + 2400s vision timeout (e8ea4f4)
+
+
+### Internal
+
+- **release**: Add dry-run rehearsal + nightly schedule (30c4f02)
+
+- **release**: Skip changelog splice commit in dry-run mode (5c64924)
+
+- **changelog**: Update for v366 [skip ci] (88d3972)
+
+- **macos**: Drop Intel x86_64 lane (Homebrew/GitHub deprecation) (953bafb)
+
+- **tools**: Add run_repro_matrix.sh six-symptom driver (cycle 90) (fefaf16)
+
+- **tools**: Add run_liquid_sweep.sh dig-delay sweep driver (cycle 92) (e8ff666)
+
+- **cmake**: Wire content_gfx_lint CTest entry (cycle 93) (65dda77)
+
+- **cmake**: Wire lava_wall_long_gate + promote-aware repro drivers (cycle 94) (1c585fb)
+
+- **playtest**: Add shipped-scenario playtest sweep + CI lane (cycle 97) (1df7f81)
+
+- **playtest**: Raise lane timeout to 120 min (first-run hit 60-min cap mid-test) (26998fb)
+
+- **playtest**: Trigger on tools/ changes (smoke drivers live there) (4d6783d)
+
+- **playtest**: Publish failed-test list to step summary (auth-free diagnosis) (a9a8ce6)
+
+- Wire 7 desert gfx --check byte gates (gfx_check_*) (412abf5)
+
+- **playtest**: Exclude flaky network smokes from per-push sweep (e63cfc7)
+
+- **overrides**: Rules_goals_override_smoke — Rules=/Goals= override end-to-end (b72f20b)
+
+- **overrides**: Landscape_seed_smoke — Seed= determinism end-to-end pin (9760468)
+
+- **gfx**: Vision_qa_scorpion CTest gate + 36x26 DEFAULT_FACET (cycle 105) (c278d65)
+
+- **version**: Bump content version to 4.9.11.4 for v367 (4b37197)
+
 <!-- git-cliff prepends new release sections above this line. -->
