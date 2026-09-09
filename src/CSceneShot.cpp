@@ -35,6 +35,7 @@
 //    for Reverse actions; idle objects use the DrawFace top-left
 //    Shape-size rect (C4Object::DrawFace straight-blit geometry).
 
+#include "CSceneShot.h"
 #include "C4Game.h"
 #include "C4Object.h"
 #include "C4Player.h"

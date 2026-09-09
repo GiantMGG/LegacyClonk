@@ -102,25 +102,57 @@ namespace
 		SocketGuard &operator=(const SocketGuard &) = delete;
 	};
 
-	// Find a free ephemeral IPv6 port by binding a temporary TCP socket to
-	// ::1:0, calling getsockname, then closing. Avoids hardcoding ports.
+	// Find a free ephemeral IPv6 port that is bindable by BOTH TCP and UDP
+	// on the IPv6 any-address. Rationale: GitHub Windows runners reserve UDP
+	// "excludedportrange" chunks (Hyper-V) that do NOT affect TCP binds, so
+	// a TCP-only probe could hand back a port on which
+	// C4NetIOSimpleUDP::Init (which binds ::/UDP) fails with WSAEACCES —
+	// first observed as a TstC4NetIOIPv6Loopback flake on Autobuild win32-x86
+	// (run 34382562442). We therefore re-probe each candidate on UDP as well.
 	std::uint16_t find_free_ipv6_port()
 	{
-		const int s = ::socket(AF_INET6, SOCK_STREAM, IPPROTO_TCP);
-		REQUIRE(s != INVALID_SOCKET);
-		SocketGuard guard{s};
+		for (int attempt = 0; attempt < 16; ++attempt)
+		{
+			// Probe 1: TCP bind on ::1:0, then read the OS-assigned port
+			// (avoids hardcoding ports). The guard closes the socket when it
+			// goes out of scope.
+			const int s = ::socket(AF_INET6, SOCK_STREAM, IPPROTO_TCP);
+			REQUIRE(s != INVALID_SOCKET);
+			SocketGuard guard{s};
 
-		sockaddr_in6 addr{};
-		addr.sin6_family = AF_INET6;
-		addr.sin6_port = 0;
-		addr.sin6_addr = in6addr_loopback;
-		REQUIRE(::bind(s, reinterpret_cast<sockaddr *>(&addr), sizeof(addr)) == 0);
+			sockaddr_in6 addr{};
+			addr.sin6_family = AF_INET6;
+			addr.sin6_port = 0;
+			addr.sin6_addr = in6addr_loopback;
+			REQUIRE(::bind(s, reinterpret_cast<sockaddr *>(&addr), sizeof(addr)) == 0);
 
-		sockaddr_in6 bound{};
-		socklen_t len = sizeof(bound);
-		REQUIRE(::getsockname(s, reinterpret_cast<sockaddr *>(&bound), &len) == 0);
+			sockaddr_in6 bound{};
+			socklen_t len = sizeof(bound);
+			REQUIRE(::getsockname(s, reinterpret_cast<sockaddr *>(&bound), &len) == 0);
 
-		return ntohs(bound.sin6_port);
+			const std::uint16_t port = ntohs(bound.sin6_port);
+
+			// Probe 2: can a UDP socket bind the same port on ::? Mirrors
+			// the C4NetIOSimpleUDP::Init bind (C4NetIO.cpp:1529). If not,
+			// this candidate is unusable for the UDP test — try a fresh one.
+			const int u = ::socket(AF_INET6, SOCK_DGRAM, IPPROTO_UDP);
+			REQUIRE(u != INVALID_SOCKET);
+			{
+				SocketGuard udpGuard{u};
+				sockaddr_in6 uaddr{};
+				uaddr.sin6_family = AF_INET6;
+				uaddr.sin6_port = htons(port);
+				uaddr.sin6_addr = in6addr_any;
+				if (::bind(u, reinterpret_cast<sockaddr *>(&uaddr), sizeof(uaddr)) == 0)
+				{
+					return port;
+				}
+			}
+		}
+		FAIL("no IPv6 port bindable by both TCP and UDP after 16 attempts — "
+		     "Windows/Hyper-V UDP excludedportrange hazard?"
+		     " run `netsh int ipv4 show excludedportrange protocol=udp`");
+		return 0;
 	}
 }
 
