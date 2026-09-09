@@ -296,8 +296,11 @@ def render_b64(grid, scale):
 class JudgeError(RuntimeError):
     """Mid-battery judge failure (broken instrument -> exit 2)."""
 
-def make_ask(host, model):
-    """Return ask(image_b64, prompt) -> answer string (think blocks stripped)."""
+def make_ask(host, model, timeout=None):
+    """Return ask(image_b64, prompt) -> answer string (think blocks stripped).
+    timeout=None keeps the CHAT_TIMEOUT default (backward compatible)."""
+    if timeout is None:
+        timeout = CHAT_TIMEOUT
 
     def ask(image_b64, prompt):
         body = json.dumps({
@@ -317,7 +320,7 @@ def make_ask(host, model):
         req = urllib.request.Request(host.rstrip("/") + "/api/chat", data=body,
                                      headers={"Content-Type": "application/json"})
         try:
-            with urllib.request.urlopen(req, timeout=CHAT_TIMEOUT) as r:
+            with urllib.request.urlopen(req, timeout=timeout) as r:
                 resp = json.loads(r.read())
         except urllib.error.HTTPError as e:
             raise JudgeError(f"ollama /api/chat HTTP {e.code}: "

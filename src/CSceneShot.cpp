@@ -233,6 +233,7 @@ bool CSceneShot::ComposeAndWrite(const char *szPath, int32_t iWdt, int32_t iHgt)
 		{
 			int32_t iPhase = pObj->Action.Phase;
 			const C4ActionDef &actDef = pObj->Def->ActMap[pObj->Action.Act];
+			if (actDef.Length) iPhase = std::clamp(iPhase, 0, actDef.Length - 1);
 			if (actDef.Reverse) iPhase = actDef.Length - 1 - iPhase;
 			BlitFacet(shot, pObj->Action.Facet.Surface,
 				shapeX + pObj->Action.FacetX, shapeY + pObj->Action.FacetY,

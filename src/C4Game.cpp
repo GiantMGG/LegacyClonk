@@ -1169,6 +1169,8 @@ bool C4Game::Execute() // Returns true if the game is over
 			const std::string fatalError{Application.LogSystem.GetFatalErrorString()};
 			if (!fatalError.empty())
 				fQuitWithError = true;   // C4WinMain returns C4XRV_Failure (1)
+			if (ShotActive() && !ShotTaken)
+				LogNTr("--screenshot-at missed (tick {} never reached)", ShotAtTick);
 			Application.Quit();         // AppState = C4AS_Quit; run loop drains
 			return true;
 		}

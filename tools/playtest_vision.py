@@ -154,7 +154,7 @@ def judge_reachable(host, model):
 def make_ask3(host, model, timeout):
     """ask3(image_b64) -> (parsed, raw, used_fallback). Sends the JSON-schema
     `format` body; on rejection retries plain-text via make_ask and parses."""
-    plain = make_ask(host, model)  # internally uses its own CHAT_TIMEOUT
+    plain = make_ask(host, model, timeout)  # fallback bounded by harness --timeout
     body0 = {"model": model, "stream": False, "think": "high",
              "format": SCENE_SCHEMA, "options": {"temperature": 0}}
     def ask3(image_b64):
@@ -171,7 +171,7 @@ def make_ask3(host, model, timeout):
         except urllib.error.HTTPError as e:
             print(f"[judge] structured format rejected (HTTP {e.code}) -- "
                   f"falling back to plain-text ask", flush=True)
-            raw = plain(image_b64)
+            raw = plain(image_b64, SCENE_QUESTION)
             return parse_answer(raw), raw, True
         except (urllib.error.URLError, OSError, ValueError) as e:
             raise JudgeError(f"ollama /api/chat failed: {e}") from e
