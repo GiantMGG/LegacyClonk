@@ -552,3 +552,30 @@ if (PYTHON3 AND EXISTS "${LEGACYCLONK_CONTENT_DIR}")
 		TIMEOUT 900
 		LABELS "playtest;smoke")
 endif()
+
+# --- Playtest vision judge (spec playtest-vision-tier2, cycle 108) --------
+# tools/playtest_vision.py spawns the console engine with --screenshot-at,
+# validates the PNG + SceneTruth sidecar deterministically (judge-independent
+# RED layer: artifact faults print "FAIL: artifact ..." and exit 1), and only
+# then contacts the ollama judge. The judge (ollama) is absent on CI runners,
+# so after the engine-side capture + deterministic artifact validation the
+# entry prints "SKIP: ..." and exits 0; SKIP_REGULAR_EXPRESSION below makes
+# ctest count the entry as skipped (still exit 0) — CI stays green without
+# ollama. The loop machine runs --gate-mode feature/full manually for real
+# gating; advisory is the default so verdicts are recorded even when a judge
+# exists.
+if(PYTHON3 AND USE_CONSOLE AND EXISTS "${LEGACYCLONK_CONTENT_DIR}/WeatherEvents.c4d/Tests.c4f/VisionShotSmoke.c4s")
+	add_test(NAME playtest_vision
+		COMMAND "${PYTHON3}" "${CMAKE_SOURCE_DIR}/tools/playtest_vision.py"
+			"--engine" "$<TARGET_FILE:clonk>"
+			"--scenario" "${LEGACYCLONK_CONTENT_DIR}/WeatherEvents.c4d/Tests.c4f/VisionShotSmoke.c4s"
+			"--tick" "120"
+			"--work-dir" "${CMAKE_BINARY_DIR}/ptv"
+			"--gate-mode" "advisory"
+			"--json-out" "${CMAKE_BINARY_DIR}/ptv/record.json"
+		WORKING_DIRECTORY "${CMAKE_BINARY_DIR}")
+	set_tests_properties(playtest_vision PROPERTIES
+		TIMEOUT 240
+		LABELS "playtest;vision"
+		SKIP_REGULAR_EXPRESSION "^SKIP: ")
+endif()
