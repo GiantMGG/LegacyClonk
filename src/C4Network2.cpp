@@ -771,8 +771,19 @@ void C4Network2::Execute()
 	}
 }
 
+// Teardown phase duration logging (spec net-abort-freeze-fix, D1).
+// Emits "net teardown: <phase> took <N> ms" (warn level when > 250 ms);
+// the net_abort_smoke orchestrator greps these lines as completion markers.
+static void LogNetTeardownPhase(const char *szPhase, unsigned long iStart)
+{
+	const unsigned long iElapsed{timeGetTime() - iStart};
+	LogNTr(iElapsed > 250 ? spdlog::level::warn : spdlog::level::info,
+		"net teardown: {} took {} ms", szPhase, iElapsed);
+}
+
 void C4Network2::Clear()
 {
+	const auto iClearStart{timeGetTime()};
 	// stop timer
 	if (pSec1Timer)
 	{
@@ -784,8 +795,10 @@ void C4Network2::Clear()
 	// clear league
 	if (pLeagueClient)
 	{
-		LeagueEnd();
+		const auto iLeagueStart{timeGetTime()};
+		LeagueEnd(nullptr, nullptr, timeGetTime() + C4NetLeagueTeardownDeadlineMs);
 		DeinitLeague();
+		LogNetTeardownPhase("league end+deinit", iLeagueStart);
 	}
 	// stop lobby countdown
 	delete pLobbyCountdown; pLobbyCountdown = nullptr;
@@ -803,7 +816,9 @@ void C4Network2::Clear()
 	// remove all clients
 	Clients.Clear();
 	// close net classes
+	const auto iNetIOStart{timeGetTime()};
 	NetIO.Clear();
+	LogNetTeardownPhase("netio clear", iNetIOStart);
 	// reconnect: rotate the game token and drop dormant state. Spec: reconnect.
 	Reconnect.Clear();
 	// Client-side reconnect state (spec: live-reconnect-smoke-verification).
@@ -824,6 +839,7 @@ void C4Network2::Clear()
 	iLastOwnVoting = 0;
 	NetpuncherGameID = {};
 	Votes.Clear();
+	LogNetTeardownPhase("total", iClearStart);
 	// don't clear fPasswordNeeded here, it's needed by InitClient
 }
 
@@ -2773,7 +2789,7 @@ bool C4Network2::LeagueUpdateProcessReply()
 	return true;
 }
 
-bool C4Network2::LeagueEnd(const char *szRecordName, const uint8_t *pRecordSHA)
+bool C4Network2::LeagueEnd(const char *szRecordName, const uint8_t *pRecordSHA, uint32_t iDeadline)
 {
 	C4RoundResultsPlayers RoundResults;
 	std::string resultMessage;
@@ -2783,13 +2799,23 @@ bool C4Network2::LeagueEnd(const char *szRecordName, const uint8_t *pRecordSHA)
 	if (!pLeagueClient || !fHost || fLeagueEndSent)
 		return true;
 
-	// Make sure league client is available
-	LeagueWaitNotBusy();
+	// Make sure league client is available (deadline-bounded on the
+	// teardown path: an in-flight periodic LeagueUpdate is waited out
+	// only until the deadline, then cancelled)
+	LeagueWaitNotBusy(iDeadline);
 
 	// Try until either aborted or successful
 	const int MAX_RETRIES = 10;
 	for (int iRetry = 0; iRetry < MAX_RETRIES; iRetry++)
 	{
+		// Teardown deadline exceeded before even (re)trying: cancel any
+		// in-flight request and abandon the send (best effort)
+		if (iDeadline && timeGetTime() > iDeadline)
+		{
+			pLeagueClient->Cancel("LeagueEnd: teardown deadline exceeded");
+			LogNTr(spdlog::level::warn, "net teardown: league end+deinit deadline exceeded - result send abandoned (best effort) after {} ms", C4NetLeagueTeardownDeadlineMs);
+			break;
+		}
 		// Do update
 		C4Network2Reference Ref;
 		Ref.InitLocal(&Game);
@@ -2811,8 +2837,20 @@ bool C4Network2::LeagueEnd(const char *szRecordName, const uint8_t *pRecordSHA)
 		// Wait for response
 		while (pLeagueClient->isBusy())
 		{
+			// Teardown deadline exceeded: cancel the in-flight request
+			// and abandon the send (best effort)
+			if (iDeadline && timeGetTime() > iDeadline)
+			{
+				pLeagueClient->Cancel("LeagueEnd: teardown deadline exceeded");
+				LogNTr(spdlog::level::warn, "net teardown: league end+deinit deadline exceeded - result send abandoned (best effort) after {} ms", C4NetLeagueTeardownDeadlineMs);
+				break;
+			}
+			// Pump the GUI event loop so the window stays responsive
+			// (OpenClonk parity; the LeagueStart pump precedent)
+			if (Application.HandleMessage(100) == HR_Failure)
+				break;
 			// Check if league server has responded
-			if (!pLeagueClient->Execute(100))
+			if (!pLeagueClient->Execute(0))
 				break;
 		}
 		// Error?
@@ -3017,10 +3055,14 @@ bool C4Network2::LeaguePlrAuthCheck(C4PlayerInfo *pInfo)
 	const std::string message{LoadResStr(C4ResStrTableKey::IDS_MSG_LEAGUEJOINING, pInfo->GetName())};
 	LogNTr(message);
 
-	// Wait for response
+	// Wait for response (pumped; interactive path, no deadline)
 	while (pLeagueClient->isBusy())
-		if (!pLeagueClient->Execute(100))
+	{
+		if (Application.HandleMessage(100) == HR_Failure)
 			break;
+		if (!pLeagueClient->Execute(0))
+			break;
+	}
 
 	// Check response validity
 	if (!pLeagueClient->isSuccess())
@@ -3068,15 +3110,30 @@ void C4Network2::LeagueNotifyDisconnect(int32_t iClientID, C4LeagueDisconnectRea
 		Log(C4ResStrTableKey::IDS_ERR_LEAGUEERRORREPORTINGUNEXP, sMessage.getData());
 }
 
-void C4Network2::LeagueWaitNotBusy()
+void C4Network2::LeagueWaitNotBusy(uint32_t iDeadline)
 {
 	// league client busy?
 	if (!pLeagueClient || !pLeagueClient->isBusy()) return;
 	// wait for it
 	Log(C4ResStrTableKey::IDS_LEAGUE_WAITINGFORLASTLEAGUESERVE);
 	while (pLeagueClient->isBusy())
-		if (!pLeagueClient->Execute(100))
+	{
+		// Teardown deadline exceeded: cancel the in-flight request and
+		// give up (best effort)
+		if (iDeadline && timeGetTime() > iDeadline)
+		{
+			pLeagueClient->Cancel("LeagueWaitNotBusy: teardown deadline exceeded");
+			LogNTr(spdlog::level::warn, "net teardown: league end+deinit deadline exceeded - result send abandoned (best effort) after {} ms", C4NetLeagueTeardownDeadlineMs);
 			break;
+		}
+		// Pump the GUI event loop so the window stays responsive
+		// (OpenClonk parity; the LeagueStart pump precedent)
+		if (Application.HandleMessage(100) == HR_Failure)
+			break;
+		// Poll the client without blocking
+		if (!pLeagueClient->Execute(0))
+			break;
+	}
 	// if last request was an update request, process it
 	if (pLeagueClient->getCurrentAction() == C4LA_Update)
 		LeagueUpdateProcessReply();

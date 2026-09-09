@@ -69,6 +69,14 @@ const unsigned int C4NetChaseTargetUpdateInterval = 5; // (s)
 const unsigned int C4NetReferenceUpdateInterval = 120; // (s)
 const unsigned int C4NetMinLeagueUpdateInterval = 10; // (s)
 
+// league
+// Wall-clock deadline for the league end/report HTTP round-trip on the
+// teardown path (C4Network2::Clear -> LeagueEnd). Bounds the abort
+// freeze against slow or unreachable league servers (spec
+// net-abort-freeze-fix, D2). Also used by the retry loop as the
+// give-up deadline.
+const uint32_t C4NetLeagueTeardownDeadlineMs = 1000;
+
 // voting
 const unsigned int C4NetVotingTimeout = 10; // (s)
 const unsigned int C4NetMinVotingInterval = 120; // (s)
@@ -349,7 +357,7 @@ public:
 	bool LeaguePlrAuth(C4PlayerInfo *pInfo); // client: get authentication for a player from the league server
 	bool LeaguePlrAuthCheck(C4PlayerInfo *pInfo); // host: check AUID of player info with league server
 	void LeagueNotifyDisconnect(int32_t iClientID, enum C4LeagueDisconnectReason eReason);
-	void LeagueWaitNotBusy(); // block until league serveris no longer busy. Process update reply if last message was an update
+	void LeagueWaitNotBusy(uint32_t iDeadline = 0); // block until league serveris no longer busy (iDeadline: absolute timeGetTime() deadline, 0 = unbounded). Process update reply if last message was an update
 	void LeagueSurrender(); // forfeit in league - just fake a disconnect
 	void LeagueShowError(const char *szMsg); // show league error msg box in fullscreen; just log in console
 
@@ -429,7 +437,7 @@ protected:
 	bool LeagueStart(bool *pCancel);
 	bool LeagueUpdate();
 	bool LeagueUpdateProcessReply();
-	bool LeagueEnd(const char *szRecordName = nullptr, const uint8_t *pRecordSHA = nullptr);
+	bool LeagueEnd(const char *szRecordName = nullptr, const uint8_t *pRecordSHA = nullptr, uint32_t iDeadline = 0);
 
 	// streaming
 	bool StreamIn(bool fFinish);

@@ -419,6 +419,26 @@ if (PYTHON3 AND USE_CONSOLE)
 		RUN_SERIAL TRUE)
 endif()
 
+# --- Network abort freeze CI smoke -----------------------------------------
+# See spec net-abort-freeze-fix. Host+client on loopback against a local
+# mock league server (instant Start, delayed End); /close on host stdin
+# triggers the abort teardown. Asserts the teardown wall-clock stays
+# under bound.
+if (PYTHON3 AND USE_CONSOLE)
+	add_test(NAME net_abort_smoke
+		COMMAND "${PYTHON3}"
+			"${CMAKE_SOURCE_DIR}/tools/net_abort_smoke.py"
+			"--engine" "$<TARGET_FILE:clonk>"
+			"--scenario" "${CMAKE_SOURCE_DIR}/tests/fixtures/NetSyncSmoke.c4s"
+			"--mock-end-delay" "5.0"
+			"--assert-ms" "4000"
+		WORKING_DIRECTORY "${CMAKE_BINARY_DIR}")
+	set_tests_properties(net_abort_smoke PROPERTIES
+		TIMEOUT 120
+		LABELS "network;smoke"
+		RUN_SERIAL TRUE)
+endif()
+
 # --- Network settings-sync CI smoke ---------------------------------------
 # See spec net-preround-settings-fix. Two headless engines on loopback;
 # asserts host->client landscape/rules/goals/seed sync via JoinData.
