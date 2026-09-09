@@ -55,8 +55,11 @@ FATAL_MARKERS = ("FatalError", "[critical]")
 # D1 evidence (drives the spec §5 D4 conditional decision in Task 4).
 TEARDOWN_TOTAL_RE = re.compile(
 	r"net teardown: total took (\d+) ms")
+# Unanchored on purpose: engine log lines carry a "[timestamp] [level] "
+# prefix (C4Log.cpp:297), so a "^net teardown:" line-start anchor can
+# never match (dual-review F1 — the D1-evidence echo was dead code).
 TEARDOWN_LINE_RE = re.compile(
-	r"^net teardown: .*$", re.MULTILINE)
+	r"net teardown: .*$", re.MULTILINE)
 
 # C4NetStdPortRefServer (src/C4Network2.h:54). The host runs a reference
 # server on this port; the client queries it (/client:0).
