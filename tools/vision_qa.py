@@ -21,6 +21,7 @@ judge prints SKIP and exits 0.
 
 import argparse
 import base64
+import datetime
 import json
 import os
 import re
@@ -137,6 +138,14 @@ THINK_OPEN_RE = re.compile(r"<think(?:ing)?>.*", re.DOTALL)
 
 CLASS_SEVERITY = ("mammal-reptile", "arthropod-adjacent", "other",
                   "scorpion")
+
+def qwen_window_closed(now=None):
+    """True inside the user's qwen3.8 no-use window (08:00-21:00 local),
+    unless VQ_ALLOW_DAYTIME=1 is set. Inject `now` (a datetime) for tests."""
+    if os.environ.get("VQ_ALLOW_DAYTIME", "") == "1":
+        return False
+    t = now or datetime.datetime.now()
+    return 8 <= t.hour < 21
 
 # ---------------------------------------------------------------------------
 # PNG decode (stdlib, no PIL): 8-bit, color types 0/2/3/4/6, non-interlaced
@@ -629,6 +638,10 @@ def main():
         return 2
 
     # -- SKIP path: judge reachability, then model presence -----------
+    if qwen_window_closed():
+        print("SKIP: qwen window closed (08:00-21:00 local; "
+              "set VQ_ALLOW_DAYTIME=1 to override)", flush=True)
+        return 0
     base = args.host.rstrip("/")
     try:
         with urllib.request.urlopen(base + "/api/tags",

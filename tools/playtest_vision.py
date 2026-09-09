@@ -18,7 +18,8 @@ import argparse, base64, json, os, re, subprocess, sys, tempfile, urllib.error, 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from vision_qa import (DEFAULT_HOST, DEFAULT_MODEL, FIXTURE_JPG, FLAT_RGB,
                        FLAT_H, FLAT_W, JudgeError, make_ask, majority,
-                       png_decode, render_b64, strip_think, yes_first)
+                       png_decode, qwen_window_closed, render_b64,
+                       strip_think, yes_first)
 
 FRAME_RATE_CAP, SMOKE_TICKS, TAGS_TIMEOUT, FLAT_SCALE = 1000, 350, 5, 8
 SIDECAR_KEYS = {"tick", "frame_counter", "view", "camera_source", "players",
@@ -402,6 +403,11 @@ def main():
     record["sidecar"] = {k: sidecar.get(k) for k in SIDECAR_KEYS}
 
     # SKIP path (exit 0): judge unreachable or model absent.
+    if qwen_window_closed():
+        print("SKIP: qwen window closed (08:00-21:00 local; "
+              "set VQ_ALLOW_DAYTIME=1 to override)", flush=True)
+        record["verdict"] = "SKIP"
+        return write_record(record, json_out, 0)
     if not judge_reachable(args.host, args.model):
         record["verdict"] = "SKIP"
         return write_record(record, json_out, 0)
