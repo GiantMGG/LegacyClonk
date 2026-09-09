@@ -212,6 +212,21 @@ public:
 	// headless-scenario-smoke-harness). Not serialized — process-lifetime flag.
 	int32_t SmokeRunTicks{0};
 	bool SmokeRunActive() const { return SmokeRunTicks > 0; }
+
+	// Diagnostic scene shot (spec playtest-vision-tier2 §2C): ShotAtTick > 0
+	// ⇒ compose one --screenshot-at frame at the first Execute running at or
+	// after that tick (fire site in C4Game::Execute, before the smoke-run
+	// exit block). Not serialized — process-lifetime flags. The
+	// --shot-size defaults are fixed 320:240, deliberately NOT taken from
+	// Config.Graphics.ResX/ResY, so frames are reproducible regardless of
+	// local config.
+	int32_t ShotAtTick{0};
+	bool ShotActive() const { return ShotAtTick > 0; }
+	char ShotPath[_MAX_PATH + 1]{};
+	int32_t ShotWdt{320};   // --shot-size defaults, fixed for reproducibility
+	int32_t ShotHgt{240};
+	bool ShotTaken{false};  // one capture attempt per run
+
 	bool LogSyncChecks{false};  // --log-sync-checks: log per-tick sync check fields
 	int32_t FrameRateCap{0};    // --frame-rate-cap N: 0 = uncapped, N = pace at N FPS
 

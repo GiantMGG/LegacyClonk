@@ -21,6 +21,7 @@
 #include <C4Version.h>
 #include <C4Network2Reference.h>
 #include <C4FileMonitor.h>
+#include <CSceneShot.h>
 
 #include <C4GameSave.h>
 #include <C4Record.h>
@@ -1146,6 +1147,17 @@ bool C4Game::Execute() // Returns true if the game is over
 	EXEC_DR(UpdateRules();
 	GameOverCheck();, "Misc\0")
 
+	// Diagnostic scene shot (spec playtest-vision-tier2 §2C). Fires once,
+	// at the first Execute with FrameCounter >= ShotAtTick; placement before
+	// the smoke-exit block guarantees capture even when N == SmokeRunTicks.
+	// Never changes exit semantics (constraint 7).
+	if (ShotActive() && !ShotTaken && FrameCounter >= ShotAtTick)
+	{
+		ShotTaken = true;  // one attempt per run (spec §4.5)
+		if (!CSceneShot::ComposeAndWrite(ShotPath, ShotWdt, ShotHgt))
+			LogNTr("--screenshot-at: scene shot write failed (non-fatal)");
+	}
+
 	// Smoke-run exit (spec headless-scenario-smoke-harness): clean exit on
 	// N ticks reached or GameOver, non-zero on non-empty fatal stack.
 	if (SmokeRunActive())
@@ -1627,6 +1639,7 @@ void C4Game::Default()
 	FrameCounter = 0;
 	SmokeRunTicks = 0;  // reset on Clear()->Default() (spec headless-scenario-smoke-harness)
 	FrameRateCap = 0;   // likewise reset (spec frame-rate-cap-engine-option)
+	ShotAtTick = 0; ShotTaken = false; ShotPath[0] = 0; ShotWdt = 320; ShotHgt = 240;  // likewise reset (spec playtest-vision-tier2)
 	ParameterOverrides.clear();  // likewise reset (spec pregame-options-parity)
 	HasStagedLandscapeOverrides = false;  // likewise reset (spec net-preround-settings-fix)
 	GameOver = GameOverDlgShown = false;
@@ -2870,6 +2883,70 @@ void C4Game::ParseCommandLine(const char *szCmdLine)
 			if (SGetParameter(szCmdLine, iPar + 1, szValue, _MAX_PATH))
 			{
 				SmokeRunTicks = std::atol(szValue);
+				++iPar;  // consume the value token
+			}
+		}
+		// Diagnostic scene shot (spec playtest-vision-tier2 §2C).
+		// Colon form: "--screenshot-at:120:/s.png" / "/screenshot-at:...".
+		// The tick is the digit prefix up to the FIRST colon; everything
+		// after that colon is the path (drive letters survive:
+		// "120:C:\shots\s.png" → tick 120, path "C:\shots\s.png").
+		if (SEqual2NoCase(szParameter, "/screenshot-at:")
+		 || SEqual2NoCase(szParameter, "--screenshot-at:"))
+		{
+			const char *colon = std::strchr(szParameter, ':');
+			char *tickEnd = nullptr;
+			ShotAtTick = colon ? std::strtol(colon + 1, &tickEnd, 10) : 0;
+			if (tickEnd && *tickEnd == ':')
+				SCopy(tickEnd + 1, ShotPath, _MAX_PATH);
+		}
+		// Two-arg form: "--screenshot-at 120:/s.png" / "/screenshot-at ...".
+		if (SEqualNoCase(szParameter, "/screenshot-at")
+		 || SEqualNoCase(szParameter, "--screenshot-at"))
+		{
+			char szValue[_MAX_PATH + 1];
+			if (SGetParameter(szCmdLine, iPar + 1, szValue, _MAX_PATH))
+			{
+				char *tickEnd = nullptr;
+				ShotAtTick = std::strtol(szValue, &tickEnd, 10);
+				if (tickEnd && *tickEnd == ':')
+					SCopy(tickEnd + 1, ShotPath, _MAX_PATH);
+				++iPar;  // consume the value token
+			}
+		}
+		// Output size (spec playtest-vision-tier2 §2C): "W:H" split on the
+		// first ':' — accept "WxH" too, the form used by the E2E invocations.
+		// Colon form: "--shot-size:320:240" / "/shot-size:...".
+		// Non-positive halves are rejected (defaults stay 320:240).
+		if (SEqual2NoCase(szParameter, "/shot-size:")
+		 || SEqual2NoCase(szParameter, "--shot-size:"))
+		{
+			const char *value = std::strchr(szParameter, ':');
+			if (value)
+			{
+				const char *sep = std::strpbrk(value + 1, ":xX");
+				if (sep)
+				{
+					const int32_t w = std::atol(value + 1);
+					const int32_t h = std::atol(sep + 1);
+					if (w > 0 && h > 0) { ShotWdt = w; ShotHgt = h; }
+				}
+			}
+		}
+		// Two-arg form: "--shot-size 320:240" / "/shot-size ...".
+		if (SEqualNoCase(szParameter, "/shot-size")
+		 || SEqualNoCase(szParameter, "--shot-size"))
+		{
+			char szValue[_MAX_PATH + 1];
+			if (SGetParameter(szCmdLine, iPar + 1, szValue, _MAX_PATH))
+			{
+				const char *sep = std::strpbrk(szValue, ":xX");
+				if (sep)
+				{
+					const int32_t w = std::atol(szValue);
+					const int32_t h = std::atol(sep + 1);
+					if (w > 0 && h > 0) { ShotWdt = w; ShotHgt = h; }
+				}
 				++iPar;  // consume the value token
 			}
 		}

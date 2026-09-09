@@ -104,6 +104,8 @@ src/C4GraphicsResource.cpp
 src/C4GraphicsResource.h
 src/C4GraphicsSystem.cpp
 src/C4GraphicsSystem.h
+src/CSceneShot.cpp
+src/CSceneShot.h
 src/C4Group.cpp
 src/C4Group.h
 src/C4GroupSet.cpp

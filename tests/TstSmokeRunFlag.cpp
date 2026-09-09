@@ -59,3 +59,45 @@ TEST_CASE("Default_ClearsSmokeRunTicks", "[smoke-run]")
 	REQUIRE(Game.SmokeRunTicks == 0);
 	REQUIRE_FALSE(Game.SmokeRunActive());
 }
+
+// Stage 1 unit tests for the shot-state members (--screenshot-at/--shot-size,
+// spec playtest-vision-tier2 §2C). Same member-state pattern as the
+// SmokeRunTicks pins above — C4Game::ParseCommandLine is deliberately NOT
+// called (unconditional LogNTr trap, see the header comment); the parse path
+// is regression-gated by the Tier 2 smoke/playtest harness E2E instead.
+
+TEST_CASE("ShotState_Defaults", "[shot]")
+{
+	Game.Default();
+	REQUIRE(Game.ShotAtTick == 0);
+	REQUIRE(Game.ShotWdt == 320);
+	REQUIRE(Game.ShotHgt == 240);
+	REQUIRE_FALSE(Game.ShotTaken);
+	REQUIRE_FALSE(Game.ShotActive());
+}
+
+TEST_CASE("ShotState_Active_True_WhenPositive", "[shot]")
+{
+	Game.Default();
+	Game.ShotAtTick = 120;  // simulate a successful --screenshot-at 120:... parse
+	REQUIRE(Game.ShotActive());
+}
+
+TEST_CASE("ShotState_Default_ClearsShotState", "[shot]")
+{
+	// Set every shot field, then call Default() — all must reset.
+	Game.Default();
+	Game.ShotAtTick = 120;
+	Game.ShotTaken = true;
+	Game.ShotPath[0] = 'x';
+	Game.ShotWdt = 640;
+	Game.ShotHgt = 480;
+	REQUIRE(Game.ShotActive());
+	Game.Default();
+	REQUIRE(Game.ShotAtTick == 0);
+	REQUIRE_FALSE(Game.ShotTaken);
+	REQUIRE_FALSE(Game.ShotActive());
+	REQUIRE(Game.ShotWdt == 320);
+	REQUIRE(Game.ShotHgt == 240);
+	REQUIRE(Game.ShotPath[0] == 0);
+}
