@@ -28,6 +28,7 @@
 #include "C4GameParameters.h"
 #include "C4Scenario.h"
 #include "C4Reconnect.h"
+#include "C4SliderDescriptors.h"
 
 #include "C4PlayerInfo.h"
 #include "C4Teams.h"
@@ -471,35 +472,30 @@ private:
 
 // Packets
 
-// Landscape overrides carried in JoinData (spec net-preround-settings-fix).
-// The five classic landscape params live ONLY in GameC4S.Landscape
-// (C4Scenario.h:235-236) — never in C4GameParameters — so host-side
-// --parameter Amplitude=45 (or GUI stepper) writes did not sync and host
-// and clients generated different landscapes (lockstep desync). This
-// block ships the host's five full C4SVal states to every joiner.
+// Landscape overrides carried in JoinData (spec net-preround-settings-fix,
+// extended by spec world-generator-ux-rework). The slider-contract params
+// live ONLY in GameC4S.Landscape — never in C4GameParameters — so
+// host-side --parameter (or GUI slider) writes did not sync and host and
+// clients generated different landscapes (lockstep desync). This block
+// ships the host's full C4SVal states to every joiner. Slot layout is
+// order-stable: slots 0-4 keep the cycle-107 order; slots 5-10 extend.
 struct C4LandscapeOverrides
 {
-	C4SVal Vals[5];       // Amplitude, Phase, Period, Random, LiquidLevel
+	C4SVal Vals[std::size(kSliderDescriptors)]; // the 11 slider-contract slots
 	int32_t Valid{0};     // 0 = old-format packet: client must NOT apply
 
 	void SetFrom(const C4SLandscape &rLandscape)
 	{
-		Vals[0] = rLandscape.Amplitude;
-		Vals[1] = rLandscape.Phase;
-		Vals[2] = rLandscape.Period;
-		Vals[3] = rLandscape.Random;
-		Vals[4] = rLandscape.LiquidLevel;
+		for (std::size_t i = 0; i < std::size(kSliderDescriptors); ++i)
+			Vals[i] = rLandscape.*kSliderDescriptors[i].pField;
 		Valid = 1;
 	}
 
 	void ApplyTo(C4SLandscape &rLandscape) const
 	{
 		if (!Valid) return;
-		rLandscape.Amplitude   = Vals[0];
-		rLandscape.Phase       = Vals[1];
-		rLandscape.Period      = Vals[2];
-		rLandscape.Random      = Vals[3];
-		rLandscape.LiquidLevel = Vals[4];
+		for (std::size_t i = 0; i < std::size(kSliderDescriptors); ++i)
+			rLandscape.*kSliderDescriptors[i].pField = Vals[i];
 	}
 
 	void CompileFunc(StdCompiler *pComp);

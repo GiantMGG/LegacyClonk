@@ -1685,9 +1685,28 @@ void C4PacketFwd::CompileFunc(StdCompiler *pComp)
 
 void C4LandscapeOverrides::CompileFunc(StdCompiler *pComp)
 {
+	// Order-stable slot layout (spec wire-compat): slots 0-4 keep the
+	// cycle-107 order (Amplitude, Phase, Period, Random, LiquidLevel) so
+	// 107-era buffers decode; slots 5-10 extend the block (MapWdt, MapHgt,
+	// MapZoom, Gravity, VegLevel, InEarthLevel). The extension read is
+	// EOF-tolerant: a 107-era five-slot buffer leaves Valid at 0 (the
+	// old-format gate) instead of aborting the packet decode.
 	for (int i = 0; i < 5; ++i)
 		pComp->Value(mkNamingAdapt(Vals[i], "Val"));
-	pComp->Value(mkNamingAdapt(Valid, "Valid", 0));
+	try
+	{
+		for (int i = 5; i < static_cast<int>(std::size(Vals)); ++i)
+			pComp->Value(mkNamingAdapt(Vals[i], "Val"));
+		pComp->Value(mkNamingAdapt(Valid, "Valid", 0));
+	}
+	catch (const StdCompiler::EOFException &)
+	{
+		// 107-era buffer: the extension slots are absent. Leave Valid at
+		// 0 so the block is treated as old-format and not applied.
+		Valid = 0;
+		for (int i = 5; i < static_cast<int>(std::size(Vals)); ++i)
+			Vals[i] = C4SVal{};
+	}
 }
 
 void C4PacketJoinData::CompileFunc(StdCompiler *pComp)
