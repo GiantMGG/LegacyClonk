@@ -364,3 +364,59 @@ TEST_CASE("NoStagedBlockIsNoOp", "[parameter-override]")
 
 	REQUIRE(Game.GameC4S.Landscape.Amplitude.Std == 30);
 }
+
+// C14: the six cycle-112 --parameter keys clamp into the scenario C4SVal
+// bounds through the descriptor-driven dispatch (spec
+// world-generator-ux-rework --parameter generalization).
+TEST_CASE("ParameterOverrides_SixNewLandscapeKeysClamp", "[parameter-override]")
+{
+	Game.Default();
+	Game.ParameterOverrides.clear();
+
+	Game.GameC4S.Landscape.MapWdt.Set(100, 0, 64, 250);
+	Game.GameC4S.Landscape.MapHgt.Set(50, 0, 40, 250);
+	Game.GameC4S.Landscape.MapZoom.Set(10, 0, 5, 15);
+	Game.GameC4S.Landscape.Gravity.Set(100, 0, 10, 200);
+	Game.GameC4S.Landscape.VegLevel.Set(50, 30, 0, 100);
+	Game.GameC4S.Landscape.InEarthLevel.Set(50, 0, 0, 100);
+
+	AddOverride("MapWidth", "10000");
+	AddOverride("MapHeight", "10");
+	AddOverride("MapZoom", "1");
+	AddOverride("Gravity", "500");
+	AddOverride("VegetationLevel", "75");
+	AddOverride("InEarthLevel", "25");
+	Game.ApplyParameterOverrides();
+
+	REQUIRE(Game.GameC4S.Landscape.MapWdt.Std == 250);
+	REQUIRE(Game.GameC4S.Landscape.MapWdt.Rnd == 0);
+	REQUIRE(Game.GameC4S.Landscape.MapHgt.Std == 40);
+	REQUIRE(Game.GameC4S.Landscape.MapHgt.Rnd == 0);
+	REQUIRE(Game.GameC4S.Landscape.MapZoom.Std == 5);
+	REQUIRE(Game.GameC4S.Landscape.MapZoom.Rnd == 0);
+	REQUIRE(Game.GameC4S.Landscape.Gravity.Std == 200);
+	REQUIRE(Game.GameC4S.Landscape.Gravity.Rnd == 0);
+	REQUIRE(Game.GameC4S.Landscape.VegLevel.Std == 75);
+	REQUIRE(Game.GameC4S.Landscape.VegLevel.Rnd == 0);
+	REQUIRE(Game.GameC4S.Landscape.InEarthLevel.Std == 25);
+	REQUIRE(Game.GameC4S.Landscape.InEarthLevel.Rnd == 0);
+}
+
+// C15: malformed values and unknown keys are skipped without crashing.
+TEST_CASE("ParameterOverrides_NewLandscapeKeysMalformedSkipped", "[parameter-override]")
+{
+	Game.Default();
+	Game.ParameterOverrides.clear();
+	Game.GameC4S.Landscape.MapZoom.Set(10, 0, 5, 15);
+	Game.GameC4S.Landscape.Gravity.Set(100, 0, 10, 200);
+
+	AddOverride("MapZoom", "abc");
+	AddOverride("Gravity", "");
+	AddOverride("NoSuchKey", "5");
+	REQUIRE_NOTHROW(Game.ApplyParameterOverrides());
+
+	REQUIRE(Game.GameC4S.Landscape.MapZoom.Std == 10);
+	REQUIRE(Game.GameC4S.Landscape.MapZoom.Rnd == 0);
+	REQUIRE(Game.GameC4S.Landscape.Gravity.Std == 100);
+	REQUIRE(Game.GameC4S.Landscape.Gravity.Rnd == 0);
+}

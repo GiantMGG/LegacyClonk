@@ -49,6 +49,7 @@
 #include <C4ObjectMenu.h>
 #include <C4GameLobby.h>
 #include "C4OfflineOptionsDlg.h"
+#include "C4SliderDescriptors.h"
 #include <C4ChatDlg.h>
 #include "C4KeyboardInput.h"
 #include "C4Thread.h"
@@ -3221,30 +3222,36 @@ namespace
 		return true;
 	}
 
-	// --parameter Amplitude=/Phase=/Period=/Random=/LiquidLevel=<int>
-	// (spec landscape-generator-research §2.1b): fix the classic
-	// generator's C4SVal mean to the requested value, clamped into the
-	// scenario's own bounds; zero the deviation so C4SVal::Evaluate
-	// returns exactly the clamped value. Returns true iff the key is one
-	// of the five landscape keys (malformed values are logged + skipped
-	// and also return true — the key was consumed either way).
+	// --parameter <Key>=<int> for the eleven slider-contract keys (spec
+	// world-generator-ux-rework): the descriptor table drives the
+	// dispatch — key match (case-insensitive, SEqualNoCase) ->
+	// C4SVal C4SLandscape::* -> existing Set(BoundBy(v, Min, Max), 0,
+	// Min, Max) clamp-write. Adds the six new keys (MapWidth, MapHeight,
+	// MapZoom, Gravity, VegetationLevel, InEarthLevel) with correct
+	// scenario-bounds clamping for free. Returns true iff the key is one
+	// of the eleven (malformed values are logged + skipped and also
+	// return true — the key was consumed either way).
 	bool ApplyLandscapeParamOverride(const StdStrBuf &Key, const StdStrBuf &Value, C4SLandscape &rLS)
 	{
-		C4SVal *pVal = nullptr;
-		if (SEqualNoCase(Key.getData(), "Amplitude")) pVal = &rLS.Amplitude;
-		else if (SEqualNoCase(Key.getData(), "Phase")) pVal = &rLS.Phase;
-		else if (SEqualNoCase(Key.getData(), "Period")) pVal = &rLS.Period;
-		else if (SEqualNoCase(Key.getData(), "Random")) pVal = &rLS.Random;
-		else if (SEqualNoCase(Key.getData(), "LiquidLevel")) pVal = &rLS.LiquidLevel;
-		if (!pVal) return false;
+		const C4SliderDescriptor *pMatch = nullptr;
+		for (const auto &Descriptor : kSliderDescriptors)
+		{
+			if (SEqualNoCase(Key.getData(), Descriptor.szIniKey))
+			{
+				pMatch = &Descriptor;
+				break;
+			}
+		}
+		if (!pMatch) return false;
 
+		C4SVal &rVal = rLS.*pMatch->pField;
 		int32_t iVal{};
 		if (!ParseInt32OverrideValue(Value, iVal))
 		{
 			LogNTr("--parameter: {} value malformed, ignored: {}", Key.getData(), Value.getData());
 			return true;
 		}
-		pVal->Set(BoundBy(iVal, pVal->Min, pVal->Max), 0, pVal->Min, pVal->Max);
+		rVal.Set(BoundBy(iVal, rVal.Min, rVal.Max), 0, rVal.Min, rVal.Max);
 		return true;
 	}
 }
