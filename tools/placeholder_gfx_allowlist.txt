@@ -17,13 +17,6 @@ Hazard.c4d/Items.c4d/Mines.c4d/Lasermine.c4d/Laser.c4d/Light.c4d # laser dot —
 Worlds.c4f/Desert.c4s/Lenseflare.c4d                            # lens-flare flecks — legit flat
 #
 # --- Survey-missed FLAT_FACET debt (plan 3.5 / spec edge 5: allowlist over threshold) ---
-Agriculture.c4d/Animals.c4d/Lobster.c4d                         # flat placeholder sheet — debt
-Agriculture.c4d/Items.c4d/CookedLobster.c4d                     # flat placeholder — debt
-Agriculture.c4d/Items.c4d/DeadLobster.c4d                       # flat placeholder — debt
-Agriculture.c4d/Items.c4d/Pearl.c4d                             # flat placeholder — debt
-Agriculture.c4d/Structures.c4d/Oyster.c4d                       # flat placeholder — debt
-Agriculture.c4d/Structures.c4d/TidalPool.c4d                    # flat placeholder — debt
-Agriculture.c4d/Tools.c4d/LobsterTrap.c4d                       # flat placeholder — debt
 Hazard.c4d/Crew.c4d/AIPlayer.c4d/Waypoint.c4d/Path.c4d          # path marker pips — legit flat
 Hazard.c4f/Tutorial.c4s/CommunicationScreen.c4d                 # flat screen fill — debt
 Missions.c4f/SevenKeys.c4s/Warp.c4d                             # flat warp facet — debt
@@ -37,8 +30,6 @@ Agriculture.c4d/Structures.c4d/Windmill.c4d/Wing.c4d            # transparent Tu
 Agriculture.c4d/Tools.c4d/FishTrap.c4d                          # transparent Idle facet — debt
 Agriculture.c4d/Tools.c4d/FishingNet.c4d                        # transparent Idle facet — debt
 Agriculture.c4d/Tools.c4d/FishingRod.c4d                        # transparent throw/fish facets — debt
-Agriculture.c4d/Vegetation.c4d/AppleTree.c4d                    # transparent Idle facet — debt
-Agriculture.c4d/Vegetation.c4d/Wheat.c4d                        # transparent growth facets — debt
 Airships.c4d/Vehicles.c4d/HotAirBalloon.c4d                     # transparent action facets — debt
 Airships.c4d/Vehicles.c4d/Steampack.c4d                         # transparent Idle facet — debt
 Coastal.c4d/Dock.c4d                                            # transparent Idle facet — debt
