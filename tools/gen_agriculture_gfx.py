@@ -528,7 +528,7 @@ def build_cookedlobster():
 def build_deadlobster():
 	action = clonkgfx.Action("Dead", [
 		clonkgfx.PhaseMap("Dead", BELLY_UP)])
-	clonkgfx.Invariants(min_opaque_colors=3, opaque_window=(80, 150),
+	clonkgfx.Invariants(min_opaque_colors=3, opaque_window=(95, 160),
 	                    min_phase_diff=8).check(action, PALETTE)
 	sheet = clonkgfx.Sheet(32, 24, PALETTE, [action])
 	return sheet.render_variant(DEAD_SWAP)
