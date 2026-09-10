@@ -160,6 +160,12 @@ add_test_target(OptionsOverride
 	LINK_ENGINE
 )
 
+# --- Slider-contract pinning test (spec world-generator-ux-rework) ---------
+add_test_target(SliderContract
+	SOURCES "${CMAKE_SOURCE_DIR}/tests/TstSliderContract.cpp"
+	LINK_ENGINE
+)
+
 # Python 3 for the smoke-test engine wrapper (tools/run_engine_headless.py)
 # and the net-smoke drivers below. Hoisted above the first use: on a fresh
 # configure ${PYTHON3} would still be unset at the add_test() calls.
