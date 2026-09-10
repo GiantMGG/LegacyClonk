@@ -10,25 +10,26 @@
  * See accompanying file "TRADEMARK" for details.
  */
 
-// Offline pre-game options dialog (spec pregame-options-parity-2):
-// two-pane pre-game screen — briefing (+ objectives/rules pickers) on the
-// left, the game options list on the right, Start/Abort at the bottom.
-// Shown for fullscreen, non-console, non-replay OFFLINE starts, after
-// InitGameFirstPart (definitions loaded — see the call site in C4Game.cpp).
+// Offline pre-game options dialog (spec world-generator-ux-rework):
+// two-stage fullscreen dialog. Landing stage: scenario title + the
+// [World Settings]/[Quick Start] pair + small Abort. Settings stage:
+// briefing + pickers + options strip on the left, the world block on
+// the right (hero preview + seed row + the 11 generated slider rows).
+// Page-swap via a Stage enum + fVisible; per-stage Enter/ESC.
 
-#pragma once
+#ifndef USE_CONSOLE
 
 #include "C4Gui.h"
 #include "C4GuiDialogs.h"
 #include "C4GuiSpinBox.h"
-
-#ifndef USE_CONSOLE
 
 #include "C4GameOptions.h"
 
 class C4OfflineOptionsDlg : public C4GUI::FullscreenDialog
 {
 public:
+	enum class Stage { Landing, Settings };
+
 	C4OfflineOptionsDlg();
 
 	// create, run modal message loop, destroy; false iff aborted
@@ -37,16 +38,20 @@ public:
 private:
 	void OnBtnStart(C4GUI::Control *btn);
 	void OnBtnAbort(C4GUI::Control *btn);
+	void OnBtnWorldSettings(C4GUI::Control *btn);
+	void OnBtnBack(C4GUI::Control *btn);
 
-	// left pane top: scenario title + RTF description (ScenDesc pattern)
+	// landing stage
+	void CreateLandingStage(const C4Rect &rcStage);
+
+	// settings stage
+	void CreateSettingsStage(const C4Rect &rcStage);
 	void CreateBriefing(const C4Rect &rcBriefing);
 	void FillBriefing();
-
-	// left pane bottom: objectives/rules checkbox rows (spec §2.3)
 	void CreatePickers(const C4Rect &rcPickers);
 	void AddPickerSectionHeader(const char *szSectionLabel);
 
-	// left pane very bottom: landscape panel (spec landscape-generator-research §2.2)
+	// world block (settings stage right pane)
 	bool LandscapePanelVisible() const;
 	void CreateLandscapePanel(const C4Rect &rcPanel);
 	void BuildPreviewPalette(uint32_t dwPalette[256]) const;
@@ -54,18 +59,44 @@ private:
 	void OnSeedChanged();
 	void OnBtnNewSeed(C4GUI::Control *btn);
 
-	virtual class C4GUI::Control *GetDefaultControl() override { return pBtnStart; }
+	void SetStage(Stage eToStage);
 
-	class SeedEdit; // nested: needs access to the dialog's private OnSeedChanged
-	class LandscapeParamEdit; // nested: ditto (RenderLandscapePreview + privates)
-	C4GUI::TextWindow *pBriefing;
+	// per-stage key semantics (spec §2): Enter = Quick Start on the
+	// landing stage, Start on the settings stage; ESC = Abort on the
+	// landing stage, Back-to-landing on the settings stage. Abort is
+	// always an explicit click.
+	virtual bool OnEnter() override;
+	virtual bool OnEscape() override;
+	virtual class C4GUI::Control *GetDefaultControl() override;
+
+	// preview dirty-flag debounce: slider drags fire many callbacks, so
+	// the slider handler only marks the preview dirty; the dialog's
+	// Draw flushes it — at most one re-render per frame.
+	virtual void Draw(C4FacetEx &cgo) override;
+	void MarkPreviewDirty() { fPreviewDirty = true; }
+
+	class SeedEdit;  // nested: needs OnSeedChanged (the ScaleEdit precedent)
+	class SliderRow; // nested: one generated row per descriptor
+
+	C4GUI::Window *pLandingStage{nullptr};
+	C4GUI::Window *pSettingsStage{nullptr};
+	Stage eStage{Stage::Landing};
+
+	C4GUI::TextWindow *pBriefing{nullptr};
 	C4GUI::ListBox *pPickerList{nullptr};
 	C4GUI::Window *pLandscapePanel{nullptr};
-	SeedEdit *pSeedEdit{nullptr};
+	C4GUI::ListBox *pSliderList{nullptr};
 	C4GUI::Picture *pPreviewPicture{nullptr};
-	C4GameOptionsList *pOptionsList;
-	C4GUI::CallbackButton<C4OfflineOptionsDlg> *pBtnStart;
-	C4GUI::CallbackButton<C4OfflineOptionsDlg> *pBtnAbort;
+	SeedEdit *pSeedEdit{nullptr};
+	C4GameOptionsList *pOptionsList{nullptr};
+
+	C4GUI::CallbackButton<C4OfflineOptionsDlg> *pBtnQuickStart{nullptr};
+	C4GUI::CallbackButton<C4OfflineOptionsDlg> *pBtnWorldSettings{nullptr};
+	C4GUI::CallbackButton<C4OfflineOptionsDlg> *pBtnStart{nullptr};
+	C4GUI::CallbackButton<C4OfflineOptionsDlg> *pBtnBack{nullptr};
+	C4GUI::CallbackButton<C4OfflineOptionsDlg> *pBtnAbort{nullptr};
+
+	bool fPreviewDirty{false};
 };
 
 #endif
