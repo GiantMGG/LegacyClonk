@@ -543,6 +543,42 @@ if(PYTHON3 AND EXISTS "${LEGACYCLONK_CONTENT_DIR}/Desert.c4d/Scorpion.c4d/Graphi
 		SKIP_REGULAR_EXPRESSION "^SKIP: ")
 endif()
 
+# --- Agriculture batch --check byte gates (spec agriculture-art-batch,
+# cycle 110) --------------------------------------------------------------
+set(AGRI_DEFS
+	"Animals.c4d/Lobster.c4d"
+	"Items.c4d/CookedLobster.c4d"
+	"Items.c4d/DeadLobster.c4d"
+	"Items.c4d/Pearl.c4d"
+	"Structures.c4d/Oyster.c4d"
+	"Structures.c4d/TidalPool.c4d"
+	"Tools.c4d/LobsterTrap.c4d"
+	"Vegetation.c4d/Wheat.c4d"
+	"Vegetation.c4d/AppleTree.c4d")
+foreach(agri_def ${AGRI_DEFS})
+	get_filename_component(agri_def_name "${agri_def}" NAME_WE)
+	if(PYTHON3 AND EXISTS "${LEGACYCLONK_CONTENT_DIR}/Agriculture.c4d/${agri_def}/Graphics.png")
+		add_test(NAME "gfx_check_${agri_def_name}"
+			COMMAND "${PYTHON3}" "${CMAKE_SOURCE_DIR}/tools/gen_agriculture_gfx.py" "${agri_def_name}"
+				"${LEGACYCLONK_CONTENT_DIR}/Agriculture.c4d/${agri_def}/Graphics.png" --check)
+		set_tests_properties("gfx_check_${agri_def_name}" PROPERTIES TIMEOUT 60 LABELS "lint")
+	endif()
+endforeach()
+
+if(PYTHON3 AND EXISTS "${LEGACYCLONK_CONTENT_DIR}/Agriculture.c4d/Animals.c4d/Lobster.c4d/Graphics.png")
+	add_test(NAME vision_qa_agriculture_lobster
+		COMMAND "${PYTHON3}" "${CMAKE_SOURCE_DIR}/tools/vision_qa.py"
+			--image "${LEGACYCLONK_CONTENT_DIR}/Agriculture.c4d/Animals.c4d/Lobster.c4d/Graphics.png"
+			--facet 0,0,16,12 --phases 2 --scale 8 --gate-mode feature
+			--json "${CMAKE_BINARY_DIR}/vision_qa_agriculture_lobster.json")
+	set_tests_properties(vision_qa_agriculture_lobster PROPERTIES
+		TIMEOUT 2400
+		LABELS "vision_qa;lint"
+		PASS_REGULAR_EXPRESSION "GATE PASS"
+		FAIL_REGULAR_EXPRESSION "GATE FAIL|ORACLE FAIL"
+		SKIP_REGULAR_EXPRESSION "^SKIP: ")
+endif()
+
 # --- Desert batch --check byte gates (spec placeholder-art-debt-drive-down,
 # cycle 100) --------------------------------------------------------------
 foreach(def DatePalm Date Oasis Quarry Quicksand SandDrift SandstoneBlock)
