@@ -10,6 +10,8 @@
  * See accompanying file "TRADEMARK" for details.
  */
 
+#pragma once
+
 // Offline pre-game options dialog (spec world-generator-ux-rework):
 // two-stage fullscreen dialog. Landing stage: scenario title + the
 // [World Settings]/[Quick Start] pair + small Abort. Settings stage:
