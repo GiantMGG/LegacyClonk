@@ -24,7 +24,7 @@
 #include "C4SliderDescriptors.h"
 #include "C4Scenario.h"
 
-#include <string_view>
+#include <string>
 
 TEST_CASE("SliderContractTable", "[slider-contract]")
 {
@@ -46,7 +46,7 @@ TEST_CASE("SliderContractTable", "[slider-contract]")
 			REQUIRE(Descriptor.szIniKey != nullptr);
 			REQUIRE(Descriptor.szIniKey[0] != '\0');
 			// exact string inequality — the research §8 gate
-			REQUIRE(std::string_view{Descriptor.szLabel} != std::string_view{Descriptor.szIniKey});
+			REQUIRE(std::string{Descriptor.szLabel} != std::string{Descriptor.szIniKey});
 		}
 	}
 
@@ -69,8 +69,8 @@ TEST_CASE("SliderContractTable", "[slider-contract]")
 			for (std::size_t j = i + 1; j < std::size(kSliderDescriptors); ++j)
 			{
 				CAPTURE(i, j);
-				CHECK(std::string_view{kSliderDescriptors[i].szLabel} != std::string_view{kSliderDescriptors[j].szLabel});
-				CHECK(std::string_view{kSliderDescriptors[i].szIniKey} != std::string_view{kSliderDescriptors[j].szIniKey});
+				CHECK(std::string{kSliderDescriptors[i].szLabel} != std::string{kSliderDescriptors[j].szLabel});
+				CHECK(std::string{kSliderDescriptors[i].szIniKey} != std::string{kSliderDescriptors[j].szIniKey});
 			}
 		}
 	}
