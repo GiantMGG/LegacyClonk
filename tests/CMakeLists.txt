@@ -205,6 +205,46 @@ if(EXISTS "${CMAKE_SOURCE_DIR}/../content/WeatherEvents.c4d/Tests.c4f/RulesGoals
 		FAIL_REGULAR_EXPRESSION "FatalError|\\[error\\]|\\[fatal\\]")
 endif()
 
+# --- Winning-condition --parameter override smokes (spec
+# adjustable-winning-conditions, cycle 114). Same EXISTS-guard +
+# explicit-flags pattern as rules_goals_override_smoke above; NO Smoke
+# suffix in the scenario names (the glob must not double-register them).
+if(EXISTS "${CMAKE_SOURCE_DIR}/../content/WeatherEvents.c4d/Tests.c4f/WinCondOverride.c4s")
+	add_test(NAME wincond_override_smoke
+		COMMAND "${PYTHON3}" "${CMAKE_SOURCE_DIR}/tools/run_engine_headless.py"
+			"$<TARGET_FILE:clonk>" --console --smoke-run 350
+			--parameter CooperativeGoal=ValueGain --parameter ValueGain=2500
+			--parameter Elimination=KillTheCaptain
+			-s "${CMAKE_SOURCE_DIR}/../content/WeatherEvents.c4d/Tests.c4f/WinCondOverride.c4s"
+		WORKING_DIRECTORY "${CMAKE_BINARY_DIR}")
+	set_tests_properties(wincond_override_smoke PROPERTIES
+		TIMEOUT 60
+		LABELS "smoke"
+		PASS_REGULAR_EXPRESSION "WinCondOverride PASS"
+		FAIL_REGULAR_EXPRESSION "FatalError|\\[error\\]|\\[fatal\\]")
+endif()
+
+if(EXISTS "${CMAKE_SOURCE_DIR}/../content/WeatherEvents.c4d/Tests.c4f/WinCondMode.c4s")
+	# Two-player melee smoke (plan correction 3): the Melee.c4d goal
+	# self-destructs with fewer than 2 players (its IsFulfilled), so the
+	# scenario runs with MaxPlayer=2 and joins TWO TestPlayer fixtures.
+	# The wrapper copies each fixture to a temp .c4p (the engine writes
+	# player state back on game over — never feed it the pristine file).
+	add_test(NAME wincond_mode_smoke
+		COMMAND "${PYTHON3}" "${CMAKE_SOURCE_DIR}/tools/run_engine_headless.py"
+			"$<TARGET_FILE:clonk>" --console --smoke-run 350
+			--parameter Mode=Melee
+			--smoke-player-fixture "${CMAKE_SOURCE_DIR}/tests/fixtures/TestPlayer.c4p"
+			--smoke-player-fixture "${CMAKE_SOURCE_DIR}/tests/fixtures/TestPlayer.c4p"
+			-s "${CMAKE_SOURCE_DIR}/../content/WeatherEvents.c4d/Tests.c4f/WinCondMode.c4s"
+		WORKING_DIRECTORY "${CMAKE_BINARY_DIR}")
+	set_tests_properties(wincond_mode_smoke PROPERTIES
+		TIMEOUT 60
+		LABELS "smoke"
+		PASS_REGULAR_EXPRESSION "WinCondMode PASS"
+		FAIL_REGULAR_EXPRESSION "FatalError|\\[error\\]|\\[fatal\\]")
+endif()
+
 # --- Seed=/Amplitude= --parameter override smoke (spec landscape-generator-research).
 # Relative-determinism driver: the map generator's output is machine/build-
 # dependent (FP in the creator chain), so the pin is same-seed-equality across
