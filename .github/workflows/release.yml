@@ -359,6 +359,11 @@ jobs:
           -OutDir out
           -Commit ${{ github.sha }}
           -Tag ${{ github.ref_name }}
+      - name: Download release notes
+        uses: actions/download-artifact@v8
+        with:
+          name: release-notes
+          merge-multiple: true
       - name: Publish portable archives
         uses: ncipollo/release-action@v1.11.2
         with:
@@ -366,6 +371,7 @@ jobs:
           allowUpdates: true
           artifactErrorsFailBuild: true
           replacesArtifacts: true
+          bodyFile: release-notes.md
       - name: Upload per-platform checksum fragment
         uses: actions/upload-artifact@v7
         with:
@@ -399,6 +405,11 @@ jobs:
             echo "SHA256SUMS has $LINES lines, expected 12 (6 publish legs x 2 kinds)" >&2
             exit 1
           fi
+      - name: Download release notes
+        uses: actions/download-artifact@v8
+        with:
+          name: release-notes
+          merge-multiple: true
       - name: Publish SHA256SUMS
         uses: ncipollo/release-action@v1.11.2
         with:
@@ -406,6 +417,7 @@ jobs:
           allowUpdates: true
           artifactErrorsFailBuild: true
           replacesArtifacts: true
+          bodyFile: release-notes.md
 
   build-combined-update-groups:
     name: Build Combined Update Groups
