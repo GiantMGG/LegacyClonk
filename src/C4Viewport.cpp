@@ -714,10 +714,10 @@ void C4ViewportWindow::HandleMessage(XEvent &e)
 			switch (e.xbutton.button)
 			{
 			case Button1:
-				Console.EditCursor.LeftButtonDown(e.xbutton.state & MK_CONTROL);
+				Console.EditCursor.LeftButtonDown(cvp->GetViewSection(), e.xbutton.state & MK_CONTROL);
 				break;
 			case Button3:
-				Console.EditCursor.RightButtonDown(e.xbutton.state & MK_CONTROL);
+				Console.EditCursor.RightButtonDown(cvp->GetViewSection(), e.xbutton.state & MK_CONTROL);
 				break;
 			}
 		}
@@ -746,10 +746,10 @@ void C4ViewportWindow::HandleMessage(XEvent &e)
 			switch (e.xbutton.button)
 			{
 			case Button1:
-				Console.EditCursor.LeftButtonUp();
+				Console.EditCursor.LeftButtonUp(cvp->GetViewSection());
 				break;
 			case Button3:
-				Console.EditCursor.RightButtonUp();
+				Console.EditCursor.RightButtonUp(cvp->GetViewSection());
 				break;
 			}
 		}
@@ -763,7 +763,7 @@ void C4ViewportWindow::HandleMessage(XEvent &e)
 		{
 			const auto scale = Application.GetScale();
 
-			Console.EditCursor.Move(cvp->ViewX + static_cast<int32_t>(e.xbutton.x / scale), cvp->ViewY + static_cast<int32_t>(e.xbutton.y / scale), e.xbutton.state);
+			Console.EditCursor.Move(cvp->GetViewSection(), cvp->ViewX + static_cast<int32_t>(e.xbutton.x / scale), cvp->ViewY + static_cast<int32_t>(e.xbutton.y / scale), e.xbutton.state);
 		}
 		break;
 	case ConfigureNotify:
