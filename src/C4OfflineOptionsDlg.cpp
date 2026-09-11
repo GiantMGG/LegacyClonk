@@ -23,6 +23,7 @@
 #include <C4Config.h>
 #include <C4Game.h>
 #include <C4GameLobby.h>
+#include <C4GuiComboBox.h>
 #include <C4GuiResource.h>
 #include <C4Log.h>
 #include <C4RTF.h>
@@ -297,6 +298,153 @@ void C4OfflineOptionsDlg::DefPickerRow::UpdateCountReadout()
 	pCountReadout->SetText(sText.getData());
 }
 
+// C4OfflineOptionsDlg::WinComboRow — one Winning Conditions ComboBox
+// row (the C4StartupPlrPropertiesDlg fill-callback pattern): human
+// label + ComboBox; a selection encodes through the shared codec into
+// Parameters.Goals/Rules, then the dialog-wide refresh re-derives
+// every other row. SetText is the no-fire display setter used by the
+// refresh (C4GuiComboBox.cpp:224 — plain copy, no callback).
+class C4OfflineOptionsDlg::WinComboRow : public C4GUI::Window
+{
+public:
+	WinComboRow(const C4Rect &rcRow, const C4WinConditionDescriptor &rDescriptor, C4OfflineOptionsDlg *pDlg);
+
+	void UpdateFromLists(const C4WinConditionState &rState); // decode -> no-fire display
+
+private:
+	void OnComboFill(C4GUI::ComboBox_FillCB *pFiller);
+	bool OnComboSelChange(C4GUI::ComboBox *pForCombo, int32_t idNewSelection);
+
+	C4OfflineOptionsDlg *pDlg;
+	const C4WinConditionDescriptor *pDescriptor;
+	C4GUI::ComboBox *pComboBox{nullptr};
+};
+
+C4OfflineOptionsDlg::WinComboRow::WinComboRow(const C4Rect &rcRow, const C4WinConditionDescriptor &rDescriptor, C4OfflineOptionsDlg *pDlg)
+	: pDlg(pDlg), pDescriptor(&rDescriptor)
+{
+	SetBounds(rcRow);
+	C4GUI::ComponentAligner caRow(GetContainedClientRect(), 2, 1);
+	AddElement(new C4GUI::Label(rDescriptor.szLabel,
+		caRow.GetFromLeft(rcRow.Wdt * 2 / 5), ALeft, C4GUI_MessageFontClr, &C4GUI::GetRes()->TextFont));
+	pComboBox = new C4GUI::ComboBox(caRow.GetAll());
+	pComboBox->SetComboCB(new C4GUI::ComboBox_FillCallback<WinComboRow>(this, &WinComboRow::OnComboFill, &WinComboRow::OnComboSelChange));
+	pComboBox->SetFont(&C4GUI::GetRes()->TextFont);
+	AddElement(pComboBox);
+	// initial state: decode-only (opening the dialog writes nothing)
+	const C4WinConditionState State = DecodeWinCondition(Game.Parameters.Goals, Game.Parameters.Rules);
+	UpdateFromLists(State);
+}
+
+void C4OfflineOptionsDlg::WinComboRow::OnComboFill(C4GUI::ComboBox_FillCB *pFiller)
+{
+	// the panel vocabulary: display names; id = choice index
+	for (std::size_t i = 0; i < pDescriptor->iChoiceCount; ++i)
+		pFiller->AddEntry(pDescriptor->Choices[i].szDisplayName, static_cast<int32_t>(i));
+}
+
+bool C4OfflineOptionsDlg::WinComboRow::OnComboSelChange(C4GUI::ComboBox *pForCombo, int32_t idNewSelection)
+{
+	if (idNewSelection >= 0 && static_cast<std::size_t>(idNewSelection) < pDescriptor->iChoiceCount)
+	{
+		const C4WinConditionChoice &rChoice = pDescriptor->Choices[idNewSelection];
+		// panel aux: keep the current settlement count when the row stays
+		// on Settlement; a newly-selected Settlement starts at the
+		// descriptor default (15 -> 1500 points, spec decision (c))
+		const int32_t iCurrentValG = Game.Parameters.Goals.GetIDCount(kWinTargetDescriptor.id);
+		const int32_t iAuxCount = (iCurrentValG > 0) ? iCurrentValG : kWinTargetDescriptor.iDefaultCount;
+		ApplyWinConditionChoice(Game.Parameters.Goals, Game.Parameters.Rules,
+			pDescriptor->szIniKey, rChoice.szEnumName, iAuxCount);
+		pDlg->OnWinConditionListsChanged();
+	}
+	// false: default behaviour displays the selected entry text
+	return false;
+}
+
+void C4OfflineOptionsDlg::WinComboRow::UpdateFromLists(const C4WinConditionState &rState)
+{
+	const C4WinConditionChoice *pChoice = nullptr;
+	if (SEqualNoCase(pDescriptor->szIniKey, "Mode")) pChoice = rState.pModeChoice;
+	else if (SEqualNoCase(pDescriptor->szIniKey, "Elimination")) pChoice = rState.pEliminationChoice;
+	else pChoice = rState.pGoalChoice;
+	// no-fire display setter — the refresh never re-fires selections
+	if (pChoice) pComboBox->SetText(pChoice->szDisplayName);
+}
+
+// C4OfflineOptionsDlg::SettlementRow — the ValueGain row: label +
+// horizontal ScrollBar in the points domain (positions 0..iMax-iMin map
+// to counts iMin..iMax, shown as count*100 points) + live readout.
+// Dragging writes Goals.SetIDCount(VALG, count, true) — one gesture, no
+// disabled controls: interacting with the slider IMPLICITLY selects the
+// Settlement cooperative goal (the refresh decodes VALG presence).
+class C4OfflineOptionsDlg::SettlementRow : public C4GUI::Window
+{
+public:
+	SettlementRow(const C4Rect &rcRow, C4OfflineOptionsDlg *pDlg);
+
+	void UpdateFromLists(const C4IDList &rGoals); // decode -> no-fire reposition
+
+private:
+	void OnSliderChange(int32_t iPosition);
+	void UpdateReadout(int32_t iCount);
+
+	C4OfflineOptionsDlg *pDlg;
+	C4GUI::ScrollBar *pSlider{nullptr};
+	C4GUI::Label *pReadout{nullptr};
+	int32_t iMin{1}, iMax{1};
+};
+
+C4OfflineOptionsDlg::SettlementRow::SettlementRow(const C4Rect &rcRow, C4OfflineOptionsDlg *pDlg)
+	: pDlg(pDlg)
+{
+	SetBounds(rcRow);
+	iMin = kWinTargetDescriptor.iMinCount;
+	iMax = kWinTargetDescriptor.iMaxCount;
+
+	C4GUI::ComponentAligner caRow(GetContainedClientRect(), 2, 1);
+	AddElement(new C4GUI::Label(kWinTargetDescriptor.szLabel,
+		caRow.GetFromLeft(rcRow.Wdt * 2 / 5), ALeft, C4GUI_MessageFontClr, &C4GUI::GetRes()->TextFont));
+	pReadout = new C4GUI::Label("", caRow.GetFromRight(64), ARight,
+		C4GUI_MessageFontClr, &C4GUI::GetRes()->TextFont);
+	AddElement(pReadout);
+	auto *pCB = new C4GUI::ParCallbackHandler<SettlementRow, int32_t>(this, &SettlementRow::OnSliderChange);
+	pSlider = new C4GUI::ScrollBar(caRow.GetAll(), true, pCB, iMax - iMin + 1);
+	AddElement(pSlider);
+
+	// initial state: decode-only — absent VALG rests at the default
+	// (15 -> 1500 points) and does nothing until dragged (spec edge case 1)
+	UpdateFromLists(Game.Parameters.Goals);
+}
+
+void C4OfflineOptionsDlg::SettlementRow::OnSliderChange(int32_t iPosition)
+{
+	// position p in [0, iMax-iMin] -> count p+iMin (clamped defensively)
+	const int32_t iCount = BoundBy(iPosition + iMin, iMin, iMax);
+	// write-through: the implicit Settlement selection (VALG enters the list)
+	Game.Parameters.Goals.SetIDCount(kWinTargetDescriptor.id, iCount, true);
+	UpdateReadout(iCount);
+	pDlg->OnWinConditionListsChanged();
+}
+
+void C4OfflineOptionsDlg::SettlementRow::UpdateFromLists(const C4IDList &rGoals)
+{
+	const int32_t iListCount = rGoals.GetIDCount(kWinTargetDescriptor.id);
+	// display-only clamp: the list count is the truth; a count this panel
+	// cannot produce shows pinned at the top end
+	const int32_t iCount = (iListCount > 0)
+		? BoundBy(iListCount, iMin, iMax)
+		: kWinTargetDescriptor.iDefaultCount;
+	pSlider->SetScrollPos(iCount - iMin); // no callback fire
+	UpdateReadout(iCount);
+}
+
+void C4OfflineOptionsDlg::SettlementRow::UpdateReadout(int32_t iCount)
+{
+	StdStrBuf sText;
+	sText.Copy(std::format("{} {}", iCount * kWinTargetDescriptor.iPointsPerCount, kWinTargetDescriptor.szUnit).c_str());
+	pReadout->SetText(sText.getData());
+}
+
 C4OfflineOptionsDlg::C4OfflineOptionsDlg()
 	: C4GUI::FullscreenDialog(LoadResStr(C4ResStrTableKey::IDS_DLG_OPTIONS), Game.Parameters.ScenarioTitle.getData())
 {
@@ -426,6 +574,9 @@ void C4OfflineOptionsDlg::CreatePickers(const C4Rect &rcPickers)
 	pSettingsStage->AddElement(pPickerList);
 	const int32_t iListWdt = pPickerList->GetItemWidth();
 
+	// Winning Conditions — the four §2.1 acceptance rows atop the pickers
+	CreateWinConditionPanel();
+
 	// Objectives — one checkbox row per loaded C4D_Goal def (spec §2.3;
 	// the enum constraint: ONLY C4D_Goal/C4D_Rule defs are enumerated);
 	// defs that declare a count channel (MaxUserSelect > 1, resolved —
@@ -454,10 +605,34 @@ void C4OfflineOptionsDlg::CreatePickers(const C4Rect &rcPickers)
 	}
 }
 
+void C4OfflineOptionsDlg::CreateWinConditionPanel()
+{
+	// the four research §2.1 acceptance rows: three ComboBox rows driven
+	// by kWinConditionDescriptors + the settlement-target slider
+	// (kWinTargetDescriptor). Lives at the top of the picker ListBox,
+	// inside the same savegame gate as the pickers (resume rounds never
+	// re-run InitGoals/InitRules — spec edge case 6).
+	static_assert(std::size(kWinConditionDescriptors) == 3); // pWinComboRows bound
+	AddPickerSectionHeader("Winning Conditions");
+	const int32_t iListWdt = pPickerList->GetItemWidth();
+	for (std::size_t i = 0; i < std::size(kWinConditionDescriptors); ++i)
+	{
+		pWinComboRows[i] = new WinComboRow(C4Rect(0, 0, iListWdt, 36), kWinConditionDescriptors[i], this);
+		pPickerList->AddElement(pWinComboRows[i]);
+	}
+	pSettlementRow = new SettlementRow(C4Rect(0, 0, iListWdt, 24), this);
+	pPickerList->AddElement(pSettlementRow);
+}
+
 void C4OfflineOptionsDlg::UpdateWinConditionRows()
 {
 	// read-only derive: every widget state comes from the two lists
-	// (spec risk-1 mitigation — nothing cached, no firing setters)
+	// (spec risk-1 mitigation — nothing cached, no firing setters);
+	// null-guards keep this safe during dialog construction
+	const C4WinConditionState State = DecodeWinCondition(Game.Parameters.Goals, Game.Parameters.Rules);
+	for (C4OfflineOptionsDlg::WinComboRow *pRow : pWinComboRows)
+		if (pRow) pRow->UpdateFromLists(State);
+	if (pSettlementRow) pSettlementRow->UpdateFromLists(Game.Parameters.Goals);
 	for (DefPickerRow *pRow : pPickerRows)
 		pRow->UpdateFromLists();
 }

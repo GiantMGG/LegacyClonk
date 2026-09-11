@@ -55,11 +55,13 @@ private:
 	void CreatePickers(const C4Rect &rcPickers);
 	void AddPickerSectionHeader(const char *szSectionLabel);
 
-	// Winning-condition count sliders on the picker rows (spec
-	// adjustable-winning-conditions): every picker/slider write funnels
+	// Winning Conditions panel + picker-row count sliders (spec
+	// adjustable-winning-conditions): the panel rows and the picker
+	// checkboxes edit the SAME Parameters lists; every write funnels
 	// through OnWinConditionListsChanged -> UpdateWinConditionRows, which
-	// re-derives all widget state from the two Parameters lists via
-	// no-fire setters (CheckBox::SetChecked, ScrollBar::SetScrollPos).
+	// re-derives all widget state from the two lists via no-fire setters
+	// (CheckBox::SetChecked, ComboBox::SetText, ScrollBar::SetScrollPos).
+	void CreateWinConditionPanel();
 	void UpdateWinConditionRows();
 	void OnWinConditionListsChanged();
 
@@ -87,9 +89,11 @@ private:
 	virtual void Draw(C4FacetEx &cgo) override;
 	void MarkPreviewDirty() { fPreviewDirty = true; }
 
-	class SeedEdit;     // nested: needs OnSeedChanged (the ScaleEdit precedent)
-	class SliderRow;    // nested: one generated row per descriptor
-	class DefPickerRow; // nested: one picker row (checkbox + optional count slider)
+	class SeedEdit;      // nested: needs OnSeedChanged (the ScaleEdit precedent)
+	class SliderRow;     // nested: one generated row per descriptor
+	class DefPickerRow;  // nested: one picker row (checkbox + optional count slider)
+	class WinComboRow;   // nested: one panel ComboBox row per enum descriptor
+	class SettlementRow; // nested: the settlement-target points slider
 
 	C4GUI::Window *pLandingStage{nullptr};
 	C4GUI::Window *pSettingsStage{nullptr};
@@ -98,6 +102,8 @@ private:
 	C4GUI::TextWindow *pBriefing{nullptr};
 	C4GUI::ListBox *pPickerList{nullptr};
 	std::vector<DefPickerRow *> pPickerRows; // picker-row registry for the win-condition refresh
+	WinComboRow *pWinComboRows[3]{nullptr, nullptr, nullptr}; // Mode/Elimination/CooperativeGoal
+	SettlementRow *pSettlementRow{nullptr};
 	C4GUI::Window *pLandscapePanel{nullptr};
 	C4GUI::ListBox *pSliderList{nullptr};
 	C4GUI::Picture *pPreviewPicture{nullptr};
