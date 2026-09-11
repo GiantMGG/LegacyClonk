@@ -20,7 +20,6 @@ import subprocess
 import sys
 import tempfile
 
-
 def main() -> int:
     args = sys.argv[1:]
     player_fixtures = []
@@ -58,7 +57,6 @@ def main() -> int:
     if rc < 0:
         rc = 128 - rc
     return rc
-
 
 if __name__ == "__main__":
     sys.exit(main())
