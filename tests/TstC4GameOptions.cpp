@@ -420,3 +420,101 @@ TEST_CASE("ParameterOverrides_NewLandscapeKeysMalformedSkipped", "[parameter-ove
 	REQUIRE(Game.GameC4S.Landscape.Gravity.Std == 100);
 	REQUIRE(Game.GameC4S.Landscape.Gravity.Rnd == 0);
 }
+
+// --- Win-condition parity keys (spec adjustable-winning-conditions §3) ----
+// C16: the four keys dispatch through the shared codec — the family swap
+// composes exactly like the end-to-end wincond_override_smoke.
+TEST_CASE("ParameterOverrides_WinConditionKeysThroughCodec", "[parameter-override]")
+{
+	Game.Default();
+	Game.ParameterOverrides.clear();
+	Game.Parameters.Rules.Clear();
+	Game.Parameters.Goals.Clear();
+	// authored baseline: goldmine goal + energy rule
+	Game.Parameters.Goals.SetIDCount(C4Id("GLDM"), 1, true);
+	Game.Parameters.Rules.SetIDCount(C4Id("ENRG"), 1, true);
+
+	AddOverride("CooperativeGoal", "ValueGain");
+	AddOverride("ValueGain", "2500");
+	AddOverride("Elimination", "KillTheCaptain");
+	Game.ApplyParameterOverrides();
+
+	REQUIRE(Game.Parameters.Goals.GetIDCount(C4Id("VALG")) == 25); // 2500 points / 100
+	REQUIRE(Game.Parameters.Goals.GetIDCount(C4Id("GLDM")) == 0);  // family swap removed the baseline
+	REQUIRE(Game.Parameters.Goals.GetIDCount(C4Id("MNTK")) == 0);
+	REQUIRE(Game.Parameters.Rules.GetIDCount(C4Id("KILC")) == 1);
+	REQUIRE(Game.Parameters.Rules.GetIDCount(C4Id("FGRV")) == 0);  // KILC does not pull FGRV
+	REQUIRE(Game.Parameters.Rules.GetIDCount(C4Id("ENRG")) == 1);  // surgical: unrelated rule survives
+}
+
+// C17: Mode writes are additive (Melee) / surgical (Cooperative) and the
+// deprecated MeleeTeamwork alias encodes to MELE (ConvertGoals:591-592).
+TEST_CASE("ParameterOverrides_WinConditionModeKeys", "[parameter-override]")
+{
+	Game.Default();
+	Game.ParameterOverrides.clear();
+	Game.Parameters.Goals.Clear();
+	Game.Parameters.Goals.SetIDCount(C4Id("VALG"), 3, true); // authored settlement goal
+
+	AddOverride("Mode", "Melee");
+	Game.ApplyParameterOverrides();
+	REQUIRE(Game.Parameters.Goals.GetIDCount(C4Id("MELE")) == 1);
+	REQUIRE(Game.Parameters.Goals.GetIDCount(C4Id("VALG")) == 3); // additive: authored goals survive
+
+	Game.ParameterOverrides.clear();
+	AddOverride("Mode", "Cooperative");
+	Game.ApplyParameterOverrides();
+	REQUIRE(Game.Parameters.Goals.GetIDCount(C4Id("MELE")) == 0); // only the mode family removed
+	REQUIRE(Game.Parameters.Goals.GetIDCount(C4Id("VALG")) == 3);
+
+	Game.ParameterOverrides.clear();
+	AddOverride("Mode", "MeleeTeamwork"); // deprecated alias
+	Game.ApplyParameterOverrides();
+	REQUIRE(Game.Parameters.Goals.GetIDCount(C4Id("MELE")) == 1);
+	REQUIRE(Game.Parameters.Goals.GetIDCount(C4Id("VALG")) == 3);
+}
+
+// C18: whole-list Goals=/Rules= overrides and the win-condition keys
+// compose in CLI insertion order — last writer wins (spec edge case 7).
+TEST_CASE("ParameterOverrides_WinConditionInsertionOrderInterplay", "[parameter-override]")
+{
+	Game.Default();
+	Game.ParameterOverrides.clear();
+	Game.Parameters.Goals.Clear();
+
+	// whole list first, then the target key refines it
+	AddOverride("Goals", "VALG=5");
+	AddOverride("ValueGain", "700");
+	Game.ApplyParameterOverrides();
+	REQUIRE(Game.Parameters.Goals.GetIDCount(C4Id("VALG")) == 7); // 700 -> 7
+
+	// reverse order: the whole-list override replaces the refined count
+	Game.ParameterOverrides.clear();
+	Game.Parameters.Goals.Clear();
+	AddOverride("ValueGain", "700");
+	AddOverride("Goals", "VALG=5");
+	Game.ApplyParameterOverrides();
+	REQUIRE(Game.Parameters.Goals.GetIDCount(C4Id("VALG")) == 5);
+}
+
+// C19: unknown names and malformed values log + skip, never partially
+// apply (the Parse*OverrideValue discipline).
+TEST_CASE("ParameterOverrides_WinConditionMalformedSkipped", "[parameter-override]")
+{
+	Game.Default();
+	Game.ParameterOverrides.clear();
+	Game.Parameters.Rules.Clear();
+	Game.Parameters.Goals.Clear();
+	Game.Parameters.Goals.SetIDCount(C4Id("GLDM"), 1, true);
+
+	AddOverride("Mode", "Bogus");
+	AddOverride("Elimination", "NoSuchMode");
+	AddOverride("CooperativeGoal", "Wrong");
+	AddOverride("ValueGain", "abc");
+	REQUIRE_NOTHROW(Game.ApplyParameterOverrides());
+
+	REQUIRE(Game.Parameters.Goals.GetIDCount(C4Id("GLDM")) == 1);
+	REQUIRE(Game.Parameters.Goals.GetIDCount(C4Id("VALG")) == 0);
+	REQUIRE(Game.Parameters.Rules.GetIDCount(C4Id("KILC")) == 0);
+	REQUIRE(Game.Parameters.Rules.GetIDCount(C4Id("CTFL")) == 0);
+}

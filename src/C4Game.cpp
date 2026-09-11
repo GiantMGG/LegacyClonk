@@ -50,6 +50,7 @@
 #include <C4GameLobby.h>
 #include "C4OfflineOptionsDlg.h"
 #include "C4SliderDescriptors.h"
+#include "C4WinConditionDescriptors.h"
 #include <C4ChatDlg.h>
 #include "C4KeyboardInput.h"
 #include "C4Thread.h"
@@ -3254,6 +3255,45 @@ namespace
 		rVal.Set(BoundBy(iVal, rVal.Min, rVal.Max), 0, rVal.Min, rVal.Max);
 		return true;
 	}
+
+	// --parameter Mode=/Elimination=/CooperativeGoal=<name> and
+	// ValueGain=<int points> (spec adjustable-winning-conditions §3):
+	// the four winning-condition parity keys, dispatched through the
+	// shared codec (C4WinConditionDescriptors.h) so the panel and the
+	// CLI cannot drift. ValueGain=<points> writes the target formula
+	// (2500 -> VALG=25, floored at count 1); CooperativeGoal=ValueGain
+	// adds VALG at max(current count, 1) — the ConvertGoals ValueGain=0
+	// behavior (a codec semantic; the panel's 15/1500-points default is
+	// a UI nicety on top). Malformed values and unknown names: logged +
+	// skipped, never partially applied (the Parse*OverrideValue
+	// discipline). Composition with Goals=/Rules= whole-list overrides
+	// follows ParameterOverrides insertion order — last writer wins
+	// (spec edge case 7).
+	bool ApplyWinConditionParamOverride(const StdStrBuf &Key, const StdStrBuf &Value, C4GameParameters &rParameters)
+	{
+		if (SEqualNoCase(Key.getData(), kWinTargetDescriptor.szIniKey))
+		{
+			int32_t iPoints{};
+			if (!ParseInt32OverrideValue(Value, iPoints))
+			{
+				LogNTr("--parameter: {} value malformed, ignored: {}", Key.getData(), Value.getData());
+				return true;
+			}
+			rParameters.Goals.SetIDCount(kWinTargetDescriptor.id, ValueGainToCount(iPoints), true);
+			return true;
+		}
+
+		if (!FindWinConditionDescriptor(Key.getData())) return false;
+
+		// aux: the current settlement count rides along so
+		// CooperativeGoal=ValueGain preserves it (0 -> codec floors at 1)
+		const int32_t iAuxCount = rParameters.Goals.GetIDCount(kWinTargetDescriptor.id);
+		if (!ApplyWinConditionChoice(rParameters.Goals, rParameters.Rules, Key.getData(), Value.getData(), iAuxCount))
+		{
+			LogNTr("--parameter: unknown {} value ignored: {}", Key.getData(), Value.getData());
+		}
+		return true;
+	}
 }
 
 void C4Game::ApplyParameterOverrides()
@@ -3333,6 +3373,12 @@ void C4Game::ApplyParameterOverrides()
 			}
 			ClampIDListCountsToOne(NewList);
 			Parameters.Goals = NewList;
+		}
+		// Mode/Elimination/CooperativeGoal=<name> + ValueGain=<points> (spec
+		// adjustable-winning-conditions): handled inside the helper (unknown
+		// names + malformed values: logged + skipped)
+		else if (ApplyWinConditionParamOverride(Key, Value, Parameters))
+		{
 		}
 		// Seed=<int32> — the round seed FixRandom consumes (spec
 		// landscape-generator-research §2.1a). Negative values are legal.
