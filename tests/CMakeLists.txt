@@ -277,12 +277,27 @@ file(GLOB SMOKE_SCENARIOS
   "${LEGACYCLONK_CONTENT_DIR}/*/*/*/Tests.c4f/*Smoke.c4s"
   "${LEGACYCLONK_CONTENT_DIR}/*/*/*/*/Tests.c4f/*Smoke.c4s")
 
+# Per-scenario pinned RNG seeds. Smoke scenarios whose assertions are
+# sensitive to the game RNG (probabilistic physics like saltation hops)
+# must run with a pinned Parameters.RandomSeed: the engine defaults an
+# unpinned scenario's seed to time(nullptr) (C4GameParameters.cpp:424),
+# so an unpinned smoke's pass/fail varies per run — DuneBurialSmoke
+# flaked exactly this way on the Playtest lane (run 42, 2026-09-11:
+# "no saltation embeds downwind (2 <= 2)"). The pinned seed makes the
+# smoke deterministic per binary: a CI failure becomes locally
+# reproducible, and a local pass predicts the CI outcome.
+set(SMOKE_SEED_PIN_DuneBurialSmoke 368)
+
 foreach(scenario ${SMOKE_SCENARIOS})
   get_filename_component(scenario_name "${scenario}" NAME_WE)  # e.g. EventSmoke
+  set(seed_pin_args "")
+  if(DEFINED SMOKE_SEED_PIN_${scenario_name})
+    set(seed_pin_args --parameter "Seed=${SMOKE_SEED_PIN_${scenario_name}}")
+  endif()
   add_test(NAME "smoke_${scenario_name}"
     COMMAND "${PYTHON3}" "${CMAKE_SOURCE_DIR}/tools/run_engine_headless.py"
             "$<TARGET_FILE:clonk>"
-            --console --smoke-run 350
+            --console --smoke-run 350 ${seed_pin_args}
             -s "${scenario}"
     WORKING_DIRECTORY "${CMAKE_BINARY_DIR}")
   set_tests_properties("smoke_${scenario_name}" PROPERTIES
