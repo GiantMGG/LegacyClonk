@@ -27,6 +27,8 @@
 
 #include "C4GameOptions.h"
 
+#include <vector>
+
 class C4OfflineOptionsDlg : public C4GUI::FullscreenDialog
 {
 public:
@@ -53,6 +55,14 @@ private:
 	void CreatePickers(const C4Rect &rcPickers);
 	void AddPickerSectionHeader(const char *szSectionLabel);
 
+	// Winning-condition count sliders on the picker rows (spec
+	// adjustable-winning-conditions): every picker/slider write funnels
+	// through OnWinConditionListsChanged -> UpdateWinConditionRows, which
+	// re-derives all widget state from the two Parameters lists via
+	// no-fire setters (CheckBox::SetChecked, ScrollBar::SetScrollPos).
+	void UpdateWinConditionRows();
+	void OnWinConditionListsChanged();
+
 	// world block (settings stage right pane)
 	bool LandscapePanelVisible() const;
 	void CreateLandscapePanel(const C4Rect &rcPanel);
@@ -77,8 +87,9 @@ private:
 	virtual void Draw(C4FacetEx &cgo) override;
 	void MarkPreviewDirty() { fPreviewDirty = true; }
 
-	class SeedEdit;  // nested: needs OnSeedChanged (the ScaleEdit precedent)
-	class SliderRow; // nested: one generated row per descriptor
+	class SeedEdit;     // nested: needs OnSeedChanged (the ScaleEdit precedent)
+	class SliderRow;    // nested: one generated row per descriptor
+	class DefPickerRow; // nested: one picker row (checkbox + optional count slider)
 
 	C4GUI::Window *pLandingStage{nullptr};
 	C4GUI::Window *pSettingsStage{nullptr};
@@ -86,6 +97,7 @@ private:
 
 	C4GUI::TextWindow *pBriefing{nullptr};
 	C4GUI::ListBox *pPickerList{nullptr};
+	std::vector<DefPickerRow *> pPickerRows; // picker-row registry for the win-condition refresh
 	C4GUI::Window *pLandscapePanel{nullptr};
 	C4GUI::ListBox *pSliderList{nullptr};
 	C4GUI::Picture *pPreviewPicture{nullptr};
@@ -99,6 +111,7 @@ private:
 	C4GUI::CallbackButton<C4OfflineOptionsDlg> *pBtnAbort{nullptr};
 
 	bool fPreviewDirty{false};
+	bool fUpdatingWinRows{false}; // refresh re-entrancy guard (spec risk 1)
 };
 
 #endif

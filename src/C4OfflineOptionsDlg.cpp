@@ -28,6 +28,7 @@
 #include <C4RTF.h>
 
 #include "C4SliderDescriptors.h"
+#include "C4WinConditionDescriptors.h"
 
 #include <ctime>
 #include <format>
@@ -61,58 +62,10 @@ namespace
 		C4FacetExSurface Picture;
 	};
 
-	// Per-def picker checkbox (spec §2.3): toggling writes through to the
-	// target C4IDList immediately — check on re-adds the ID with its initial
-	// count clamped >= 1; check off removes the ID from the list again.
-	class PickerCheckBox : public C4GUI::CheckBox
-	{
-	public:
-		PickerCheckBox(const C4Rect &rcBounds, const std::string &szCaption, bool fChecked,
-			C4IDList *pTargetList, C4ID idDef, int32_t iInitialCount)
-			: C4GUI::CheckBox(rcBounds, szCaption, fChecked)
-			, pTargetList(pTargetList), idDef(idDef), iInitialCount(iInitialCount)
-		{
-			SetOnChecked(new C4GUI::CallbackHandlerNoPar<PickerCheckBox>(this, &PickerCheckBox::OnToggle));
-		}
-
-	private:
-		void OnToggle()
-		{
-			if (GetChecked())
-			{
-				// re-check: restore the initial count, clamped >= 1 (spec §4.7)
-				pTargetList->SetIDCount(idDef, std::max(iInitialCount, 1), true);
-			}
-			else
-			{
-				// uncheck: remove the ID from the list again
-				const int32_t iIndex = pTargetList->GetIndex(idDef);
-				if (iIndex >= 0) pTargetList->DeleteItem(static_cast<std::size_t>(iIndex));
-			}
-		}
-
-		C4IDList *pTargetList;
-		C4ID idDef;
-		int32_t iInitialCount;
-	};
-
-	// One picker row: def icon left, checkbox right (spec §1: icon + name).
-	class DefPickerRow : public C4GUI::Window
-	{
-	public:
-		DefPickerRow(const C4Rect &rcRow, C4Def *pDef, C4IDList *pTargetList)
-		{
-			SetBounds(rcRow);
-			const C4ID idDef = pDef->id;
-			// pre-checked iff the list contains the ID (spec §1)
-			const bool fChecked = pTargetList->GetIndex(idDef) >= 0;
-			const int32_t iInitialCount = pTargetList->GetIDCount(idDef);
-			C4GUI::ComponentAligner caRow(GetContainedClientRect(), 2, 1);
-			const int32_t iIconSize = rcRow.Hgt - 4;
-			AddElement(new DefIcon(caRow.GetFromLeft(iIconSize, iIconSize), pDef));
-			AddElement(new PickerCheckBox(caRow.GetAll(), pDef->GetName(), fChecked, pTargetList, idDef, iInitialCount));
-		}
-	};
+	// (The per-def picker checkbox + row moved into the nested
+	// C4OfflineOptionsDlg::DefPickerRow below: the row needs the dialog's
+	// refresh hook, and the dialog needs a row registry for the
+	// win-condition refresh — spec adjustable-winning-conditions.)
 }
 
 // C4OfflineOptionsDlg::SeedEdit — nested so it can reach the dialog's
@@ -218,6 +171,130 @@ void C4OfflineOptionsDlg::SliderRow::UpdateReadout(int32_t iValue)
 	else
 		sText.Copy(std::format("{}", iValue).c_str());
 	pReadout->SetText(sText.getData());
+}
+
+// C4OfflineOptionsDlg::DefPickerRow — one picker row: def icon +
+// checkbox, PLUS (when the def declares a count channel,
+// MaxUserSelect > 1) a count slider + raw-count readout (spec §2.3).
+// The checkbox governs membership; the slider the count: re-check adds
+// the ID at the slider's current position, uncheck removes the ID;
+// slider drags write SetIDCount only while the ID is checked in. Every
+// write funnels through the dialog-wide refresh — no cached state.
+class C4OfflineOptionsDlg::DefPickerRow : public C4GUI::Window
+{
+public:
+	DefPickerRow(const C4Rect &rcRow, C4Def *pDef, C4IDList *pTargetList,
+		const C4CountSliderParams &rCountParams, C4OfflineOptionsDlg *pDlg);
+
+	void UpdateFromLists(); // refresh: checkbox + slider re-derived from the list
+
+private:
+	void OnToggle();                            // checkbox: membership write + refresh
+	void OnCountSliderChange(int32_t iPosition); // count write + refresh
+	void UpdateCountReadout();
+
+	C4OfflineOptionsDlg *pDlg;
+	C4IDList *pTargetList;
+	C4ID idRowDef;
+	C4CountSliderParams CountParams;
+	C4GUI::CheckBox *pCheckBox{nullptr};
+	C4GUI::ScrollBar *pCountSlider{nullptr};
+	C4GUI::Label *pCountReadout{nullptr};
+	int32_t iCurrentCount{1};
+};
+
+C4OfflineOptionsDlg::DefPickerRow::DefPickerRow(const C4Rect &rcRow, C4Def *pDef, C4IDList *pTargetList,
+	const C4CountSliderParams &rCountParams, C4OfflineOptionsDlg *pDlg)
+	: pDlg(pDlg), pTargetList(pTargetList), idRowDef(pDef->id), CountParams(rCountParams)
+{
+	SetBounds(rcRow);
+
+	// pre-checked iff the list contains the ID; the count starts at the
+	// authored count (when in the list) or the resolved default (absent)
+	const bool fChecked = pTargetList->GetIndex(idRowDef) >= 0;
+	iCurrentCount = fChecked
+		? std::max(pTargetList->GetIDCount(idRowDef), CountParams.iMin)
+		: CountParams.iDefault;
+
+	// checkbox strip — today's 36-px layout (icon + name)
+	const C4Rect rcClient = GetContainedClientRect();
+	C4GUI::ComponentAligner caTop(C4Rect(rcClient.x, rcClient.y, rcClient.Wdt, 36), 2, 1);
+	const int32_t iIconSize = 36 - 4;
+	AddElement(new DefIcon(caTop.GetFromLeft(iIconSize, iIconSize), pDef));
+	pCheckBox = new C4GUI::CheckBox(caTop.GetAll(), pDef->GetName(), fChecked);
+	pCheckBox->SetOnChecked(new C4GUI::CallbackHandlerNoPar<DefPickerRow>(this, &DefPickerRow::OnToggle));
+	AddElement(pCheckBox);
+
+	if (CountParams.fEligible)
+	{
+		// count strip — the lower 16 px (52-px row total): slider + RAW
+		// count readout ("15", never an effect — count->effect is
+		// script-private and non-linear for WPHT; spec §2.3 count honesty)
+		C4GUI::ComponentAligner caCount(C4Rect(rcClient.x, rcClient.y + 36, rcClient.Wdt, rcClient.Hgt - 36), 2, 0);
+		pCountReadout = new C4GUI::Label("", caCount.GetFromRight(44), ARight,
+			C4GUI_MessageFontClr, &C4GUI::GetRes()->TextFont);
+		AddElement(pCountReadout);
+		auto *pCB = new C4GUI::ParCallbackHandler<DefPickerRow, int32_t>(this, &DefPickerRow::OnCountSliderChange);
+		pCountSlider = new C4GUI::ScrollBar(caCount.GetAll(), true, pCB, CountParams.iMax - CountParams.iMin + 1);
+		AddElement(pCountSlider);
+		// SetScrollPos does NOT fire the callback (direct rescale assign)
+		pCountSlider->SetScrollPos(iCurrentCount - CountParams.iMin);
+		UpdateCountReadout();
+	}
+}
+
+void C4OfflineOptionsDlg::DefPickerRow::OnToggle()
+{
+	if (pCheckBox->GetChecked())
+	{
+		// re-check: the slider position IS the count now (spec §2.3)
+		pTargetList->SetIDCount(idRowDef, iCurrentCount, true);
+	}
+	else
+	{
+		// uncheck: remove the ID from the list again
+		const int32_t iIndex = pTargetList->GetIndex(idRowDef);
+		if (iIndex >= 0) pTargetList->DeleteItem(static_cast<std::size_t>(iIndex));
+	}
+	pDlg->OnWinConditionListsChanged();
+}
+
+void C4OfflineOptionsDlg::DefPickerRow::OnCountSliderChange(int32_t iPosition)
+{
+	// slider position p in [0, iMax-iMin] -> count p+iMin
+	iCurrentCount = BoundBy(iPosition + CountParams.iMin, CountParams.iMin, CountParams.iMax);
+	// membership stays with the checkbox: drags write only checked-in rows
+	if (pTargetList->GetIndex(idRowDef) >= 0)
+		pTargetList->SetIDCount(idRowDef, iCurrentCount, true);
+	UpdateCountReadout();
+	pDlg->OnWinConditionListsChanged();
+}
+
+void C4OfflineOptionsDlg::DefPickerRow::UpdateFromLists()
+{
+	// no-fire setters only (CheckBox::SetChecked / ScrollBar::SetScrollPos)
+	const bool fPresent = pTargetList->GetIndex(idRowDef) >= 0;
+	pCheckBox->SetChecked(fPresent);
+	if (fPresent)
+	{
+		// panel writes (e.g. the settlement slider) reflect here; keep the
+		// raw list count so an over-ceiling authored count survives a
+		// re-check round-trip (resolver guarantee, spec edge case 3)
+		iCurrentCount = std::max(pTargetList->GetIDCount(idRowDef), CountParams.iMin);
+		if (pCountSlider)
+			pCountSlider->SetScrollPos(BoundBy(iCurrentCount, CountParams.iMin, CountParams.iMax) - CountParams.iMin);
+	}
+	// absent: slider + readout rest where they were — re-check restores
+	// the position (spec edge case 3)
+	UpdateCountReadout();
+}
+
+void C4OfflineOptionsDlg::DefPickerRow::UpdateCountReadout()
+{
+	if (!pCountReadout) return;
+	StdStrBuf sText;
+	sText.Copy(std::format("{}", iCurrentCount).c_str());
+	pCountReadout->SetText(sText.getData());
 }
 
 C4OfflineOptionsDlg::C4OfflineOptionsDlg()
@@ -350,19 +427,49 @@ void C4OfflineOptionsDlg::CreatePickers(const C4Rect &rcPickers)
 	const int32_t iListWdt = pPickerList->GetItemWidth();
 
 	// Objectives — one checkbox row per loaded C4D_Goal def (spec §2.3;
-	// the enum constraint: ONLY C4D_Goal/C4D_Rule defs are enumerated)
+	// the enum constraint: ONLY C4D_Goal/C4D_Rule defs are enumerated);
+	// defs that declare a count channel (MaxUserSelect > 1, resolved —
+	// never per-ID literals) grow a count slider (52-px row)
 	AddPickerSectionHeader("Objectives");
 	for (std::size_t i = 0; C4Def *pDef = Game.Defs.GetDef(i, C4D_Goal); ++i)
 	{
-		pPickerList->AddElement(new DefPickerRow(C4Rect(0, 0, iListWdt, 36), pDef, &Game.Parameters.Goals));
+		const C4CountSliderParams CountParams = ResolveCountSliderParams(
+			pDef->MaxUserSelect, Game.Parameters.Goals.GetIDCount(pDef->id));
+		auto *pRow = new DefPickerRow(C4Rect(0, 0, iListWdt, CountParams.fEligible ? 52 : 36),
+			pDef, &Game.Parameters.Goals, CountParams, this);
+		pPickerList->AddElement(pRow);
+		pPickerRows.push_back(pRow);
 	}
 
-	// Rules — one checkbox row per loaded C4D_Rule def
+	// Rules — one checkbox row per loaded C4D_Rule def (same eligibility)
 	AddPickerSectionHeader("Rules");
 	for (std::size_t i = 0; C4Def *pDef = Game.Defs.GetDef(i, C4D_Rule); ++i)
 	{
-		pPickerList->AddElement(new DefPickerRow(C4Rect(0, 0, iListWdt, 36), pDef, &Game.Parameters.Rules));
+		const C4CountSliderParams CountParams = ResolveCountSliderParams(
+			pDef->MaxUserSelect, Game.Parameters.Rules.GetIDCount(pDef->id));
+		auto *pRow = new DefPickerRow(C4Rect(0, 0, iListWdt, CountParams.fEligible ? 52 : 36),
+			pDef, &Game.Parameters.Rules, CountParams, this);
+		pPickerList->AddElement(pRow);
+		pPickerRows.push_back(pRow);
 	}
+}
+
+void C4OfflineOptionsDlg::UpdateWinConditionRows()
+{
+	// read-only derive: every widget state comes from the two lists
+	// (spec risk-1 mitigation — nothing cached, no firing setters)
+	for (DefPickerRow *pRow : pPickerRows)
+		pRow->UpdateFromLists();
+}
+
+void C4OfflineOptionsDlg::OnWinConditionListsChanged()
+{
+	// writer hook: every picker/slider/panel write calls this after its
+	// list write; the guard breaks any re-entrancy
+	if (fUpdatingWinRows) return;
+	fUpdatingWinRows = true;
+	UpdateWinConditionRows();
+	fUpdatingWinRows = false;
 }
 
 void C4OfflineOptionsDlg::AddPickerSectionHeader(const char *szSectionLabel)
