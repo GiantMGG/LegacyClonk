@@ -514,3 +514,51 @@ def test_p8_validation_parity_reports_mismatch_not_abort(tmp_path,
     assert "mismatch" in markdown
     assert "999" in markdown
     assert "| 1000 | votes | 1 | 999 | mismatch |" in markdown
+
+
+# ===========================================================================
+# P9 — live per-entry page shape adaptation (Task-3 real-data pin): the
+# live CCAN page labels the count "Downloadzahl" (number in the next <td>)
+# and wraps the Niveau numeric in <span>s. The Task-2 regex fallbacks alone
+# grab the entry ID from the "Download" link row (downloads) and miss the
+# span-wrapped numeric (Niveau unparsed). The table-cell primary source must
+# win; the regexes stay as the synthetic-shape fallback (P8 covers them).
+# ===========================================================================
+
+LIVE_ENTRY_HTML = """<!DOCTYPE html>
+<html><head><title>CCAN - Codename: Modern Combat</title></head><body>
+<table>
+<tr><td>Zeit:</td><td>19.1.2021 13:31</td></tr>
+<tr><td>Dateigr&ouml;&szlig;e:</td><td>38.9 MB</td></tr>
+<tr><td>Downloadzahl:</td><td>293</td></tr>
+<tr><td>Kategorie:</td><td>Melee</td></tr>
+<tr><td>Engine-Version:</td><td>CR</td></tr>
+<tr><td>Niveau:</td>
+<td bgcolor="#BBF044">gut <span style="font-size:70%">(0.7)</span> (3 Votes)
+[<select name="v"><option value="+3">absolut genial</option></select>]</td></tr>
+</table>
+</body></html>"""
+
+def test_p9_live_entry_page_shape_parses_fields():
+    """The live per-entry label-value table is the primary source: Niveau
+    inside <span> tags, Downloadzahl count, votes from the same cell."""
+    fields = cp.parse_page_fields(LIVE_ENTRY_HTML, ccan_id=6331)
+    assert fields["category"] == "Melee"
+    assert fields["engine"] == "CR"
+    assert fields["niveau_label"] == "gut"
+    assert fields["niveau_numeric"] == pytest.approx(0.7)
+    assert fields["votes"] == 3
+    assert fields["downloads"] == 293
+
+def test_p9_live_entry_page_negative_rating_parses():
+    """Negative ratings and zero-padded labels parse through the same path."""
+    negative = LIVE_ENTRY_HTML.replace(
+        "gut <span style=\"font-size:70%\">(0.7)</span> (3 Votes)",
+        "nicht schlecht, nicht gut <span style=\"font-size:70%\">(-0.2)</span> (13 Votes)")
+    negative = negative.replace("<td>Downloadzahl:</td><td>293</td>",
+                                "<td>Downloadzahl:</td><td>226</td>")
+    fields = cp.parse_page_fields(negative, ccan_id=4514)
+    assert fields["niveau_label"] == "nicht schlecht, nicht gut"
+    assert fields["niveau_numeric"] == pytest.approx(-0.2)
+    assert fields["votes"] == 13
+    assert fields["downloads"] == 226

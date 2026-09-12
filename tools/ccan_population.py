@@ -337,7 +337,14 @@ def parse_page_fields(html_text: str, ccan_id: int = 0) -> dict:
 
     Uses the house ``CcanMetadataParser``/``parse_ccan_metadata`` (fields the
     label-value table carries: engine, category) plus targeted regex
-    fallbacks for Niveau/votes/downloads. Absent fields are ``None``.
+    fallbacks for Niveau/votes/downloads. Task-3 adaptation to the live
+    page shape: CCAN's per-entry table labels the count ``Downloadzahl``
+    (the old ``Downloads?`` regex hit the ``Download`` link row instead and
+    grabbed the entry ID) and wraps the Niveau numeric in ``<span>``s
+    (``gut <span>(0.7)</span> (3 Votes)``), so the regex fallbacks alone
+    mis-parse both. The metadata-table cells are the primary source when
+    present; the regexes stay as the synthetic-fixture fallback. Absent
+    fields are ``None``.
     """
     meta = parse_ccan_metadata(html_text, ccan_id)
     parser = CcanMetadataParser()
@@ -346,17 +353,43 @@ def parse_page_fields(html_text: str, ccan_id: int = 0) -> dict:
 
     niveau_label: Optional[str] = None
     niveau_numeric: Optional[float] = None
-    m = _PAGE_NIVEAU_RE.search(html_text)
-    if m:
-        niveau_label = m.group(1)
-        niveau_numeric = _to_float(m.group(2))
+    votes: Optional[int] = _page_count(html_text, _PAGE_VOTES_RE)
+    downloads: Optional[int] = _page_count(html_text, _PAGE_DOWNLOADS_RE)
+
+    # Live Niveau cell: "gut (0.7) (3 Votes) [Vote: ...]" — the vote-count
+    # row's label/value are in the same cell, so parse all three in one go.
+    niveau_cell = fields.get("Niveau")
+    if niveau_cell:
+        m = re.match(r"^\s*(.+?)\s*\((-?\d+[.,]\d+)\)"
+                     r"\s*\((\d+)\s*Votes?\)", niveau_cell)
+        if m:
+            niveau_label = m.group(1).strip()
+            niveau_numeric = _to_float(m.group(2))
+            votes = int(m.group(3))
+    if niveau_numeric is None:
+        m = _PAGE_NIVEAU_RE.search(html_text)
+        if m:
+            niveau_label = m.group(1)
+            niveau_numeric = _to_float(m.group(2))
+
+    # Live count cell: "Downloadzahl:  <td>293</td>" — the number follows the
+    # label in the next cell, which _page_count's look-back misses on the
+    # "Download" (link) row; prefer the table field.
+    for dl_key in ("Downloadzahl", "Downloads", "Heruntergeladen"):
+        dl_cell = fields.get(dl_key)
+        if dl_cell:
+            try:
+                downloads = int(dl_cell.strip())
+            except ValueError:
+                pass
+            break
     return {
         "engine": meta.engine,
         "category": (fields.get("Kategorie") or fields.get("Category") or ""),
         "niveau_label": niveau_label,
         "niveau_numeric": niveau_numeric,
-        "votes": _page_count(html_text, _PAGE_VOTES_RE),
-        "downloads": _page_count(html_text, _PAGE_DOWNLOADS_RE),
+        "votes": votes,
+        "downloads": downloads,
     }
 
 

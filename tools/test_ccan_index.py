@@ -245,3 +245,63 @@ def test_l6_unidentifiable_columns_are_counted_and_skipped():
     assert e0.engine == ""
     assert e0.size_label == ""
     assert page.parse_failures == 2  # 1 extra cell + 1 view-less row
+
+# ===========================================================================
+# L7: the committed ground-truth fixture (Task-3, plan Step 5). A real saved
+# excerpt of page 1 of the Phase-0 enriched-listing crawl, checked in to
+# fixtures/ccan_sample/listing_enriched.html so the live layout is hardened
+# against variance permanently. Column order is kept inline per the L7
+# convention (test_ccan_index does not import the population tool).
+# ===========================================================================
+
+HERE = Path(__file__).resolve().parent
+FIXTURE_ENRICHED = HERE / "fixtures" / "ccan_sample" / "listing_enriched.html"
+
+
+def test_l7_ground_truth_fixture_parses():
+    """Parse the committed live page-1 excerpt: >=1 entry, ccan_id from the
+    view link, and Niveau/votes populated on the sampled rows."""
+    html = FIXTURE_ENRICHED.read_text(encoding="utf-8",
+                                      errors="replace")
+    page = CI.parse_listing(html, column_order=LIVE_COLUMN_ORDER)
+    assert len(page.entries) >= 1
+    for entry in page.entries[:5]:
+        assert entry.ccan_id
+        # The view link is the id source — the author UID link must not win.
+        assert entry.title
+    sampled = [e for e in page.entries if e.niveau_numeric is not None]
+    assert sampled, "fixture rows must carry Niveau evidence"
+    assert any(e.votes is not None for e in sampled)
+    assert page.total_entries == 3697
+
+# ===========================================================================
+# L8: the LIVE footer shape (Task-3 amendment, pinned after the Phase-0
+# crawl's real-data validation). The live listing renders the footer line
+# INSIDE a <td> (COLSPAN=12), with IMG/A tags between the range tokens, and
+# NO "Seite/Page x von y" pagination block anywhere. The entry-range total
+# must be read from the accumulated page text exactly like the synthetic
+# L1/L2 footers — the mismatch the <td> wrapper introduced (total_entries
+# silently 0 on every live page) is what this pin guards.
+# ===========================================================================
+LIVE_FOOTER_IN_TD_HTML = """<html><body>
+<table>
+<tr><td>Szenario</td><td><a href="ccan-view.pl?a=view&i=6421">Hazard 3D</a></td><td><a href="ccan-dl-auth.pl/6421/Hazard3D.c4d">Hazard3D.c4d</a></td><td><a href="ccan-view.pl?a=&f1=ca&grp=1">Action</a></td><td><a href="ccan-user.pl?a=info&i=8313">Kodenith</a></td><td><a href="ccan-view.pl?a=&f1=ev&x=LC">LC</a></td><td>absolut genial (3,0) (1 Vote)</td><td>1</td><td>126</td><td>16.7 MB</td><td>09.09.26 23:46</td></tr>
+<tr><td class="br" colspan="12"><span class="hi">&nbsp;</span>Zeige&nbsp;Eintr&auml;ge <img src="/img/first.gif" width="13" height="13" border="0"><img src="/img/prev.gif" width="13" height="13" border="0">1-30<a href="ccan-view.pl?a=&ac=ty-ti-ni-tm-rp-vo-dc-ca-ev-si&sc=tm&so=d&nr=30&reveal=1&pg=1"><img src="/img/next.gif" width="13" height="13" border="0"></a><a href="ccan-view.pl?a=&ac=ty-ti-ni-tm-rp-vo-dc-ca-ev-si&sc=tm&so=d&nr=30&reveal=1&pg=123"><img src="/img/last.gif" width="13" height="13" border="0"></a><a href="ccan-view.pl?a=&ac=ty-ti-ni-tm-rp-vo-dc-ca-ev-si&sc=tm&so=d&reveal=1&nr=60&pg=0"><img src="/img/more.gif" width="13" height="13" border="0"></a><a href="ccan-view.pl?a=&ac=ty-ti-ni-tm-rp-vo-dc-ca-ev-si&sc=tm&so=d&reveal=1&nr=15&pg=0"><img src="/img/less.gif" width="13" height="13" border="0"></a> von 3697</td></tr>
+</table>
+</body></html>"""
+
+def test_l8_live_footer_inside_td_extracts_entry_total():
+    """The live footer lives inside a <td> (COLSPAN=12) with IMG/A tags
+    between the range tokens and no 'Seite/Page x von y' block. The record
+    row must still parse and the entry-range total must come out as 3697."""
+    page = CI.parse_listing(LIVE_FOOTER_IN_TD_HTML,
+                            column_order=LIVE_COLUMN_ORDER)
+    assert len(page.entries) == 1
+    assert page.entries[0].ccan_id == 6421
+    assert page.entries[0].niveau_label == "absolut genial"
+    assert page.entries[0].votes == 1
+    assert page.entries[0].downloads == 126
+    # The <td>-wrapped footer must still feed the entry-range regex; the
+    # pagination block stays absent (total_pages 0) exactly as live.
+    assert page.total_entries == 3697
+    assert page.total_pages == 0

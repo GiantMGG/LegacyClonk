@@ -182,10 +182,14 @@ class _ListingParser(html.parser.HTMLParser):
             self._in_tr = False
 
     def handle_data(self, data):
+        # Every data chunk feeds the page-text accumulator (used for the
+        # footer/pagination regexes) — the live listing renders the footer
+        # line INSIDE a <td> (COLSPAN=12) with IMG/A tags between its tokens,
+        # so only accumulating out-of-td text would leave total_entries 0 on
+        # every live page. The cell buffer stays separate for the rows.
+        self._full_text.append(data)
         if self._in_td:
             self._cell_parts.append(data)
-        else:
-            self._full_text.append(data)
 
     @staticmethod
     def _query_params(href: str) -> dict[str, str]:
@@ -343,8 +347,15 @@ class _ListingParser(html.parser.HTMLParser):
                 named[idx] = unused.pop(0)
 
         # Any still-unmapped cell was unidentifiable: skip it, count it.
-        for idx in range(len(cells)):
+        # Live enriched rows end with an empty spacer cell (<TD>&nbsp;</TD>;
+        # no text, no hrefs) that carries no column evidence — it is layout,
+        # not an unidentifiable column, so it must not inflate the failure
+        # counter (Task-3 live-shape adaptation; L6's non-empty '???' cell
+        # and view-less-row semantics are unchanged).
+        for idx, (text, hrefs) in enumerate(cells):
             if idx not in named:
+                if text == "" and not hrefs:
+                    continue
                 self.parse_failures += 1
 
         # --- Entry id must come from a view link, never another href ---
