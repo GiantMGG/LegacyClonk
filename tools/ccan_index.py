@@ -94,8 +94,25 @@ class PerEntry:
 _NIVEAU_RE = re.compile(r"^(.+?) \((-?\d+[.,]\d+)\)(?: \((\d+) Votes?\))?$")
 _SIZE_RE = re.compile(r"^(\d+[.,]?\d*)\s*(KB|MB|GB|Bytes?)$")
 _DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+# Live listing Datum cell: "23.06.00 18:22" / "09.09.26 23:46". The time part
+# is optional and either '[T ]' separated (the live pages use a space).
+_NATIVE_DATE_RE = re.compile(
+    r"^(\d{1,2})\.(\d{1,2})\.(\d{2})(?:[ T]\d{1,2}:\d{2})?$")
 _TYPE_RE = re.compile(r"^(?:Szenario|Objekt|Dokument|News|Programm)$")
 _INT_RE = re.compile(r"^-?\d+$")
+# Type evidence carried by the live Typ column's IMG (the type is rendered as
+# an image, never as cell text): the TITLE "Alles vom Typ Szenario anzeigen"
+# or the src "/img/type-scenario.gif". The src stem is English, the TITLE
+# German — both map onto the schema's canonical five labels.
+_TYPE_TITLE_RE = re.compile(r"\bvom\s+Typ\s+(\w+)\s+anzeigen", re.IGNORECASE)
+_TYPE_SRC_RE = re.compile(r"type-(\w+)\.gif")
+_TYPE_LABELS = {
+    "scenario": "Szenario", "szenario": "Szenario",
+    "object": "Objekt", "objekt": "Objekt",
+    "document": "Dokument", "dokument": "Dokument",
+    "news": "News",
+    "program": "Programm", "programm": "Programm",
+}
 # Footer entry range: "Einträge 1-30 von 3697" / "… 1 bis 30 von N" /
 # "entries 1-30 of N" (English). Anchored on a dash/bis before the "von N"
 # total so the "davon M unter Niveau" clause can never shadow the real total.
@@ -116,6 +133,32 @@ def _to_int(text: str) -> Optional[int]:
     except ValueError:
         return None
 
+def normalize_uploaded(raw: Optional[str]) -> Optional[str]:
+    """Normalize a listing Datum cell to ISO ``YYYY-MM-DD``.
+
+    The live listing renders ``DD.MM.YY HH:MM`` (e.g. ``09.09.26 23:46``);
+    ISO input passes through unchanged. The 2-digit-year pivot is the
+    standard POSIX/Excel convention: ``00``-``69`` -> ``20XX``, ``70``-``99``
+    -> ``19XX``. The CCAN era never exercises the ``19XX`` branch: the whole
+    Phase-0 dataset spans 2000-2026 (observed 2-digit years ``00``..``26``,
+    nothing pre-2000) — the pivot only exists to stay honest outside this
+    archive. Unparseable input -> None (the dataset stores null per the
+    spec's "null if unparseable" pin).
+    """
+    if raw is None:
+        return None
+    raw = raw.strip()
+    if _DATE_RE.match(raw):
+        return raw
+    m = _NATIVE_DATE_RE.match(raw)
+    if not m:
+        return None
+    day, month, year = int(m.group(1)), int(m.group(2)), int(m.group(3))
+    if not (1 <= day <= 31 and 1 <= month <= 12):
+        return None
+    century = "20" if year <= 69 else "19"
+    return f"{century}{year:02d}-{month:02d}-{day:02d}"
+
 class _ListingParser(html.parser.HTMLParser):
     """Scrape the CCAN listing table.
 
@@ -124,14 +167,16 @@ class _ListingParser(html.parser.HTMLParser):
     by position or column count:
 
     - ``ccan-view.pl?a=view&i=<id>``           -> title (+ entry id)
+    - Typ-column IMG (``type-<x>.gif`` / ``TITLE`` "Alles vom Typ X anzeigen")
+      inside an ``f1=ca`` filter link          -> entry_type
     - ``ccan-user.pl?a=info&i=<uid>``          -> author (+ author uid)
     - ``ccan-dl-auth.pl``                      -> download-link column
-    - ``f1=ca`` / ``f1=ev``                    -> category / engine
+    - ``f1=ca`` (with ``a=`` param)            -> category
+    - ``f1=ev``                                -> engine
     - Niveau text ``label (x,x) (n Votes)``    -> Niveau label/numeric/votes
     - plain integer                            -> votes/downloads
     - ``16.7 MB`` etc.                         -> size
-    - ``2026-08-27``                           -> uploaded
-    - ``Szenario|Objekt|Dokument|News|Programm`` -> entry_type
+    - ``2026-08-27`` / ``09.09.26 23:46``      -> uploaded
 
     Cells matching no evidence and no remaining layout slot are skipped and
     counted in ``parse_failures``; a row without any ``a=view&i=`` link is
@@ -152,7 +197,11 @@ class _ListingParser(html.parser.HTMLParser):
         self._in_a = False
         self._cell_parts: list[str] = []
         self._cell_hrefs: list[str] = []
-        self._row_cells: list[tuple[str, list[str]]] = []
+        self._cell_imgs: list[tuple[str, str, str]] = []
+        # (cell_text, hrefs, [(src, title, alt)]) per cell; the image
+        # evidence lets the classifier recover the Typ column's type from
+        # the live image-only rendering.
+        self._row_cells = []  # type: list[tuple[str, list[str], list[tuple[str, str, str]]]]
         self._full_text: list[str] = []
 
     def handle_starttag(self, tag, attrs):
@@ -164,16 +213,21 @@ class _ListingParser(html.parser.HTMLParser):
             self._in_td = True
             self._cell_parts = []
             self._cell_hrefs = []
+            self._cell_imgs = []
         elif tag == "a" and self._in_td:
             self._in_a = True
             href = a.get("href", "")
             if href:
                 self._cell_hrefs.append(href)
+        elif tag == "img" and self._in_td:
+            self._cell_imgs.append(
+                (a.get("src", ""), a.get("title", ""), a.get("alt", "")))
 
     def handle_endtag(self, tag):
         if tag == "td" and self._in_td:
             self._row_cells.append(
-                ("".join(self._cell_parts).strip(), list(self._cell_hrefs)))
+                ("".join(self._cell_parts).strip(),
+                 list(self._cell_hrefs), list(self._cell_imgs)))
             self._in_td = False
         elif tag == "a":
             self._in_a = False
@@ -202,11 +256,41 @@ class _ListingParser(html.parser.HTMLParser):
                 params[key] = value
         return params
 
-    def _cell_column(self, text: str, hrefs: list[str]) -> Optional[str]:
-        """Classify one cell's href/text evidence into a column name."""
+    @staticmethod
+    def _canonical_type(name: str) -> str:
+        return _TYPE_LABELS.get(name.lower(), name)
+
+    @staticmethod
+    def _type_from_imgs(imgs: list[tuple[str, str, str]]) -> Optional[str]:
+        """Recover the Typ-column type from a cell's IMG evidence.
+
+        The live listing renders the type as an image inside an ``f1=ca``
+        filter link; the type rides in the IMG's TITLE ("Alles vom Typ
+        Szenario anzeigen") or src ("/img/type-scenario.gif"). Returns the
+        canonical schema label or None when nothing looks like a type image.
+        """
+        for _src, title, _alt in imgs:
+            m = _TYPE_TITLE_RE.search(title or "")
+            if m:
+                return _ListingParser._canonical_type(m.group(1))
+            m = _TYPE_SRC_RE.search(_src or "")
+            if m:
+                return _ListingParser._canonical_type(m.group(1))
+        return None
+
+    def _cell_column(self, text: str, hrefs: list[str],
+                     imgs: list[tuple[str, str, str]]) -> Optional[str]:
+        """Classify one cell's href/text/image evidence into a column name."""
         for h in hrefs:
             if self._query_params(h).get("a") == "view":
                 return "title"
+        if self._type_from_imgs(imgs) is not None:
+            # Live Typ column: an <A HREF="ccan-view.pl?f1=ca&m1=e&v1=N-0">
+            # filter link wrapping the type image — the type is in the IMG
+            # TITLE/src, never in cell text. The f1=ca href alone would
+            # mis-classify this cell as a duplicate category filter link
+            # (the real category cell carries an added "a=" param).
+            return "entry_type"
         for h in hrefs:
             if "ccan-user.pl" in h:
                 return "author"
@@ -226,7 +310,7 @@ class _ListingParser(html.parser.HTMLParser):
             return "votes_or_downloads"
         if _SIZE_RE.match(text):
             return "size"
-        if _DATE_RE.match(text):
+        if _DATE_RE.match(text) or _NATIVE_DATE_RE.match(text):
             return "uploaded"
         if _TYPE_RE.match(text):
             return "entry_type"
@@ -234,8 +318,9 @@ class _ListingParser(html.parser.HTMLParser):
 
     @staticmethod
     def _apply_column(entry: ListingEntry, column: str,
-                      text: str, hrefs: list[str]) -> None:
-        """Store one classified column's cell text into the entry."""
+                      text: str, hrefs: list[str],
+                      imgs: list[tuple[str, str, str]]) -> None:
+        """Store one classified column's cell evidence into the entry."""
         if column == "title":
             entry.title = text
         elif column == "author":
@@ -250,7 +335,11 @@ class _ListingParser(html.parser.HTMLParser):
         elif column == "category":
             entry.category = text
         elif column == "entry_type":
-            entry.entry_type = text
+            # Live rows carry only the type image (TITLE/src evidence);
+            # the synthetic fixtures carry the type as plain cell text.
+            entry.entry_type = (
+                _ListingParser._type_from_imgs(imgs)
+                or (text if _TYPE_RE.match(text) else ""))
         elif column == "filename":
             entry.filename = text
         elif column == "file_type":
@@ -258,7 +347,10 @@ class _ListingParser(html.parser.HTMLParser):
         elif column == "size":
             entry.size_label = text
         elif column == "uploaded":
-            entry.uploaded = text
+            # ISO YYYY-MM-DD per the dataset schema; the live German Datum
+            # cells ("23.06.00 18:22") are normalized at parse time (see
+            # normalize_uploaded); "" stays empty for the dataset's null.
+            entry.uploaded = normalize_uploaded(text) or ""
         elif column == "niveau":
             m = _NIVEAU_RE.match(text)
             if m:
@@ -283,7 +375,7 @@ class _ListingParser(html.parser.HTMLParser):
 
         # Layout family for the positional fallback (no caller column order).
         modern = False
-        for _text, hrefs in cells:
+        for _text, hrefs, _imgs in cells:
             if any("ccan-dl-auth.pl" in h or "f1=" in h for h in hrefs):
                 modern = True
                 break
@@ -298,8 +390,8 @@ class _ListingParser(html.parser.HTMLParser):
         named: dict[int, str] = {}
         embedded_votes: Optional[int] = None
         plain_ints: list[tuple[int, str]] = []
-        for idx, (text, hrefs) in enumerate(cells):
-            column = self._cell_column(text, hrefs)
+        for idx, (text, hrefs, imgs) in enumerate(cells):
+            column = self._cell_column(text, hrefs, imgs)
             if column == "votes_or_downloads":
                 plain_ints.append((idx, text))
             elif column == "niveau":
@@ -328,7 +420,7 @@ class _ListingParser(html.parser.HTMLParser):
 
         # --- Positional fill for cells without any evidence ---
         if self.column_order is not None:
-            for idx, (_text, _hrefs) in enumerate(cells):
+            for idx, (_text, _hrefs, _imgs) in enumerate(cells):
                 if idx in named:
                     continue
                 if idx >= len(candidates):
@@ -339,7 +431,7 @@ class _ListingParser(html.parser.HTMLParser):
                 named[idx] = name_at
         else:
             unused = [name for name in candidates if name not in named.values()]
-            for idx, (_text, _hrefs) in enumerate(cells):
+            for idx, (_text, _hrefs, _imgs) in enumerate(cells):
                 if idx in named:
                     continue
                 if not unused:
@@ -348,19 +440,19 @@ class _ListingParser(html.parser.HTMLParser):
 
         # Any still-unmapped cell was unidentifiable: skip it, count it.
         # Live enriched rows end with an empty spacer cell (<TD>&nbsp;</TD>;
-        # no text, no hrefs) that carries no column evidence — it is layout,
-        # not an unidentifiable column, so it must not inflate the failure
-        # counter (Task-3 live-shape adaptation; L6's non-empty '???' cell
-        # and view-less-row semantics are unchanged).
-        for idx, (text, hrefs) in enumerate(cells):
+        # no text, no hrefs, no images) that carries no column evidence — it
+        # is layout, not an unidentifiable column, so it must not inflate the
+        # failure counter (Task-3 live-shape adaptation; L6's non-empty '???'
+        # cell and view-less-row semantics are unchanged).
+        for idx, (text, hrefs, imgs) in enumerate(cells):
             if idx not in named:
-                if text == "" and not hrefs:
+                if text == "" and not hrefs and not imgs:
                     continue
                 self.parse_failures += 1
 
         # --- Entry id must come from a view link, never another href ---
         ccan_id: Optional[int] = None
-        for _text, hrefs in cells:
+        for _text, hrefs, _imgs in cells:
             for h in hrefs:
                 params = self._query_params(h)
                 if params.get("a") == "view":
@@ -377,10 +469,10 @@ class _ListingParser(html.parser.HTMLParser):
             ccan_id=ccan_id, title="", author_nick="", uploaded="",
             engine="", filename="", file_type="", size_label="",
         )
-        for idx, (text, hrefs) in enumerate(cells):
+        for idx, (text, hrefs, imgs) in enumerate(cells):
             column = named.get(idx)
             if column is not None:
-                self._apply_column(entry, column, text, hrefs)
+                self._apply_column(entry, column, text, hrefs, imgs)
         self.entries.append(entry)
 
 def parse_listing(html_text: str,

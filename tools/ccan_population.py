@@ -32,6 +32,23 @@ Two subcommands:
 Output location: ``<population-dir>/`` — default ``~/clonk/ccan-population/``,
 ``CCAN_POPULATION_DIR`` environment override; out-of-repo and durable.
 
+Dataset-schema normalizations (both applied at parse time in ``ccan_index``,
+disclosed in the report's *Schema field provenance* section):
+
+- ``entry_type`` is recovered from the live Typ column's **IMG evidence**:
+  the listing renders the type as an image (``IMG src=/img/type-*.gif`` +
+  ``TITLE="Alles vom Typ X anzeigen"`` inside an ``f1=ca`` filter link) —
+  there is no cell text. The classifier maps the image title/src onto the
+  five canonical labels (Szenario/Objekt/Dokument/News/Programm).
+- ``uploaded`` is normalized from the live German Datum cell
+  ``DD.MM.YY HH:MM`` (e.g. ``09.09.26 23:46``) to ISO ``YYYY-MM-DD``.
+  Two-digit-year pivot (standard POSIX/Excel: ``00``-``69`` -> ``20XX``,
+  ``70``-``99`` -> ``19XX``; the CCAN archive only ever exercises the
+  ``20XX`` branch — the whole Phase-0 dataset spans 2000-2026, observed
+  ``00``..``26``). Unparseable values -> null, per the spec's "null if
+  unparseable" pin. The raw listing timestamp is not retained (the schema
+  has no slot for it).
+
 Usage::
 
     python3 tools/ccan_population.py crawl --validate-sample 20
@@ -154,7 +171,7 @@ def listing_to_row(entry: CI.ListingEntry, fetched_at: str) -> dict:
         "title": entry.title,
         "category": entry.category,
         "engine": entry.engine,
-        "uploaded": entry.uploaded,
+        "uploaded": entry.uploaded or None,  # unparseable -> null (spec pin)
         "size_label": entry.size_label,
         "niveau_label": entry.niveau_label,
         "niveau_numeric": entry.niveau_numeric,
@@ -824,6 +841,34 @@ def render_report(analysis: dict, meta: dict, parity: list[dict]) -> str:
     lines.append(_lineage_md(meta))
     lines.append("")
 
+    # Schema field provenance: the two fields the live listing does not
+    # render as plain text (entry_type image-only; uploaded German format).
+    lines.append("## Schema field provenance")
+    lines.append("")
+    lines.append("- **`entry_type`** — recovered from the live Typ column's "
+                 "**IMG evidence**: the listing renders the type as an image "
+                 "(`IMG src=/img/type-*.gif`, `TITLE=\"Alles vom Typ "
+                 "Szenario anzeigen\"` inside an `f1=ca` filter link), never "
+                 "as cell text; the classifier maps the image title/src onto "
+                 "the five canonical schema labels.")
+    lines.append("- **`uploaded`** — normalized at parse time from the live "
+                 "German Datum cell `DD.MM.YY HH:MM` to ISO `YYYY-MM-DD`. "
+                 "Two-digit-year pivot (standard POSIX/Excel): `00`-`69` → "
+                 "`20XX`, `70`-`99` → `19XX` (the CCAN archive spans "
+                 "2000-2026 and only ever exercises the `20XX` branch). "
+                 "Unparseable → null.")
+    lines.append("- **`version`/`players`** — uniformly null: per-entry-page "
+                 "fields that Phase 1 fills (spec edge #9).")
+    lines.append("")
+    et_counts = sorted({(r.get("entry_type") or "(none)") for r in rows})
+    lines.append("### `entry_type` distribution")
+    lines.append("| entry_type | entries |")
+    lines.append("|---|---|")
+    for et in et_counts:
+        n = sum(1 for r in rows if (r.get("entry_type") or "(none)") == et)
+        lines.append(f"| {et} | {n} |")
+    lines.append("")
+
     # Per-tier and per-category counts.
     lines.append("## Population overview")
     lines.append("")
@@ -846,8 +891,9 @@ def render_report(analysis: dict, meta: dict, parity: list[dict]) -> str:
 
     # Null-field counts.
     lines.append("### Null/unset fields")
-    null_fields = ("uploaded", "size_label", "niveau_label", "niveau_numeric",
-                   "votes", "downloads", "author_uid", "version", "players")
+    null_fields = ("entry_type", "uploaded", "size_label", "niveau_label",
+                   "niveau_numeric", "votes", "downloads", "author_uid",
+                   "version", "players")
     lines.append("| column | null / empty count |")
     lines.append("|---|---|")
     for col in null_fields:
@@ -1001,6 +1047,13 @@ def render_thresholds_toml(analysis: dict, meta: dict) -> str:
                 "footer_total", "crawled_unique", "reconciliation",
                 "parse_failures", "validate_sample_count",
                 "validation_findings"):
+        if key == "parse_failures":
+            # 126 = the per-page footer/nav layout rows (a view-less <td
+            # colspan> row on every page), NOT data failures: zero entry rows
+            # were dropped. The crawl counter includes those by design.
+            out.append("# parse_failures counts layout rows (per-page "
+                       "footer/nav <td colspan> without a view link) and "
+                       "unidentifiable cells — not data rows.")
         value = meta.get(key)
         if isinstance(value, str):
             out.append(f'{key} = "{value}"')

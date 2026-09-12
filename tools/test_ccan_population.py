@@ -19,6 +19,7 @@ from pathlib import Path
 import pytest
 
 sys.path.insert(0, str(Path(__file__).parent))
+import ccan_index as CI
 import ccan_population as cp
 
 def ref_quantiles_inclusive(values, n):
@@ -389,6 +390,7 @@ def test_p5_crawl_reconciliation_pass_writes_dataset(tmp_path, monkeypatch):
     assert rows[0]["author_nick"] == "Alice"
     assert rows[0]["engine"] == "LC"
     assert rows[0]["category"] == "Scenarien"
+    assert rows[0]["entry_type"] == "Szenario"
 
     csv_path = tmp_path / "ccan_population.v1.csv"
     assert csv_path.is_file()
@@ -542,3 +544,49 @@ def test_p9_live_entry_page_negative_rating_parses():
     assert fields["niveau_numeric"] == pytest.approx(-0.2)
     assert fields["votes"] == 13
     assert fields["downloads"] == 226
+
+# ===========================================================================
+# Review-fix pins (cycle-117 dual-review findings B1/M1/M2):
+#  - the dataset contract: unparseable `uploaded` -> null, never a raw
+#    German timestamp
+#  - the report DISCLOSES entry_type provenance (IMG-recovered) + uploaded
+#    normalization, and its null-count table includes entry_type.
+# ===========================================================================
+
+def test_listing_to_row_uploaded_null_when_unparseable():
+    """An empty/unparseable listing Datum cell reaches the dataset as null,
+    never as a raw German timestamp (the spec's 'null if unparseable')."""
+    entry = CI.ListingEntry(
+        ccan_id=1, title="t", author_nick="", uploaded="",
+        engine="", filename="", file_type="", size_label="")
+    row = cp.listing_to_row(entry, "2026-09-12T00:00:00Z")
+    assert row["uploaded"] is None
+
+def test_report_discloses_entry_type_provenance_and_uploaded_normalization():
+    """The generated report must surface the two schema deviations the dual
+    review flagged: entry_type's IMG provenance and uploaded's ISO
+    normalization — plus entry_type in the null/unset-fields table."""
+    rows = mini_population()
+    analysis = cp.analyze(rows)
+    report = cp.render_report(analysis, {"footer_total": 20}, [])
+    # Provenance disclosure section.
+    assert "## Schema field provenance" in report
+    assert "IMG evidence" in report
+    assert "Alles vom Typ" in report
+    assert "normalized at parse time" in report
+    assert "`00`-`69`" in report
+    # entry_type distribution table (all mini rows are Szenario).
+    assert "### `entry_type` distribution" in report
+    assert "| Szenario | 20 |" in report
+    # Null-count table includes entry_type.
+    assert "| entry_type | 0 |" in report
+
+def test_report_null_table_includes_entry_type_for_empty_rows():
+    """On a dataset with empty entry_type values the null-count table must
+    show them (the disclosure the original report omitted)."""
+    rows = mini_population()
+    for r in rows:
+        r["entry_type"] = ""  # the pre-fix live state
+    analysis = cp.analyze(rows)
+    report = cp.render_report(analysis, {}, [])
+    assert "| entry_type | 20 |" in report

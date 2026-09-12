@@ -14,15 +14,16 @@ min_stratum_n = 10
 quantile = 0.75
 
 [lineage]
-generated_at = "2026-09-12T06:32:25Z"
+generated_at = "2026-09-12T07:22:28Z"
 generated_from = "ccan_population.v1.jsonl"
 dataset_rows = 3697
-crawl_started_at = "2026-09-12T06:32:17Z"
-crawl_finished_at = "2026-09-12T06:32:18Z"
+crawl_started_at = "2026-09-12T07:22:15Z"
+crawl_finished_at = "2026-09-12T07:22:16Z"
 request_count = 0
 footer_total = 3697
 crawled_unique = 3697
 reconciliation = "pass"
+# parse_failures counts layout rows (per-page footer/nav <td colspan> without a view link) and unidentifiable cells — not data rows.
 parse_failures = 126
 validate_sample_count = 20
 validation_findings = 0

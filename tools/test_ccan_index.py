@@ -126,6 +126,7 @@ def test_l1_live_default_5col_listing():
     assert e0.engine == ""
     assert e0.size_label == ""
     assert e0.niveau_numeric is None
+    assert e0.entry_type == "Szenario"  # plain-text Typ cell (synthetic shape)
     assert page.page_number == 1
     assert page.total_pages == 124
     assert page.total_entries == 3697
@@ -259,7 +260,8 @@ FIXTURE_ENRICHED = HERE / "fixtures" / "ccan_sample" / "listing_enriched.html"
 
 def test_l7_ground_truth_fixture_parses():
     """Parse the committed live page-1 excerpt: >=1 entry, ccan_id from the
-    view link, and Niveau/votes populated on the sampled rows."""
+    view link, Niveau/votes populated on the sampled rows, and the Typ-
+    column type recovered from the IMG evidence on every row."""
     html = FIXTURE_ENRICHED.read_text(encoding="utf-8",
                                       errors="replace")
     page = CI.parse_listing(html, column_order=LIVE_COLUMN_ORDER)
@@ -272,6 +274,13 @@ def test_l7_ground_truth_fixture_parses():
     assert sampled, "fixture rows must carry Niveau evidence"
     assert any(e.votes is not None for e in sampled)
     assert page.total_entries == 3697
+    # The live Typ cell is IMG-only (an f1=ca filter link wrapping the type
+    # image); the classifier must recover a canonical type on every row.
+    assert page.entries, "fixture must yield entries"
+    typed = [e.entry_type for e in page.entries]
+    assert all(t in ("Szenario", "Objekt", "Dokument", "News", "Programm")
+               for t in typed), "every fixture row carries IMG-recovered type"
+    assert any(e.entry_type == "Szenario" for e in page.entries)
 
 # ===========================================================================
 # L8: the LIVE footer shape (Task-3 amendment, pinned after the Phase-0
@@ -300,7 +309,101 @@ def test_l8_live_footer_inside_td_extracts_entry_total():
     assert page.entries[0].niveau_label == "absolut genial"
     assert page.entries[0].votes == 1
     assert page.entries[0].downloads == 126
+    # The live German Datum cell is normalized to ISO at parse time.
+    assert page.entries[0].uploaded == "2026-09-09"
     # The <td>-wrapped footer must still feed the entry-range regex; the
     # pagination block stays absent (total_pages 0) exactly as live.
     assert page.total_entries == 3697
     assert page.total_pages == 0
+
+# ===========================================================================
+# L9: the LIVE Typ-column shape — the review-blocking B1 regression pin.
+# The live listing renders the type as an IMG inside an f1=ca filter link
+# (no cell text); the type is recovered from the IMG TITLE/src evidence
+# while the f1=ca href alone would mis-classify the cell as a category
+# filter link (which is what dropped entry_type on all 3,697 live rows).
+# ===========================================================================
+
+LIVE_TYP_CELL_HTML = """<html><body><table>
+<tr>
+<td align="right"><img src="/img/niveau4.gif" width="16" height="16" align="absmiddle" alt=":-)">
+ <a href="ccan-view.pl?f1=ca&m1=e&v1=1-0"><img src="/img/type-scenario.gif" width="16" height="16" border="0" align="absmiddle" title="Alles vom Typ Szenario anzeigen"></a></td>
+<td class="r"><a href="ccan-view.pl?a=view&i=6436">Glimmerheim v1.1</a></td>
+<td class="r"><a href="ccan-dl-auth.pl/6436/Glimmerheim.c4s">Glimmerheim.c4s</a></td>
+<td class="r"><a href="ccan-view.pl?a=&f1=ca&m1=e&v1=1-3">Aufbau/Siedlung</a></td>
+<td class="r"><a href="ccan-user.pl?a=info&i=1153">JimiRaynor</a></td>
+<td class="r"><a href="ccan-view.pl?f1=ev&m1=e&v1=LC">LC</a></td>
+<td class="r">gut <span style="font-size:70%">(1.2)</span></td>
+<td class="r">0</td>
+<td class="r">3</td>
+<td class="r">2.4 MB</td>
+<td class="r">09.09.26 23:46</td>
+<td>&nbsp;</td>
+</tr>
+<tr>
+<td align="right"><a href="ccan-view.pl?f1=ca&m1=e&v1=2-0"><img src="/img/type-object.gif" border="0" align="absmiddle" title="Alles vom Typ Objekt anzeigen"></a></td>
+<td class="r"><a href="ccan-view.pl?a=view&i=6422">Sound Pack</a></td>
+<td class="r"><a href="ccan-dl-auth.pl/6422/Sound.zip">Sound.zip</a></td>
+<td class="r"><a href="ccan-view.pl?a=&f1=ca&m1=e&v1=2-11">Sonstiges</a></td>
+<td class="r"><a href="ccan-user.pl?a=info&i=77">Bob</a></td>
+<td class="r"><a href="ccan-view.pl?f1=ev&m1=e&v1=CR">CR</a></td>
+<td class="r">befriedigend (1.5) (2 Votes)</td>
+<td class="r">2</td>
+<td class="r">45</td>
+<td class="r">12.4 MB</td>
+<td class="r">23.06.00 18:22</td>
+<td>&nbsp;</td>
+</tr>
+</table>
+</body></html>"""
+
+def test_l9_live_img_typ_cell_recovers_entry_type():
+    """The live Typ cell carries only an IMG inside a f1=ca filter link: the
+    type must be recovered from the IMG TITLE/src evidence, the real category
+    link must stay 'category', and the German Datum cell normalizes to ISO."""
+    page = CI.parse_listing(LIVE_TYP_CELL_HTML, column_order=LIVE_COLUMN_ORDER)
+    assert len(page.entries) == 2
+    e0, e1 = page.entries
+    # Type from the IMG TITLE; category from the a=&f1=ca cell — NOT conflated.
+    assert e0.entry_type == "Szenario"
+    assert e0.category == "Aufbau/Siedlung"
+    assert e0.engine == "LC"
+    assert e0.title == "Glimmerheim v1.1"
+    assert e0.author_nick == "JimiRaynor"
+    assert e0.author_uid == 1153
+    assert e0.niveau_label == "gut"
+    assert e0.niveau_numeric == pytest.approx(1.2)
+    assert e0.votes == 0
+    assert e0.downloads == 3
+    assert e0.size_label == "2.4 MB"
+    assert e0.uploaded == "2026-09-09"
+    # Second row: Objekt type, German date normalization with the 2000 pivot.
+    assert e1.entry_type == "Objekt"
+    assert e1.uploaded == "2000-06-23"
+    assert e1.downloads == 45
+
+# ===========================================================================
+# L10: uploaded ISO normalization (the review M2 pin) — the live German
+# Datum cells ("DD.MM.YY HH:MM") normalize to ISO at parse time with the
+# documented Clonk-era 2-digit-year pivot; unparseable input turns to "".
+# ===========================================================================
+
+def test_l10_uploaded_normalization():
+    assert CI.normalize_uploaded("09.09.26 23:46") == "2026-09-09"
+    assert CI.normalize_uploaded("23.06.00 18:22") == "2000-06-23"
+    assert CI.normalize_uploaded("08.09.26 16:42") == "2026-09-08"
+    assert CI.normalize_uploaded("13.05.15 10:00") == "2015-05-13"  # > 14
+    assert CI.normalize_uploaded("1.1.01 0:00") == "2001-01-01"  # unpadded
+    assert CI.normalize_uploaded("20.02.70 00:00") == "1970-02-20"  # 19XX branch
+    assert CI.normalize_uploaded("2026-08-27") == "2026-08-27"  # ISO passthrough
+    assert CI.normalize_uploaded("keine Angabe") is None
+    assert CI.normalize_uploaded("") is None
+    assert CI.normalize_uploaded(None) is None
+    assert CI.normalize_uploaded("31.13.26 00:00") is None  # invalid month
+    assert CI.normalize_uploaded("32.01.26 00:00") is None  # invalid day
+
+def test_l10_uploaded_normalized_in_parsed_rows():
+    """The Datum cell is normalized before it reaches the dataset row."""
+    page = CI.parse_listing(LIVE_TYP_CELL_HTML, column_order=LIVE_COLUMN_ORDER)
+    assert page.entries[0].uploaded == "2026-09-09"
+    assert page.entries[1].uploaded == "2000-06-23"
