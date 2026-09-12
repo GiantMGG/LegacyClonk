@@ -511,6 +511,52 @@ TEST_CASE("KeyConfigDeltaForm.ResetYieldsBareKeysSection", "[control-presets]")
 	CHECK(out.find("Kbd1Key2") == std::string::npos);
 }
 
+// --- R-series: the KeyConfig.txt round trip (spec
+// bindings-persistence-roundtrip-fix, cycle 116) --------------------------
+//
+// SaveCustomConfig writes every [Keys] delta token quoted (RCT_Escaped);
+// the read side consumed bare identifiers only (RCT_Idtf) — a quoted token
+// threw NotFound at the '"', the container adapt swallowed it per-element,
+// and the delta silently dropped (the key fell back to its default). The
+// fix (C4KeyCodeEx::CompileFunc) retries the quoted form. The expected
+// code is the PLATFORM round-trip String2KeyCode(KeyCode2String(code)) —
+// the console build's stub resolves both sides to KEY_Default, so the
+// pins hold there by construction.
+
+TEST_CASE("KeyConfigRoundtrip.RebindSurvivesRestart", "[control-presets]")
+{
+	// R1 (RED-first discriminator): rebind -> save -> fresh registration ->
+	// load -> assert code identity. RED on the unfixed tree: the load
+	// returns true but the quoted delta is dropped per-element and the key
+	// falls back to its registered default (probe, spec §0.3). The
+	// register -> load-empty-[Keys] -> rebind sequence is the exact P5(a)
+	// state machine: it puts the 11 siblings into the default-equal
+	// post-load state so the save emits ONLY the one delta (production
+	// shape — SaveCustomConfig always runs after a LoadCustomConfig).
+	C4KeyboardInput input;
+	RegisterKbdSet(input, 0, ClassicTable);
+	REQUIRE(LoadFromIni(input, "[Keys]\r\n")); // siblings -> default-equal
+
+	C4CustomKey *pKey = input.GetKeyByName("Kbd1Key2");
+	REQUIRE(pKey);
+	C4CustomKey::CodeList codes;
+	codes.push_back(C4KeyCodeEx(KEY('T', XK_t, SDL_SCANCODE_T)));
+	input.RebindKey(pKey, codes);
+
+	const std::string saved = ResaveToIni(input);
+
+	C4KeyboardInput input2;
+	RegisterKbdSet(input2, 0, ClassicTable);
+	REQUIRE(LoadFromIni(input2, saved));
+
+	C4CustomKey *pKey2 = input2.GetKeyByName("Kbd1Key2");
+	REQUIRE(pKey2);
+	REQUIRE_FALSE(pKey2->GetCodes().empty());
+	const C4KeyCode expected = C4KeyCodeEx::String2KeyCode(
+		StdStrBuf(C4KeyCodeEx::KeyCode2String(KEY('T', XK_t, SDL_SCANCODE_T), false, false)));
+	CHECK(pKey2->GetCodes().front().Key == expected);
+}
+
 TEST_CASE("SetKeyboardControlKey.WritesBothLayers", "[control-presets]")
 {
 	// G5: the old-editor fix primitive must write the config-table slot AND

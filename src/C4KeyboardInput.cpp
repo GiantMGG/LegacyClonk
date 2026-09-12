@@ -422,7 +422,18 @@ void C4KeyCodeEx::CompileFunc(StdCompiler *pComp)
 		uint32_t dwSetShift = 0;
 		for (;;)
 		{
-			pComp->Value(mkParAdapt(sCode, StdCompiler::RCT_Idtf));
+			// Read one code token. Engine-written KeyConfig.txt quotes every
+			// token (SaveCustomConfig writes RCT_Escaped); hand-edited files
+			// may use bare identifiers. Tolerate both: identifier read first,
+			// on NotFound retry as an escaped (quoted) string.
+			try
+			{
+				pComp->Value(mkParAdapt(sCode, StdCompiler::RCT_Idtf));
+			}
+			catch (const StdCompiler::NotFoundException &)
+			{
+				pComp->Value(mkParAdapt(sCode, StdCompiler::RCT_Escaped));
+			}
 			if (!pComp->Separator(StdCompiler::SEP_PLUS)) break; // no more separator: Parse this as keyboard code
 			// try to convert to shift state
 			C4KeyShiftState eAddState = String2KeyShift(sCode);
