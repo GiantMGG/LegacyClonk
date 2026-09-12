@@ -1338,4 +1338,98 @@ Spec: .opencode/specs/2026-08-29-1000-connection-migration-reconnect.md (cf8c883
 
 - Merge master: absorb v367 changelog splice revert (re-cut) (9e42d6a)
 
+## [368] - 2026-09-11
+
+### Added
+
+- **net**: C4LandscapeOverrides block in C4PacketJoinData (W1/W2) (deaf9ce)
+
+- **net**: Host fill + client stage/apply of JoinData landscape overrides (C12/C13) (d248936)
+
+- **net**: Pre-lobby net-host settings stage + InitGameFirstPart guard fix (5ea57cd)
+
+- **engine**: --screenshot-at/--shot-size parse + shot state + fire site (f1c5d2f)
+
+- **engine**: CSceneShot CPU frame composer + SceneTruth sidecar (P1/P2/P5 findings) (3358899)
+
+- **vision**: Qwen3.8 window guard — SKIP-exit-0 08:00-21:00 unless VQ_ALLOW_DAYTIME=1 (0607ee7)
+
+- **tools**: Gen_agriculture_gfx - batch agriculture generator (9 defs, per-def subcommands) (948ab70)
+
+- Slider-contract descriptor table + pinning test (cycle 112 gate) (dc10689)
+
+- Rework world-generator settings screen (two-stage flow, hero preview, generated slider rows) (3a79f29)
+
+- Generalize --parameter dispatch to the descriptor table (six new keys) (9211cdf)
+
+- Grow JoinData landscape-override block 5 -> 11 slots (order-stable, old-format gate preserved) (aa02fcb)
+
+- **wincond**: Descriptor tables + shared codec, pinned by the SliderContract gate (cycle 114) (162afa3)
+
+- **wincond**: Four --parameter parity keys (Mode/Elimination/CooperativeGoal/ValueGain) via the shared codec (1a1e0f1)
+
+- **wincond**: Count sliders on the picker rows (MaxUserSelect eligibility, live refresh) (54bd489)
+
+- **wincond**: The Winning Conditions panel (mode/elimination/goal combos + settlement slider, live cross-refresh) (30a2484)
+
+
+### Changed
+
+- **net**: Auto_format condense empty lines in net_settings_sync_smoke (256f67f)
+
+- **auto_format**: Cycle-114 format gate (7dd9edd)
+
+
+### Fixed
+
+- **vision**: Dual-review nits — R1 fallback arg, R2 missed-tick log, F2 fallback bound, F5 phase clamp (563ba56)
+
+- **ci**: CSceneShot self-include (PCH-off ASan/debugrec compile fix) + IPv6 loopback UDP port-probe hardening (f97ce33)
+
+- **Networking**: Deadline-bound the teardown league end (abort freeze) (32bad62)
+
+- **Networking**: Unanchor net_abort_smoke teardown-line regex (dual-review F1) (6182f09)
+
+- **tools**: Align dead-lobster invariants window to Amendment 2 (95,160) (dual-review F1) (6ac9af4)
+
+- **dialog**: Add missing #pragma once include guard (1619f13)
+
+- **tests**: Swap std::string_view for std::string in Catch2 macros (MSVC deps lib lacks the StringMaker specialization) (5a29b44)
+
+- **viewport**: Pass view section to X11 edit-cursor calls (1ab9550)
+
+- **release**: Publish release body from every publish leg (9ae10ab)
+
+
+### Internal
+
+- **net**: Net_settings_sync_smoke two-engine settings-sync pin (W3) (ad1880e)
+
+- **net**: Fresh player copies per smoke pass + pass-2 fp cross-assert (review nits) (91bec18)
+
+- **vision**: Playtest_vision.py scene-capture + oracle + sidecar cross-check harness (a6dee48)
+
+- **vision**: Register playtest_vision CTest entry (advisory, SKIP-exit-0 without ollama) (ee5e008)
+
+- **lint**: De-allowlist the 9 reworked Agriculture defs (cycle 110) (7149463)
+
+- Wire 9 agriculture gfx --check byte gates + lobster vision battery (cycle 110) (c424c3a)
+
+- Wire SliderContract pinning test (RED: descriptor table pending) (4c81626)
+
+- **gui**: Add compile-only GUI X11 lane (d2c74fd)
+
+- **wincond**: Wincond_override_smoke + wincond_mode_smoke ctest entries (36fd0a3)
+
+- **changelog**: Update for v367 [skip ci] (fabe6a6)
+
+- **version**: Bump content version to 4.9.11.5 for v368 (51cd790)
+
+- **smoke**: Pin DuneBurialSmoke RNG seed (Playtest lane flake) (cc7aef7)
+
+
+### Other
+
+- Merge master: absorb v367 changelog splice (e9d3d44)
+
 <!-- git-cliff prepends new release sections above this line. -->
