@@ -21,7 +21,6 @@ import pytest
 sys.path.insert(0, str(Path(__file__).parent))
 import ccan_population as cp
 
-
 def ref_quantiles_inclusive(values, n):
     """Independent reference for ``statistics.quantiles(..., method=
     'inclusive')``, replicating the stdlib's exact arithmetic: integer
@@ -34,7 +33,6 @@ def ref_quantiles_inclusive(values, n):
         j, delta = divmod(i * (ld - 1), n)
         out.append((data[j] * (n - delta) + data[j + 1] * delta) / n)
     return out
-
 
 def expected_summary(values):
     """Test-side mirror of cp._summary (built from the reference quantiles)."""
@@ -53,7 +51,6 @@ def expected_summary(values):
             out[f"d{i}"] = v
     return out
 
-
 def _mk(ccan_id, title, category, engine, niveau, votes, downloads):
     return {
         "schema": 1, "ccan_id": ccan_id, "entry_type": "Szenario",
@@ -64,7 +61,6 @@ def _mk(ccan_id, title, category, engine, niveau, votes, downloads):
         "version": None, "players": None,
         "fetched_at": "2026-09-12T00:00:00Z",
     }
-
 
 def mini_population():
     """The P1/P2/P4 fixture (20 rows, two categories, 4 tiers).
@@ -103,7 +99,6 @@ def mini_population():
         # other (1) — an engine string that stays outside LC/CR/legacy.
         _mk(400, "O S1", "Scenarien", "Mystery", 2.0, 0, 5),
     ]
-
 
 # ===========================================================================
 # P1 — distributions: per-tier and per-(tier x category), hand-computed
@@ -166,7 +161,6 @@ def test_p1_distributions_match_hand_computed_values():
     assert dist[("tier", "LC")]["bayes_rating"]["low_n"] is False
     assert dist[("tier", "CR")]["bayes_rating"]["low_n"] is True
 
-
 # ===========================================================================
 # P2 — Bayesian shrinkage (m=5), exact numbers
 # ===========================================================================
@@ -211,7 +205,6 @@ def test_p2_bayesian_shrinkage():
     assert priors["C_tier"]["legacy"] == pytest.approx(priors["C_archive"])
     assert priors["C_tier"]["other"] == pytest.approx(priors["C_archive"])
 
-
 # ===========================================================================
 # P3 — Wilson lower bound, hand-computed (z=1.96)
 # ===========================================================================
@@ -224,7 +217,6 @@ def test_p3_wilson_lower_bound():
     # Skipped below one vote (a zero-vote row has no community ballot).
     assert cp.wilson_lower(3.0, 0) is None
     assert cp.wilson_lower(3.0, None) is None
-
 
 # ===========================================================================
 # P4 — threshold derivation + TOML emission
@@ -282,7 +274,6 @@ def test_p4_threshold_derivation_and_toml():
     assert data["lineage"]["footer_total"] == 3697
     assert data["lineage"]["dataset_rows"] == 20
 
-
 # ===========================================================================
 # Crawl fixtures + fake mirror_fetch (no network)
 # ===========================================================================
@@ -319,13 +310,11 @@ DEFAULT_HTML = """<html><body><table>""" + "".join(
     "<td>{date}</td></tr>".format(**r) for r in CRAWL_ROWS) + """</table>
 <div>Seite 1 von 1 – Einträge 1-30 von 3</div></body></html>"""
 
-
 def listing_html(footer_total=3):
     return ("<html><body><table>"
             + "".join(ROW_TMPL.format(**r) for r in CRAWL_ROWS)
             + f"</table><div>Seite 1 von 1 – Einträge 1-30 von "
               f"{footer_total}</div></body></html>")
-
 
 def per_entry_html(i, title, category, engine, niveau, votes, downloads):
     return f"""<html><head><title>CCAN - {title}</title></head><body>
@@ -336,7 +325,6 @@ def per_entry_html(i, title, category, engine, niveau, votes, downloads):
 </table>
 <div>Niveau: {niveau} - {votes} Stimmen - {downloads} Downloads</div>
 </body></html>"""
-
 
 def _fake_fetch_factory(responses: dict) -> object:
     """fetch-counting fake mirror_fetch; substring match, first wins."""
@@ -354,11 +342,9 @@ def _fake_fetch_factory(responses: dict) -> object:
     fake.calls = calls
     return fake
 
-
 def crawl_base_args(tmp_path, extra):
     return ["crawl", "--population-dir", str(tmp_path),
             "--rate-limit", "0", "--retry", "0"] + extra
-
 
 def crawled_jsonl(tmp_path):
     path = tmp_path / "ccan_population.v1.jsonl"
@@ -368,10 +354,8 @@ def crawled_jsonl(tmp_path):
     assert rows
     return rows
 
-
 def rows_without_fetched_at(rows):
     return [{k: v for k, v in r.items() if k != "fetched_at"} for r in rows]
-
 
 # ===========================================================================
 # P5 — reconciliation pass; P6 — reconciliation failure exits 1
@@ -419,7 +403,6 @@ def test_p5_crawl_reconciliation_pass_writes_dataset(tmp_path, monkeypatch):
     assert meta["crawled_unique"] == 3
     assert meta["request_count"] == 2  # default page + enriched page 0
 
-
 def test_p6_reconciliation_mismatch_exits_one(tmp_path, monkeypatch, capsys):
     responses = {
         "pg=0&nr=30": DEFAULT_HTML.encode("utf-8"),
@@ -434,7 +417,6 @@ def test_p6_reconciliation_mismatch_exits_one(tmp_path, monkeypatch, capsys):
     assert "RECONCILIATION MISMATCH" in err
     assert "unique=3" in err
     assert "footer_total=4" in err
-
 
 # ===========================================================================
 # P7 — idempotent re-crawl: cache hits, zero refetches
@@ -465,7 +447,6 @@ def test_p7_recrawl_reuses_cache_without_refetch(tmp_path, monkeypatch):
     cached = sorted(p.name for p in (tmp_path / "raw-listings").iterdir())
     assert "pg-default.html" in cached
     assert "pg-0000.html" in cached
-
 
 # ===========================================================================
 # P8 — validation-sample parity: mismatch is a finding, never an abort
@@ -514,7 +495,6 @@ def test_p8_validation_parity_reports_mismatch_not_abort(tmp_path,
     assert "mismatch" in markdown
     assert "999" in markdown
     assert "| 1000 | votes | 1 | 999 | mismatch |" in markdown
-
 
 # ===========================================================================
 # P9 — live per-entry page shape adaptation (Task-3 real-data pin): the

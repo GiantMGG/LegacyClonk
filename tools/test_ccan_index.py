@@ -257,7 +257,6 @@ def test_l6_unidentifiable_columns_are_counted_and_skipped():
 HERE = Path(__file__).resolve().parent
 FIXTURE_ENRICHED = HERE / "fixtures" / "ccan_sample" / "listing_enriched.html"
 
-
 def test_l7_ground_truth_fixture_parses():
     """Parse the committed live page-1 excerpt: >=1 entry, ccan_id from the
     view link, and Niveau/votes populated on the sampled rows."""

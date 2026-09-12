@@ -107,13 +107,11 @@ DEFAULT_POPULATION_DIR = Path(os.environ.get(
 def utc_now() -> str:
     return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
-
 def _to_float(text: str) -> Optional[float]:
     try:
         return float(str(text).replace(",", "."))
     except (ValueError, TypeError):
         return None
-
 
 # ===========================================================================
 # Durable raw-page cache
@@ -143,7 +141,6 @@ def cache_or_fetch(cache_path: Path, url: str, rate_limit: float,
     cache_path.write_bytes(body)
     return body, True
 
-
 # ===========================================================================
 # Dataset row conversion + persistence
 # ===========================================================================
@@ -170,7 +167,6 @@ def listing_to_row(entry: CI.ListingEntry, fetched_at: str) -> dict:
         "fetched_at": fetched_at,
     }
 
-
 def _decode_html(body: bytes) -> str:
     """Decode a fetched page — UTF-8 first, then the cp1252/latin-1
     fallback the house uses (``import_ccan.fetch_metadata_html``); the live
@@ -179,7 +175,6 @@ def _decode_html(body: bytes) -> str:
         return body.decode("utf-8")
     except UnicodeDecodeError:
         return body.decode("cp1252", errors="replace")
-
 
 def write_dataset(population_dir: Path, rows: list[dict]) -> None:
     """Write the JSONL dataset + CSV mirror (sorted by ccan_id = by caller)."""
@@ -198,7 +193,6 @@ def write_dataset(population_dir: Path, rows: list[dict]) -> None:
         for row in rows:
             writer.writerow([row.get(col, "") for col in DATASET_COLUMNS])
 
-
 def load_dataset(jsonl_path: Path) -> Optional[list[dict]]:
     """Read the dataset back. Returns None on read/parse error."""
     try:
@@ -216,7 +210,6 @@ def load_dataset(jsonl_path: Path) -> Optional[list[dict]]:
             print(f"Dataset JSON error (line {lineno}): {e}", file=sys.stderr)
             return None
     return rows
-
 
 # ===========================================================================
 # crawl: the enriched-listing crawl + validation sample
@@ -250,7 +243,6 @@ def normalize_tier(engine: str) -> str:
         return "legacy"
     return "other"
 
-
 def _rating_tercile(rating: Optional[float], bounds: list[float]) -> str:
     if rating is None:
         return "null"
@@ -258,7 +250,6 @@ def _rating_tercile(rating: Optional[float], bounds: list[float]) -> str:
         if rating <= b:
             return str(i)
     return str(len(bounds))
-
 
 def select_validation_sample(entries: list[CI.ListingEntry],
                              count: int) -> list[CI.ListingEntry]:
@@ -299,7 +290,6 @@ def select_validation_sample(entries: list[CI.ListingEntry],
             selected.append(e)
     return selected[:count]
 
-
 # Best-effort per-entry-page enrichment regexes. Task 3 adapts these to the
 # live page shape if the ground truth differs; they are tolerant by design —
 # a field that cannot be extracted is recorded as "unparsed", not a mismatch.
@@ -313,7 +303,6 @@ _PAGE_DOWNLOADS_RE = re.compile(
 
 _PARITY_FIELDS = ("category", "engine", "niveau_label", "niveau_numeric",
                   "votes", "downloads")
-
 
 def _page_count(html_text: str, label_re: re.Pattern,
                 window: int = 40) -> Optional[int]:
@@ -330,7 +319,6 @@ def _page_count(html_text: str, label_re: re.Pattern,
     if after:
         return int(after.group(1))
     return None
-
 
 def parse_page_fields(html_text: str, ccan_id: int = 0) -> dict:
     """Extract the fields the parity check compares from a per-entry page.
@@ -392,7 +380,6 @@ def parse_page_fields(html_text: str, ccan_id: int = 0) -> dict:
         "downloads": downloads,
     }
 
-
 def compare_entry_parity(entry: CI.ListingEntry, page_fields: dict) -> dict:
     """Field-by-field parity row for one sampled entry.
 
@@ -424,7 +411,6 @@ def compare_entry_parity(entry: CI.ListingEntry, page_fields: dict) -> dict:
             verdict = "match" if str(lv) == str(pv) else "mismatch"
         fields[name] = {"listing": lv, "page": pv, "verdict": verdict}
     return {"ccan_id": entry.ccan_id, "title": entry.title, "fields": fields}
-
 
 def run_validation(entries: list[CI.ListingEntry], population_dir: Path,
                    rate_limit: float, max_retries: int,
@@ -460,7 +446,6 @@ def run_validation(entries: list[CI.ListingEntry], population_dir: Path,
         json.dumps(parity_rows, ensure_ascii=False, indent=2) + "\n",
         encoding="utf-8")
     return parity_rows, findings, fetched_count
-
 
 def cmd_crawl(args: argparse.Namespace) -> int:
     population_dir = Path(args.population_dir).expanduser()
@@ -584,7 +569,6 @@ def cmd_crawl(args: argparse.Namespace) -> int:
         encoding="utf-8")
     return 0
 
-
 # ===========================================================================
 # stats: pure-offline scoring, distributions, thresholds, report, TOML
 # ===========================================================================
@@ -594,7 +578,6 @@ def bayes_rating(prior: float, votes: Optional[int], rating: float,
     """(m * C + v * R) / (m + v); zero-vote rows collapse to the prior."""
     v = float(votes or 0)
     return (m * prior + v * float(rating)) / (m + v)
-
 
 def wilson_lower(rating: float, votes: Optional[int],
                  z: float = WILSON_Z) -> Optional[float]:
@@ -609,7 +592,6 @@ def wilson_lower(rating: float, votes: Optional[int],
     centre = p_hat + z2 / (2.0 * n)
     margin = z * math.sqrt((p_hat * (1.0 - p_hat) + z2 / (4.0 * n)) / n)
     return (centre - margin) / denom
-
 
 def compute_priors(rows: list[dict]) -> dict:
     """Per-tier + archive-wide prior means over votes>=1 rated rows only,
@@ -634,7 +616,6 @@ def compute_priors(rows: list[dict]) -> dict:
         "tier_voted": tier_voted,
     }
 
-
 def score_rows(rows: list[dict], priors: dict) -> list[dict]:
     """Annotate each row with its stratification tier, bayes_rating and
     wilson_lower (both None when the row carries no numeric Niveau)."""
@@ -654,7 +635,6 @@ def score_rows(rows: list[dict], priors: dict) -> list[dict]:
             row["wilson_lower"] = wilson_lower(rating, votes)
         scored.append(row)
     return scored
-
 
 def _summary(values: list[float]) -> dict:
     """mean/median/quartiles/deciles for one metric, inclusive quantiles.
@@ -678,7 +658,6 @@ def _summary(values: list[float]) -> dict:
                 values, n=10, method="inclusive"), 1):
             out[f"d{i}"] = v
     return out
-
 
 def compute_distributions(scored: list[dict]) -> dict:
     """Distribution summaries: archive, per tier, per (tier x category).
@@ -708,7 +687,6 @@ def compute_distributions(scored: list[dict]) -> dict:
             if rows:
                 block(("tier_category", tier, cat), rows)
     return dist
-
 
 def derive_thresholds(scored: list[dict],
                       tiers: list[str]) -> dict[str, dict]:
@@ -754,7 +732,6 @@ def derive_thresholds(scored: list[dict],
         thresholds[tier] = info
     return thresholds
 
-
 def analyze(rows: list[dict]) -> dict:
     """The full offline analysis bundle shared by the report and the TOML."""
     priors = compute_priors(rows)
@@ -768,7 +745,6 @@ def analyze(rows: list[dict]) -> dict:
         "distributions": compute_distributions(scored),
         "thresholds": derive_thresholds(scored, tiers_sorted),
     }
-
 
 # ===========================================================================
 # Report + TOML rendering (deterministically ordered)
@@ -784,7 +760,6 @@ def _num(v) -> str:
     if isinstance(v, int):
         return str(v)
     return f"{v:.6f}".rstrip("0").rstrip(".")
-
 
 def _lineage_md(meta: dict) -> str:
     if not meta:
@@ -803,7 +778,6 @@ def _lineage_md(meta: dict) -> str:
     ]
     return "\n".join(rows)
 
-
 def _dist_md(dist: dict, group_label: str) -> str:
     summary = dist[group_label]
     header = ("| metric | n | mean | median | Q1 | Q3 | d1 | d2 | d3 | d4 | "
@@ -819,7 +793,6 @@ def _dist_md(dist: dict, group_label: str) -> str:
         lines.append("| " + " | ".join(cells) + " |")
     return "\n".join(lines)
 
-
 def render_parity_table(parity: list[dict]) -> str:
     """Markdown section for the validation-sample parity results."""
     if not parity:
@@ -834,7 +807,6 @@ def render_parity_table(parity: list[dict]) -> str:
                 f"| {row['ccan_id']} | {name} | {_num(fld['listing'])} | "
                 f"{_num(fld['page'])} | {fld['verdict']} |")
     return "\n".join(lines)
-
 
 def render_report(analysis: dict, meta: dict, parity: list[dict]) -> str:
     rows = analysis["rows"]
@@ -1000,7 +972,6 @@ def render_report(analysis: dict, meta: dict, parity: list[dict]) -> str:
     lines.append("")
     return "\n".join(lines)
 
-
 def render_thresholds_toml(analysis: dict, meta: dict) -> str:
     rows_count = len(analysis["rows"])
     thresholds = analysis["thresholds"]
@@ -1053,7 +1024,6 @@ def render_thresholds_toml(analysis: dict, meta: dict) -> str:
         out.append("")
     return "\n".join(out).rstrip() + "\n"
 
-
 def cmd_stats(args: argparse.Namespace) -> int:
     population_dir = Path(args.population_dir).expanduser()
     jsonl_path = population_dir / f"ccan_population.v{DATASET_SCHEMA}.jsonl"
@@ -1099,7 +1069,6 @@ def cmd_stats(args: argparse.Namespace) -> int:
     print(f"Thresholds: {toml_path}")
     return 0
 
-
 # ===========================================================================
 # CLI
 # ===========================================================================
@@ -1140,11 +1109,9 @@ def build_parser() -> argparse.ArgumentParser:
     p_stats.set_defaults(func=cmd_stats)
     return parser
 
-
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     return args.func(args)
-
 
 if __name__ == "__main__":
     raise SystemExit(main())
