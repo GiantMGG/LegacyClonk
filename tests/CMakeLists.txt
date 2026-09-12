@@ -327,6 +327,24 @@ if(NOT USE_SANITIZER AND EXISTS "${LEGACYCLONK_CONTENT_DIR}/PixelPhysics.c4d/Tes
 		FAIL_REGULAR_EXPRESSION "FatalError|\\[error\\]|\\[fatal\\]")
 endif()
 
+# --- Mobilization perf gate (spec sim-performance-budget, cycle 118) ----
+# Raw-throughput companion to smoke_MobilizationSmoke: --frame-rate-cap
+# 1000 lifts the 28 ms/tick pace so per-window wall-clock reflects the
+# mobilization paths (breach/blast/deposit churn + mover transport).
+if(NOT USE_SANITIZER AND EXISTS "${LEGACYCLONK_CONTENT_DIR}/PixelPhysics.c4d/Tests.c4f/MobilizationSmoke.c4s")
+	add_test(NAME mobilization_perf_gate
+		COMMAND "${PYTHON3}" "${CMAKE_SOURCE_DIR}/tools/run_engine_headless.py"
+			"$<TARGET_FILE:clonk>"
+			--console --smoke-run 350 --frame-rate-cap 1000
+			-s "${LEGACYCLONK_CONTENT_DIR}/PixelPhysics.c4d/Tests.c4f/MobilizationSmoke.c4s"
+		WORKING_DIRECTORY "${CMAKE_BINARY_DIR}")
+	set_tests_properties(mobilization_perf_gate PROPERTIES
+		TIMEOUT 60
+		LABELS "smoke"
+		PASS_REGULAR_EXPRESSION "MobilizationSmoke PASS"
+		FAIL_REGULAR_EXPRESSION "FatalError|\\[error\\]|\\[fatal\\]")
+endif()
+
 # --- LavaWallLong D3500 dig-delay pin (spec pixel-physics-regression-pin) --
 # The only Ashes-Instable discriminator (cycle-92 MUT-3). 3900 ticks exceeds
 # the glob's hardcoded --smoke-run 350, so an explicit entry is required
@@ -353,6 +371,9 @@ endif()
 if(USE_SANITIZER)
 	if(TEST smoke_PXSPerfSmoke)
 		set_tests_properties(smoke_PXSPerfSmoke PROPERTIES DISABLED TRUE)
+	endif()
+	if(TEST smoke_MobilizationSmoke)
+		set_tests_properties(smoke_MobilizationSmoke PROPERTIES DISABLED TRUE)
 	endif()
 endif()
 
