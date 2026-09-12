@@ -61,17 +61,66 @@ against it are exact; against MinSpec-A they carry the ± 25% band above.
 
 ## 3. Measured baselines (calibration machine)
 
-Populated by the cycle-118 calibration (Task 3 of the cycle-118 plan):
-per-window `[CAL] mob win` / `[CAL] mob static` transcriptions from the
-three calibration runs and the ×2-churn negative-mutation run (the cost
-model's second dwell level), plus the PXSPerfSmoke cross-reference.
-This is the per-path regression baseline the L cycle inherits.
+Cycle-118 calibration (2026-09-12, calibration machine per §1; frozen
+constants in the committed MobilizationSmoke.c4s):
+
+| Run | Recipe | median win ms (wins 4-8) | win-9 cum ext | peak pxs | static W (win 9) | static S (win 9) |
+|-----|--------|--------------------------|---------------|----------|------------------|------------------|
+| cal-1 | baseline | 3 | 945 | 3237 | 24297 | 5163 |
+| cal-2 | baseline | 3 | 945 | 3251 | 24232 | 5155 |
+| cal-3 | baseline | 4 | 945 | 3321 | 24215 | 5165 |
+| x2-mutant | breach x2, blast x2, cast x2 | 7 | 1890 | 9885 | 31526 | 3246 |
+
+Per-path [CAL] decomposition (the L-cycle regression baseline): the
+`[CAL] mob win` lines carry per-window extraction (breach churn), blast
+count, and mobile-PXS load; the `[CAL] mob static` lines carry the
+static Water/Sand counts — the mover-transport signature (basin water
+shifts toward the sump at ~constant total).
+
+M2 escalation record (plan correction 4): the ×2-churn dwell level
+above and its ×4 escalation (breach 12 / blast 32 / cast 240,
+transcript `.opencode/scratch/2026-09-12-mob-x4.txt` — cap-pinned at
+`pxs 10000` from window 2 on) BOTH stayed GREEN on the calibration
+machine: the wall-clock gate is untrippable at ≤×4 churn under the
+current caps (5–22 ms/window measured against the 1500 ms strike
+threshold). The 2-strike GATE_WINDOW_MS contract is therefore a
+CI-runner tripwire; non-vacuity at the wall-clock class is delegated to
+the L cycle's dwell ladder.
 
 ## 4. Cost-slope model and [HEADROOM] projection
 
-Populated together with §3 (two dwell levels: baseline + ×2-churn
-mutation). Stated as a **bound, not a prophecy**: the gates (not this
-projection) are the enforcement; the L recomputes before trusting.
+Two-point linear model over the cast-rate driver C (PXS/frame; the
+dominant churn term):
+
+	ms/window = base + slope × C
+	base  = 2 × m0 − m2        (the no-churn intercept)
+	slope = (m2 − m0) / 60     (ms per PXS/frame)
+
+with m0 = 3 ms (baseline, C=60) and m2 = 7 ms (×2
+mutant, C=120) — both on the calibration machine.
+
+[HEADROOM] full-pixel-mobilization projection (BOUND, not a prophecy):
+extrapolating the linear fit to the PXSPerfSmoke-saturated equivalent
+cast rate (150 PXS/frame holds ~4k steady in PXSPerfSmoke; the 10k-cap
+equivalent is ≈ 375 PXS/frame) projects ≈ 24 ms per
+35-tick window at the calibration machine, i.e. 0.025× the 980 ms
+unpaced window budget (35 × 28). Cross-reference: the PXSPerfSmoke
+gate's own [CAL] win medians on this machine (fresh run transcript
+`.opencode/scratch/2026-09-12-pxspef-crossref.txt`) sit at 8 ms — the
+saturated-PXS dwell already measured. Conclusion (AMENDMENT 1 —
+rewritten to match the measured data; the plan's original pre-written
+conclusion was falsified by its own transcription mandate): mobilization
+raw cost at cap saturation FITS the window budget with ≥40× headroom on
+the calibration machine (the ×4 cap-pinned run measured 5-22 ms/window
+against the 980 ms budget; the model projects ~24 ms/window at the
+375 PXS/frame cap-equivalent). The mobilization_perf_gate is therefore
+a REGRESSION TRIPWIRE, not a load shedder — its job is to catch
+mobilization-path cost regressions between now and the L, not to
+police a budget the current caps cannot breach. §5's dirty-chunk lever
+remains architecturally sound for the full-pixel-mobilization endgame
+(scan-cost scaling beyond the current 10k+10k caps), but its COST
+motivation is not borne out at the current caps. The L recomputes this
+bound before trusting it.
 
 ## 5. Dirty-chunk conclusion
 
