@@ -45,6 +45,11 @@
 //     ResetKeys(). Both SKIP under USE_CONSOLE: the console engine's
 //     CompileFunc key tables are zero-filled (C4Config.cpp:335) and ResetKeys
 //     is not defined there.
+// R1-R4: the KeyConfig.txt save/load round trip (spec
+// bindings-persistence-roundtrip-fix, cycle 116) — rebind survival across a
+// simulated restart (R1, the RED-first discriminator), save->load->resave
+// byte-identity (R2, retiring the P5(a) NOTE), legacy quoted-file compat
+// (R3), and mixed quoted/bare siblings (R4).
 
 #include <catch2/catch_all.hpp>
 
@@ -326,12 +331,10 @@ TEST_CASE("ApplyPreset.RestartSurvival", "[control-presets]")
 	// mutation, removing the ResetKey loop from ApplyPreset, turns this RED
 	// on the step-5 PRIMARY assert.
 	//
-	// NOTE: a real C4KeyCodeEx delta is written quoted (RCT_Escaped) but read
-	// back via RCT_Idtf, which cannot consume a leading '"' — so a delta does
-	// not survive a load; the effective key falls back to its default. Layer 1
-	// is therefore what carries the applied preset across a restart. The
-	// ResetKey loop guarantees the resaved KeyConfig.txt carries NO stale
-	// delta, which is the property pinned in step 5.
+	// NOTE: since the quoted-read tolerance (cycle 116) a SaveCustomConfig
+	// delta survives a load; layer 1 remains what carries the applied preset
+	// across the ApplyPreset-time restart. The ResetKey loop still guarantees
+	// the resaved KeyConfig.txt carries NO stale delta — the step-5 pin.
 
 	// A code in neither the classic nor the two-hand table: seeds the stale delta.
 	const int32_t staleCode = KEY('T', XK_t, SDL_SCANCODE_T);
@@ -463,12 +466,9 @@ TEST_CASE("KeyConfigDeltaForm.OneDeltaStateResavesToDeltaOnly", "[control-preset
 	// default check (StdAdaptors.h:109-115). Mutation: reverting the
 	// write-side skip turns this RED (the sibling keys then leak entries).
 	//
-	// NOTE: the written delta does NOT survive a load — the value is written
-	// quoted (RCT_Escaped) but read back via RCT_Idtf, which cannot consume
-	// a leading '"', so the entry is dropped at load (and the effective key
-	// falls back to its default). Therefore a load->save byte-identity is
-	// mechanically impossible and is deliberately NOT asserted here (plan
-	// amendment, 2026-09-06).
+	// NOTE: the load->save byte-identity parked here since 2026-09-06 is
+	// asserted by KeyConfigRoundtrip.ResaveFixedPoint (R2) since the
+	// quoted-read tolerance (cycle 116) made it assertable.
 	C4KeyboardInput input;
 	RegisterKbdSet(input, 0, ClassicTable);
 	REQUIRE(LoadFromIni(input, "[Keys]\r\n")); // siblings -> default-equal
@@ -555,6 +555,73 @@ TEST_CASE("KeyConfigRoundtrip.RebindSurvivesRestart", "[control-presets]")
 	const C4KeyCode expected = C4KeyCodeEx::String2KeyCode(
 		StdStrBuf(C4KeyCodeEx::KeyCode2String(KEY('T', XK_t, SDL_SCANCODE_T), false, false)));
 	CHECK(pKey2->GetCodes().front().Key == expected);
+}
+
+TEST_CASE("KeyConfigRoundtrip.ResaveFixedPoint", "[control-presets]")
+{
+	// R2: save -> load -> resave is byte-identical — the P5(a) NOTE's
+	// "mechanically impossible" assert, assertable since the quoted-read
+	// tolerance (cycle 116). Deterministic: KeysByName is a std::map and
+	// one INI writer renders it.
+	C4KeyboardInput input;
+	RegisterKbdSet(input, 0, ClassicTable);
+	REQUIRE(LoadFromIni(input, "[Keys]\r\n")); // siblings -> default-equal
+
+	C4CustomKey *pKey = input.GetKeyByName("Kbd1Key2");
+	REQUIRE(pKey);
+	C4CustomKey::CodeList codes;
+	codes.push_back(C4KeyCodeEx(KEY('T', XK_t, SDL_SCANCODE_T)));
+	input.RebindKey(pKey, codes);
+
+	const std::string saved = ResaveToIni(input);
+
+	C4KeyboardInput input2;
+	RegisterKbdSet(input2, 0, ClassicTable);
+	REQUIRE(LoadFromIni(input2, saved));
+
+	CHECK(ResaveToIni(input2) == saved);
+}
+
+TEST_CASE("KeyConfigRoundtrip.LegacyQuotedFileLoads", "[control-presets]")
+{
+	// R3: a v367-and-earlier all-quoted KeyConfig.txt delta loads and
+	// applies — the backward-compat resurrection pin.
+	const C4KeyCode rebound = KEY('T', XK_t, SDL_SCANCODE_T);
+	const std::string name = C4KeyCodeEx::KeyCode2String(rebound, false, false);
+	const std::string legacy = std::format("[Keys]\r\nKbd1Key2=\"{}\"\r\n", name);
+
+	C4KeyboardInput input;
+	RegisterKbdSet(input, 0, ClassicTable);
+	REQUIRE(LoadFromIni(input, legacy));
+
+	C4CustomKey *pKey = input.GetKeyByName("Kbd1Key2");
+	REQUIRE(pKey);
+	REQUIRE_FALSE(pKey->GetCodes().empty());
+	const C4KeyCode expected = C4KeyCodeEx::String2KeyCode(StdStrBuf(name));
+	CHECK(pKey->GetCodes().front().Key == expected);
+}
+
+TEST_CASE("KeyConfigRoundtrip.SiblingEntriesUnaffected", "[control-presets]")
+{
+	// R4: one quoted delta + one bare sibling in the same file — both
+	// apply post-fix, and the load stays true (probe case 3).
+	const C4KeyCode rebound = KEY('T', XK_t, SDL_SCANCODE_T);
+	const std::string name = C4KeyCodeEx::KeyCode2String(rebound, false, false);
+	const std::string ini = std::format("[Keys]\r\nKbd1Key2=\"{}\"\r\nKbd1Key3={}\r\n", name, name);
+
+	C4KeyboardInput input;
+	RegisterKbdSet(input, 0, ClassicTable);
+	REQUIRE(LoadFromIni(input, ini));
+
+	C4CustomKey *pKey2 = input.GetKeyByName("Kbd1Key2");
+	C4CustomKey *pKey3 = input.GetKeyByName("Kbd1Key3");
+	REQUIRE(pKey2);
+	REQUIRE(pKey3);
+	REQUIRE_FALSE(pKey2->GetCodes().empty());
+	REQUIRE_FALSE(pKey3->GetCodes().empty());
+	const C4KeyCode expected = C4KeyCodeEx::String2KeyCode(StdStrBuf(name));
+	CHECK(pKey2->GetCodes().front().Key == expected);
+	CHECK(pKey3->GetCodes().front().Key == expected);
 }
 
 TEST_CASE("SetKeyboardControlKey.WritesBothLayers", "[control-presets]")
