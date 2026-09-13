@@ -21,6 +21,7 @@
 #include <C4GameControl.h>
 #include <C4GameOverDlg.h>
 #include <C4Record.h>
+#include <C4ReplayViewerDlg.h>
 #include <C4Log.h>
 #include <C4Network2Stats.h>
 
@@ -100,6 +101,10 @@ bool C4GameControl::InitReplay(C4Group &rGroup)
 	// M-1: seed the playback speed from the config field (stored in
 	// hundredths: 100 = 1.0x). The scrub viewer may override later.
 	ReplayController.SetSpeed(Config.General.ReplaySpeedMultiplier / 100.0f);
+#ifndef USE_CONSOLE
+	// show the replay viewer overlay for the freshly attached replay
+	C4ReplayViewerDlg::EnsureShown();
+#endif
 	// ok
 	return true;
 }

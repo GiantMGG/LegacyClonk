@@ -22,6 +22,11 @@
 //
 // Reads/writes state via Game.Control.ReplayController (C4ReplayController).
 //
+// Shown automatically when a replay attaches (EnsureShown, called from
+// C4GameControl::InitReplay) and toggled with the Ctrl+R "ReplayViewerToggle"
+// key. Singleton lifetime follows the C4Network2ClientListDlg pattern
+// (ShowRemoveDlg self-delete; pInstance cleared in the destructor).
+//
 // This is a GUI-only file. Under USE_CONSOLE=ON the entire .cpp body is
 // compiled out via #ifndef USE_CONSOLE.
 
@@ -35,7 +40,11 @@ class C4ReplayViewerDlg : public C4GUI::Dialog
 {
 public:
 	C4ReplayViewerDlg();
-	~C4ReplayViewerDlg() override = default;
+	~C4ReplayViewerDlg() override;
+
+	// overlay singleton control (the C4Network2ClientListDlg::Toggle pattern)
+	static bool Toggle();      // toggle overlay visibility; no-op unless a replay is running
+	static void EnsureShown(); // show the overlay if it is not up yet (replay start)
 
 	// C4GUI callbacks (DlgCallback<...>::Func signature: Control* parameter)
 	void OnPlayPause(C4GUI::Control *pButton);
@@ -56,4 +65,6 @@ private:
 	static constexpr int32_t kTimelineBarH  = 8;
 
 	void DrawTimelineBar(C4Facet &cgo);
+
+	static C4ReplayViewerDlg *pInstance; // current overlay instance, if shown
 };

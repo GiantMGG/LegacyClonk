@@ -24,15 +24,22 @@
 #include <C4GuiResource.h>
 #include <C4Log.h>
 
+C4ReplayViewerDlg *C4ReplayViewerDlg::pInstance = nullptr;
+
 C4ReplayViewerDlg::C4ReplayViewerDlg()
 	: C4GUI::Dialog(C4GUI::GetScreenWdt(), C4ReplayViewerDlg::kOverlayHeight, "Replay Viewer", false)
 {
 	// The overlay is anchored to the bottom of the screen, full width.
-	// Controls: play/pause, step, speed presets, close.
+	// Controls: play/pause, step, close.
 	//
-	// For the MVP, the dialog is created with a minimal set of buttons.
-	// Full timeline bar drawing and playhead dragging are implemented below
-	// but may need adjustment once the GUI build is unblocked for testing.
+	// Speed presets and playhead dragging remain deferred (cycle-22 scope);
+	// the timeline bar draws regardless.
+
+	// Anchor to the bottom of the screen: the Dialog ctor only sizes
+	// (SetBounds at the origin, C4GuiDialogs.cpp:334-345), so reposition
+	// before first show. Resolution cannot change mid-replay without a
+	// game restart, so ctor-time positioning suffices.
+	SetBounds(C4Rect(0, C4GUI::GetScreenHgt() - kOverlayHeight, GetWidth(), kOverlayHeight));
 
 	// Play/Pause button
 	auto *pBtnPlay = new C4GUI::CallbackButton<C4ReplayViewerDlg>(
@@ -49,10 +56,40 @@ C4ReplayViewerDlg::C4ReplayViewerDlg()
 		"Step Fwd", C4Rect(56, 4, 24, 24), &C4ReplayViewerDlg::OnStepForward, this);
 	AddElement(pBtnStepFwd);
 
-	// Close button (right-aligned)
+	// Close button, right-aligned at the right screen edge (used to overlap
+	// Play/Pause at the left edge — the cycle-119 repair)
 	auto *pBtnClose = new C4GUI::CallbackButton<C4ReplayViewerDlg>(
-		"Close", C4Rect(0, 4, 24, 24), &C4ReplayViewerDlg::OnClose, this);
+		"Close", C4Rect(GetWidth() - 24 - 4, 4, 24, 24), &C4ReplayViewerDlg::OnClose, this);
 	AddElement(pBtnClose);
+}
+
+C4ReplayViewerDlg::~C4ReplayViewerDlg()
+{
+	if (this == pInstance) pInstance = nullptr;
+}
+
+bool C4ReplayViewerDlg::Toggle()
+{
+	// safety
+	if (!C4GUI::IsGUIValid()) return false;
+	// no-op outside replay playback
+	if (!Game.Control.isReplay()) return false;
+	// toggle off?
+	if (pInstance) { pInstance->Close(true); return true; }
+	// toggle on!
+	return Game.pGUI->ShowRemoveDlg(pInstance = new C4ReplayViewerDlg());
+}
+
+void C4ReplayViewerDlg::EnsureShown()
+{
+	// safety
+	if (!C4GUI::IsGUIValid()) return;
+	// no-op outside replay playback
+	if (!Game.Control.isReplay()) return;
+	// already shown?
+	if (pInstance) return;
+	// show it
+	Game.pGUI->ShowRemoveDlg(pInstance = new C4ReplayViewerDlg());
 }
 
 C4ReplayController &C4ReplayViewerDlg::GetController() const

@@ -309,6 +309,7 @@ public:
 	void OnResolutionChanged(); // update anything that's dependent on screen resolution
 	void InitFullscreenComponents(bool fRunning);
 	bool ToggleChat();
+	bool ToggleReplayViewer(); // toggle the replay viewer overlay (Ctrl+R; GUI builds only)
 	// Pause
 	bool TogglePause();
 	bool Pause();

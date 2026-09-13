@@ -83,6 +83,7 @@ struct _GIOChannel;
 #define KEY_V ((uint16_t) 'V') // paste in GUI-editbox
 #define KEY_W ((uint16_t) 'W') // console mode control key
 #define KEY_X ((uint16_t) 'X') // cut from GUI-editbox
+#define KEY_R ((uint16_t) 'R') // replay viewer toggle (Ctrl+R)
 #elif defined(USE_X11)
 #include <X11/keysym.h>
 #include <sys/time.h>
@@ -128,6 +129,7 @@ struct _GIOChannel;
 #define KEY_V XK_v // paste in GUI-editbox
 #define KEY_W XK_w // console mode control key
 #define KEY_X XK_x // cut from GUI-editbox
+#define KEY_R XK_r // replay viewer toggle (Ctrl+R)
 // from X.h:
 //#define ShiftMask (1 << 0)
 //#define ControlMask (1 << 2)
@@ -180,6 +182,7 @@ struct _GIOChannel;
 #define KEY_X SDL_SCANCODE_X
 #define KEY_A SDL_SCANCODE_A
 #define KEY_F SDL_SCANCODE_F
+#define KEY_R SDL_SCANCODE_R
 #define MK_ALT KMOD_ALT
 #define MK_CONTROL KMOD_CTRL
 #define MK_SHIFT KMOD_SHIFT
@@ -226,6 +229,7 @@ struct _GIOChannel;
 #define KEY_X 0
 #define KEY_F 0
 #define KEY_A 0
+#define KEY_R 0
 #define MK_ALT 0
 #define MK_SHIFT 0
 #define MK_CONTROL 0

@@ -25,6 +25,7 @@
 
 #include <C4GameSave.h>
 #include <C4Record.h>
+#include <C4ReplayViewerDlg.h>
 #include <C4Application.h>
 #include <C4HudBars.h>
 #include <C4Object.h>
@@ -3516,6 +3517,11 @@ bool C4Game::InitKeyboard()
 	KeyboardInput.RegisterKey(new C4CustomKey(C4KeyCodeEx(K_F9, KEYS_Control), "ScreenshotEx",            KEYSCOPE_Fullscreen,                 new C4KeyCBEx<C4GraphicsSystem, bool>(GraphicsSystem, true,     &C4GraphicsSystem::SaveScreenshot)));
 	KeyboardInput.RegisterKey(new C4CustomKey(C4KeyCodeEx(KEY_C, KEYS_Alt),    "ToggleChat",   C4KeyScope(KEYSCOPE_Generic | KEYSCOPE_Gui),    new C4KeyCB  <C4Game>                (*this,                    &C4Game::ToggleChat)));
 
+	// replay viewer overlay toggle (no-op outside replay playback)
+#ifndef USE_CONSOLE
+	KeyboardInput.RegisterKey(new C4CustomKey(C4KeyCodeEx(KEY_R, KEYS_Control), "ReplayViewerToggle", C4KeyScope(KEYSCOPE_Generic | KEYSCOPE_Gui), new C4KeyCB<C4Game>(*this, &C4Game::ToggleReplayViewer)));
+#endif
+
 	// main ingame
 	KeyboardInput.RegisterKey(new C4CustomKey(C4KeyCodeEx(K_F1), "ToggleShowHelp",         KEYSCOPE_Generic, new C4KeyCB<C4GraphicsSystem>(GraphicsSystem, &C4GraphicsSystem::ToggleShowHelp)));
 	KeyboardInput.RegisterKey(new C4CustomKey(C4KeyCodeEx(K_F4), "NetClientListDlgToggle", KEYSCOPE_Generic, new C4KeyCB<C4Network2>      (Network,        &C4Network2::ToggleClientListDlg)));
@@ -4514,6 +4520,17 @@ void C4Game::AddDirectoryForMonitoring(const char *const directory)
 bool C4Game::ToggleChat()
 {
 	return C4ChatDlg::ToggleChat();
+}
+
+bool C4Game::ToggleReplayViewer()
+{
+#ifndef USE_CONSOLE
+	// no-op outside replay playback
+	if (!Control.isReplay()) return false;
+	return C4ReplayViewerDlg::Toggle();
+#else
+	return false;
+#endif
 }
 
 #ifndef USE_CONSOLE
