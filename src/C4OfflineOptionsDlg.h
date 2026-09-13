@@ -29,6 +29,8 @@
 
 #include <vector>
 
+struct C4PlrStartListDescriptor;
+
 class C4OfflineOptionsDlg : public C4GUI::FullscreenDialog
 {
 public:
@@ -54,6 +56,19 @@ private:
 	void FillBriefing();
 	void CreatePickers(const C4Rect &rcPickers);
 	void AddPickerSectionHeader(const char *szSectionLabel);
+
+	// [PlayerN] start-list sections (spec round-setup-parity-complete):
+	// three generated picker sections driven by kPlrStartListDescriptors
+	// (Store goods / Store restock / Construction blueprints). Writes fan
+	// out to all four PlrStart slots on both the active-section C4S and
+	// GameC4S (the SliderRow dual write-through extended to the PlrStart
+	// array). Offline-only: CreatePlrStartSections renders nothing when
+	// Game.NetworkActive — PlrStart edits ride no net sync path, and a
+	// host-side edit without sync would desync every joiner.
+	void CreatePlrStartSections();
+	void WritePlrStartID(const C4PlrStartListDescriptor &rDescriptor, C4ID id, int32_t iCount, bool fAddNew);
+	void RemovePlrStartID(const C4PlrStartListDescriptor &rDescriptor, C4ID id);
+	void OnPlrStartListsChanged();
 
 	// Winning Conditions panel + picker-row count sliders (spec
 	// adjustable-winning-conditions): the panel rows and the picker
@@ -92,6 +107,8 @@ private:
 	class SeedEdit;      // nested: needs OnSeedChanged (the ScaleEdit precedent)
 	class SliderRow;     // nested: one generated row per descriptor
 	class DefPickerRow;  // nested: one picker row (checkbox + optional count slider)
+	class PlrStartSectionHeader; // nested: one [PlayerN] section header (All/None bulk buttons)
+	class PlrStartPickerRow;     // nested: one [PlayerN] list row (checkbox + optional count slider)
 	class WinComboRow;   // nested: one panel ComboBox row per enum descriptor
 	class SettlementRow; // nested: the settlement-target points slider
 	class PrimaryButton; // nested: the settings-stage Start (styled primary action)
@@ -103,6 +120,7 @@ private:
 	C4GUI::TextWindow *pBriefing{nullptr};
 	C4GUI::ListBox *pPickerList{nullptr};
 	std::vector<DefPickerRow *> pPickerRows; // picker-row registry for the win-condition refresh
+	std::vector<PlrStartPickerRow *> pPlrStartRows; // [PlayerN] row registry for the PlrStart refresh
 	WinComboRow *pWinComboRows[3]{nullptr, nullptr, nullptr}; // Mode/Elimination/CooperativeGoal
 	SettlementRow *pSettlementRow{nullptr};
 	C4GUI::Window *pLandscapePanel{nullptr};
@@ -119,6 +137,7 @@ private:
 
 	bool fPreviewDirty{false};
 	bool fUpdatingWinRows{false}; // refresh re-entrancy guard (spec risk 1)
+	bool fUpdatingPlrStartRows{false}; // PlrStart refresh re-entrancy guard
 };
 
 #endif

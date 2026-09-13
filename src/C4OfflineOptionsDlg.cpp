@@ -30,6 +30,7 @@
 
 #include "C4SliderDescriptors.h"
 #include "C4WinConditionDescriptors.h"
+#include "C4PlrStartDescriptors.h"
 
 #include <ctime>
 #include <format>
@@ -323,6 +324,185 @@ void C4OfflineOptionsDlg::DefPickerRow::UpdateFromLists()
 }
 
 void C4OfflineOptionsDlg::DefPickerRow::UpdateCountReadout()
+{
+	if (!pCountReadout) return;
+	StdStrBuf sText;
+	sText.Copy(std::format("{}", iCurrentCount).c_str());
+	pCountReadout->SetText(sText.getData());
+}
+
+// C4OfflineOptionsDlg::PlrStartSectionHeader — one [PlayerN] section
+// header: section label + the per-section All/None bulk buttons (spec
+// round-setup-parity-complete § User-visible behavior). All enters
+// every enumerated def of the section into the list — store sections at
+// the descriptor default, blueprints at the count-0 presence idiom —
+// unless already present, in which case the authored count stands;
+// None removes every enumerated def of the section. Both go through
+// the dialog's fan-out write path (all four PlrStart slots on both C4S
+// copies).
+class C4OfflineOptionsDlg::PlrStartSectionHeader : public C4GUI::Window
+{
+public:
+	PlrStartSectionHeader(const C4Rect &rcRow, const C4PlrStartListDescriptor &rDescriptor, C4OfflineOptionsDlg *pDlg);
+
+private:
+	void OnBtnAll(C4GUI::Control *pBtn);
+	void OnBtnNone(C4GUI::Control *pBtn);
+
+	C4OfflineOptionsDlg *pDlg;
+	const C4PlrStartListDescriptor *pDescriptor;
+};
+
+C4OfflineOptionsDlg::PlrStartSectionHeader::PlrStartSectionHeader(const C4Rect &rcRow, const C4PlrStartListDescriptor &rDescriptor, C4OfflineOptionsDlg *pDlg)
+	: pDlg(pDlg), pDescriptor(&rDescriptor)
+{
+	SetBounds(rcRow);
+	C4GUI::ComponentAligner caRow(GetContainedClientRect(), 2, 1);
+	AddElement(new C4GUI::Label(rDescriptor.szLabel,
+		caRow.GetFromLeft(rcRow.Wdt * 3 / 5), ALeft, C4GUI_CaptionFontClr, &C4GUI::GetRes()->CaptionFont));
+	AddElement(new C4GUI::CallbackButtonEx<PlrStartSectionHeader>("All",
+		caRow.GetFromLeft(50), this, &PlrStartSectionHeader::OnBtnAll));
+	AddElement(new C4GUI::CallbackButtonEx<PlrStartSectionHeader>("None",
+		caRow.GetFromLeft(50), this, &PlrStartSectionHeader::OnBtnNone));
+}
+
+void C4OfflineOptionsDlg::PlrStartSectionHeader::OnBtnAll(C4GUI::Control *pBtn)
+{
+	// every enumerated def enters the list; present entries keep their
+	// authored state (display truth: PlrStart[0] of the section copy)
+	for (std::size_t i = 0; C4Def *pDef = Game.Defs.GetDef(i, pDescriptor->dwDefCategory); ++i)
+	{
+		const C4IDList &rDisplayList = Game.GetActiveSections().front()->C4S.PlrStart[0].*pDescriptor->pList;
+		if (rDisplayList.GetIndex(pDef->id) >= 0) continue;
+		const int32_t iCount = pDescriptor->fPresenceIdiom ? 0 : pDescriptor->iDefault;
+		pDlg->WritePlrStartID(*pDescriptor, pDef->id, iCount, true);
+	}
+	pDlg->OnPlrStartListsChanged();
+}
+
+void C4OfflineOptionsDlg::PlrStartSectionHeader::OnBtnNone(C4GUI::Control *pBtn)
+{
+	for (std::size_t i = 0; C4Def *pDef = Game.Defs.GetDef(i, pDescriptor->dwDefCategory); ++i)
+		pDlg->RemovePlrStartID(*pDescriptor, pDef->id);
+	pDlg->OnPlrStartListsChanged();
+}
+
+// C4OfflineOptionsDlg::PlrStartPickerRow — one [PlayerN] list row: def
+// icon + checkbox + (when the descriptor carries a count channel)
+// count slider + raw count readout. The DefPickerRow layout verbatim,
+// but writes route through the dialog's fan-out writer (all four
+// PlrStart slots on both C4S copies) instead of a single C4IDList
+// pointer — the fan-out cannot be a single pointer.
+class C4OfflineOptionsDlg::PlrStartPickerRow : public C4GUI::Window
+{
+public:
+	PlrStartPickerRow(const C4Rect &rcRow, C4Def *pDef, const C4PlrStartListDescriptor &rDescriptor,
+		const C4PlrStartCountParams &rCountParams, C4OfflineOptionsDlg *pDlg);
+
+	void UpdateFromLists(); // refresh: checkbox + slider re-derived from the list
+
+private:
+	void OnToggle();                             // checkbox: membership write + refresh
+	void OnCountSliderChange(int32_t iPosition); // count write + refresh
+	void UpdateCountReadout();
+
+	C4OfflineOptionsDlg *pDlg;
+	const C4PlrStartListDescriptor *pDescriptor;
+	C4ID idRowDef;
+	C4PlrStartCountParams CountParams;
+	C4GUI::CheckBox *pCheckBox{nullptr};
+	C4GUI::ScrollBar *pCountSlider{nullptr};
+	C4GUI::Label *pCountReadout{nullptr};
+	int32_t iCurrentCount{1};
+};
+
+C4OfflineOptionsDlg::PlrStartPickerRow::PlrStartPickerRow(const C4Rect &rcRow, C4Def *pDef,
+	const C4PlrStartListDescriptor &rDescriptor, const C4PlrStartCountParams &rCountParams, C4OfflineOptionsDlg *pDlg)
+	: pDlg(pDlg), pDescriptor(&rDescriptor), idRowDef(pDef->id), CountParams(rCountParams)
+{
+	SetBounds(rcRow);
+
+	// display truth: PlrStart[0] of the active section copy
+	const C4IDList &rDisplayList = Game.GetActiveSections().front()->C4S.PlrStart[0].*rDescriptor.pList;
+	const bool fChecked = rDisplayList.GetIndex(idRowDef) >= 0;
+	iCurrentCount = fChecked
+		? std::max(rDisplayList.GetIDCount(idRowDef), CountParams.iMin)
+		: CountParams.iDefault;
+
+	// checkbox strip — the 36-px layout (icon + name)
+	const C4Rect rcClient = GetContainedClientRect();
+	C4GUI::ComponentAligner caTop(C4Rect(rcClient.x, rcClient.y, rcClient.Wdt, 36), 2, 1);
+	const int32_t iIconSize = 36 - 4;
+	AddElement(new DefIcon(caTop.GetFromLeft(iIconSize, iIconSize), pDef));
+	pCheckBox = new C4GUI::CheckBox(caTop.GetAll(), pDef->GetName(), fChecked);
+	pCheckBox->SetOnChecked(new C4GUI::CallbackHandlerNoPar<PlrStartPickerRow>(this, &PlrStartPickerRow::OnToggle));
+	AddElement(pCheckBox);
+
+	if (CountParams.fEligible)
+	{
+		// count strip — the lower 16 px (52-px row total): slider + RAW
+		// count readout (the DefPickerRow layout)
+		C4GUI::ComponentAligner caCount(C4Rect(rcClient.x, rcClient.y + 36, rcClient.Wdt, rcClient.Hgt - 36), 2, 0);
+		pCountReadout = new C4GUI::Label("", caCount.GetFromRight(44), ARight,
+			C4GUI_MessageFontClr, &C4GUI::GetRes()->TextFont);
+		AddElement(pCountReadout);
+		auto *pCB = new C4GUI::ParCallbackHandler<PlrStartPickerRow, int32_t>(this, &PlrStartPickerRow::OnCountSliderChange);
+		pCountSlider = new C4GUI::ScrollBar(caCount.GetAll(), true, pCB, CountParams.iMax - CountParams.iMin + 1);
+		AddElement(pCountSlider);
+		// clamp for display: over-ceiling authored counts pin at the top
+		// (SetScrollPos does NOT fire the callback)
+		pCountSlider->SetScrollPos(BoundBy(iCurrentCount, CountParams.iMin, CountParams.iMax) - CountParams.iMin);
+		UpdateCountReadout();
+	}
+}
+
+void C4OfflineOptionsDlg::PlrStartPickerRow::OnToggle()
+{
+	if (pCheckBox->GetChecked())
+	{
+		// re-check: the slider position IS the count now; the blueprints
+		// row writes the count-0 presence idiom
+		const int32_t iCount = pDescriptor->fPresenceIdiom ? 0 : iCurrentCount;
+		pDlg->WritePlrStartID(*pDescriptor, idRowDef, iCount, true);
+	}
+	else
+	{
+		// uncheck: remove the ID from every slot again
+		pDlg->RemovePlrStartID(*pDescriptor, idRowDef);
+	}
+	pDlg->OnPlrStartListsChanged();
+}
+
+void C4OfflineOptionsDlg::PlrStartPickerRow::OnCountSliderChange(int32_t iPosition)
+{
+	// slider position p in [0, iMax-iMin] -> count p+iMin
+	iCurrentCount = BoundBy(iPosition + CountParams.iMin, CountParams.iMin, CountParams.iMax);
+	const C4IDList &rDisplayList = Game.GetActiveSections().front()->C4S.PlrStart[0].*pDescriptor->pList;
+	// membership stays with the checkbox: drags write only checked-in rows
+	if (rDisplayList.GetIndex(idRowDef) >= 0)
+		pDlg->WritePlrStartID(*pDescriptor, idRowDef, iCurrentCount, true);
+	UpdateCountReadout();
+	pDlg->OnPlrStartListsChanged();
+}
+
+void C4OfflineOptionsDlg::PlrStartPickerRow::UpdateFromLists()
+{
+	// no-fire setters only (CheckBox::SetChecked / ScrollBar::SetScrollPos)
+	const C4IDList &rDisplayList = Game.GetActiveSections().front()->C4S.PlrStart[0].*pDescriptor->pList;
+	const bool fPresent = rDisplayList.GetIndex(idRowDef) >= 0;
+	pCheckBox->SetChecked(fPresent);
+	if (fPresent)
+	{
+		// keep the raw list count so an over-ceiling authored count
+		// survives a re-check round-trip (the resolver guarantee)
+		iCurrentCount = std::max(rDisplayList.GetIDCount(idRowDef), CountParams.iMin);
+		if (pCountSlider)
+			pCountSlider->SetScrollPos(BoundBy(iCurrentCount, CountParams.iMin, CountParams.iMax) - CountParams.iMin);
+	}
+	UpdateCountReadout();
+}
+
+void C4OfflineOptionsDlg::PlrStartPickerRow::UpdateCountReadout()
 {
 	if (!pCountReadout) return;
 	StdStrBuf sText;
@@ -643,6 +823,11 @@ void C4OfflineOptionsDlg::CreatePickers(const C4Rect &rcPickers)
 		pPickerList->AddElement(pRow);
 		pPickerRows.push_back(pRow);
 	}
+
+	// [PlayerN] start-list sections (spec round-setup-parity-complete):
+	// Store goods / Store restock / Construction blueprints, appended
+	// after Rules. Offline-only (the !Game.NetworkActive gate inside).
+	CreatePlrStartSections();
 }
 
 void C4OfflineOptionsDlg::CreateWinConditionPanel()
@@ -685,6 +870,77 @@ void C4OfflineOptionsDlg::OnWinConditionListsChanged()
 	fUpdatingWinRows = true;
 	UpdateWinConditionRows();
 	fUpdatingWinRows = false;
+}
+
+void C4OfflineOptionsDlg::CreatePlrStartSections()
+{
+	// desync gate (spec round-setup-parity-complete): PlrStart edits
+	// ride no net sync path — the sections must not exist on the
+	// net-host dialog path. Offline rounds (Game.NetworkActive == false)
+	// get the full surface.
+	if (Game.NetworkActive) return;
+
+	const int32_t iListWdt = pPickerList->GetItemWidth();
+	for (const auto &Descriptor : kPlrStartListDescriptors)
+	{
+		pPickerList->AddElement(new PlrStartSectionHeader(C4Rect(0, 0, iListWdt, 20), Descriptor, this));
+		// one row per loaded def matching the descriptor's picker filter
+		// (the Objectives/Rules GetDef bitmask-AND filter, C4Def.cpp:1000)
+		for (std::size_t i = 0; C4Def *pDef = Game.Defs.GetDef(i, Descriptor.dwDefCategory); ++i)
+		{
+			const C4IDList &rDisplayList = Game.GetActiveSections().front()->C4S.PlrStart[0].*Descriptor.pList;
+			const C4PlrStartCountParams CountParams = ResolvePlrStartCountParams(Descriptor, rDisplayList.GetIDCount(pDef->id));
+			auto *pRow = new PlrStartPickerRow(C4Rect(0, 0, iListWdt, CountParams.fEligible ? 52 : 36),
+				pDef, Descriptor, CountParams, this);
+			pPickerList->AddElement(pRow);
+			pPlrStartRows.push_back(pRow);
+		}
+	}
+}
+
+void C4OfflineOptionsDlg::WritePlrStartID(const C4PlrStartListDescriptor &rDescriptor, C4ID id, int32_t iCount, bool fAddNew)
+{
+	// fan-out write: all four [PlayerN] slots, both C4S copies (the
+	// SliderRow dual write-through, C4OfflineOptionsDlg.cpp:189-192,
+	// extended to the PlrStart array). Offline-solo context: a
+	// single-player round reads PlrStart[0]
+	// (PlrStartIndex = Number % C4S_MaxPlayer, C4Player.cpp:685).
+	for (int32_t iSlot = 0; iSlot < C4S_MaxPlayer; ++iSlot)
+	{
+		(Game.GameC4S.PlrStart[iSlot].*rDescriptor.pList).SetIDCount(id, iCount, fAddNew);
+		(Game.GetActiveSections().front()->C4S.PlrStart[iSlot].*rDescriptor.pList).SetIDCount(id, iCount, fAddNew);
+	}
+}
+
+void C4OfflineOptionsDlg::RemovePlrStartID(const C4PlrStartListDescriptor &rDescriptor, C4ID id)
+{
+	// fan-out removal: index re-queried per list — safe against the
+	// DeleteItem index shift
+	for (int32_t iSlot = 0; iSlot < C4S_MaxPlayer; ++iSlot)
+	{
+		{
+			C4IDList &rList = Game.GameC4S.PlrStart[iSlot].*rDescriptor.pList;
+			const int32_t iIndex = rList.GetIndex(id);
+			if (iIndex >= 0) rList.DeleteItem(static_cast<std::size_t>(iIndex));
+		}
+		{
+			C4IDList &rList = Game.GetActiveSections().front()->C4S.PlrStart[iSlot].*rDescriptor.pList;
+			const int32_t iIndex = rList.GetIndex(id);
+			if (iIndex >= 0) rList.DeleteItem(static_cast<std::size_t>(iIndex));
+		}
+	}
+}
+
+void C4OfflineOptionsDlg::OnPlrStartListsChanged()
+{
+	// PlrStart twin of OnWinConditionListsChanged: re-derive every
+	// [PlayerN] row from the lists via no-fire setters; the guard
+	// breaks any re-entrancy
+	if (fUpdatingPlrStartRows) return;
+	fUpdatingPlrStartRows = true;
+	for (PlrStartPickerRow *pRow : pPlrStartRows)
+		pRow->UpdateFromLists();
+	fUpdatingPlrStartRows = false;
 }
 
 void C4OfflineOptionsDlg::AddPickerSectionHeader(const char *szSectionLabel)
