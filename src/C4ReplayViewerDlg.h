@@ -56,6 +56,14 @@ public:
 
 	void Draw(C4FacetEx &cgo) override;
 
+	// dock at the bottom of the screen instead of letting Screen::ShowDialog
+	// re-center the overlay (DoPlacement returning true keeps our placement)
+	bool DoPlacement(C4GUI::Screen *pOnScreen, const C4Rect &rPreferredDlgRect) override
+	{
+		SetPos(0, C4GUI::GetScreenHgt() - kOverlayHeight);
+		return true;
+	}
+
 private:
 	C4ReplayController &GetController() const;
 
