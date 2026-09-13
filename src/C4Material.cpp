@@ -147,6 +147,8 @@ void C4MaterialCore::Clear()
 	TempConvStrength = 0;
 	MinHeightCount = 0;
 	SplashRate = 10;
+	FlowRate = 1;
+	JetFall = 0;
 }
 
 bool C4MaterialCore::Load(C4Group &hGroup,
@@ -236,6 +238,8 @@ void C4MaterialCore::CompileFunc(StdCompiler *pComp)
 		pComp->Value(mkNamingAdapt(mkParAdapt(sBelowTempConvertTo, StdCompiler::RCT_IdtfAllowEmpty), "BelowTempConvertTo",  ""));
 		pComp->Value(mkNamingAdapt(MinHeightCount,                                                   "MinHeightCount",      0));
 		pComp->Value(mkNamingAdapt(SplashRate,                                                       "SplashRate",          10));
+		pComp->Value(mkNamingAdapt(FlowRate,                                                       "FlowRate",            1));
+		pComp->Value(mkNamingAdapt(JetFall,                                                        "JetFall",             0));
 	}
 
 	// material reactions

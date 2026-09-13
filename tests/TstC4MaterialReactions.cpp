@@ -219,3 +219,44 @@ TEST_CASE("C4MaterialCore.SaltationRoundTrip", "[material]")
 	CHECK(reparsed.Density == saltating.Density);
 	CHECK(std::strcmp(reparsed.Name, saltating.Name) == 0);
 }
+
+namespace
+{
+	constexpr const char *MaterialWithoutFlowKeys = R"ini([Material]
+Name=TestFlowPlain
+Density=25
+)ini";
+
+	constexpr const char *MaterialWithFlowKeys = R"ini([Material]
+Name=TestFlowJet
+Density=25
+FlowRate=4
+JetFall=3
+)ini";
+}
+
+TEST_CASE("C4MaterialCore.FlowJetRoundTrip", "[material]")
+{
+	// Cycle 124 (liquid-body-dynamics): old-format material without the
+	// keys compiles to the legacy defaults (FlowRate=1 single transfer,
+	// JetFall=0 never jet) -- every pre-cycle .c4m keeps today's behavior.
+	C4MaterialCore plain;
+	REQUIRE(CompileMaterial(plain, MaterialWithoutFlowKeys));
+	CHECK(plain.FlowRate == 1);
+	CHECK(plain.JetFall == 0);
+
+	// New-format material with the keys compiles to 4 and 3.
+	C4MaterialCore flowy;
+	REQUIRE(CompileMaterial(flowy, MaterialWithFlowKeys));
+	CHECK(flowy.FlowRate == 4);
+	CHECK(flowy.JetFall == 3);
+
+	// Decompile -> recompile equality (the savegame contract).
+	const std::string decompiled = DecompileToBuf<StdCompilerINIWrite>(flowy);
+	C4MaterialCore reparsed;
+	REQUIRE(CompileMaterial(reparsed, decompiled.c_str()));
+	CHECK(reparsed.FlowRate == 4);
+	CHECK(reparsed.JetFall == 3);
+	CHECK(reparsed.Density == flowy.Density);
+	CHECK(std::strcmp(reparsed.Name, flowy.Name) == 0);
+}

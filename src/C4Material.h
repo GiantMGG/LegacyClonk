@@ -137,6 +137,8 @@ public:
 	int32_t TempConvStrength;
 	int32_t MinHeightCount; // minimum material thickness in order for it to be counted
 	int32_t SplashRate;
+	int32_t FlowRate; // cycle 124: mass-mover transfers per Execute; 1 = legacy rate
+	int32_t JetFall; // cycle 124: clear-fall cells under a deposit that turn it into a ballistic PXS cast; 0 = never
 
 public:
 	void Clear();
