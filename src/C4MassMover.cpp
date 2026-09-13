@@ -21,6 +21,7 @@
 #include <C4Random.h>
 #include <C4Material.h>
 #include <C4Game.h>
+#include <C4PXS.h>
 #include <C4Wrappers.h>
 
 // Note: creation optimized using advancing CreatePtr, so sequential
@@ -154,10 +155,32 @@ bool C4MassMover::Execute(C4Section &section)
 		int32_t exmat = section.Landscape.ExtractMaterial(x, y);
 		if (exmat == MNone) break;
 
-		if (Random(10))
-			section.Landscape.SetPix(tx, ty, section.Mat2PixColDefault(exmat) + section.Landscape.GBackIFT(tx, ty));
-		else
-			section.Landscape.InsertMaterial(exmat, tx, ty, 0, 1);
+		// JetFall (cycle 124): if the deposit target hangs over a clear fall of
+		// at least JetFall cells, cast the pixel as a ballistic PXS instead of
+		// depositing it statically. Budgeted caster: PXS.Create returns false at
+		// the 10k cap (C4PXS.cpp New() -> nullptr) and the pixel falls back to
+		// the static deposit below -- water is never deleted by the jet path.
+		bool fJetted = false;
+		if (pMat->JetFall > 0 && ty + pMat->JetFall < section.Landscape.Height)
+		{
+			int32_t clearfall = 0;
+			while (clearfall < pMat->JetFall
+				&& section.Landscape.GetDensity(tx, ty + clearfall + 1) < pMat->Density)
+				++clearfall;
+			if (clearfall >= pMat->JetFall
+				&& section.PXS.Create(exmat, itofix(tx), itofix(ty), itofix(tx - x), itofix(1)))
+			{
+				fJetted = true;
+			}
+		}
+
+		if (!fJetted)
+		{
+			if (Random(10))
+				section.Landscape.SetPix(tx, ty, section.Mat2PixColDefault(exmat) + section.Landscape.GBackIFT(tx, ty));
+			else
+				section.Landscape.InsertMaterial(exmat, tx, ty, 0, 1);
+		}
 
 		// Reinsert material (thrusted aside)
 		if (section.C4S.Game.Realism.LandscapeInsertThrust && section.MatValid(omat) && section.Material.Map[omat].Density > 0)
