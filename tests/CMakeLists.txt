@@ -570,6 +570,20 @@ if (PYTHON3 AND USE_CONSOLE)
 		TIMEOUT 180
 		LABELS "network;smoke"
 		RUN_SERIAL TRUE)
+
+	# Default-config variant: omits ReconnectEnabled from the temp
+	# config so the engine runs on the compiled default -- the flip's
+	# own regression (spec reconnect-default-on-soak, cycle 122).
+	add_test(NAME live_reconnect_smoke_default_config
+		COMMAND "${PYTHON3}"
+			"${CMAKE_SOURCE_DIR}/tools/live_reconnect_smoke.py"
+			"--engine" "$<TARGET_FILE:clonk>"
+			"--scenario" "${CMAKE_SOURCE_DIR}/tests/fixtures/NetSyncSmoke.c4s"
+			"--ticks" "2000" "--timeout" "120" "--state-hash" "--default-config"
+			${live_reconn_tc_args}
+		WORKING_DIRECTORY "${CMAKE_BINARY_DIR}")
+	set_tests_properties(live_reconnect_smoke_default_config PROPERTIES
+		TIMEOUT 180 LABELS "network;smoke" RUN_SERIAL TRUE)
 endif()
 
 # --- Placeholder-art lint (spec hostile-object-bugfix, cycle 93) -----------

@@ -229,12 +229,18 @@ def build_engine_args(engine: str, scenario: Path, ticks: int, role: str,
         args.append(str(player_file))
     return args
 
-def write_reconnect_config(grace_sec: int) -> str:
-    """Write a temp config enabling reconnect with a short grace window."""
+def write_reconnect_config(grace_sec: int,
+                           default_config: bool = False) -> str:
+    """Write a temp config enabling reconnect with a short grace window.
+
+    default_config=True omits the ReconnectEnabled line so the engine
+    runs on the compiled default (the flip's own regression path).
+    """
     tmp = tempfile.NamedTemporaryFile(mode="w", delete=False,
                                       suffix="_reconn.cfg")
     tmp.write("[Network]\n")
-    tmp.write("ReconnectEnabled=1\n")
+    if not default_config:
+        tmp.write("ReconnectEnabled=1\n")
     tmp.write(f"ReconnectGraceSec={grace_sec}\n")
     tmp.close()
     return tmp.name
@@ -304,6 +310,11 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--state-hash", action="store_true",
                         help="Enable per-tick state-hash comparison via "
                              "--log-sync-checks.")
+    parser.add_argument("--default-config", action=argparse.BooleanOptionalAction,
+                        default=False,
+                        help="Omit ReconnectEnabled from the temp config so "
+                             "the engine runs on the compiled default "
+                             "(default: false).")
     args = parser.parse_args(argv)
 
     # --- Validate inputs -------------------------------------------------
@@ -329,7 +340,7 @@ def main(argv: list[str] | None = None) -> int:
     shutil.copyfile(player_path, client_player)
 
     # --- Reconnect config (temp file) ------------------------------------
-    config_file = write_reconnect_config(args.grace_sec)
+    config_file = write_reconnect_config(args.grace_sec, args.default_config)
 
     # --- Port selection --------------------------------------------------
     base = pick_free_port()
