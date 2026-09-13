@@ -2457,6 +2457,11 @@ static C4ValueInt FnGetPXSCount(C4AulContext *cthr)
 	return cthr->GetSection().PXS.Count;
 }
 
+static C4ValueInt FnGetMassMoverCount(C4AulContext *cthr)
+{
+	return cthr->GetSection().MassMover.Count;
+}
+
 static C4ValueInt FnGetMaterial(C4AulContext *cthr, C4ValueInt x, C4ValueInt y)
 {
 	if (cthr->Obj) { x += cthr->Obj->x; y += cthr->Obj->y; }
@@ -7548,6 +7553,7 @@ void InitFunctionMap(C4AulScriptEngine *pEngine)
 	AddFunc(pEngine, "GetTexture",                      FnGetTexture);
 	AddFunc(pEngine, "GetMaterialCount",                FnGetMaterialCount);
 	AddFunc(pEngine, "GetPXSCount",                    FnGetPXSCount);
+	AddFunc(pEngine, "GetMassMoverCount",              FnGetMassMoverCount);
 	AddFunc(pEngine, "GBackSolid",                      FnGBackSolid);
 	AddFunc(pEngine, "GBackSemiSolid",                  FnGBackSemiSolid);
 	AddFunc(pEngine, "GBackLiquid",                     FnGBackLiquid);
