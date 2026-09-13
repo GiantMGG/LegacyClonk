@@ -72,7 +72,7 @@ private:
 	static constexpr int32_t kTimelineBarY  = 32;
 	static constexpr int32_t kTimelineBarH  = 8;
 
-	void DrawTimelineBar(C4Facet &cgo);
+	void DrawTimelineBar(C4FacetEx &cgo);
 
 	static C4ReplayViewerDlg *pInstance; // current overlay instance, if shown
 };
