@@ -611,6 +611,15 @@ if(PYTHON3 AND EXISTS "${LEGACYCLONK_CONTENT_DIR}/Desert.c4d/Camel.c4d/Graphics.
 			"${LEGACYCLONK_CONTENT_DIR}/Desert.c4d/Camel.c4d/Graphics.png" --check)
 	set_tests_properties(gfx_check_camel PROPERTIES TIMEOUT 60 LABELS "lint")
 endif()
+# --- Vision judge serialization (spec vision-judge-serialization, cycle 121)
+# Shared-lock contract: every ollama-judge CTest entry MUST carry
+# RESOURCE_LOCK "qwen_judge" (the ctest scheduler never starts two of
+# them at once — the wait is pre-spawn, burning no TIMEOUT clock) AND
+# the explicit "vision" label. Applies to the three GPU entries:
+# vision_qa_scorpion, vision_qa_agriculture_lobster, playtest_vision.
+# VERIFIED EXEMPTION: playtest_sweep takes no judge lock —
+# tools/playtest_sweep.py has zero ollama/qwen/judge references (engine
+# subprocesses only; labels playtest;smoke) — do NOT "fix" it later.
 if(PYTHON3 AND EXISTS "${LEGACYCLONK_CONTENT_DIR}/Desert.c4d/Scorpion.c4d/Graphics.png")
 	add_test(NAME vision_qa_scorpion
 		COMMAND "${PYTHON3}" "${CMAKE_SOURCE_DIR}/tools/vision_qa.py"
@@ -619,7 +628,8 @@ if(PYTHON3 AND EXISTS "${LEGACYCLONK_CONTENT_DIR}/Desert.c4d/Scorpion.c4d/Graphi
 			--json "${CMAKE_BINARY_DIR}/vision_qa_scorpion.json")
 	set_tests_properties(vision_qa_scorpion PROPERTIES
 		TIMEOUT 2400  # think:high judge: ~13 calls x 40-60s
-		LABELS "vision_qa;lint"
+		RESOURCE_LOCK "qwen_judge"
+		LABELS "vision_qa;vision;lint"
 		PASS_REGULAR_EXPRESSION "GATE PASS"
 		FAIL_REGULAR_EXPRESSION "GATE FAIL|ORACLE FAIL"
 		SKIP_REGULAR_EXPRESSION "^SKIP: ")
@@ -655,7 +665,8 @@ if(PYTHON3 AND EXISTS "${LEGACYCLONK_CONTENT_DIR}/Agriculture.c4d/Animals.c4d/Lo
 			--json "${CMAKE_BINARY_DIR}/vision_qa_agriculture_lobster.json")
 	set_tests_properties(vision_qa_agriculture_lobster PROPERTIES
 		TIMEOUT 2400
-		LABELS "vision_qa;lint"
+		RESOURCE_LOCK "qwen_judge"
+		LABELS "vision_qa;vision;lint"
 		PASS_REGULAR_EXPRESSION "GATE PASS"
 		FAIL_REGULAR_EXPRESSION "GATE FAIL|ORACLE FAIL"
 		SKIP_REGULAR_EXPRESSION "^SKIP: ")
@@ -713,7 +724,24 @@ if(PYTHON3 AND USE_CONSOLE AND EXISTS "${LEGACYCLONK_CONTENT_DIR}/WeatherEvents.
 			"--json-out" "${CMAKE_BINARY_DIR}/ptv/record.json"
 		WORKING_DIRECTORY "${CMAKE_BINARY_DIR}")
 	set_tests_properties(playtest_vision PROPERTIES
-		TIMEOUT 240
+		TIMEOUT 2400  # lock wait (VQ_LOCK_TIMEOUT 1800s) + own battery budget
+		RESOURCE_LOCK "qwen_judge"
 		LABELS "playtest;vision"
 		SKIP_REGULAR_EXPRESSION "^SKIP: ")
+endif()
+
+# --- Vision judge-lock selftest (spec vision-judge-serialization, cycle 121)
+# Hermetic RED/GREEN proof that judge_lock() serializes two vision_qa
+# batteries: an in-process fake-ollama stub records server-side
+# (start,end) timestamps and the peak in-flight count; no GPU, no
+# ollama, no engine, no content checkout. Deliberately NO RESOURCE_LOCK
+# (touches no GPU) and NO SKIP_REGULAR_EXPRESSION (must never skip);
+# label "lint" keeps it in the ctest -LE vision parallel phase and the
+# ASan lane's -E 'smoke|net_' set. NOT WIN32: the selftest deliberately
+# defeats the SKIP guards, and Windows has no fcntl — spec s4.6 keeps
+# Windows behavior unchanged (fail-loud judge path, no ported lock).
+if(PYTHON3 AND NOT WIN32)
+	add_test(NAME vision_lock_selftest
+		COMMAND "${PYTHON3}" "${CMAKE_SOURCE_DIR}/tools/test_vision_lock.py")
+	set_tests_properties(vision_lock_selftest PROPERTIES TIMEOUT 120 LABELS "lint")
 endif()
