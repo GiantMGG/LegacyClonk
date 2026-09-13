@@ -96,6 +96,38 @@ void C4OfflineOptionsDlg::SeedEdit::OnTextChange()
 	pDlg->OnSeedChanged();
 }
 
+// C4OfflineOptionsDlg::PrimaryButton — the settings-stage Start button:
+// base CallbackButton draw (bar + text, font auto-selected for the
+// taller bounds, C4GuiButton.cpp:100-107) plus a permanent additive
+// fctButtonHighlight glow — the same facet the base draws for
+// hover/focus (C4GuiButton.cpp:92-98), here always-on for the one
+// primary action per view (spec pregame-start-button-fix). Hover/focus
+// brightens further (double additive blit — accepted emphasis cascade).
+// Nested so it can reach the dialog's private OnBtnStart (the SeedEdit
+// precedent).
+
+class C4OfflineOptionsDlg::PrimaryButton : public C4GUI::CallbackButton<C4OfflineOptionsDlg>
+{
+public:
+	PrimaryButton(const char *szBtnText, const C4Rect &rtBounds, C4GUI::DlgCallback<C4OfflineOptionsDlg>::Func pFn)
+		: C4GUI::CallbackButton<C4OfflineOptionsDlg>(szBtnText, rtBounds, pFn) {}
+
+protected:
+	virtual void DrawElement(C4FacetEx &cgo) override
+	{
+		// base draw: bar, hover/focus highlight, text
+		C4GUI::CallbackButton<C4OfflineOptionsDlg>::DrawElement(cgo);
+		// permanent primary glow (disabled stays plain)
+		if (fEnabled)
+		{
+			int32_t x0 = cgo.TargetX + rcBounds.x, y0 = cgo.TargetY + rcBounds.y;
+			lpDDraw->SetBlitMode(C4GFXBLIT_ADDITIVE);
+			C4GUI::GetRes()->fctButtonHighlight.DrawX(cgo.Surface, x0 + 5, y0 + 3, rcBounds.Wdt - 10, rcBounds.Hgt - 6);
+			lpDDraw->ResetBlitMode();
+		}
+	}
+};
+
 // C4OfflineOptionsDlg::SliderRow — one generated slider row per
 // descriptor (the LandscapeParamEdit precedent): human label + horizontal
 // ScrollBar + live numeric readout. The ScrollBar callback writes
@@ -493,17 +525,25 @@ void C4OfflineOptionsDlg::CreateSettingsStage(const C4Rect &rcStage)
 {
 	C4GUI::ComponentAligner caMain(rcStage, 10, 10, true);
 
-	// bottom strip: [Back][Start][Abort]
-	C4GUI::ComponentAligner caBottom(caMain.GetFromBottom(C4GUI_ButtonHgt + 8), 10, 4);
+	// bottom strip: [Back][Abort] ... [Start Game] (spec pregame-start-
+	// button-fix): small cluster bottom-left (110x32 centered in 120px
+	// cells — the landing Abort's centering idiom), the primary Start
+	// bottom-right in big-button geometry (170x40) with a permanent glow;
+	// Abort's GetAll() mega-width bug is dead (no GetAll consumer
+	// remains in the strip)
+	C4GUI::ComponentAligner caBottom(caMain.GetFromBottom(C4GUI_BigButtonHgt + 8), 10, 4);
+	C4GUI::ComponentAligner caBackCell(caBottom.GetFromLeft(120), 10, 4);
 	pBtnBack = new C4GUI::CallbackButton<C4OfflineOptionsDlg>("Back",
-		caBottom.GetFromLeft(110), &C4OfflineOptionsDlg::OnBtnBack);
+		caBackCell.GetCentered(110, C4GUI_ButtonHgt), &C4OfflineOptionsDlg::OnBtnBack);
 	pSettingsStage->AddElement(pBtnBack);
-	pBtnStart = new C4GUI::CallbackButton<C4OfflineOptionsDlg>(LoadResStr(C4ResStrTableKey::IDS_DLG_GAMEGO),
-		caBottom.GetFromLeft(110), &C4OfflineOptionsDlg::OnBtnStart);
-	pSettingsStage->AddElement(pBtnStart);
+	C4GUI::ComponentAligner caAbortCell(caBottom.GetFromLeft(120), 10, 4);
 	pBtnAbort = new C4GUI::CallbackButton<C4OfflineOptionsDlg>(LoadResStr(C4ResStrTableKey::IDS_DLG_ABORT),
-		caBottom.GetAll(), &C4OfflineOptionsDlg::OnBtnAbort);
+		caAbortCell.GetCentered(110, C4GUI_ButtonHgt), &C4OfflineOptionsDlg::OnBtnAbort);
 	pSettingsStage->AddElement(pBtnAbort);
+	pBtnStart = new PrimaryButton(LoadResStr(C4ResStrTableKey::IDS_DLG_STARTGAME),
+		caBottom.GetFromRight(170), &C4OfflineOptionsDlg::OnBtnStart);
+	pBtnStart->SetToolTip(LoadResStr(C4ResStrTableKey::IDS_DLGTIP_GAMEGO));
+	pSettingsStage->AddElement(pBtnStart);
 
 	// left pane (~55%): briefing top, pickers middle, options strip bottom
 	const int32_t iLeftWdt = caMain.GetInnerWidth() * 55 / 100;

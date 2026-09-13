@@ -94,6 +94,7 @@ private:
 	class DefPickerRow;  // nested: one picker row (checkbox + optional count slider)
 	class WinComboRow;   // nested: one panel ComboBox row per enum descriptor
 	class SettlementRow; // nested: the settlement-target points slider
+	class PrimaryButton; // nested: the settings-stage Start (styled primary action)
 
 	C4GUI::Window *pLandingStage{nullptr};
 	C4GUI::Window *pSettingsStage{nullptr};
