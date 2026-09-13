@@ -52,6 +52,7 @@
 #include "C4OfflineOptionsDlg.h"
 #include "C4SliderDescriptors.h"
 #include "C4WinConditionDescriptors.h"
+#include "C4PlrStartDescriptors.h"
 #include <C4ChatDlg.h>
 #include "C4KeyboardInput.h"
 #include "C4Thread.h"
@@ -3164,20 +3165,22 @@ void C4Game::AddParameterOverride(const char *szKV)
 
 namespace
 {
-	// Parse a --parameter Rules=/Goals= value "ID[=Count][;ID[=Count]...]"
-	// into rList, using the same INI machinery as the Scenario.txt [Game]
-	// Rules=/Goals= entries (C4IDList::CompileFunc + StdCompilerINIRead).
+	// Parse a --parameter <Key>=<ID list>> value "ID[=Count][;ID[=Count]...]"
+	// into rList, using the same INI machinery as the Scenario.txt [PlayerN]
+	// entries (C4IDList::CompileFunc + StdCompilerINIRead). The INI key name
+	// is passed in (szKeyName): the value is wrapped as a one-line
+	// "<Key>=<value>" INI document so the naming adapt finds its entry.
 	// Returns false iff the value is malformed — including a value that
 	// parses to zero IDs (rList left clear).
-	bool ParseIDListOverrideValue(const StdStrBuf &Value, C4IDList &rList)
+	bool ParseIDListOverrideValue(const char *szKeyName, const StdStrBuf &Value, C4IDList &rList)
 	{
 		rList.Clear();
-		// Wrap the value as a one-line "Rules=<value>" INI document so the
+		// Wrap the value as a one-line "<Key>=<value>" INI document so the
 		// naming adapt finds its entry; the list then parses the remainder.
-		StdStrBuf ParseBuf{std::format("Rules={}", Value.getData())};
+		StdStrBuf ParseBuf{std::format("{}={}", szKeyName, Value.getData())};
 		try
 		{
-			CompileFromBuf<StdCompilerINIRead>(mkNamingAdapt(rList, "Rules"), ParseBuf);
+			CompileFromBuf<StdCompilerINIRead>(mkNamingAdapt(rList, szKeyName), ParseBuf);
 		}
 		catch (const StdCompiler::Exception &)
 		{
@@ -3295,6 +3298,41 @@ namespace
 		}
 		return true;
 	}
+	// Knowledge=/HomeBaseMaterial=/HomeBaseProduction= (spec
+	// round-setup-parity-complete): the three [PlayerN] parity keys,
+	// dispatched through kPlrStartListDescriptors. Whole-list replacement
+	// per slot (the Rules=/Goals= precedent), fanned to all four PlrStart
+	// slots of GameC4S — a single-player round reads slot 0
+	// (PlrStartIndex = Number % C4S_MaxPlayer, C4Player.cpp:685) and
+	// LoadSections' InitFromTemplate inherits GameC4S into the section
+	// copies (C4Section.cpp:94). No ClampIDListCountsToOne: store counts
+	// are real stock; knowledge accepts both the count-0 and count-N
+	// idioms. Returns true iff the key is one of the three (malformed
+	// values are logged + skipped and also return true — the key was
+	// consumed either way).
+	bool ApplyPlrStartParamOverride(const StdStrBuf &Key, const StdStrBuf &Value, C4Scenario &rC4S)
+	{
+		const C4PlrStartListDescriptor *pMatch = nullptr;
+		for (const auto &Descriptor : kPlrStartListDescriptors)
+		{
+			if (SEqualNoCase(Key.getData(), Descriptor.szIniKey))
+			{
+				pMatch = &Descriptor;
+				break;
+			}
+		}
+		if (!pMatch) return false;
+
+		C4IDList NewList;
+		if (!ParseIDListOverrideValue(pMatch->szIniKey, Value, NewList))
+		{
+			LogNTr("--parameter: {} value malformed or empty, ignored: {}", Key.getData(), Value.getData());
+			return true;
+		}
+		for (int32_t iSlot = 0; iSlot < C4S_MaxPlayer; ++iSlot)
+			rC4S.PlrStart[iSlot].*pMatch->pList = NewList;
+		return true;
+	}
 }
 
 void C4Game::ApplyParameterOverrides()
@@ -3355,7 +3393,7 @@ void C4Game::ApplyParameterOverrides()
 		else if (SEqualNoCase(Key.getData(), "Rules"))
 		{
 			C4IDList NewList;
-			if (!ParseIDListOverrideValue(Value, NewList))
+			if (!ParseIDListOverrideValue("Rules", Value, NewList))
 			{
 				LogNTr("--parameter: Rules value malformed or empty, ignored: {}", Value.getData());
 				continue;
@@ -3367,13 +3405,19 @@ void C4Game::ApplyParameterOverrides()
 		else if (SEqualNoCase(Key.getData(), "Goals"))
 		{
 			C4IDList NewList;
-			if (!ParseIDListOverrideValue(Value, NewList))
+			if (!ParseIDListOverrideValue("Goals", Value, NewList))
 			{
 				LogNTr("--parameter: Goals value malformed or empty, ignored: {}", Value.getData());
 				continue;
 			}
 			ClampIDListCountsToOne(NewList);
 			Parameters.Goals = NewList;
+		}
+		// Knowledge=/HomeBaseMaterial=/HomeBaseProduction= — the three
+		// [PlayerN] parity keys (spec round-setup-parity-complete);
+		// handled inside the helper (malformed values: logged + skipped)
+		else if (ApplyPlrStartParamOverride(Key, Value, GameC4S))
+		{
 		}
 		// Mode/Elimination/CooperativeGoal=<name> + ValueGain=<points> (spec
 		// adjustable-winning-conditions): handled inside the helper (unknown
