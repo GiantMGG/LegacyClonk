@@ -29,6 +29,7 @@
 #include <catch2/catch_all.hpp>
 
 #include "C4SliderDescriptors.h"
+#include "C4PlrStartDescriptors.h"
 #include "C4Scenario.h"
 #include "C4WinConditionDescriptors.h"
 
@@ -337,5 +338,171 @@ TEST_CASE("WinConditionCodec", "[slider-contract]")
 		REQUIRE(!ApplyWinConditionChoice(Goals, Rules, "Mode", "Bogus", 0));
 		REQUIRE(Goals.GetNumberOfIDs() == 0);
 		REQUIRE(Rules.GetNumberOfIDs() == 0);
+	}
+}
+
+// --- PlrStart list descriptor contract (spec round-setup-parity-complete) --
+TEST_CASE("PlrStartListContractTable", "[slider-contract]")
+{
+	SECTION("Table count is three")
+	{
+		REQUIRE(std::size(kPlrStartListDescriptors) == 3);
+	}
+
+	SECTION("Identity pins: pList members are the named C4SPlrStart lists")
+	{
+		// mutation M1's catcher: named-member pins, not just non-null
+		REQUIRE(kPlrStartListDescriptors[0].pList == &C4SPlrStart::HomeBaseMaterial);
+		REQUIRE(kPlrStartListDescriptors[1].pList == &C4SPlrStart::HomeBaseProduction);
+		REQUIRE(kPlrStartListDescriptors[2].pList == &C4SPlrStart::BuildKnowledge);
+	}
+
+	SECTION("Row structure: label != key, both non-empty (the research §8 gate)")
+	{
+		for (const auto &Descriptor : kPlrStartListDescriptors)
+		{
+			CAPTURE(Descriptor.szLabel, Descriptor.szIniKey);
+			REQUIRE(Descriptor.szLabel != nullptr);
+			REQUIRE(Descriptor.szLabel[0] != '\0');
+			REQUIRE(Descriptor.szIniKey != nullptr);
+			REQUIRE(Descriptor.szIniKey[0] != '\0');
+			REQUIRE(std::string{Descriptor.szLabel} != std::string{Descriptor.szIniKey});
+		}
+	}
+
+	SECTION("Labels and keys are pairwise unique")
+	{
+		for (std::size_t i = 0; i < std::size(kPlrStartListDescriptors); ++i)
+			for (std::size_t j = i + 1; j < std::size(kPlrStartListDescriptors); ++j)
+			{
+				CAPTURE(i, j);
+				CHECK(std::string{kPlrStartListDescriptors[i].szLabel} != std::string{kPlrStartListDescriptors[j].szLabel});
+				CHECK(std::string{kPlrStartListDescriptors[i].szIniKey} != std::string{kPlrStartListDescriptors[j].szIniKey});
+			}
+	}
+
+	SECTION("Category-filter pins")
+	{
+		REQUIRE(kPlrStartListDescriptors[0].dwDefCategory == C4D_SelectHomebase);
+		REQUIRE(kPlrStartListDescriptors[1].dwDefCategory == C4D_SelectHomebase);
+		REQUIRE(kPlrStartListDescriptors[2].dwDefCategory == C4D_SelectKnowledge);
+	}
+
+	SECTION("Count-channel rows: stock {1,25,5}, rate {1,10,1}, blueprints presence")
+	{
+		REQUIRE(kPlrStartListDescriptors[0].fCountChannel);
+		REQUIRE(kPlrStartListDescriptors[0].iCountMin == 1);
+		REQUIRE(kPlrStartListDescriptors[0].iCountMax == 25);
+		REQUIRE(kPlrStartListDescriptors[0].iDefault == 5);
+		REQUIRE(kPlrStartListDescriptors[1].fCountChannel);
+		REQUIRE(kPlrStartListDescriptors[1].iCountMin == 1);
+		REQUIRE(kPlrStartListDescriptors[1].iCountMax == 10);
+		REQUIRE(kPlrStartListDescriptors[1].iDefault == 1);
+		REQUIRE(!kPlrStartListDescriptors[2].fCountChannel);
+		REQUIRE(kPlrStartListDescriptors[2].fPresenceIdiom);
+	}
+
+	SECTION("Range-validity trinity per count row (min < max, default in range)")
+	{
+		for (const auto &Descriptor : kPlrStartListDescriptors)
+		{
+			if (!Descriptor.fCountChannel) continue;
+			CAPTURE(Descriptor.szIniKey);
+			REQUIRE(Descriptor.iCountMin < Descriptor.iCountMax);
+			REQUIRE(Descriptor.iDefault >= Descriptor.iCountMin);
+			REQUIRE(Descriptor.iDefault <= Descriptor.iCountMax);
+		}
+	}
+}
+
+TEST_CASE("PlrStartCountResolver", "[slider-contract]")
+{
+	const C4PlrStartListDescriptor &rStock = kPlrStartListDescriptors[0];
+	const C4PlrStartListDescriptor &rRestock = kPlrStartListDescriptors[1];
+	const C4PlrStartListDescriptor &rKnowledge = kPlrStartListDescriptors[2];
+
+	SECTION("Authored count in range becomes the default")
+	{
+		const C4PlrStartCountParams Params = ResolvePlrStartCountParams(rStock, 7);
+		REQUIRE(Params.fEligible);
+		REQUIRE(Params.iMin == 1);
+		REQUIRE(Params.iMax == 25);
+		REQUIRE(Params.iDefault == 7);
+	}
+
+	SECTION("Over-ceiling authored count pins for display without expanding the range")
+	{
+		// FIXED range — the contrast to the win-condition resolver, whose
+		// ceiling grows to cover the authored count (shipped instance:
+		// authored 30 stock pins at 25 for display, the list keeps 30)
+		const C4PlrStartCountParams Params = ResolvePlrStartCountParams(rStock, 30);
+		REQUIRE(Params.fEligible);
+		REQUIRE(Params.iMin == 1);
+		REQUIRE(Params.iMax == 25);
+		REQUIRE(Params.iDefault == 25);
+	}
+
+	SECTION("Absent rows floor at the descriptor default")
+	{
+		const C4PlrStartCountParams ParamsStock = ResolvePlrStartCountParams(rStock, 0);
+		REQUIRE(ParamsStock.fEligible);
+		REQUIRE(ParamsStock.iDefault == 5);
+		const C4PlrStartCountParams ParamsRestock = ResolvePlrStartCountParams(rRestock, 0);
+		REQUIRE(ParamsRestock.fEligible);
+		REQUIRE(ParamsRestock.iDefault == 1);
+	}
+
+	SECTION("Presence rows are ineligible (no count slider)")
+	{
+		const C4PlrStartCountParams Params = ResolvePlrStartCountParams(rKnowledge, 5);
+		REQUIRE(!Params.fEligible);
+	}
+}
+
+// --- PlrStart INI-name round-trip (spec § Test plan T2; mutation M2's
+// catcher — a symmetric rename round-trips clean, so the textual pins
+// below are what actually break under the mutation) ----------------------
+TEST_CASE("PlrStartCompileFuncRoundTrip", "[slider-contract]")
+{
+	C4SPlrStart Authored;
+	Authored.Default();
+	Authored.BuildKnowledge.SetIDCount(C4Id("HUT2"), 0, true);
+	Authored.BuildKnowledge.SetIDCount(C4Id("WMIL"), 0, true);
+	Authored.HomeBaseMaterial.SetIDCount(C4Id("CNKT"), 3, true);
+	Authored.HomeBaseMaterial.SetIDCount(C4Id("LOAM"), 5, true);
+	Authored.HomeBaseProduction.SetIDCount(C4Id("CNKT"), 3, true);
+	Authored.HomeBaseProduction.SetIDCount(C4Id("LOAM"), 5, true);
+
+	// T2a — write pin: the serialized [Player1] section carries the three
+	// canonical INI names (C4Scenario.cpp:278-280)
+	const std::string sSerialized = DecompileToBuf<StdCompilerINIWrite>(mkNamingAdapt(Authored, "Player1"));
+	CAPTURE(sSerialized);
+	REQUIRE(sSerialized.find("Knowledge=") != std::string::npos);
+	REQUIRE(sSerialized.find("HomeBaseMaterial=") != std::string::npos);
+	REQUIRE(sSerialized.find("HomeBaseProduction=") != std::string::npos);
+
+	// T2b — read pin: a canonical authored [Player1] section repopulates
+	// the lists (the count-0 knowledge idiom survives: GetIDCount(id,1))
+	{
+		C4SPlrStart ReParsed;
+		ReParsed.Default();
+		CompileFromBuf<StdCompilerINIRead>(mkNamingAdapt(ReParsed, "Player1"),
+			StdStrBuf{"[Player1]\nKnowledge=HUT2=0;WMIL=0\nHomeBaseMaterial=CNKT=3;LOAM=5\nHomeBaseProduction=CNKT=3;LOAM=5\n"});
+		REQUIRE(ReParsed.BuildKnowledge.GetIDCount(C4Id("HUT2"), 1) == 1);
+		REQUIRE(ReParsed.BuildKnowledge.GetIndex(C4Id("WMIL")) >= 0);
+		REQUIRE(ReParsed.HomeBaseMaterial.GetIDCount(C4Id("CNKT")) == 3);
+		REQUIRE(ReParsed.HomeBaseMaterial.GetIDCount(C4Id("LOAM")) == 5);
+		REQUIRE(ReParsed.HomeBaseProduction.GetIDCount(C4Id("CNKT")) == 3);
+	}
+
+	// T2c — round-trip: decompile -> parse == original, list by list
+	{
+		C4SPlrStart RoundTripped;
+		RoundTripped.Default();
+		CompileFromBuf<StdCompilerINIRead>(mkNamingAdapt(RoundTripped, "Player1"),
+			StdStrBuf{DecompileToBuf<StdCompilerINIWrite>(mkNamingAdapt(Authored, "Player1")).c_str()});
+		REQUIRE(RoundTripped.HomeBaseMaterial == Authored.HomeBaseMaterial);
+		REQUIRE(RoundTripped.HomeBaseProduction == Authored.HomeBaseProduction);
+		REQUIRE(RoundTripped.BuildKnowledge == Authored.BuildKnowledge);
 	}
 }
