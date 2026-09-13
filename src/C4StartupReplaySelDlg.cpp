@@ -114,17 +114,23 @@ C4StartupReplaySelDlg::~C4StartupReplaySelDlg() = default;
 void C4StartupReplaySelDlg::PopulateList()
 {
 	if (!pReplayList) return;
-	pReplayList->Clear();
 
 	// enumerate .c4s files in the records folder — the same CWD-relative
 	// resolution C4Record uses when writing ({SaveDemoFolder}{DirSep}{name},
-	// C4Record.cpp:144)
+	// C4Record.cpp:144). NOTE: DirectoryIterator yields the full folder-prefixed
+	// path (its ctor copies the dir name and operator++ appends the entry name
+	// into the same buffer, StdFile.cpp:816-838), so the iterator result IS the
+	// composed path; passing it through {SaveDemoFolder}DirSep{} again would
+	// double the prefix. Also do NOT pReplayList->Clear() here: that would
+	// delete the ListBox's internal ScrollWindow/ScrollBar (the ListBox's only
+	// children) leaving pClientWindow dangling — Container::ClearChildren does
+	// not know about the scroll infrastructure (see C4GuiContainers.cpp:58).
 	struct ReplayFile { std::string strFilename; time_t iFileTime; size_t iFileSize; };
 	std::vector<ReplayFile> files;
 	for (DirectoryIterator i(Config.General.SaveDemoFolder.getData()); *i; ++i)
 	{
 		if (!SEqualNoCase(GetExtension(*i), "c4s")) continue;
-		const std::string strPath{std::format("{}" DirSep "{}", Config.General.SaveDemoFolder.getData(), *i)};
+		const std::string strPath{*i};
 		files.push_back({strPath, FileTime(strPath.c_str()), FileSize(strPath.c_str())});
 	}
 	// newest first
