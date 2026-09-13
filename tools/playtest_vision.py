@@ -12,14 +12,16 @@ Gate modes: advisory = record-only exit 0; feature = RED only on truth
 contradictions (cross-check); full = contradictions RED + an unreadable
 battery majority fails. Verdicts: GATE PASS / GATE FAIL / ADVISORY / SKIP /
 ORACLE FAIL (ORACLE FAIL exits 0 -- a broken instrument never REDs, spec
-s5 G4). Exit codes: 0 pass/skip/advisory, 1 fail/artifact, 2 usage/write.
+s5 G4). Exit codes: 0 pass/skip/advisory, 1 fail/artifact, 2 usage/write/
+judge-lock-wait.
 """
 import argparse, base64, json, os, re, subprocess, sys, tempfile, urllib.error, urllib.request
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from vision_qa import (DEFAULT_HOST, DEFAULT_MODEL, FIXTURE_JPG, FLAT_RGB,
-                       FLAT_H, FLAT_W, JudgeError, make_ask, majority,
-                       png_decode, qwen_window_closed, render_b64,
-                       strip_think, yes_first)
+                       FLAT_H, FLAT_W, JudgeError, JudgeLockTimeout,
+                       judge_lock, make_ask, majority, png_decode,
+                       qwen_window_closed, render_b64, strip_think,
+                       yes_first)
 
 FRAME_RATE_CAP, SMOKE_TICKS, TAGS_TIMEOUT, FLAT_SCALE = 1000, 350, 5, 8
 SIDECAR_KEYS = {"tick", "frame_counter", "view", "camera_source", "players",
@@ -156,7 +158,11 @@ def make_ask3(host, model, timeout):
     """ask3(image_b64) -> (parsed, raw, used_fallback). Sends the JSON-schema
     `format` body; on rejection retries plain-text via make_ask and parses."""
     plain = make_ask(host, model, timeout)  # fallback bounded by harness --timeout
+    # keep_alive 10m (cycle 121): serialized batteries run back-to-back;
+    # a bounded residency skips the inter-battery 27B cold reload without
+    # pinning VRAM forever (deliberately not -1).
     body0 = {"model": model, "stream": False, "think": "high",
+             "keep_alive": "10m",
              "format": SCENE_SCHEMA, "options": {"temperature": 0}}
     def ask3(image_b64):
         body = dict(body0, messages=[{"role": "user", "content": SCENE_QUESTION,
@@ -418,36 +424,50 @@ def main():
         record["verdict"] = "SKIP"
         return write_record(record, json_out, 0)
 
-    # Oracle controls gate every prompt verdict.
-    oracle_rec = {}
+    # Judge-phase lock (cycle 121, spec vision-judge-serialization): ONE
+    # qwen judge consumer at a time — machine-global flock held across
+    # the whole judge region below (oracle + battery + cross-check); the
+    # capture/validation/SKIP stages above never touch it, so a waiting
+    # instance pipelines its CPU capture while another battery runs.
+    # JudgeLockTimeout gets a DEDICATED arm ahead of the JudgeError->SKIP
+    # arms below: a starved waiter is "couldn't run" (exit 2), never a
+    # SKIP hiding inside the green count.
     try:
-        oracle_ok, oracle_fail = run_oracle(ask3, oracle_rec)
-    except JudgeError as e:
-        print(f"SKIP: judge failed during oracle ({e})", flush=True)
-        record["verdict"] = "SKIP"
-        return write_record(record, json_out, 0)
-    record["oracle"] = oracle_rec
-    if not oracle_ok:
-        print(f"ORACLE FAIL: {oracle_fail}", flush=True)
-        print("ORACLE FAIL: verdict not trusted (broken instrument)",
-              flush=True)
+        with judge_lock():
+            # Oracle controls gate every prompt verdict.
+            oracle_rec = {}
+            try:
+                oracle_ok, oracle_fail = run_oracle(ask3, oracle_rec)
+            except JudgeError as e:
+                print(f"SKIP: judge failed during oracle ({e})", flush=True)
+                record["verdict"] = "SKIP"
+                return write_record(record, json_out, 0)
+            record["oracle"] = oracle_rec
+            if not oracle_ok:
+                print(f"ORACLE FAIL: {oracle_fail}", flush=True)
+                print("ORACLE FAIL: verdict not trusted (broken instrument)",
+                      flush=True)
 
-    frame_b64 = base64.b64encode(open(shot_path, "rb").read()).decode()
-    battery_rec = {}
-    try:
-        run_battery(ask3, frame_b64, args.runs, battery_rec)
-        contr, notes = cross_check(battery_rec["battery"], sidecar, hgt)
-    except JudgeError as e:
-        print(f"SKIP: judge failed mid-battery ({e})", flush=True)
-        record["verdict"] = "SKIP"
-        return write_record(record, json_out, 0)
-    record["battery"] = battery_rec["battery"]
-    record["cross_check"] = {"contradictions": contr, "notes": notes,
-                             "sidecar_object_count": len(objs)}
-    for n in notes:
-        print(f"[note] {n}", flush=True)
-    for c in contr:
-        print(f"[contr] {c}", flush=True)
+            frame_b64 = base64.b64encode(open(shot_path, "rb").read()).decode()
+            battery_rec = {}
+            try:
+                run_battery(ask3, frame_b64, args.runs, battery_rec)
+                contr, notes = cross_check(battery_rec["battery"], sidecar, hgt)
+            except JudgeError as e:
+                print(f"SKIP: judge failed mid-battery ({e})", flush=True)
+                record["verdict"] = "SKIP"
+                return write_record(record, json_out, 0)
+            record["battery"] = battery_rec["battery"]
+            record["cross_check"] = {"contradictions": contr, "notes": notes,
+                                     "sidecar_object_count": len(objs)}
+            for n in notes:
+                print(f"[note] {n}", flush=True)
+            for c in contr:
+                print(f"[contr] {c}", flush=True)
+    except JudgeLockTimeout as e:
+        print(f"ERROR: {e}", file=sys.stderr, flush=True)
+        record["verdict"] = "JUDGE LOCK TIMEOUT"
+        return write_record(record, json_out, 2)
 
     # Only truth contradictions can RED (feature/full); full also fails on
     # an unreadable battery majority.

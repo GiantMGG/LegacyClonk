@@ -27,9 +27,12 @@ import os
 import re
 import struct
 import sys
+import tempfile
+import time
 import urllib.error
 import urllib.request
 import zlib
+from contextlib import contextmanager
 
 # ---------------------------------------------------------------------------
 # pinned constants
@@ -324,6 +327,10 @@ def make_ask(host, model, timeout=None):
             # medium < high < max) — user directive 2026-09-07: the vision
             # judge runs at "high", not the model default ("max"/true).
             "think": "high",
+            # keep_alive 10m (cycle 121): serialized batteries run
+            # back-to-back; a bounded residency skips the inter-battery
+            # 27B cold reload without pinning VRAM (-1 would pin forever).
+            "keep_alive": "10m",
             "options": {"temperature": 0},
         }).encode()
         req = urllib.request.Request(host.rstrip("/") + "/api/chat", data=body,
@@ -344,6 +351,103 @@ def make_ask(host, model, timeout=None):
         return strip_think(msg.get("content", ""))
 
     return ask
+
+# ---------------------------------------------------------------------------
+# judge-phase lock (cycle 121, spec vision-judge-serialization): the local
+# ollama judge (qwen3.8) serves ONE consumer at a time — a machine-global
+# flock held across the caller's whole judge session. Kernel-authoritative
+# (released on process death — stale locks impossible), launcher-agnostic
+# (CTest, manual batteries, loop invocations). VQ_LOCK_PATH isolates the
+# selftest; VQ_LOCK_DISABLE=1 exists ONLY for its anti-vacuity control
+# (rules/vision-qa-windows.md rule 6).
+# ---------------------------------------------------------------------------
+
+JUDGE_LOCK_DEFAULT = os.path.join(
+    os.environ.get("XDG_RUNTIME_DIR") or tempfile.gettempdir(),
+    "legacyclonk-vision-judge.lock")
+
+class JudgeLockTimeout(JudgeError):
+    """Judge-lock wait exhausted its budget (starved waiter -> exit 2)."""
+
+@contextmanager
+def judge_lock(timeout=None):
+    """Hold the machine-global judge lock across the caller's judge
+    region; WAITS, bounded — unlike the fail-fast mirror_ccan.py lock.
+
+    Polls flock(LOCK_EX|LOCK_NB) every 0.2 s until acquired or the
+    deadline passes (timeout arg, else VQ_LOCK_TIMEOUT env, default
+    1800 s — under the 2400 s CTest TIMEOUTs so a starved waiter
+    self-aborts with an attributable error before ctest kills it). The
+    lockfile records "<pid> <ISO acquire-ts>". The file object stays
+    referenced in this generator frame across the WHOLE held region: if
+    it were garbage-collected, CPython would close the fd and silently
+    release the lock (flock binds to the open file description) — the
+    s4.3 trap; the selftest's anti-vacuity rerun is the regression net.
+    """
+    if os.environ.get("VQ_LOCK_DISABLE", "") == "1":
+        yield
+        return
+    try:
+        import fcntl
+    except ImportError as e:
+        # Only reached when the judge region is actually entered: the
+        # SKIP paths (window/unreachable/model-absent) return before the
+        # lock, so fcntl-less platforms keep their daytime/CI behavior
+        # (spec s4.6 — a Windows judge run fails loudly, exit 2).
+        raise JudgeError("judge lock unavailable: no fcntl module on "
+                         "this platform (Windows judge runs are "
+                         "unsupported)") from e
+    if timeout is None:
+        try:
+            timeout = float(os.environ.get("VQ_LOCK_TIMEOUT", "") or 1800)
+        except ValueError:
+            timeout = 1800.0
+    lock_path = os.environ.get("VQ_LOCK_PATH") or JUDGE_LOCK_DEFAULT
+    fd = os.open(lock_path, os.O_RDWR | os.O_CREAT, 0o644)
+    lock_file = os.fdopen(fd, "r+")
+    holder = "unknown"
+    try:
+        deadline = time.monotonic() + timeout
+        announced = False
+        while True:
+            try:
+                fcntl.flock(lock_file.fileno(),
+                            fcntl.LOCK_EX | fcntl.LOCK_NB)
+                break
+            except OSError:
+                if not announced:
+                    pid_s, ts_s = "", ""
+                    try:
+                        lock_file.seek(0)
+                        fields = lock_file.read().split()
+                        if len(fields) >= 2:
+                            pid_s, ts_s = fields[0], fields[1]
+                    except OSError:
+                        pass
+                    if pid_s and ts_s:
+                        print(f"WAITING FOR JUDGE LOCK (held since {ts_s} "
+                              f"by pid {pid_s})", flush=True)
+                        holder = f"pid {pid_s} since {ts_s}"
+                    else:
+                        print("WAITING FOR JUDGE LOCK (held by unknown)",
+                              flush=True)
+                    announced = True
+                if time.monotonic() >= deadline:
+                    raise JudgeLockTimeout(
+                        f"judge lock wait exceeded {int(timeout)}s "
+                        f"(holder {holder})")
+                time.sleep(0.2)
+        lock_file.seek(0)
+        lock_file.truncate()
+        lock_file.write(f"{os.getpid()} "
+                        f"{datetime.datetime.now().isoformat(timespec='seconds')}\n")
+        lock_file.flush()
+        yield
+    finally:
+        try:
+            fcntl.flock(lock_file.fileno(), fcntl.LOCK_UN)
+        finally:
+            lock_file.close()
 
 # ---------------------------------------------------------------------------
 # answer parsing (pinned evaluation rules)
@@ -691,49 +795,56 @@ def main():
     battery_rec = {}
     verdict = None
     oracle_ok = False
+    # Judge-phase lock (cycle 121, spec vision-judge-serialization): hold
+    # the machine-global qwen judge exclusively across the whole oracle +
+    # battery region below — every /api/chat call runs inside it; the
+    # SKIP guards and target decode above never reach this line.
+    # Acquisition sits INSIDE this existing try so the JudgeError arm
+    # below maps a JudgeLockTimeout to ERROR + exit 2 for free (spec s2-B).
     try:
-        oracle_ok = run_oracle(ask, args.scale, oracle_rec)
-        if not oracle_ok:
-            print("ORACLE FAIL: one or more oracle controls failed — "
-                  "aborting", flush=True)
-        elif args.oracle_only:
-            print("oracle controls green", flush=True)
-        else:
-            fx, fy, fw, fh = args.facet
-            phase_grids = []
-            for i in range(args.phases):
-                phase_grids.append(
-                    [row[fx + i * fw:fx + (i + 1) * fw]
-                     for row in img[fy:fy + fh]])
-            for i, pg in enumerate(phase_grids):
-                probe_phase(ask, pg, args.runs, args.scale, f"phase {i}",
-                            battery_rec)
-            probe_pair(ask, phase_grids[0], phase_grids[1], fw, args.runs,
-                       args.scale, battery_rec)
+        with judge_lock():
+            oracle_ok = run_oracle(ask, args.scale, oracle_rec)
+            if not oracle_ok:
+                print("ORACLE FAIL: one or more oracle controls failed — "
+                      "aborting", flush=True)
+            elif args.oracle_only:
+                print("oracle controls green", flush=True)
+            else:
+                fx, fy, fw, fh = args.facet
+                phase_grids = []
+                for i in range(args.phases):
+                    phase_grids.append(
+                        [row[fx + i * fw:fx + (i + 1) * fw]
+                         for row in img[fy:fy + fh]])
+                for i, pg in enumerate(phase_grids):
+                    probe_phase(ask, pg, args.runs, args.scale, f"phase {i}",
+                                battery_rec)
+                probe_pair(ask, phase_grids[0], phase_grids[1], fw, args.runs,
+                           args.scale, battery_rec)
 
-            # Revised Q2 gate: the tip sub-criterion may pass via the Q1
-            # cross-check (evaluate (b) here, at gate evaluation).
-            for i in range(args.phases):
-                rec = battery_rec[f"phase {i}"]
-                rec["q2_tip_via"] = q2_tip_via(
-                    rec["q2"]["answers"], rec["q1"]["answers"])
-            gate = all(
-                battery_rec[f"phase {i}"]["q2_tip_via"] != "none"
-                and battery_rec[f"phase {i}"]["q3"]["majority_pass"]
-                and battery_rec[f"phase {i}"]["q4"]["majority_pass"]
-                and battery_rec[f"phase {i}"]["q1"]["gate_pass"]
-                for i in range(args.phases))
-            gate = gate and battery_rec["pair_q5"]["majority_pass"]
-            if args.gate_mode == "feature":
+                # Revised Q2 gate: the tip sub-criterion may pass via the Q1
+                # cross-check (evaluate (b) here, at gate evaluation).
+                for i in range(args.phases):
+                    rec = battery_rec[f"phase {i}"]
+                    rec["q2_tip_via"] = q2_tip_via(
+                        rec["q2"]["answers"], rec["q1"]["answers"])
                 gate = all(
-                    battery_rec[f"phase {i}"]["q4"]["majority_pass"]
+                    battery_rec[f"phase {i}"]["q2_tip_via"] != "none"
+                    and battery_rec[f"phase {i}"]["q3"]["majority_pass"]
+                    and battery_rec[f"phase {i}"]["q4"]["majority_pass"]
+                    and battery_rec[f"phase {i}"]["q1"]["gate_pass"]
                     for i in range(args.phases))
                 gate = gate and battery_rec["pair_q5"]["majority_pass"]
-            if args.gate_mode == "advisory":
-                verdict = "ADVISORY"
-            else:
-                verdict = "GATE PASS" if gate else "GATE FAIL"
-            print(verdict, flush=True)
+                if args.gate_mode == "feature":
+                    gate = all(
+                        battery_rec[f"phase {i}"]["q4"]["majority_pass"]
+                        for i in range(args.phases))
+                    gate = gate and battery_rec["pair_q5"]["majority_pass"]
+                if args.gate_mode == "advisory":
+                    verdict = "ADVISORY"
+                else:
+                    verdict = "GATE PASS" if gate else "GATE FAIL"
+                print(verdict, flush=True)
     except JudgeError as e:
         print(f"ERROR: judge failed mid-run: {e}", file=sys.stderr)
         return 2
