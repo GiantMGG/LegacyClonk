@@ -127,6 +127,11 @@ add_test_target(C4Reconnect
 	LINK_ENGINE
 )
 
+add_test_target(C4ConfigMigration
+	SOURCES "${CMAKE_SOURCE_DIR}/tests/TstC4ConfigMigration.cpp"
+	LINK_ENGINE
+)
+
 add_test_target(C4RecordRoundtrip
 	SOURCES "${CMAKE_SOURCE_DIR}/tests/TstC4RecordRoundtrip.cpp"
 	LINK_ENGINE
