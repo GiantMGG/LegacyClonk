@@ -134,22 +134,22 @@ void C4ReplayViewerDlg::OnClose(C4GUI::Control *pButton)
 void C4ReplayViewerDlg::Draw(C4FacetEx &cgo)
 {
 	C4GUI::Dialog::Draw(cgo);
-	DrawTimelineBar(cgo);
 }
 
-void C4ReplayViewerDlg::DrawTimelineBar(C4FacetEx &cgo)
+void C4ReplayViewerDlg::DrawElement(C4FacetEx &cgo)
 {
-	auto &ctrl = GetController();
-	const uint32_t total  = ctrl.GetTotalFrames();
-	const uint32_t cur    = ctrl.GetCurrentFrame();
-	const float    fFill  = total > 0 ? static_cast<float>(cur) / static_cast<float>(total) : 0.0f;
+	// draw the frame/background via the standard dialog hook
+	C4GUI::Dialog::DrawElement(cgo);
+	// timeline bar: drawn in the element draw pass (the facet carries the
+	// element origin in TargetX/TargetY — the MapPic:DrawElement idiom)
+	const auto &ctrl = GetController();
+	const uint32_t total = ctrl.GetTotalFrames();
+	const uint32_t cur   = ctrl.GetCurrentFrame();
+	const float fFill    = total > 0 ? static_cast<float>(cur) / static_cast<float>(total) : 0.0f;
 
-	// Draw the timeline bar background. The facet handed to a dialog's Draw
-	// is the full screen (TargetX/Y = 0), so the bar must be offset by the
-	// dialog's own bounds to land inside the docked overlay.
-	const int32_t barX = GetBounds().x + 100;
+	const int32_t barX = cgo.TargetX + rcBounds.x + 100;
+	const int32_t barY = cgo.TargetY + rcBounds.y + kTimelineBarY;
 	const int32_t barW = cgo.Wdt - 200;
-	const int32_t barY = GetBounds().y + kTimelineBarY;
 	const int32_t barH = kTimelineBarH;
 
 	// Background

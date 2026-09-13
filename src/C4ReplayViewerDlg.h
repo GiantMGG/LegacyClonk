@@ -55,6 +55,7 @@ public:
 	void OnClose(C4GUI::Control *pButton);
 
 	void Draw(C4FacetEx &cgo) override;
+	void DrawElement(C4FacetEx &cgo) override;
 
 	// dock at the bottom of the screen instead of letting Screen::ShowDialog
 	// re-center the overlay (DoPlacement returning true keeps our placement)
@@ -71,8 +72,6 @@ private:
 	static constexpr int32_t kOverlayHeight = 64;
 	static constexpr int32_t kTimelineBarY  = 32;
 	static constexpr int32_t kTimelineBarH  = 8;
-
-	void DrawTimelineBar(C4FacetEx &cgo);
 
 	static C4ReplayViewerDlg *pInstance; // current overlay instance, if shown
 };
