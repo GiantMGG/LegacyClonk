@@ -204,6 +204,9 @@ bool C4Record::Stop(StdStrBuf *pRecordName, uint8_t *pRecordSHA1)
 	if (!C4Group_PackDirectory(sFilename.getData())) return false;
 #endif
 
+	// log where the replay landed (mirrors the start-side IDS_PRC_RECORDINGTO log)
+	LogNTr(LoadResStr(C4ResStrTableKey::IDS_PRC_RECORDSAVED, sFilename.getData()));
+
 	// return record data
 	if (pRecordName)
 		pRecordName->Copy(sFilename);
