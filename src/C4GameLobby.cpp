@@ -201,7 +201,6 @@ MainDlg::MainDlg(bool fHost)
 	if (fHost)
 	{
 		btnRun = new C4GUI::CallbackButton<MainDlg>(LoadResStr(C4ResStrTableKey::IDS_DLG_GAMEGO), caBottom.GetFromRight(100), &MainDlg::OnRunBtn);
-		btnRun->SetToolTip(LoadResStr(C4ResStrTableKey::IDS_DLGTIP_GAMEGO)); // OC parity: host Start explains itself
 	}
 
 	checkReady = new C4GUI::CheckBox(caBottom.GetFromRight(110), LoadResStr(C4ResStrTableKey::IDS_DLG_READY), false);
