@@ -53,6 +53,9 @@ C4StartupMainDlg::C4StartupMainDlg() : C4StartupDlg(nullptr) // create w/o title
 	AddElement(btn = new C4GUI::CallbackButton<C4StartupMainDlg>(LoadResStr(C4ResStrTableKey::IDS_BTN_NETWORKGAME), caButtons.GetFromTop(iButtonHeight), &C4StartupMainDlg::OnNetJoinBtn));
 	btn->SetToolTip(LoadResStr(C4ResStrTableKey::IDS_DLGTIP_NETWORKGAME));
 	btn->SetCustomGraphics(&C4Startup::Get()->Graphics.barMainButtons, &C4Startup::Get()->Graphics.barMainButtonsDown);
+	AddElement(btn = new C4GUI::CallbackButton<C4StartupMainDlg>(LoadResStr(C4ResStrTableKey::IDS_BTN_REPLAYS), caButtons.GetFromTop(iButtonHeight), &C4StartupMainDlg::OnReplaysBtn));
+	btn->SetToolTip(LoadResStr(C4ResStrTableKey::IDS_DLGTIP_REPLAYS));
+	btn->SetCustomGraphics(&C4Startup::Get()->Graphics.barMainButtons, &C4Startup::Get()->Graphics.barMainButtonsDown);
 	AddElement(btn = new C4GUI::CallbackButton<C4StartupMainDlg>(LoadResStr(C4ResStrTableKey::IDS_DLG_PLAYERSELECTION), caButtons.GetFromTop(iButtonHeight), &C4StartupMainDlg::OnPlayerSelectionBtn));
 	btn->SetToolTip(LoadResStr(C4ResStrTableKey::IDS_DLGTIP_PLAYERSELECTION));
 	btn->SetCustomGraphics(&C4Startup::Get()->Graphics.barMainButtons, &C4Startup::Get()->Graphics.barMainButtonsDown);
@@ -210,6 +213,12 @@ void C4StartupMainDlg::OnStartBtn(C4GUI::Control *btn)
 {
 	// advance to scenario selection screen
 	C4Startup::Get()->SwitchDialog(C4Startup::SDID_ScenSel);
+}
+
+void C4StartupMainDlg::OnReplaysBtn(C4GUI::Control *btn)
+{
+	// advance to replay browser screen
+	C4Startup::Get()->SwitchDialog(C4Startup::SDID_ReplaySel);
 }
 
 void C4StartupMainDlg::OnPlayerSelectionBtn(C4GUI::Control *btn)

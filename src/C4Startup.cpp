@@ -25,6 +25,7 @@
 #include <C4StartupOptionsDlg.h>
 #include <C4StartupAboutDlg.h>
 #include <C4StartupPlrSelDlg.h>
+#include <C4StartupReplaySelDlg.h>
 #include <C4Game.h>
 #include <C4Application.h>
 #include <C4Log.h>
@@ -210,6 +211,11 @@ C4StartupDlg *C4Startup::SwitchDialog(DialogID eToDlg, bool fFade)
 		break;
 	case SDID_PlrSel:
 		pToDlg = new C4StartupPlrSelDlg();
+		break;
+	case SDID_ReplaySel:
+#ifndef USE_CONSOLE
+		pToDlg = new C4StartupReplaySelDlg();
+#endif
 		break;
 	case SDID_Back:
 		pToDlg = pLastDlg;
@@ -402,6 +408,8 @@ bool C4Startup::SetStartScreen(const char *szScreen)
 		eLastDlgID = SDID_PlrSel;
 	else if (SEqualNoCase(szScreen, "about"))
 		eLastDlgID = SDID_About;
+	else if (SEqualNoCase(szScreen, "replays") || SEqualNoCase(szScreen, "replay"))
+		eLastDlgID = SDID_ReplaySel;
 	else return false;
 	return true;
 }

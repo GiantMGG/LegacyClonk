@@ -43,6 +43,7 @@ protected:
 	void OnStartBtn(C4GUI::Control *btn); // callback: run default start button pressed
 	void OnPlayerSelectionBtn(C4GUI::Control *btn); // callback: player selection (preliminary version via context menus...)
 	void OnNetJoinBtn(C4GUI::Control *btn); // callback: join net work game (direct join only for now)
+	void OnReplaysBtn(C4GUI::Control *btn); // callback: open the replay browser
 	void OnOptionsBtn(C4GUI::Control *btn); // callback: Show options screen
 	void OnAboutBtn(C4GUI::Control *btn); // callback: Show about screen
 	void OnExitBtn(C4GUI::Control *btn); // callback: exit button pressed
