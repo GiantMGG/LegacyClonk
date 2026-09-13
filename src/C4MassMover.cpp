@@ -118,40 +118,54 @@ bool C4MassMover::Execute(C4Section &section)
 	// Lost target material
 	if (section.Landscape.GetMat(x, y) != Mat) { Cease(section); return false; }
 
-	// Check for transfer target space
+	// FlowRate (cycle 124): multi-pixel transfer per Execute; clamp to >= 1 so a
+	// hand-authored FlowRate=0 degrades to the legacy single transfer, and an
+	// unset key (mkNamingAdapt default 1) is bit-identical legacy behavior.
 	C4Material *pMat = section.Material.Map + Mat;
-	tx = x; ty = y;
-	if (!section.Landscape.FindMatPath(tx, ty, +1, pMat->Density, pMat->MaxSlide))
+	int32_t iFlow = pMat->FlowRate; if (iFlow < 1) iFlow = 1;
+
+	for (int32_t hop = 0; hop < iFlow; ++hop)
 	{
-		// Contact material reaction check: corrosion/evaporation/inflammation/etc.
-		if (Corrosion(section, +0, +1) || Corrosion(section, -1, +0) || Corrosion(section, +1, +0))
+		// Check for transfer target space
+		tx = x; ty = y;
+		if (!section.Landscape.FindMatPath(tx, ty, +1, pMat->Density, pMat->MaxSlide))
 		{
-			// material has been used up
-			section.Landscape.ExtractMaterial(x, y);
-			return true;
+			// Contact material reaction check: corrosion/evaporation/inflammation/etc.
+			if (Corrosion(section, +0, +1) || Corrosion(section, -1, +0) || Corrosion(section, +1, +0))
+			{
+				// material has been used up
+				section.Landscape.ExtractMaterial(x, y);
+				return true;
+			}
+
+			// No space, die
+			Cease(section); return false;
 		}
 
-		// No space, die
-		Cease(section); return false;
+		// Save back material that is about to be overwritten.
+		int omat = 0;
+		if (section.C4S.Game.Realism.LandscapeInsertThrust)
+			omat = section.Landscape.GetMat(tx, ty);
+
+		// Transfer mass. Extraction guard (cycle 124): a mid-loop extraction can
+		// yield MNone when the mover's column empties beneath it -- break cleanly:
+		// no MNone deposit, no corrosion/cease side-effects (the mover dies
+		// naturally on the next Execute via the lost-target check).
+		int32_t exmat = section.Landscape.ExtractMaterial(x, y);
+		if (exmat == MNone) break;
+
+		if (Random(10))
+			section.Landscape.SetPix(tx, ty, section.Mat2PixColDefault(exmat) + section.Landscape.GBackIFT(tx, ty));
+		else
+			section.Landscape.InsertMaterial(exmat, tx, ty, 0, 1);
+
+		// Reinsert material (thrusted aside)
+		if (section.C4S.Game.Realism.LandscapeInsertThrust && section.MatValid(omat) && section.Material.Map[omat].Density > 0)
+			section.Landscape.InsertMaterial(omat, tx, ty + 1);
+
+		// Create new mover at target
+		section.MassMover.Create(tx, ty, !Rnd3());
 	}
-
-	// Save back material that is about to be overwritten.
-	int omat;
-	if (section.C4S.Game.Realism.LandscapeInsertThrust)
-		omat = section.Landscape.GetMat(tx, ty);
-
-	// Transfer mass
-	if (Random(10))
-		section.Landscape.SetPix(tx, ty, section.Mat2PixColDefault(section.Landscape.ExtractMaterial(x, y)) + section.Landscape.GBackIFT(tx, ty));
-	else
-		section.Landscape.InsertMaterial(section.Landscape.ExtractMaterial(x, y), tx, ty, 0, 1);
-
-	// Reinsert material (thrusted aside)
-	if (section.C4S.Game.Realism.LandscapeInsertThrust && section.MatValid(omat) && section.Material.Map[omat].Density > 0)
-		section.Landscape.InsertMaterial(omat, tx, ty + 1);
-
-	// Create new mover at target
-	section.MassMover.Create(tx, ty, !Rnd3());
 
 	return true;
 }
