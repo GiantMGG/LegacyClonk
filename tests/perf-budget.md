@@ -87,6 +87,23 @@ threshold). The 2-strike GATE_WINDOW_MS contract is therefore a
 CI-runner tripwire; non-vacuity at the wall-clock class is delegated to
 the L cycle's dwell ladder.
 
+Cycle-124 re-baseline (liquid-body-dynamics, Water FlowRate=4 + JetFall=3 global-pack
+values, 2026-09-14): the mover-path cost multiplier rides the same gates.
+
+| Run | median win ms (wins 4-8) | win-9 cum ext | peak pxs | static W (win 9) | static S (win 9) |
+|-----|--------------------------|---------------|----------|------------------|------------------|
+| cal-1 | 3 | 945 | 3248 | 24405 | 5157 |
+| cal-2 | 4 | 945 | 3224 | 24396 | 5164 |
+| cal-3 | 3 | 945 | 3256 | 24309 | 5155 |
+
+Measured equivalence (the honest finding): the ×4 mover multiplier does
+not move the wall-clock at this churn scale — the win 4-8 medians sit at
+3-4 ms against the cycle-118 FlowRate=1 baseline's 3-4 ms, and the win-9
+statics hold the 118 values within ±0.5%. Per-Execute hop work rises;
+per-window mover population falls; the net is unchanged inside
+measurement scatter. The gates remain regression tripwires on these
+refreshed medians.
+
 ## 4. Cost-slope model and [HEADROOM] projection
 
 Two-point linear model over the cast-rate driver C (PXS/frame; the
@@ -121,6 +138,18 @@ remains architecturally sound for the full-pixel-mobilization endgame
 (scan-cost scaling beyond the current 10k+10k caps), but its COST
 motivation is not borne out at the current caps. The L recomputes this
 bound before trusting it.
+
+Cycle-124 FlowRate dwell point: Water at FlowRate=4 (8 px/tick per mover at the two-pass
+cadence) measured 3 ms/window median on the calibration machine against the 980 ms unpaced
+budget — headroom ≥ 326×. The slope-model dwell ladder gains this point; the next dwell
+(instability-driven-mobilization) inherits it as its baseline.
+
+Pre-v370 MinSpec-A rider (B1, open): before the v370 tag, a dedicated session runs BOTH
+perf gates + `smoke_DammbruchSmoke` + one manual `Dammbruch.c4s` playthrough on
+MinSpec-A-class hardware and records the results in this charter or the cycle session
+note. The calibration-machine half of this rider is banked at
+`.opencode/scratch/cycle-124/perf-run{1,2,3}.txt` (cal-1/2/3 above); the quantitative
+prior it carries forward is the ≥ 326× headroom above.
 
 ## 5. Dirty-chunk conclusion
 
