@@ -644,10 +644,10 @@ if(PYTHON3 AND EXISTS "${LEGACYCLONK_CONTENT_DIR}/Desert.c4d/Scorpion.c4d/Graphi
 	add_test(NAME vision_qa_scorpion
 		COMMAND "${PYTHON3}" "${CMAKE_SOURCE_DIR}/tools/vision_qa.py"
 			--image "${LEGACYCLONK_CONTENT_DIR}/Desert.c4d/Scorpion.c4d/Graphics.png"
-			--facet 0,0,36,26 --phases 2 --gate-mode feature
+			--facet 0,0,24,14 --phases 6 --gate-mode feature
 			--json "${CMAKE_BINARY_DIR}/vision_qa_scorpion.json")
 	set_tests_properties(vision_qa_scorpion PROPERTIES
-		TIMEOUT 2400  # think:high judge: ~13 calls x 40-60s
+		TIMEOUT 5400  # 6-phase probe: ~50-72 judge calls x 40-60s (cycle 125)
 		RESOURCE_LOCK "qwen_judge"
 		LABELS "vision_qa;vision;lint"
 		PASS_REGULAR_EXPRESSION "GATE PASS"

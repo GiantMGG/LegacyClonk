@@ -42,9 +42,9 @@ DEFAULT_HOST = "http://localhost:11434"
 DEFAULT_MODEL = "qwen3.8:27b"
 DEFAULT_IMAGE = os.path.join("..", "content", "Desert.c4d", "Scorpion.c4d",
                              "Graphics.png")
-# Default facet targets the committed content art (72x26 sheet = 2 phases
-# of 36x26, cycle 105 scaleup).
-DEFAULT_FACET = (0, 0, 36, 26)
+# Default facet targets the committed content art (144x70 sheet = 6 walk
+# phases of 24x14, cycle 125 scale fix).
+DEFAULT_FACET = (0, 0, 24, 14)
 PAIR_GAP = 4          # white rows between stacked frames (sprite pixels)
 FLAT_RGB = (90, 58, 31)
 FLAT_W, FLAT_H = 20, 12
