@@ -249,7 +249,6 @@ SWIM_P1 = (
 	"KBBBK..KK.KK.KK.KK......",
 )
 
-
 def make_png():
 	walk = clonkgfx.Action("Walk", [
 		clonkgfx.PhaseMap("w0", WALK_P0),
@@ -285,10 +284,8 @@ def make_png():
 	return clonkgfx.Sheet(144, 70, PALETTE,
 	                     [walk, turn, jump, tumble, swim]).png_bytes()
 
-
 def main():
 	return clonkgfx.cli_main(__doc__, OUT_DEFAULT, make_png)
-
 
 if __name__ == "__main__":
 	raise SystemExit(main())
