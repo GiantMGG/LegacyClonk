@@ -2,9 +2,13 @@
 # Consumed by `import_ccan.py discover`.
 #
 # Verdicts:
-#   "ok"        - default CC BY-NC 4.0, permissive enough for content-community/
 #   "skip"      - explicit no-reupload / do-not-redistribute
 #   "ambiguous" - conflicting signals (e.g. "please ask first")
+#   "unknown"   - no rule matched; B6 tier "unknown -> quarantine" applies.
+#                 Affirmative licensing ALWAYS requires human (curator)
+#                 confirmation: discover emits license "unknown" and the
+#                 curated manifest must set a concrete license per entry
+#                 (load_manifest rejects license = "unknown").
 #
 # Keywords are matched case-insensitively as substrings against the
 # concatenated description_de + description_us + comments fields.
@@ -41,4 +45,4 @@ keyword = "bitte fragen"
 language = "de"
 
 [default]
-verdict = "ok"
+verdict = "unknown"

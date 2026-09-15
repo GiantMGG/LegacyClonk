@@ -7,6 +7,7 @@ Run::
     python3.11 -m pytest tools/test_import_ccan_discover.py -v
 """
 import json
+import re
 import sys
 from pathlib import Path
 
@@ -51,15 +52,50 @@ def _run_discover(snap: Path, tmp_path: Path, *, engine="LC", max_size=0.0):
     ])
     return rc, out_m, out_s
 
-def test_triage_default_ok(tmp_path):
+def test_triage_default_unknown(tmp_path):
+    # Post-fix contract: an entry with NO triage keyword hit gets the
+    # [default] verdict ("unknown") and license "unknown" - B6 tier
+    # "unknown -> quarantine", machine-enforced. The old behavior stamped
+    # "CC-BY-NC-4.0" (the Flash-verified bug).
     snap = _write_index(tmp_path, [_meta(100, title="Hazard 3D")])
     rc, out_m, out_s = _run_discover(snap, tmp_path)
     assert rc == 0
     text = out_m.read_text(encoding="utf-8")
     assert "[entry.100]" in text
-    assert 'license = "CC-BY-NC-4.0"' in text
+    assert 'license = "unknown"' in text
+    assert 'license = "CC-BY-NC-4.0"' not in text
     assert 'destination = "Hazard3D"' in text
     assert out_s.read_text(encoding="utf-8") == ""
+
+
+def test_triage_seepack_shaped_fixture(tmp_path):
+    # Seepack's exact shape (CCAN #3731): no license statement anywhere,
+    # no triage keywords in description/comments. Discover must emit
+    # license "unknown" (quarantine tier), never an auto-affirmative
+    # "CC-BY-NC-4.0".
+    snap = _write_index(tmp_path, [
+        _meta(3731, title="Seepack v2.4", filename="SeaPack.zip",
+              description_de="See-Erweiterung mit vielen neuen Objekten."),
+    ])
+    rc, out_m, out_s = _run_discover(snap, tmp_path)
+    assert rc == 0
+    text = out_m.read_text(encoding="utf-8")
+    assert "[entry.3731]" in text
+    assert 'license = "unknown"' in text
+    assert 'CC-BY-NC-4.0' not in text
+    assert out_s.read_text(encoding="utf-8") == ""
+
+
+def test_triage_default_table_is_live_config():
+    # [default] in ccan_license_triage.toml must be honored by
+    # load_triage_rules + run_triage (it was dead config pre-fix).
+    rules, default_verdict = I.load_triage_rules(I.TRIAGE_RULES_PATH)
+    assert default_verdict == "unknown"
+    verdict, matched_kw = I.run_triage(
+        {"description_de": "", "description_us": "", "comments": ""},
+        rules, default_verdict)
+    assert verdict == "unknown"
+    assert matched_kw == ""
 
 def test_triage_skip_keyword_en(tmp_path):
     snap = _write_index(tmp_path, [
@@ -143,6 +179,12 @@ def test_destination_slug_collision(tmp_path):
     assert "200\tdestination_collision" in skip
 
 def test_discovered_manifest_loads(tmp_path):
+    # Post-fix workflow: discover now emits license "unknown" for every
+    # entry without a triage keyword hit. load_manifest hard-rejects that,
+    # so the curator patches each entry's license to a concrete value in
+    # the emitted candidate manifest first (the emitted header instructs
+    # exactly this). The test asserts discover output still parses and
+    # round-trips through the manifest loader once patched.
     snap = _write_index(tmp_path, [
         _meta(100, title="Pack A", filename="A.c4s"),
         _meta(200, title="Pack B", filename="B.c4s"),
@@ -150,9 +192,18 @@ def test_discovered_manifest_loads(tmp_path):
     ])
     rc, out_m, out_s = _run_discover(snap, tmp_path)
     assert rc == 0
+    text = out_m.read_text(encoding="utf-8")
+    # Every candidate lands with the quarantine tier license; the curator
+    # substitutes a concrete license (curated-manifest contract).
+    assert len(re.findall(r'^license = "unknown"$', text, flags=re.MULTILINE)) == 3
+    patched = re.sub(
+        r'^license = "unknown"$', 'license = "CC-BY-NC-4.0"',
+        text, flags=re.MULTILINE)
+    out_m.write_text(patched, encoding="utf-8")
     entries = I.load_manifest(out_m)
     assert len(entries) == 3
     assert {e.ccan_id for e in entries} == {100, 200, 300}
+    assert {e.license for e in entries} == {"CC-BY-NC-4.0"}
 
 def test_discover_missing_index_exits(tmp_path):
     snap = tmp_path / "nosnap"

@@ -1016,17 +1016,19 @@ def cmd_verify_manifest(args: argparse.Namespace) -> int:
 
 TRIAGE_RULES_PATH = SCRIPT_DIR / "ccan_license_triage.toml"
 
-def load_triage_rules(path: Path) -> list[dict]:
-    """Load the [[rule]] list from ccan_license_triage.toml."""
+def load_triage_rules(path: Path) -> tuple[list[dict], str]:
+    """Load the [[rule]] list + [default] verdict from ccan_license_triage.toml."""
     try:
         data = tomllib.loads(path.read_text(encoding="utf-8"))
     except FileNotFoundError:
         sys.exit(f"Triage rules not found: {path}")
     except tomllib.TOMLDecodeError as e:
         sys.exit(f"Triage rules parse error: {e}")
-    return list(data.get("rule", []))
+    default = data.get("default", {})
+    default_verdict = str(default.get("verdict", "unknown")) if isinstance(default, dict) else "unknown"
+    return list(data.get("rule", [])), default_verdict
 
-def run_triage(meta: dict, rules: list[dict]) -> tuple[str, str]:
+def run_triage(meta: dict, rules: list[dict], default_verdict: str = "unknown") -> tuple[str, str]:
     """Return (verdict, matched_keyword). First matching rule wins.
 
     Searches the concatenated description_de + description_us + comments
@@ -1041,7 +1043,7 @@ def run_triage(meta: dict, rules: list[dict]) -> tuple[str, str]:
         kw = rule["keyword"].lower()
         if kw and kw in haystack:
             return rule["verdict"], rule["keyword"]
-    return "ok", ""
+    return default_verdict, ""
 
 def slugify(title: str) -> str:
     """Strip a title to an alphanumeric slug (no spaces, no punctuation)."""
@@ -1097,7 +1099,7 @@ def cmd_discover(args: argparse.Namespace) -> int:
             f"Snapshot index not found: {index_path}\n"
             f"Run `mirror_ccan.py mirror --snapshot-dir {snapshot_dir}` first.")
 
-    rules = load_triage_rules(TRIAGE_RULES_PATH)
+    rules, default_verdict = load_triage_rules(TRIAGE_RULES_PATH)
     engine_filter = args.engine
     max_size_bytes = int(args.max_size * 1024 * 1024) if args.max_size else 0
 
@@ -1119,7 +1121,7 @@ def cmd_discover(args: argparse.Namespace) -> int:
         filename = meta.get("filename", "")
         engine = meta.get("engine", "")
 
-        verdict, matched_kw = run_triage(meta, rules)
+        verdict, matched_kw = run_triage(meta, rules, default_verdict)
 
         # Filters.
         if engine_filter and not engine_supports(engine, engine_filter):
@@ -1147,14 +1149,14 @@ def cmd_discover(args: argparse.Namespace) -> int:
                 f"{ccan_id}\tdestination_collision\t{slug}\t{title}")
         seen_slugs[slug] = ccan_id
 
-        license_val = "CC-BY-NC-4.0" if verdict == "ok" else "unknown"
+        license_val = "unknown"
         rationale = (
             f"Triage verdict: {verdict}. "
             f"Matched keyword: '{matched_kw}'. "
             f"Description: '{(meta.get('description_de') or meta.get('description_us') or '')[:120]}'"
             if matched_kw
-            else f"Triage verdict: ok. No skip/ambiguous keyword matched. "
-                f"Default CC BY-NC 4.0 applies."
+            else "No triage keyword matched. B6 tier: unknown -> quarantine; "
+                 "curator confirmation required before import."
         )
         candidates.append({
             "title": title,
