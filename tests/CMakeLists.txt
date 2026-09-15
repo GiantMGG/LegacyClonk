@@ -292,6 +292,7 @@ file(GLOB SMOKE_SCENARIOS
 # smoke deterministic per binary: a CI failure becomes locally
 # reproducible, and a local pass predicts the CI outcome.
 set(SMOKE_SEED_PIN_DuneBurialSmoke 368)
+set(SMOKE_SEED_PIN_FirstLightSmoke 721)
 set(SMOKE_SEED_PIN_DammbruchSmoke 124)
 
 foreach(scenario ${SMOKE_SCENARIOS})
