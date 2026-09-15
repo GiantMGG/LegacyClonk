@@ -1432,4 +1432,104 @@ Spec: .opencode/specs/2026-08-29-1000-connection-migration-reconnect.md (cf8c883
 
 - Merge master: absorb v367 changelog splice (e9d3d44)
 
+## [369] - 2026-09-14
+
+### Added
+
+- **CCAN**: Add Phase-0 population crawl + offline stats tooling (76dfaef)
+
+- **CCAN**: Publish Phase-0 population thresholds (tools/ccan_thresholds.toml) (e6802e1)
+
+- **Replay**: Add replay-browser resource strings (ca386e2)
+
+- **Input**: Bind Ctrl+R replay-viewer toggle, auto-show on replay start (10b85e7)
+
+- **startup**: Finish replay browser list, metadata, and launch (df6a0a4)
+
+- **startup**: Register replay browser in the startup tree (ee825a4)
+
+- **Replay**: Log saved replay path on record stop (d0da8cb)
+
+- **vision**: Machine-global judge_lock serializes qwen3.8 consumers (cycle 121) (764a0ea)
+
+- **Networking**: Enable ReconnectEnabled by default (6d0ee62)
+
+- **pregame**: Add [PlayerN] start-list descriptor table + SliderContract pins (1535df2)
+
+- **pregame**: Generate [PlayerN] picker sections in the offline options dialog (dec06e7)
+
+- **pregame**: Add Knowledge/HomeBaseMaterial/HomeBaseProduction parameter keys (17b6a0b)
+
+- **material**: FlowRate + JetFall .c4m knobs with legacy defaults (cycle 124) (8d5952b)
+
+- **massmover**: FlowRate multi-hop transfer per Execute (cycle 124) (a951975)
+
+- **massmover**: JetFall ballistic-PXS handoff with budgeted create-or-deposit caster (cycle 124) (19f9106)
+
+- **script**: GetMassMoverCount() getter - cycle-118 instrument gap (cycle 124) (6aadc3f)
+
+- **gfx**: Scorpion generator v3 - 24x14 five-band sheet (cycle 125) (58fb93f)
+
+
+### Changed
+
+- **auto_format**: Cycle-117 format gate (a2d268d)
+
+- **gfx**: Auto_format pass on gen_scorpion_gfx.py - collapse double blank lines (cycle 125) (2c59340)
+
+
+### Fixed
+
+- **Input**: Tolerate quoted KeyConfig.txt code tokens on load (a41501a)
+
+- **ccan-index**: Parse live 5/11-column listing layouts + correct footer totals (eef14b2)
+
+- **ccan-index**: Footer total from live <td>-wrapped footer + commit ground-truth fixture (L7/L8) (aa2beff)
+
+- **CCAN**: Recover entry_type from IMG evidence + ISO-normalize uploaded (914465d)
+
+- **startup**: Repair replay browser list population (Clear UAF + doubled path) (c7933cc)
+
+- **Input**: Dock replay viewer at screen bottom via DoPlacement (ShowDialog was re-centering the overlay) (ab5df35)
+
+- **Input**: Translate timeline bar by dialog bounds (bar drew at screen origin, missing docked overlay) (f2f3721)
+
+- **Input**: Draw replay timeline in the dialog element pass (facet-relative coords) (7c777e8)
+
+- **pregame**: Make Start a visible right-anchored primary on the settings stage (b566982)
+
+- **lobby**: Tooltip on the host Start button (OC parity) (38f9523)
+
+
+### Internal
+
+- **changelog**: Update for v368 [skip ci] (f33148f)
+
+- **Input**: Pin the KeyConfig round-trip (R2-R4) + retire stale NOTES (82a67bb)
+
+- **perf**: Declare MinSpec-A reference machine + gate-constant re-derivation (5d5a616)
+
+- **perf**: Wire mobilization_perf_gate CTest twin (cycle 118) (5f1cc95)
+
+- **perf**: Transcribe cycle-118 mobilization baselines + [HEADROOM] projection (6a259da)
+
+- **tools**: Add hermetic vision-judge lock selftest (RED on unlocked tree) (3b95ac6)
+
+- **vision**: Qwen_judge RESOURCE_LOCK + vision labels + vision_lock_selftest entry (cycle 121) (c3a331b)
+
+- **Networking**: Add default-config live reconnect smoke variant (f39626a)
+
+- **smoke**: Pin DammbruchSmoke seed via SMOKE_SEED_PIN (cycle 124) (9ef6953)
+
+- **perf**: Re-baseline [CAL] medians + FlowRate dwell point at Water FlowRate=4 (cycle 124) (f8a2188)
+
+- **vision**: Vision_qa_scorpion re-pin - facet 24x14, phases 6, TIMEOUT 5400 (cycle 125) (cfb2f3b)
+
+- **version**: Bump content version to 4.9.11.6 for v369 (8f850f7)
+
+
+### Other
+
+- **lobby**: Drop duplicate btnRun tooltip (38f9523d) — line already present at base 7c777e86:296-297; review finding F1 (Flash), false-premise fix (09b9c09)
+
 <!-- git-cliff prepends new release sections above this line. -->
