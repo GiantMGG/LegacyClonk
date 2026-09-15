@@ -1419,6 +1419,79 @@ def cmd_verify_imports(args: argparse.Namespace) -> int:
         return 1
     return 0
 
+# ===========================================================================
+# Quarantine (cycle 128: seepack FAIL branch)
+# ===========================================================================
+
+QUARANTINE_RECORD_PATH = SCRIPT_DIR / "ccan_quarantine.toml"
+OUTREACH_TMPL_DE = SCRIPT_DIR / "ccan_outreach_de.txt.tmpl"
+OUTREACH_TMPL_EN = SCRIPT_DIR / "ccan_outreach_en.txt.tmpl"
+
+def load_quarantine_records(path: Path) -> dict:
+    """Load ccan_quarantine.toml -> {ccan_id: record-dict}."""
+    try:
+        data = tomllib.loads(path.read_text(encoding="utf-8"))
+    except FileNotFoundError:
+        sys.exit(f"Quarantine record not found: {path}")
+    except tomllib.TOMLDecodeError as e:
+        sys.exit(f"Quarantine record parse error: {e}")
+    return {int(k): dict(v) for k, v in data.get("quarantine", {}).items()}
+
+
+def render_letter(template: str, record: dict) -> str:
+    """Substitute @@KEY@@ markers. Unknown markers pass through unchanged."""
+    subs = {
+        "@@TITLE@@": str(record.get("title", "")),
+        "@@CCAN_ID@@": str(record.get("ccan_id", "")),
+        "@@AUTHOR@@": str(record.get("author_nick", "")),
+        "@@THREAD_URL@@": str(record.get("outreach_thread", "")),
+    }
+    for marker, value in subs.items():
+        template = template.replace(marker, value)
+    return template
+
+
+def cmd_quarantine(args: argparse.Namespace) -> int:
+    """Verify + service a quarantined CCAN entry hold."""
+    records = load_quarantine_records(args.record)
+    rec = records.get(args.entry_id)
+    if rec is None:
+        sys.exit(f"No quarantine record for CCAN #{args.entry_id}.")
+    hold_dir = Path(args.hold_dir or rec.get("hold_dir", "")).expanduser()
+    hold_dir.mkdir(parents=True, exist_ok=True)
+    blob_path = hold_dir / Path(str(rec.get("blob_url", "blob.zip"))).name
+    sha_expected = rec.get("sha256", "")
+
+    if not blob_path.is_file() and args.download:
+        print(f"Downloading {rec.get('blob_url')} -> {blob_path}")
+        blob_path.write_bytes(fetch_url(rec.get("blob_url", ""), rate_limit=args.rate_limit))
+    if not blob_path.is_file():
+        print(f"MISSING blob: {blob_path} (pass --download to fetch)")
+        return 1
+    sha_actual = hashlib.sha256(blob_path.read_bytes()).hexdigest()
+    if sha_actual != sha_expected:
+        print(f"SHA256 MISMATCH for {blob_path}: expected {sha_expected}, got {sha_actual}")
+        return 1
+    size = blob_path.stat().st_size
+    if size != int(rec.get("blob_size", size)):
+        print(f"SIZE MISMATCH for {blob_path}: expected {rec.get('blob_size')}, got {size}")
+        return 1
+    print(f"VERIFIED blob {blob_path} sha256={sha_actual} size={size}")
+
+    slug = slugify(rec.get("title", "ccan"))
+    outreach_dir = (args.outreach_dir or (DEFAULT_CONTENT_COMMUNITY / "outreach" / f"{slug.lower()}-{args.entry_id}")).expanduser()
+    outreach_dir.mkdir(parents=True, exist_ok=True)
+    for tmpl, out_name in ((OUTREACH_TMPL_DE, "letter-de.md"), (OUTREACH_TMPL_EN, "letter-en.md")):
+        if not tmpl.is_file():
+            sys.exit(f"Outreach template missing: {tmpl}")
+        (outreach_dir / out_name).write_text(
+            render_letter(tmpl.read_text(encoding="utf-8"), rec), encoding="utf-8")
+    print(f"Letters regenerated in {outreach_dir}")
+    print(f"Record: ccan_id={args.entry_id} status={rec.get('status')} "
+          f"files={rec.get('file_count')} scenarios={rec.get('scenario_count')}")
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="import_ccan.py",
@@ -1561,6 +1634,22 @@ def build_parser() -> argparse.ArgumentParser:
         help=f"Seconds between requests (default: {DEFAULT_RATE_LIMIT}).",
     )
     p_ver_imports.set_defaults(func=cmd_verify_imports)
+
+    p_quar = sub.add_parser(
+        "quarantine",
+        help="Verify + service a quarantined CCAN entry hold (sha pin, letters).",
+    )
+    p_quar.add_argument("entry_id", type=int, help="CCAN entry ID (e.g. 3731).")
+    p_quar.add_argument("--record", type=Path, default=QUARANTINE_RECORD_PATH,
+                        help="Quarantine record TOML (default: tools/ccan_quarantine.toml).")
+    p_quar.add_argument("--hold-dir", default=None,
+                        help="Override hold_dir from the record (tests).")
+    p_quar.add_argument("--outreach-dir", type=Path, default=None,
+                        help="Override letter output dir (tests).")
+    p_quar.add_argument("--download", action="store_true",
+                        help="Fetch the blob via the record's blob_url if absent.")
+    p_quar.add_argument("--rate-limit", type=float, default=DEFAULT_RATE_LIMIT)
+    p_quar.set_defaults(func=cmd_quarantine)
 
     return parser
 
