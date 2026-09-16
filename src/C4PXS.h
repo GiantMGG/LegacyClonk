@@ -67,6 +67,9 @@ public:
 	bool Create(int32_t mat, C4Fixed ix, C4Fixed iy, C4Fixed ixdir = Fix0, C4Fixed iydir = Fix0);
 	bool Load(C4Group &hGroup);
 	bool Save(C4Group &hGroup);
+	// Cycle-130: fold the full PXS pool (occupied + free slots, chunk/slot
+	// order) into the digest (spec pxs-network-determinism-gate §6.2).
+	void FoldDigest(class C4SyncDigest &digest) const;
 
 protected:
 	C4PXS *New();

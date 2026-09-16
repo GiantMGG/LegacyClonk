@@ -320,6 +320,7 @@ src/C4Surface.cpp
 src/C4Surface.h
 src/C4SurfaceFile.cpp
 src/C4SurfaceFile.h
+src/C4SyncDigest.h
 src/C4Teams.cpp
 src/C4Teams.h
 src/C4TextEncoding.cpp

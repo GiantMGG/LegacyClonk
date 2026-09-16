@@ -63,6 +63,9 @@ public:
 	bool Create(int32_t x, int32_t y, bool fExecute = false);
 	bool Load(C4Group &hGroup);
 	bool Save(C4Group &hGroup);
+	// Cycle-130: fold all 10000 mover slots (free slots contribute their
+	// Mat byte) into the digest, slot-index order.
+	void FoldDigest(class C4SyncDigest &digest) const;
 
 protected:
 	void Consolidate();
