@@ -205,6 +205,13 @@ class C4ControlSyncCheck : public C4ControlPacket // not sync
 public:
 	C4ControlSyncCheck();
 
+	// Cycle-130 (spec pxs-network-determinism-gate §7.1): position-resolved
+	// state digests. Public so the Catch2 round-trip test can set/inspect
+	// them without engine globals.
+	uint64_t LandDigest{0};
+	uint64_t PXSDigest{0};
+	uint64_t MoverDigest{0};
+
 protected:
 	int32_t Frame;
 	int32_t ControlTick;

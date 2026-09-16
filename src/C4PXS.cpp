@@ -24,6 +24,7 @@
 #include <C4Physics.h>
 #include <C4Random.h>
 #include "C4Section.h"
+#include "C4SyncDigest.h"
 #include <C4Wrappers.h>
 
 static const C4Fixed WindDrift_Factor = itofix(1, 800);
@@ -463,4 +464,24 @@ void C4PXSSystem::Delete(C4PXS *pPXS)
 	// decrease pxs counter
 	if (cnt < PXSMaxChunk)
 		iChunkPXS[cnt]--;
+}
+
+void C4PXSSystem::FoldDigest(C4SyncDigest &digest) const
+{
+	for (size_t c = 0; c < PXSMaxChunk; ++c)
+	{
+		if (!Chunk[c]) continue;
+		for (size_t s = 0; s < PXSChunkSize; ++s)
+		{
+			const C4PXS &pxs = Chunk[c][s];
+			digest.update_byte(static_cast<uint8_t>(pxs.Mat));
+			if (pxs.Mat != MNone)
+			{
+				digest.update_le32(static_cast<uint32_t>(pxs.x.val));
+				digest.update_le32(static_cast<uint32_t>(pxs.y.val));
+				digest.update_le32(static_cast<uint32_t>(pxs.xdir.val));
+				digest.update_le32(static_cast<uint32_t>(pxs.ydir.val));
+			}
+		}
+	}
 }

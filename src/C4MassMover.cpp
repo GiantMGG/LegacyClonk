@@ -22,6 +22,7 @@
 #include <C4Material.h>
 #include <C4Game.h>
 #include <C4PXS.h>
+#include "C4SyncDigest.h"
 #include <C4Wrappers.h>
 
 // Note: creation optimized using advancing CreatePtr, so sequential
@@ -294,4 +295,18 @@ void C4MassMoverSet::Copy(C4MassMoverSet &rSet)
 	Count = rSet.Count;
 	CreatePtr = rSet.CreatePtr;
 	for (int32_t cnt = 0; cnt < C4MassMoverChunk; cnt++) Set[cnt] = rSet.Set[cnt];
+}
+
+void C4MassMoverSet::FoldDigest(C4SyncDigest &digest) const
+{
+	for (int32_t i = 0; i < C4MassMoverChunk; ++i)
+	{
+		const C4MassMover &mm = Set[i];
+		digest.update_byte(static_cast<uint8_t>(mm.Mat));
+		if (mm.Mat != MNone)
+		{
+			digest.update_le32(static_cast<uint32_t>(mm.x));
+			digest.update_le32(static_cast<uint32_t>(mm.y));
+		}
+	}
 }

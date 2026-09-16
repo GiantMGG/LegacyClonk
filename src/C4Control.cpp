@@ -26,6 +26,7 @@
 #include <C4Log.h>
 #include <C4Wrappers.h>
 #include <C4Player.h>
+#include <C4SyncDigest.h>
 
 #include <cassert>
 #include <cinttypes>
@@ -480,11 +481,30 @@ void C4ControlSyncCheck::Set()
 		SectShapeSum += section->Objects.Sectors.getShapeSum();
 	}
 
+	// Cycle-130: position-resolved state digests (spec §6.2). Identical
+	// iteration range and order as the aggregation loop above.
+	C4SyncDigest land, pxs, movers;
+	for (const auto &section : Game.GetActiveSections())
+	{
+		for (int32_t y = 0; y < section->Landscape.Height; ++y)
+			for (int32_t x = 0; x < section->Landscape.Width; ++x)
+			{
+				land.update_le16(static_cast<uint16_t>(section->Landscape._GetMat(x, y)));
+				land.update_le16(static_cast<uint16_t>(section->Landscape._GetDensity(x, y)));
+			}
+		section->PXS.FoldDigest(pxs);
+		section->MassMover.FoldDigest(movers);
+	}
+	LandDigest = land.value();
+	PXSDigest = pxs.value();
+	MoverDigest = movers.value();
+
 	if (Game.LogSyncChecks)
 	{
-		spdlog::info("SyncCheck: Frm={} Ctrl={} Rn3={} Rnc={} Cpx={} PXS={} MMi={} Obc={} Oei={} Sct={}",
+		spdlog::info("SyncCheck: Frm={} Ctrl={} Rn3={} Rnc={} Cpx={} PXS={} MMi={} Obc={} Oei={} Sct={} LGD={:016x} PXD={:016x} MMD={:016x}",
 			Frame, ControlTick, Random3, RandomCount, AllCrewPosX,
-			PXSCount, MassMoverIndex, ObjectCount, ObjectEnumerationIndex, SectShapeSum);
+			PXSCount, MassMoverIndex, ObjectCount, ObjectEnumerationIndex, SectShapeSum,
+			LandDigest, PXSDigest, MoverDigest);
 	}
 }
 
@@ -520,7 +540,13 @@ void C4ControlSyncCheck::Execute(const std::shared_ptr<spdlog::logger> &) const
 		|| MassMoverIndex         != pSyncCheck->MassMoverIndex
 		|| ObjectCount            != pSyncCheck->ObjectCount
 		|| ObjectEnumerationIndex != pSyncCheck->ObjectEnumerationIndex
-		|| SectShapeSum           != pSyncCheck->SectShapeSum)
+		|| SectShapeSum           != pSyncCheck->SectShapeSum
+		// Cycle-130: position-resolved state digests (spec §7.3). The non-zero
+		// guard keeps pre-cycle-130 records (digest 0 on the recorded side)
+		// replaying without a false "Synchronization loss!".
+		|| (LandDigest  != pSyncCheck->LandDigest  && LandDigest  && pSyncCheck->LandDigest)
+		|| (PXSDigest   != pSyncCheck->PXSDigest   && PXSDigest   && pSyncCheck->PXSDigest)
+		|| (MoverDigest != pSyncCheck->MoverDigest && MoverDigest && pSyncCheck->MoverDigest))
 	{
 		const char *szThis = "Client", *szOther = Game.Control.isReplay() ? "Rec " : "Host";
 		if (iByClient != Game.Control.ClientID())
@@ -529,8 +555,8 @@ void C4ControlSyncCheck::Execute(const std::shared_ptr<spdlog::logger> &) const
 		}
 		// Message
 		LogFatalNTr("Network: Synchronization loss!");
-		LogFatalNTr("Network: {} Frm {} Ctrl {} Rnc {} Rn3 {} Cpx {} PXS {} MMi {} Obc {} Oei {} Sct {}", szThis,            Frame,           ControlTick,           RandomCount,           Random3,           AllCrewPosX,           PXSCount,           MassMoverIndex,           ObjectCount,           ObjectEnumerationIndex,           SectShapeSum);
-		LogFatalNTr("Network: {} Frm {} Ctrl {} Rnc {} Rn3 {} Cpx {} PXS {} MMi {} Obc {} Oei {} Sct {}", szOther, SyncCheck.Frame, SyncCheck.ControlTick, SyncCheck.RandomCount, SyncCheck.Random3, SyncCheck.AllCrewPosX, SyncCheck.PXSCount, SyncCheck.MassMoverIndex, SyncCheck.ObjectCount, SyncCheck.ObjectEnumerationIndex, SyncCheck.SectShapeSum);
+		LogFatalNTr("Network: {} Frm {} Ctrl {} Rnc {} Rn3 {} Cpx {} PXS {} MMi {} Obc {} Oei {} Sct {} LGD={:016x} PXD={:016x} MMD={:016x}", szThis,            Frame,           ControlTick,           RandomCount,           Random3,           AllCrewPosX,           PXSCount,           MassMoverIndex,           ObjectCount,           ObjectEnumerationIndex,           SectShapeSum,           LandDigest,           PXSDigest,           MoverDigest);
+		LogFatalNTr("Network: {} Frm {} Ctrl {} Rnc {} Rn3 {} Cpx {} PXS {} MMi {} Obc {} Oei {} Sct {} LGD={:016x} PXD={:016x} MMD={:016x}", szOther, SyncCheck.Frame, SyncCheck.ControlTick, SyncCheck.RandomCount, SyncCheck.Random3, SyncCheck.AllCrewPosX, SyncCheck.PXSCount, SyncCheck.MassMoverIndex, SyncCheck.ObjectCount, SyncCheck.ObjectEnumerationIndex, SyncCheck.SectShapeSum, SyncCheck.LandDigest, SyncCheck.PXSDigest, SyncCheck.MoverDigest);
 		StartSoundEffect("SyncError");
 #ifndef NDEBUG
 		// Debug safe
@@ -563,6 +589,47 @@ void C4ControlSyncCheck::CompileFunc(StdCompiler *pComp)
 	pComp->Value(mkNamingAdapt(mkIntPackAdapt(ObjectEnumerationIndex), "ObjectEnumerationIndex",  0));
 	pComp->Value(mkNamingAdapt(mkIntPackAdapt(SectShapeSum),           "SectShapeSum",            0));
 	C4ControlPacket::CompileFunc(pComp);
+
+	// Cycle-130: position-resolved state digests, TRAILING and EOF-tolerant
+	// (spec §7.2). Streams written before cycle 130 end right after ByClient:
+	// an EOF while reading these leaves the digests 0, and Execute() skips
+	// digest comparison whenever either side's digest is 0.
+	if (pComp->isCompiler())
+	{
+		LandDigest = PXSDigest = MoverDigest = 0;
+		try
+		{
+			uint32_t LandLo, LandHi, PXSLo, PXSHi, MoverLo, MoverHi;
+			pComp->Value(mkNamingAdapt(mkIntPackAdapt(LandLo), "LandDigestLo"));
+			pComp->Value(mkNamingAdapt(mkIntPackAdapt(LandHi), "LandDigestHi"));
+			pComp->Value(mkNamingAdapt(mkIntPackAdapt(PXSLo),  "PXSDigestLo"));
+			pComp->Value(mkNamingAdapt(mkIntPackAdapt(PXSHi),  "PXSDigestHi"));
+			pComp->Value(mkNamingAdapt(mkIntPackAdapt(MoverLo),"MoverDigestLo"));
+			pComp->Value(mkNamingAdapt(mkIntPackAdapt(MoverHi),"MoverDigestHi"));
+			LandDigest  = (static_cast<uint64_t>(LandHi) << 32) | LandLo;
+			PXSDigest   = (static_cast<uint64_t>(PXSHi)  << 32) | PXSLo;
+			MoverDigest = (static_cast<uint64_t>(MoverHi) << 32) | MoverLo;
+		}
+		catch (const StdCompiler::EOFException &)
+		{
+			// legacy stream truncated before the digest fields: leave 0.
+		}
+	}
+	else
+	{
+		uint32_t LandLo = static_cast<uint32_t>(LandDigest),
+		         LandHi = static_cast<uint32_t>(LandDigest >> 32);
+		uint32_t PXSLo = static_cast<uint32_t>(PXSDigest),
+		         PXSHi = static_cast<uint32_t>(PXSDigest >> 32);
+		uint32_t MoverLo = static_cast<uint32_t>(MoverDigest),
+		         MoverHi = static_cast<uint32_t>(MoverDigest >> 32);
+		pComp->Value(mkNamingAdapt(mkIntPackAdapt(LandLo), "LandDigestLo"));
+		pComp->Value(mkNamingAdapt(mkIntPackAdapt(LandHi), "LandDigestHi"));
+		pComp->Value(mkNamingAdapt(mkIntPackAdapt(PXSLo),  "PXSDigestLo"));
+		pComp->Value(mkNamingAdapt(mkIntPackAdapt(PXSHi),  "PXSDigestHi"));
+		pComp->Value(mkNamingAdapt(mkIntPackAdapt(MoverLo),"MoverDigestLo"));
+		pComp->Value(mkNamingAdapt(mkIntPackAdapt(MoverHi),"MoverDigestHi"));
+	}
 }
 
 // *** C4ControlSynchronize
