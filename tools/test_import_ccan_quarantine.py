@@ -8,7 +8,6 @@ import pytest
 sys.path.insert(0, str(Path(__file__).parent))
 import import_ccan as I
 
-
 def _record(tmp_path: Path, *, sha: str, size: int) -> Path:
     rec = tmp_path / "quarantine.toml"
     body = (
@@ -29,14 +28,12 @@ def _record(tmp_path: Path, *, sha: str, size: int) -> Path:
     rec.write_text(body, encoding="utf-8")
     return rec
 
-
 def _blob(tmp_path: Path, data: bytes) -> Path:
     hold = tmp_path / "hold"
     hold.mkdir(exist_ok=True)
     p = hold / "Testpack.zip"
     p.write_bytes(data)
     return p
-
 
 def _run(tmp_path: Path, rec: Path, hold: Path, extra=()):
     rc = I.main(["quarantine", "4242",
@@ -46,7 +43,6 @@ def _run(tmp_path: Path, rec: Path, hold: Path, extra=()):
                 + list(extra))
     return rc, tmp_path / "outreach"
 
-
 def test_quarantine_sha_mismatch(tmp_path, capsys):
     data = b"not the blob"
     rec = _record(tmp_path, sha="0" * 64, size=len(data))
@@ -55,13 +51,11 @@ def test_quarantine_sha_mismatch(tmp_path, capsys):
     assert rc == 1
     assert "SHA256 MISMATCH" in capsys.readouterr().out
 
-
 def test_quarantine_missing_blob(tmp_path, capsys):
     rec = _record(tmp_path, sha="0" * 64, size=10)
     rc, _ = _run(tmp_path, rec, tmp_path / "hold")
     assert rc == 1
     assert "MISSING blob" in capsys.readouterr().out
-
 
 def test_quarantine_verified_and_letters_byte_identical(tmp_path):
     data = b"seepack-standin-blob-bytes"

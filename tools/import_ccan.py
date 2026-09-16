@@ -1437,7 +1437,6 @@ def load_quarantine_records(path: Path) -> dict:
         sys.exit(f"Quarantine record parse error: {e}")
     return {int(k): dict(v) for k, v in data.get("quarantine", {}).items()}
 
-
 def render_letter(template: str, record: dict) -> str:
     """Substitute @@KEY@@ markers. Unknown markers pass through unchanged."""
     subs = {
@@ -1449,7 +1448,6 @@ def render_letter(template: str, record: dict) -> str:
     for marker, value in subs.items():
         template = template.replace(marker, value)
     return template
-
 
 def cmd_quarantine(args: argparse.Namespace) -> int:
     """Verify + service a quarantined CCAN entry hold."""
@@ -1490,7 +1488,6 @@ def cmd_quarantine(args: argparse.Namespace) -> int:
     print(f"Record: ccan_id={args.entry_id} status={rec.get('status')} "
           f"files={rec.get('file_count')} scenarios={rec.get('scenario_count')}")
     return 0
-
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(

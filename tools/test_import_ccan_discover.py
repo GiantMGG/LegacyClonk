@@ -67,7 +67,6 @@ def test_triage_default_unknown(tmp_path):
     assert 'destination = "Hazard3D"' in text
     assert out_s.read_text(encoding="utf-8") == ""
 
-
 def test_triage_seepack_shaped_fixture(tmp_path):
     # Seepack's exact shape (CCAN #3731): no license statement anywhere,
     # no triage keywords in description/comments. Discover must emit
@@ -84,7 +83,6 @@ def test_triage_seepack_shaped_fixture(tmp_path):
     assert 'license = "unknown"' in text
     assert 'CC-BY-NC-4.0' not in text
     assert out_s.read_text(encoding="utf-8") == ""
-
 
 def test_triage_default_table_is_live_config():
     # [default] in ccan_license_triage.toml must be honored by
