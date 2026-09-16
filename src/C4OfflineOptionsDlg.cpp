@@ -660,18 +660,23 @@ void C4OfflineOptionsDlg::SettlementRow::UpdateReadout(int32_t iCount)
 C4OfflineOptionsDlg::C4OfflineOptionsDlg()
 	: C4GUI::FullscreenDialog(LoadResStr(C4ResStrTableKey::IDS_DLG_OPTIONS), Game.Parameters.ScenarioTitle.getData())
 {
-	const C4Rect rcClient = GetClientRect();
+	// Child bounds are relative to the client area: Window::Draw already
+	// offsets children by the client margins, so the stages must start at
+	// 0,0. Using GetClientRect() here shifted both stages down/right by the
+	// margins and pushed the bottom button row (Start/Back/Abort) below the
+	// screen edge.
+	const C4Rect rcStage = GetContainedClientRect();
 
-	// both stage windows cover the full client rect; page-swap via fVisible
+	// both stage windows cover the full client area; page-swap via fVisible
 	pLandingStage = new C4GUI::Window();
-	pLandingStage->SetBounds(rcClient);
+	pLandingStage->SetBounds(rcStage);
 	AddElement(pLandingStage);
 	pSettingsStage = new C4GUI::Window();
-	pSettingsStage->SetBounds(rcClient);
+	pSettingsStage->SetBounds(rcStage);
 	AddElement(pSettingsStage);
 
-	CreateLandingStage(rcClient);
-	CreateSettingsStage(rcClient);
+	CreateLandingStage(rcStage);
+	CreateSettingsStage(rcStage);
 
 	// land on the landing stage (spec §2: the dialog opens on landing)
 	SetStage(Stage::Landing);
@@ -725,14 +730,29 @@ void C4OfflineOptionsDlg::CreateSettingsStage(const C4Rect &rcStage)
 	pBtnStart->SetToolTip(LoadResStr(C4ResStrTableKey::IDS_DLGTIP_GAMEGO));
 	pSettingsStage->AddElement(pBtnStart);
 
+	// The options list only has rows for network games and team scenarios
+	// (C4GameOptionsList::InitOptions); in a plain offline round it would be
+	// an empty framed box, so it is left out and its space goes to the pickers.
+	const bool fHaveOptions = Game.Network.isEnabled() || Game.Control.isNetwork()
+		|| Game.Teams.HasTeamDistOptions() || Game.Teams.IsMultiTeams();
+
+	if (!LandscapePanelVisible() && !fHaveOptions)
+	{
+		// nothing for a right pane: briefing on top, pickers use the full width
+		C4GUI::ComponentAligner caAll(caMain.GetAll(), 6, 4);
+		CreateBriefing(caAll.GetFromTop(caAll.GetInnerHeight() * 25 / 100));
+		CreatePickers(caAll.GetAll());
+		return;
+	}
+
 	// left pane (~55%): briefing top, pickers middle, options strip bottom
 	const int32_t iLeftWdt = caMain.GetInnerWidth() * 55 / 100;
 	C4GUI::ComponentAligner caLeft(caMain.GetFromLeft(iLeftWdt), 6, 4);
-	CreateBriefing(caLeft.GetFromTop(caLeft.GetInnerHeight() * 40 / 100));
-	if (LandscapePanelVisible())
+	CreateBriefing(caLeft.GetFromTop(caLeft.GetInnerHeight() * 25 / 100));
+	if (LandscapePanelVisible() && fHaveOptions)
 	{
 		// compact options strip at the bottom of the left pane
-		pOptionsList = new C4GameOptionsList(caLeft.GetFromBottom(caLeft.GetInnerHeight() * 32 / 100), true, false);
+		pOptionsList = new C4GameOptionsList(caLeft.GetFromBottom(caLeft.GetInnerHeight() * 25 / 100), true, false);
 		pSettingsStage->AddElement(pOptionsList);
 	}
 	CreatePickers(caLeft.GetAll());
