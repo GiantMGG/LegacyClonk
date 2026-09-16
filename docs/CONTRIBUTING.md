@@ -19,3 +19,6 @@ the engine source changes.
   `docs/reference/**/_curated.yaml` sidecars.
 - The harvest script (`tools/harvest_callbacks.py`) is the only Python a
   reference maintainer touches.
+
+Contributor-policy docs: see [UPSTREAM-SYNC.md](UPSTREAM-SYNC.md) for the
+fork↔upstream sync policy (intake triage, provenance trailers, numbering).
