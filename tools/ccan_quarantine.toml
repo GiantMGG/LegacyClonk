@@ -4,8 +4,10 @@
 # Rules:
 #   - The blob sha256 is the ONLY identity pin (in-pack Version.txt lies;
 #     the 2.3/2.4 skew gotcha). Never pin an in-pack version probe.
-#   - The blob itself NEVER enters the git repo - it lives in hold_dir
-#     (outside the workspace); only this record + sha are committed.
+#   - The blob itself NEVER enters a git repo - it lives in hold_dir, an
+#     in-workspace non-git cache (.opencode/cache/...). Only this record +
+#     sha are committed. hold_dir must stay inside the workspace: the
+#     permission engine denies writes outside it (a ~/clonk path is unusable).
 #   - status transitions: awaiting-author-license -> licensed | do-not-import.
 
 [quarantine.3731]
@@ -19,7 +21,7 @@ sha256          = "7debfdf80f63ffddfc8e22d026f8ee2d3d4116bfa1287e21a3a9d9bfac798
 blob_size       = 14731255
 file_count      = 1657
 scenario_count  = 18
-hold_dir        = "~/clonk/ccan-quarantine/3731"
+hold_dir        = "/home/dl238/Repos/clonk_ws/.opencode/cache/ccan-quarantine/3731"
 status          = "awaiting-author-license"
 outreach_thread = "https://forum.clonkspot.org/t/es-war-einmal-ein-seepack-und-wird-wieder-sein/1459"
 notes           = "No license statement in any consulted surface (CCAN entry, pack contents, forum thread, FAQ). B6 tier: unknown -> quarantine. Engine-adjacent risk: SeaPack.c4d/System.c4g overlays (Rope, LinekitSplash, VehicleMaterial appendtos). Version skew: Version.txt says 2.3, Changes.txt + CCAN say 2.4 - pin the blob sha256, never an in-pack version probe."
