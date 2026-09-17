@@ -201,7 +201,7 @@ LegacyClonk/build/clonk --console --smoke-run 350 \
     Exit code: `0`.
 
     If you see `FatalError` or a non-zero exit, see the
-    [smoke scenario contract](https://legacyclonk.github.io/LegacyClonk/)
+    [smoke scenario contract](https://github.com/GiantMGG/LegacyClonk/blob/master/docs/contributors/contributing.md)
     or run `lc doctor` to diagnose your setup.
 
 ---

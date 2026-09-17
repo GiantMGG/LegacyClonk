@@ -156,9 +156,9 @@ from the left edge after 350 frames; the ship sails to the dock and grants
 - Want the full key reference? See the
   [Controls reference](controls.md).
 - Want the full course? Play the 10-scenario voiced
-  [Tutorial chain](https://legacyclonk.github.io/LegacyClonk/tutorials/first-object/).
+  [Tutorial chain](https://github.com/GiantMGG/LegacyClonk/blob/master/docs/tutorials/first-object.md).
 - Want to make your own scenario? Read the
-  [Modder Quickstart](https://legacyclonk.github.io/LegacyClonk/tutorials/first-object/).
+  [Modder Quickstart](https://github.com/GiantMGG/LegacyClonk/blob/master/docs/tutorials/first-object.md).
 - Got stuck? Press <kbd>Esc</kbd> → **Exit round**; Colony Bay is replayable.
 
 ---
