@@ -38,8 +38,8 @@
 #   * main menu "Start Game" is the default focus; Enter opens the scenario
 #     selection (log shows the EnableSurrender pack scan).
 #   * root scenario list: folders sorted by Folder.txt Index
-#     (ReactionLab[1], Tutorial[1], Worlds[2], ...) -> Worlds is entry 3
-#     (2 Down presses from the top).
+#     (Tutorial[1], Worlds[2], ...) -> Worlds is entry 2
+#     (1 Down press from the top).
 #   * inside Worlds the scenarios sort by difficulty (Gold Mine D5 first,
 #     Colony Bay D40 at position 9; values read from content/Worlds.c4f) ->
 #     8 Down presses from Gold Mine select Colony Bay.
@@ -498,7 +498,7 @@ run_walk()
 	shot 06-scenario-select.png
 
 	# 07 - Worlds: root folders are sorted by Folder.txt Index
-	#      (ReactionLab[1], Tutorial[1], Worlds[2], ...) => entry 3, 2 Downs.
+	#      (ReactionLab[13], Tutorial[1], Worlds[2], ...) => entry 2, 1 Down.
 	#      Home resets to the first entry each attempt, making the sequence
 	#      self-correcting even if a keystroke gets dropped.
 	local attempt ok=1
@@ -506,7 +506,6 @@ run_walk()
 	for attempt in 1 2 3 4 5; do
 		xkey Home
 		sleep 1
-		xkey Down
 		xkey Down
 		if wait_ocr "settlement" 10; then log "Worlds folder selected (attempt $attempt)"; ok=0; break; fi
 	done

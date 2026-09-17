@@ -15,7 +15,7 @@ declare -A REPRO=(
   [SandFlowSmoke]="$CONTENT/PixelPhysics.c4d/Tests.c4f/SandFlowSmoke.c4s"
   [LateralChannelSmoke]="$CONTENT/PixelPhysics.c4d/Tests.c4f/LateralChannelSmoke.c4s"
   [ScorpionStagingSmoke]="$CONTENT/Desert.c4d/Tests.c4f/ScorpionStagingSmoke.c4s"
-  [FeuerstaudammMirrorSmoke]="$CONTENT/Missions.c4f/Tests.c4f/FeuerstaudammMirrorSmoke.c4s"
+  [FeuerstaudammMirrorSmoke]="$CONTENT/PixelPhysics.c4d/Tests.c4f/FeuerstaudammMirrorSmoke.c4s"
 )
 for name in PaintGapSmoke OilImmobileSmoke LavaWallSmoke SandFlowSmoke \
             LateralChannelSmoke ScorpionStagingSmoke FeuerstaudammMirrorSmoke; do

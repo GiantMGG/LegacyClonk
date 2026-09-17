@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""menu-walk-smoke — five-leg new-player-walk driver (spec 2026-09-17, cycle 131).
+"""menu-walk-smoke — six-leg new-player-walk driver (spec 2026-09-17, cycle 134).
 
 Covers the Epic-1 guarantee: a new player sees the welcome dialog, plays the
 tutorial, finds the tutorial world first under "Start Game", and loads the
@@ -21,12 +21,17 @@ Legs:
   A5 ColonyBay-load: content/Worlds.c4f/ColonyBay.c4s loads clean (exit 0, no
                    FATAL). Plain [error] DebugLog noise is TOLERATED (ColonyBay
                    logs pre-existing [error] lines at base).
+  A6 browser-purity: no browsable *.c4f pack under content may carry a
+                   Tests.c4f subdirectory (the only browser-reachable test
+                   location); .c4d/.c4g test packs are never listed by the
+                   browser, so their Tests.c4f is invisible and fine.
 
-Addendum 1 (binding): A1/A3 shipped in KNOWN-RED report mode in the default run.
-quickstart-link-fix has LANDED: A1 is strict in BOTH modes now, so a ≥400 status
-or a missing bundled target hard-FAILs the run. A3 keeps its KNOWN-RED marker
-(owner: tutorial-first-in-browser) until that sibling fix lands. A2/A4/A5 are
-strict in BOTH modes. Any UNDECLARED leg failure is a hard FAIL in both modes.
+Addendum 1 (binding): A1 and A3 are strict in BOTH modes; no KNOWN-RED legs
+remain. quickstart-link-fix made A1 strict in both modes (a ≥400 status or a
+missing bundled target hard-FAILs the run); tutorial-first-in-browser made A3
+strict in both modes (a Folder.txt Index collision or a non-Tutorial minimum
+hard-FAILs the run). A6 (browser purity) is strict in BOTH modes from birth.
+A2/A4/A5 are strict in BOTH modes. Any leg failure is a hard FAIL in both modes.
 
 Engine discipline (rules/engine-behavior-gotchas.md #6): stdin=DEVNULL at EVERY
 engine spawn, via tools/run_engine_headless.py, with cwd = the engine binary's
@@ -51,11 +56,6 @@ RUN_HEADLESS = os.path.join(REPO_DIR, "tools", "run_engine_headless.py")
 # kFirstGameGuideURL spans lines 46-47 of C4StartupWelcomeDlg.cpp.
 GUIDE_URL_RE = re.compile(r'kFirstGameGuideURL\s*=\s*"([^"]+)"', re.DOTALL)
 INDEX_RE = re.compile(r"^Index\s*=\s*(\d+)\s*$", re.MULTILINE)
-
-# Roadmap owners of the KNOWN-RED legs (Addendum 1). A1's KNOWN-RED was removed
-# by quickstart-link-fix: A1 is strict in both modes; A3 stays KNOWN-RED until
-# tutorial-first-in-browser lands.
-KNOWN_RED_OWNERS = {"A3": "tutorial-first-in-browser"}
 
 SMOKE_TICKS = "350"
 RUN_TIMEOUT = 60        # seconds, per engine spawn
@@ -194,9 +194,10 @@ def scan_packs(content_dir):
         packs[name] = int(match.group(1)) if match else 0
     return packs, None
 
-def leg_a3(content_dir, strict):
+def leg_a3(content_dir):
     """A3 tutorial-first: Tutorial.c4f must hold the UNIQUE NONZERO minimum
-    Folder.txt Index (Index=0 = unindexed, sorts last)."""
+    Folder.txt Index (Index=0 = unindexed, sorts last). Strict in BOTH modes
+    since tutorial-first-in-browser landed."""
     packs, err = scan_packs(content_dir)
     if err is not None:
         return "FAIL", err
@@ -224,7 +225,7 @@ def leg_a3(content_dir, strict):
     else:
         return "PASS", ("Tutorial.c4f holds the unique nonzero minimum "
                         "Folder.txt Index=%d" % min_index)
-    return ("FAIL" if strict else "RED_K"), detail
+    return "FAIL", detail  # strict in BOTH modes (tutorial-first-in-browser)
 
 def leg_a4(engine):
     """A4 locked-refusal: the MenuWalkLocked fixture must be refused (exit 1 +
@@ -254,17 +255,37 @@ def leg_a5(engine, content_dir):
         return "FAIL", "ColonyBay.c4s log has a [critical]/fatal/FAIL: line%s" % log_tail(log)
     return "PASS", "ColonyBay.c4s loads (exit 0, no FATAL)"
 
+def leg_a6(content_dir):
+    """A6 browser-purity: no browsable *.c4f pack under content may carry a
+    Tests.c4f subdirectory (the only browser-reachable test location) — the
+    scenario browser lists *.c4f packs and the *.c4s/*.c4f entries inside
+    them (C4StartupScenSelDlg.cpp CreateEntryForFile), so a Tests.c4f inside
+    a .c4f pack would leak test scenarios into the browser. Test packs under
+    .c4d/.c4g are never listed, so they are invisible and fine. Strict in
+    BOTH modes from birth (cycle 134)."""
+    offenders = []
+    # os.walk visits every directory under content; any *.c4f directory that
+    # directly contains a Tests.c4f child is a browser-reachable test leak.
+    for root, dirs, _files in os.walk(content_dir):
+        if os.path.basename(root).endswith(".c4f") and "Tests.c4f" in dirs:
+            offenders.append(os.path.relpath(os.path.join(root, "Tests.c4f"),
+                                             content_dir))
+    if offenders:
+        detail = "browser-reachable Tests.c4f in: %s" % ", ".join(sorted(offenders))
+        return "FAIL", detail  # strict in BOTH modes from birth
+    return "PASS", "no browsable .c4f pack contains a Tests.c4f subdirectory"
+
 def main(argv=None):
     ap = argparse.ArgumentParser(
         prog="menu_walk_smoke.py",
-        description="Five-leg new-player-walk smoke (spec 2026-09-17).")
+        description="Six-leg new-player-walk smoke (spec 2026-09-17).")
     ap.add_argument("--engine", required=True, metavar="PATH",
                     help="path to the clonk console binary (build/clonk)")
     ap.add_argument("--content-dir", required=True, metavar="PATH",
                     help="path to the content directory (workspace content/)")
     ap.add_argument("--strict", action="store_true",
-                    help="run every leg strict (A1 is strict in both modes; "
-                         "A3 FAILs on today's red state until tutorial-first-in-browser)")
+                    help="run every leg strict (A1/A3/A6 are strict in both "
+                         "modes; no KNOWN-RED legs remain)")
     args = ap.parse_args(argv)
 
     engine = os.path.abspath(args.engine)
@@ -279,25 +300,21 @@ def main(argv=None):
     results = [
         ("A1", leg_a1()),
         ("A2", leg_a2(engine, content_dir)),
-        ("A3", leg_a3(content_dir, args.strict)),
+        ("A3", leg_a3(content_dir)),  # strict in BOTH modes (tutorial-first-in-browser)
         ("A4", leg_a4(engine)),
         ("A5", leg_a5(engine, content_dir)),
+        ("A6", leg_a6(content_dir)),  # strict in BOTH modes (browser purity)
     ]
     failed = []
 
     for leg_id, (status, detail) in results:
         if status == "PASS":
-            flip = ""
-            if args.strict and leg_id in KNOWN_RED_OWNERS:
-                flip = " FLIP CANDIDATE (remove marker)"
-            print("%s: PASS: %s%s" % (leg_id, detail, flip))
+            print("%s: PASS: %s" % (leg_id, detail))
         elif status == "SKIP":
             print("%s: SKIP: %s" % (leg_id, detail))
         elif status == "FAIL":
             print("%s: FAIL: %s" % (leg_id, detail))
             failed.append(leg_id)
-        elif status == "RED_K":
-            print("%s: KNOWN-RED(%s): %s" % (leg_id, KNOWN_RED_OWNERS[leg_id], detail))
 
     if args.strict:
         if failed:
@@ -306,14 +323,12 @@ def main(argv=None):
         print("menu_walk_smoke PASS")
         return 0
 
-    # Default (report) mode.
+    # Default (report) mode. All legs are strict in both modes now (Addendum 1:
+    # no KNOWN-RED legs remain), so a failure here hard-FAILs the run just like
+    # --strict; the flag is kept for CLI compatibility.
     if failed:
         print("menu_walk_smoke FAIL (%s)" % ", ".join(failed))
         return 1
-    red_owners = ", ".join("%s (%s)" % (leg_id, KNOWN_RED_OWNERS[leg_id])
-                           for leg_id, widget in results if widget[0] == "RED_K")
-    if red_owners:
-        print("KNOWN-RED roadmap items: %s" % red_owners)
     print("menu_walk_smoke PASS")
     return 0
 
