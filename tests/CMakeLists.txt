@@ -315,6 +315,27 @@ foreach(scenario ${SMOKE_SCENARIOS})
     FAIL_REGULAR_EXPRESSION "FatalError|\\[error\\]|\\[fatal\\]")
 endforeach()
 
+# --- Menu-walk smoke (spec 2026-09-17-menu-walk-smoke, cycle 131) -----------
+# Five-leg new-player-walk driver (tools/menu_walk_smoke.py). Console builds
+# only (headless engine spawns). Deliberately NO FAIL_REGULAR_EXPRESSION:
+# ColonyBay logs pre-existing [error] DebugLog lines (verified at base); the
+# driver owns fail detection + exit codes. Content EXISTS guard mirrors
+# parameter_override_smoke: the Autobuild CI has no content checkout, and the
+# A2/A3/A5 legs need the content tree.
+if(PYTHON3 AND USE_CONSOLE
+   AND EXISTS "${CMAKE_SOURCE_DIR}/tools/menu_walk_smoke.py"
+   AND EXISTS "${LEGACYCLONK_CONTENT_DIR}")
+	add_test(NAME menu_walk_smoke
+		COMMAND "${PYTHON3}" "${CMAKE_SOURCE_DIR}/tools/menu_walk_smoke.py"
+			"--engine" "$<TARGET_FILE:clonk>"
+			"--content-dir" "${LEGACYCLONK_CONTENT_DIR}"
+		WORKING_DIRECTORY "${CMAKE_BINARY_DIR}")
+	set_tests_properties(menu_walk_smoke PROPERTIES
+		TIMEOUT 180
+		LABELS "smoke;menuwalk"
+		PASS_REGULAR_EXPRESSION "menu_walk_smoke PASS")
+endif()
+
 # --- PXS perf gate (spec pxs-particle-budget-benchmark) --------------------
 # Raw-throughput companion to smoke_PXSPerfSmoke: --frame-rate-cap 1000
 # lifts the 28 ms/tick pace so per-window wall-clock reflects simulation
