@@ -114,7 +114,8 @@ don't bother hauling components before the unlock.
 
 ## 6. Light the beacon at night
 
-**Goal:** trigger the trade-ship ending sequence.
+**Goal:** light the beacon at night; the round is won once it is lit and a
+**chemical factory** (`CHEM`) has been built.
 
 Wait for nightfall — the day/night cycle simply runs by itself, so let the
 sky darken. Then select the completed lighthouse and use its context-menu
@@ -124,8 +125,8 @@ about ten seconds later and grants **CHEM** (chemistry) knowledge to all
 players on arrival.
 
 Finish the round by building a **chemical factory** (`CHEM`): the goal is
-only fulfilled once the lighthouse is lit *and* a fully-built chemical
-factory stands next to it.
+fulfilled once the lighthouse is lit *and* a fully-built chemical factory
+has been constructed anywhere on the map.
 
 ---
 
@@ -133,10 +134,12 @@ factory stands next to it.
 
 - Want the full key reference? See the
   [Controls reference](controls.md).
-- Want the full course? Play the 10-scenario voiced
-  [Tutorial chain](https://github.com/GiantMGG/LegacyClonk/blob/master/docs/tutorials/first-object.md).
+- Want the full course? Open the game, choose **Start Game**, and play the
+  tutorial chain in the **Tutorial** folder of the scenario browser
+  (Tutorial01–Tutorial10).
 - Want to make your own scenario? Read the
-  [Modder Quickstart](https://github.com/GiantMGG/LegacyClonk/blob/master/docs/tutorials/first-object.md).
+  [Modder Quickstart](https://github.com/GiantMGG/LegacyClonk/blob/master/docs/tutorials/first-object.md) —
+  build your first custom object.
 - Got stuck? Press <kbd>Esc</kbd> → **Abort round?** → **Yes**; Colony Bay
   is replayable.
 
