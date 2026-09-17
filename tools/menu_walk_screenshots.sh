@@ -433,10 +433,12 @@ run_walk()
 	xkey Return
 	if wait_log_new "materials loaded" 120; then log "tutorial scenario loaded"; else log "GAP tutorial did not reach 'materials loaded'"; fi
 	sleep 3
+	# capture the log offset BEFORE the join keystrokes: the engine logs
+	# "Player join" ~1.3s after Return, so a post-keystroke mark would skip it
+	mark_log
 	xkey Down
 	xkey Return
-	mark_log
-	if wait_log_new "Player join" 30; then log "joined tutorial as player (gameplay started)"; else log "note: 'Player join' not seen; abort may hit the pre-game phase instead"; fi
+	if wait_log_new "Player join" 30; then log "joined tutorial as player (gameplay started)"; else log "note: 'Player join' not seen"; fi
 	sleep 8
 	shot 03-tutorial-running.png
 
@@ -540,9 +542,10 @@ run_walk()
 	shot 10-colony-bay-starting.png
 
 	# 11 - accept the default clonk; the world view should appear
+	# capture the log offset BEFORE the join keystrokes (join is logged late)
+	mark_log
 	xkey Down
 	xkey Return
-	mark_log
 	if wait_log_new "Player join" 30; then log "joined Colony Bay as player"; else log "note: 'Player join' not seen"; fi
 	sleep 12
 	shot 11-colony-bay-loaded.png
