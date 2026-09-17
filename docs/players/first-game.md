@@ -87,8 +87,8 @@ assembles vehicles from your blueprints.
 
 Keep building. A `WealthCheck` effect fires every 30 frames and checks the
 settlement value; at **≥ 300** it grants the `LGHT` (lighthouse) recipe to
-every player and pops the `$MsgLighthouseUnlocked$` toast at the bottom of
-the screen.
+every player and a toast appears at the bottom of the screen: *"The
+lighthouse recipe is now available! Build it on the headland stump."*
 
 !!! note "Note"
     The recipe is granted to all players, human or AI. In Colony Bay you
