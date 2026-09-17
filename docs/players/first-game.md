@@ -70,14 +70,14 @@ menu. There you can buy materials and `CNKT` construction kits. Planting a
 `CNKT` kit opens a construction site — pick **sawmill** (`SAWM`) from the
 blueprint menu, then supply its components to complete it. The sawmill's
 workers chop trees and work them into `WOOD`; the foundry (`FNDR`) smelts
-ore into `METL` using wood or coal as fuel; the anvil (`ANVL`) hammers
-`WOOD` + `METL` into new `CNKT` kits; and the workshop (`WRKS`) assembles
-vehicles from your blueprints.
+ore into `METL` using wood or coal as fuel; and the workshop (`WRKS`)
+assembles vehicles from your blueprints.
 
 !!! tip "Pro tip"
     Every placed structure counts toward your settlement value, scaled by
-    how built-up it is — you don't need to finish a building for the
-    counter to climb.
+    how built-up it is. You don't need to finish a building for its value
+    to count; when your total crosses **300**, a toast at the bottom of the
+    screen announces the lighthouse recipe.
 
 ---
 
@@ -102,8 +102,8 @@ the screen.
 
 The pre-placed stump on the headland already counts as 10% completion.
 Supply it with `ROCK`, `WOOD`, and `METL` (8 / 4 / 2 per blueprint) to top
-it up to 100%. Advancing it requires the `LGHT` recipe from step 4, so
-don't bother hauling components before the unlock.
+it up to 100%. The `LGHT` blueprint appears in the construction menu only
+after the recipe unlocks at wealth 300.
 
 !!! tip "Pro tip"
     The pre-placed stump counts as 10% completion — don't demolish it. If
@@ -118,11 +118,14 @@ don't bother hauling components before the unlock.
 **chemical factory** (`CHEM`) has been built.
 
 Wait for nightfall — the day/night cycle simply runs by itself, so let the
-sky darken. Then select the completed lighthouse and use its context-menu
-entry **Light the beacon**; the lighthouse refuses to light during the day
-or while incomplete. Once lit, a trade ship sails in from the left edge
-about ten seconds later and grants **CHEM** (chemistry) knowledge to all
-players on arrival.
+sky darken. The wait is worth using: pre-gather the chemical factory's
+materials (`ROCK`×5 and `METL`×3) while the sky darkens. Then aim the
+cursor at the completed lighthouse and press <kbd>K</kbd> (Menu on the
+Two-Hand WASD+Mouse preset) to open its context menu, and choose **Light
+the beacon**; the lighthouse refuses to light during the day or while
+incomplete. Once lit, a trade ship sails in from the left edge about ten
+seconds later and grants **CHEM** (chemistry) knowledge to all players on
+arrival.
 
 Finish the round by building a **chemical factory** (`CHEM`): the goal is
 fulfilled once the lighthouse is lit *and* a fully-built chemical factory
