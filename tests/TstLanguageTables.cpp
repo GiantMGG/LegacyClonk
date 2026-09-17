@@ -84,21 +84,25 @@ namespace
 		const C4ResStrTable us{"US", usText};
 		const C4ResStrTable de{"DE", deText};
 
+		// GetEntry returns std::string_view; assertion operands must be wrapped in
+		// std::string because the MSVC prebuilt deps Catch2 lib lacks the
+		// StringMaker<std::string_view> definition (CATCH_CONFIG_CPP17_STRING_VIEW).
+
 		// --- English (welcome dialog, C4StartupWelcomeDlg.cpp) ------------
-		REQUIRE(us.GetEntry(C4ResStrTableKey::IDS_WELCOME_TITLE) == "Welcome to LegacyClonk");
-		REQUIRE(us.GetEntry(C4ResStrTableKey::IDS_WELCOME_PLAYTUTORIAL) == "Play tutorial");
-		REQUIRE(us.GetEntry(C4ResStrTableKey::IDS_WELCOME_SKIP) == "Skip for now");
-		REQUIRE(us.GetEntry(C4ResStrTableKey::IDS_WELCOME_READGUIDE) == "Read the 5-minute quickstart");
-		REQUIRE(us.GetEntry(C4ResStrTableKey::IDS_WELCOME_BODY)
+		REQUIRE(std::string{us.GetEntry(C4ResStrTableKey::IDS_WELCOME_TITLE)} == "Welcome to LegacyClonk");
+		REQUIRE(std::string{us.GetEntry(C4ResStrTableKey::IDS_WELCOME_PLAYTUTORIAL)} == "Play tutorial");
+		REQUIRE(std::string{us.GetEntry(C4ResStrTableKey::IDS_WELCOME_SKIP)} == "Skip for now");
+		REQUIRE(std::string{us.GetEntry(C4ResStrTableKey::IDS_WELCOME_READGUIDE)} == "Read the 5-minute quickstart");
+		REQUIRE(std::string{us.GetEntry(C4ResStrTableKey::IDS_WELCOME_BODY)}
 			== "Clonk is a tactical action game of digging, building and commanding.\r\n"
 			   "Would you like to play the voiced tutorial?");
 
 		// --- German (welcome dialog), byte-exact Latin-1 -------------
-		REQUIRE(de.GetEntry(C4ResStrTableKey::IDS_WELCOME_TITLE) == "Willkommen bei LegacyClonk");
-		REQUIRE(de.GetEntry(C4ResStrTableKey::IDS_WELCOME_PLAYTUTORIAL) == "Tutorial spielen");
-		REQUIRE(de.GetEntry(C4ResStrTableKey::IDS_WELCOME_SKIP) == "Vorerst \xFC" "berspringen");
-		REQUIRE(de.GetEntry(C4ResStrTableKey::IDS_WELCOME_READGUIDE) == "5-Minuten-Kurzanleitung lesen");
-		REQUIRE(de.GetEntry(C4ResStrTableKey::IDS_WELCOME_BODY)
+		REQUIRE(std::string{de.GetEntry(C4ResStrTableKey::IDS_WELCOME_TITLE)} == "Willkommen bei LegacyClonk");
+		REQUIRE(std::string{de.GetEntry(C4ResStrTableKey::IDS_WELCOME_PLAYTUTORIAL)} == "Tutorial spielen");
+		REQUIRE(std::string{de.GetEntry(C4ResStrTableKey::IDS_WELCOME_SKIP)} == "Vorerst \xFC" "berspringen");
+		REQUIRE(std::string{de.GetEntry(C4ResStrTableKey::IDS_WELCOME_READGUIDE)} == "5-Minuten-Kurzanleitung lesen");
+		REQUIRE(std::string{de.GetEntry(C4ResStrTableKey::IDS_WELCOME_BODY)}
 			== "Clonk ist ein taktisches Actionspiel: Du gr\xE4" "bst, baust und befehligst.\r\n"
 			   "M\xF6" "chtest du das vertonte Tutorial spielen?");
 	}
@@ -110,28 +114,32 @@ namespace
 		const C4ResStrTable us{"US", usText};
 		const C4ResStrTable de{"DE", deText};
 
+		// GetEntry returns std::string_view; assertion operands must be wrapped in
+		// std::string because the MSVC prebuilt deps Catch2 lib lacks the
+		// StringMaker<std::string_view> definition (CATCH_CONFIG_CPP17_STRING_VIEW).
+
 		// --- English (pre-game options dialog, C4OfflineOptionsDlg.cpp) ---
-		REQUIRE(us.GetEntry(C4ResStrTableKey::IDS_BTN_WORLDSETTINGS) == "World Settings");
-		REQUIRE(us.GetEntry(C4ResStrTableKey::IDS_BTN_QUICKSTART) == "Quick Start");
-		REQUIRE(us.GetEntry(C4ResStrTableKey::IDS_BTN_BACK) == "Back");
-		REQUIRE(us.GetEntry(C4ResStrTableKey::IDS_CTL_OBJECTIVES) == "Objectives");
-		REQUIRE(us.GetEntry(C4ResStrTableKey::IDS_CTL_RULES) == "Rules");
-		REQUIRE(us.GetEntry(C4ResStrTableKey::IDS_CTL_WINNINGCONDITIONS) == "Winning Conditions");
-		REQUIRE(us.GetEntry(C4ResStrTableKey::IDS_DLG_LANDSCAPE) == "Landscape");
+		REQUIRE(std::string{us.GetEntry(C4ResStrTableKey::IDS_BTN_WORLDSETTINGS)} == "World Settings");
+		REQUIRE(std::string{us.GetEntry(C4ResStrTableKey::IDS_BTN_QUICKSTART)} == "Quick Start");
+		REQUIRE(std::string{us.GetEntry(C4ResStrTableKey::IDS_BTN_BACK)} == "Back");
+		REQUIRE(std::string{us.GetEntry(C4ResStrTableKey::IDS_CTL_OBJECTIVES)} == "Objectives");
+		REQUIRE(std::string{us.GetEntry(C4ResStrTableKey::IDS_CTL_RULES)} == "Rules");
+		REQUIRE(std::string{us.GetEntry(C4ResStrTableKey::IDS_CTL_WINNINGCONDITIONS)} == "Winning Conditions");
+		REQUIRE(std::string{us.GetEntry(C4ResStrTableKey::IDS_DLG_LANDSCAPE)} == "Landscape");
 
 		// --- German (pre-game options dialog), byte-exact Latin-1 -----
-		REQUIRE(de.GetEntry(C4ResStrTableKey::IDS_BTN_WORLDSETTINGS) == "Welteinstellungen");
-		REQUIRE(de.GetEntry(C4ResStrTableKey::IDS_BTN_QUICKSTART) == "Schnellstart");
-		REQUIRE(de.GetEntry(C4ResStrTableKey::IDS_BTN_BACK) == "Zur\xFC" "ck");
-		REQUIRE(de.GetEntry(C4ResStrTableKey::IDS_CTL_OBJECTIVES) == "Ziele");
-		REQUIRE(de.GetEntry(C4ResStrTableKey::IDS_CTL_RULES) == "Regeln");
-		REQUIRE(de.GetEntry(C4ResStrTableKey::IDS_CTL_WINNINGCONDITIONS) == "Siegbedingungen");
-		REQUIRE(de.GetEntry(C4ResStrTableKey::IDS_DLG_LANDSCAPE) == "Landschaft");
+		REQUIRE(std::string{de.GetEntry(C4ResStrTableKey::IDS_BTN_WORLDSETTINGS)} == "Welteinstellungen");
+		REQUIRE(std::string{de.GetEntry(C4ResStrTableKey::IDS_BTN_QUICKSTART)} == "Schnellstart");
+		REQUIRE(std::string{de.GetEntry(C4ResStrTableKey::IDS_BTN_BACK)} == "Zur\xFC" "ck");
+		REQUIRE(std::string{de.GetEntry(C4ResStrTableKey::IDS_CTL_OBJECTIVES)} == "Ziele");
+		REQUIRE(std::string{de.GetEntry(C4ResStrTableKey::IDS_CTL_RULES)} == "Regeln");
+		REQUIRE(std::string{de.GetEntry(C4ResStrTableKey::IDS_CTL_WINNINGCONDITIONS)} == "Siegbedingungen");
+		REQUIRE(std::string{de.GetEntry(C4ResStrTableKey::IDS_DLG_LANDSCAPE)} == "Landschaft");
 
 		// --- pre-existing gap fixes (engine-referenced, tables missed) ---
-		REQUIRE(us.GetEntry(C4ResStrTableKey::IDS_ERR_SECTION) == "Error loading section.");
-		REQUIRE(us.GetEntry(C4ResStrTableKey::IDS_MSG_VOTE_ENABLED_DESC) == "Voting is enabled.");
-		REQUIRE(de.GetEntry(C4ResStrTableKey::IDS_ERR_SECTION) == "Fehler beim Laden der Sektion.");
-		REQUIRE(de.GetEntry(C4ResStrTableKey::IDS_MSG_VOTE_ENABLED_DESC) == "Es wird abgestimmt.");
+		REQUIRE(std::string{us.GetEntry(C4ResStrTableKey::IDS_ERR_SECTION)} == "Error loading section.");
+		REQUIRE(std::string{us.GetEntry(C4ResStrTableKey::IDS_MSG_VOTE_ENABLED_DESC)} == "Voting is enabled.");
+		REQUIRE(std::string{de.GetEntry(C4ResStrTableKey::IDS_ERR_SECTION)} == "Fehler beim Laden der Sektion.");
+		REQUIRE(std::string{de.GetEntry(C4ResStrTableKey::IDS_MSG_VOTE_ENABLED_DESC)} == "Es wird abgestimmt.");
 	}
 }
