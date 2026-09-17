@@ -44,7 +44,7 @@ constexpr const char *kWelcomePlayBtn = "Play tutorial";
 constexpr const char *kWelcomeSkipBtn = "Skip for now";
 constexpr const char *kWelcomeReadGuideBtn = "Read the 5-minute quickstart";
 constexpr const char *kFirstGameGuideURL =
-	"https://legacyclonk.github.io/LegacyClonk/players/first-game/";
+	"https://github.com/GiantMGG/LegacyClonk/blob/master/docs/players/first-game.md";
 
 // Hardcoded scenario path for the first tutorial.
 constexpr const char *kTutorial01Path = "Tutorial.c4f\\Tutorial01.c4s";

@@ -7,7 +7,7 @@ LegacyClonk continues to receive updates and ensures compatibility with existing
 
 The goal is to fix as many bugs and inelegances as possible, improving quality-of-life and adding nice-to-have features while not impacting the gameplay we’re all used to.
 
-New player? Read the [5-minute first-game guide](https://legacyclonk.github.io/LegacyClonk/players/first-game/).
+New player? Read the [5-minute first-game guide](https://github.com/GiantMGG/LegacyClonk/blob/master/docs/players/first-game.md).
 
 ## Installation
 Please refer to the [English](https://clonkspot.org/lc-en#installation-1) or [German](https://clonkspot.org/lc#installation-1) installation manual if you simply want to play the game.
@@ -117,7 +117,7 @@ Remark: In order to join network games with other players (who use release binar
 ## Your first game
 
 Never played Clonk before? The
-[5-minute first-game guide](https://legacyclonk.github.io/LegacyClonk/players/first-game/)
+[5-minute first-game guide](https://github.com/GiantMGG/LegacyClonk/blob/master/docs/players/first-game.md)
 walks you through the shipped Colony Bay scenario: clear the ruins,
 rebuild the wood–stone–tools chain, and light the lighthouse beacon
 at night to attract a trade ship.
@@ -125,11 +125,11 @@ at night to attract a trade ship.
 ## Engine architecture
 
 New to the engine source? The
-[Engine architecture](https://legacyclonk.github.io/LegacyClonk/contributors/architecture/)
+[Engine architecture](https://github.com/GiantMGG/LegacyClonk/blob/master/docs/contributors/architecture.md)
 page walks through the `C4*` subsystem layout, the main loop in
 `C4Game::Execute()`, the C4Aul parse→exec pipeline, the network lockstep
 loop, and the rendering pipeline. Start at the
-[Contributors overview](https://legacyclonk.github.io/LegacyClonk/contributors/)
+[Contributors overview](https://github.com/GiantMGG/LegacyClonk/blob/master/docs/contributors/index.md)
 for a one-paragraph-per-subsystem map.
 
 ## Contact

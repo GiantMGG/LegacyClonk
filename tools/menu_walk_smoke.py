@@ -8,7 +8,8 @@ guide's first scenario (Colony Bay).
 Legs:
   A1 guide-URL:    parse kFirstGameGuideURL from src/C4StartupWelcomeDlg.cpp
                    (the constexpr spans two source lines) and HTTP-GET it;
-                   red on status >= 400 or on a missing bundled/local target.
+                   FAIL on status >= 400 or on a missing bundled/local target
+                   (strict in both modes; was KNOWN-RED pre-quickstart-link-fix).
   A2 tutorial-load: content/Tutorial.c4f/Tutorial01.c4s loads under
                    --smoke-run 350 (mirrors kTutorial01Path / OnPlayTutorialBtn).
   A3 tutorial-first: Tutorial.c4f holds the UNIQUE nonzero minimum Folder.txt
@@ -21,11 +22,11 @@ Legs:
                    FATAL). Plain [error] DebugLog noise is TOLERATED (ColonyBay
                    logs pre-existing [error] lines at base).
 
-Addendum 1 (binding): A1/A3 ship in KNOWN-RED report mode in the default run —
-each prints KNOWN-RED(<slug>): <detail>, the run exits 0, and a loud summary
-names the owning roadmap items (quickstart-link-fix, tutorial-first-in-browser).
---strict runs every leg strict (cycle RED evidence). A2/A4/A5 are strict in BOTH
-modes. Any UNDECLARED leg failure is a hard FAIL in both modes.
+Addendum 1 (binding): A1/A3 shipped in KNOWN-RED report mode in the default run.
+quickstart-link-fix has LANDED: A1 is strict in BOTH modes now, so a ≥400 status
+or a missing bundled target hard-FAILs the run. A3 keeps its KNOWN-RED marker
+(owner: tutorial-first-in-browser) until that sibling fix lands. A2/A4/A5 are
+strict in BOTH modes. Any UNDECLARED leg failure is a hard FAIL in both modes.
 
 Engine discipline (rules/engine-behavior-gotchas.md #6): stdin=DEVNULL at EVERY
 engine spawn, via tools/run_engine_headless.py, with cwd = the engine binary's
@@ -51,8 +52,10 @@ RUN_HEADLESS = os.path.join(REPO_DIR, "tools", "run_engine_headless.py")
 GUIDE_URL_RE = re.compile(r'kFirstGameGuideURL\s*=\s*"([^"]+)"', re.DOTALL)
 INDEX_RE = re.compile(r"^Index\s*=\s*(\d+)\s*$", re.MULTILINE)
 
-# Roadmap owners of the KNOWN-RED legs (Addendum 1).
-KNOWN_RED_OWNERS = {"A1": "quickstart-link-fix", "A3": "tutorial-first-in-browser"}
+# Roadmap owners of the KNOWN-RED legs (Addendum 1). A1's KNOWN-RED was removed
+# by quickstart-link-fix: A1 is strict in both modes; A3 stays KNOWN-RED until
+# tutorial-first-in-browser lands.
+KNOWN_RED_OWNERS = {"A3": "tutorial-first-in-browser"}
 
 SMOKE_TICKS = "350"
 RUN_TIMEOUT = 60        # seconds, per engine spawn
@@ -122,9 +125,9 @@ def http_status(url):
 
 # --- Legs -------------------------------------------------------------------
 
-def leg_a1(strict):
-    """A1 guide-URL: parse kFirstGameGuideURL; red on HTTP >= 400 or missing
-    bundled target. Regex parse failure is a hard FAIL in both modes."""
+def leg_a1():
+    """A1 guide-URL: parse kFirstGameGuideURL; FAIL on HTTP >= 400 or a missing
+    bundled target. Strict in BOTH modes since quickstart-link-fix landed."""
     try:
         src = open(WELCOME_DLG, "r", encoding="utf-8", errors="replace").read()
     except OSError as exc:
@@ -140,7 +143,7 @@ def leg_a1(strict):
             return "SKIP", "A1 network unavailable (persistent connection failure)"
         if status >= 400:
             detail = "guide URL %s -> HTTP %d" % (raw, status)
-            return ("FAIL" if strict else "RED_K"), detail
+            return "FAIL", detail  # strict in BOTH modes (quickstart-link-fix flip)
         return "PASS", "guide URL %s -> HTTP %d" % (raw, status)
     # Bundled/local doc target (quickstart-link-fix may take either shape).
     # Resolve relative to the repo docs root, tolerating a leading "./", a
@@ -155,7 +158,7 @@ def leg_a1(strict):
     if os.path.exists(target):
         return "PASS", "bundled guide target %s exists" % target
     detail = "bundled guide target %s missing (resolved %s)" % (raw, target)
-    return ("FAIL" if strict else "RED_K"), detail
+    return "FAIL", detail  # strict in BOTH modes (quickstart-link-fix flip)
 
 def leg_a2(engine, content_dir):
     """A2 tutorial-load: Tutorial01.c4s must reach the end of --smoke-run 350
@@ -260,7 +263,8 @@ def main(argv=None):
     ap.add_argument("--content-dir", required=True, metavar="PATH",
                     help="path to the content directory (workspace content/)")
     ap.add_argument("--strict", action="store_true",
-                    help="run every leg strict (A1/A3 FAIL on today's red state)")
+                    help="run every leg strict (A1 is strict in both modes; "
+                         "A3 FAILs on today's red state until tutorial-first-in-browser)")
     args = ap.parse_args(argv)
 
     engine = os.path.abspath(args.engine)
@@ -273,7 +277,7 @@ def main(argv=None):
         return 1
 
     results = [
-        ("A1", leg_a1(args.strict)),
+        ("A1", leg_a1()),
         ("A2", leg_a2(engine, content_dir)),
         ("A3", leg_a3(content_dir, args.strict)),
         ("A4", leg_a4(engine)),
