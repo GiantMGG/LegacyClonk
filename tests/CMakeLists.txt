@@ -13,11 +13,14 @@
 
 function (add_test_target TEST_NAME)
 	set(TARGET "test_${TEST_NAME}")
-	cmake_parse_arguments(PARSE_ARGV 1 "ADD_TEST" "LINK_ENGINE" "" "SOURCES;INCLUDE_DIRS;LIBRARIES")
+	cmake_parse_arguments(PARSE_ARGV 1 "ADD_TEST" "LINK_ENGINE" "" "SOURCES;INCLUDE_DIRS;LIBRARIES;DEFINITIONS")
 
 	add_executable("${TARGET}" ${ADD_TEST_SOURCES})
 	target_include_directories("${TARGET}" PRIVATE "${CMAKE_SOURCE_DIR}/src" ${ADD_TEST_INCLUDE_DIRS})
 	target_compile_definitions("${TARGET}" PRIVATE C4ENGINE)
+	if (ADD_TEST_DEFINITIONS)
+		target_compile_definitions("${TARGET}" PRIVATE ${ADD_TEST_DEFINITIONS})
+	endif ()
 	if (USE_CONSOLE)
 		target_compile_definitions("${TARGET}" PRIVATE USE_CONSOLE=1)
 	endif ()
@@ -169,6 +172,13 @@ add_test_target(OptionsOverride
 add_test_target(SliderContract
 	SOURCES "${CMAKE_SOURCE_DIR}/tests/TstSliderContract.cpp"
 	LINK_ENGINE
+)
+
+# --- Language-table regression test (spec translate-new-dialogs) -----------
+add_test_target(LanguageTables
+	SOURCES "${CMAKE_SOURCE_DIR}/tests/TstLanguageTables.cpp"
+	LINK_ENGINE
+	DEFINITIONS "LANG_SRC_DIR=\"${CMAKE_SOURCE_DIR}\""
 )
 
 # Python 3 for the smoke-test engine wrapper (tools/run_engine_headless.py)
