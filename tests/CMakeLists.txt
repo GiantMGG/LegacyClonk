@@ -331,7 +331,10 @@ if(PYTHON3 AND USE_CONSOLE
 			"--content-dir" "${LEGACYCLONK_CONTENT_DIR}"
 		WORKING_DIRECTORY "${CMAKE_BINARY_DIR}")
 	set_tests_properties(menu_walk_smoke PROPERTIES
-		TIMEOUT 180
+		# Worst-case driver runtime ~240 s: A1 up to 4x15 s HTTP + 3 engine
+		# spawns x 60 s RUN_TIMEOUT (GLM review finding 2). Typical runtime is
+		# ~20 s; the headroom only matters on loaded CI runners.
+		TIMEOUT 240
 		LABELS "smoke;menuwalk"
 		PASS_REGULAR_EXPRESSION "menu_walk_smoke PASS")
 endif()
