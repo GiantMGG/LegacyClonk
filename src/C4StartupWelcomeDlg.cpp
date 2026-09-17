@@ -21,6 +21,7 @@
 #include "C4Game.h"
 #include "C4GuiResource.h"
 #include "C4OpenURL.h"
+#include "C4ResStrTable.h"
 #include "C4Startup.h"
 #include "C4Gui.h"
 
@@ -34,15 +35,6 @@ constexpr int32_t kWelcomeBtnHgt = C4GUI_BigButtonHgt;
 constexpr int32_t kWelcomeBtnWdt = 160;
 constexpr int32_t kWelcomeBtnGap = 20;
 
-// TODO(legacyclonk/LegacyClonk#000): Hardcoded English strings for now; follow-up
-// wires these through LoadResStr + the engine string table for DE/other locales.
-constexpr const char *kWelcomeTitle = "Welcome to LegacyClonk";
-constexpr const char *kWelcomeBody =
-	"Clonk is a tactical action game of digging, building and commanding.\n"
-	"Would you like to play the voiced tutorial?";
-constexpr const char *kWelcomePlayBtn = "Play tutorial";
-constexpr const char *kWelcomeSkipBtn = "Skip for now";
-constexpr const char *kWelcomeReadGuideBtn = "Read the 5-minute quickstart";
 constexpr const char *kFirstGameGuideURL =
 	"https://github.com/GiantMGG/LegacyClonk/blob/master/docs/players/first-game.md";
 
@@ -51,12 +43,12 @@ constexpr const char *kTutorial01Path = "Tutorial.c4f\\Tutorial01.c4s";
 } // namespace
 
 C4StartupWelcomeDlg::C4StartupWelcomeDlg()
-	: C4GUI::Dialog(kWelcomeDlgWdt, kWelcomeDlgHgt, kWelcomeTitle, false)
+	: C4GUI::Dialog(kWelcomeDlgWdt, kWelcomeDlgHgt, LoadResStr(C4ResStrTableKey::IDS_WELCOME_TITLE), false)
 {
 	// Body text label across the top of the dialog.
 	C4GUI::ComponentAligner caBody(GetClientRect(), 10, 10, false);
 	const C4Rect rcBody = caBody.GetFromTop(120);
-	C4GUI::Label *pBody = new C4GUI::Label(kWelcomeBody, rcBody, ALeft, C4StartupFontClr, &C4GUI::GetRes()->TextFont, false, false);
+	C4GUI::Label *pBody = new C4GUI::Label(LoadResStr(C4ResStrTableKey::IDS_WELCOME_BODY), rcBody, ALeft, C4StartupFontClr, &C4GUI::GetRes()->TextFont, false, false);
 	AddElement(pBody);
 
 	// Two buttons centered at the bottom, plus a third "Read the 5-minute
@@ -74,16 +66,16 @@ C4StartupWelcomeDlg::C4StartupWelcomeDlg()
 		kWelcomeBtnWdt,
 		kWelcomeBtnHgt);
 	pBtn = new C4GUI::CallbackButton<C4StartupWelcomeDlg>(
-		kWelcomeReadGuideBtn, rcGuideBtn,
+		LoadResStr(C4ResStrTableKey::IDS_WELCOME_READGUIDE), rcGuideBtn,
 		&C4StartupWelcomeDlg::OnReadGuideBtn);
 	AddElement(pBtn);
 	const C4Rect rcPlayBtn(GetClientRect().Wdt / 2 - iTotalBtnWdt / 2, iBtnY, kWelcomeBtnWdt, kWelcomeBtnHgt);
-	pBtn = new C4GUI::CallbackButton<C4StartupWelcomeDlg>(kWelcomePlayBtn, rcPlayBtn, &C4StartupWelcomeDlg::OnPlayTutorialBtn);
+	pBtn = new C4GUI::CallbackButton<C4StartupWelcomeDlg>(LoadResStr(C4ResStrTableKey::IDS_WELCOME_PLAYTUTORIAL), rcPlayBtn, &C4StartupWelcomeDlg::OnPlayTutorialBtn);
 	AddElement(pBtn);
 	SetFocus(pBtn, false); // "Play tutorial" is the default focus
 
 	const C4Rect rcSkipBtn(GetClientRect().Wdt / 2 + iTotalBtnWdt / 2 - kWelcomeBtnWdt, iBtnY, kWelcomeBtnWdt, kWelcomeBtnHgt);
-	pBtn = new C4GUI::CallbackButton<C4StartupWelcomeDlg>(kWelcomeSkipBtn, rcSkipBtn, &C4StartupWelcomeDlg::OnSkipBtn);
+	pBtn = new C4GUI::CallbackButton<C4StartupWelcomeDlg>(LoadResStr(C4ResStrTableKey::IDS_WELCOME_SKIP), rcSkipBtn, &C4StartupWelcomeDlg::OnSkipBtn);
 	AddElement(pBtn);
 }
 

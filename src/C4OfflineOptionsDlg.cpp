@@ -692,10 +692,10 @@ void C4OfflineOptionsDlg::CreateLandingStage(const C4Rect &rcStage)
 
 	// the equal-size [World Settings][Quick Start] pair, centered
 	C4GUI::ComponentAligner caPair(caStage.GetCentered(caStage.GetInnerWidth() * 3 / 4, C4GUI_ButtonHgt + 8), 10, 4);
-	pBtnWorldSettings = new C4GUI::CallbackButton<C4OfflineOptionsDlg>("World Settings",
+	pBtnWorldSettings = new C4GUI::CallbackButton<C4OfflineOptionsDlg>(LoadResStr(C4ResStrTableKey::IDS_BTN_WORLDSETTINGS),
 		caPair.GetFromLeft(caPair.GetInnerWidth() / 2), &C4OfflineOptionsDlg::OnBtnWorldSettings);
 	pLandingStage->AddElement(pBtnWorldSettings);
-	pBtnQuickStart = new C4GUI::CallbackButton<C4OfflineOptionsDlg>("Quick Start",
+	pBtnQuickStart = new C4GUI::CallbackButton<C4OfflineOptionsDlg>(LoadResStr(C4ResStrTableKey::IDS_BTN_QUICKSTART),
 		caPair.GetAll(), &C4OfflineOptionsDlg::OnBtnStart);
 	pLandingStage->AddElement(pBtnQuickStart);
 
@@ -718,7 +718,7 @@ void C4OfflineOptionsDlg::CreateSettingsStage(const C4Rect &rcStage)
 	// remains in the strip)
 	C4GUI::ComponentAligner caBottom(caMain.GetFromBottom(C4GUI_BigButtonHgt + 8), 10, 4);
 	C4GUI::ComponentAligner caBackCell(caBottom.GetFromLeft(120), 10, 4);
-	pBtnBack = new C4GUI::CallbackButton<C4OfflineOptionsDlg>("Back",
+	pBtnBack = new C4GUI::CallbackButton<C4OfflineOptionsDlg>(LoadResStr(C4ResStrTableKey::IDS_BTN_BACK),
 		caBackCell.GetCentered(110, C4GUI_ButtonHgt), &C4OfflineOptionsDlg::OnBtnBack);
 	pSettingsStage->AddElement(pBtnBack);
 	C4GUI::ComponentAligner caAbortCell(caBottom.GetFromLeft(120), 10, 4);
@@ -817,11 +817,11 @@ void C4OfflineOptionsDlg::CreatePickers(const C4Rect &rcPickers)
 	// Winning Conditions — the four §2.1 acceptance rows atop the pickers
 	CreateWinConditionPanel();
 
-	// Objectives — one checkbox row per loaded C4D_Goal def (spec §2.3;
+	// objectives — one checkbox row per loaded C4D_Goal def (spec §2.3;
 	// the enum constraint: ONLY C4D_Goal/C4D_Rule defs are enumerated);
 	// defs that declare a count channel (MaxUserSelect > 1, resolved —
 	// never per-ID literals) grow a count slider (52-px row)
-	AddPickerSectionHeader("Objectives");
+	AddPickerSectionHeader(LoadResStr(C4ResStrTableKey::IDS_CTL_OBJECTIVES));
 	for (std::size_t i = 0; C4Def *pDef = Game.Defs.GetDef(i, C4D_Goal); ++i)
 	{
 		const C4CountSliderParams CountParams = ResolveCountSliderParams(
@@ -833,7 +833,7 @@ void C4OfflineOptionsDlg::CreatePickers(const C4Rect &rcPickers)
 	}
 
 	// Rules — one checkbox row per loaded C4D_Rule def (same eligibility)
-	AddPickerSectionHeader("Rules");
+	AddPickerSectionHeader(LoadResStr(C4ResStrTableKey::IDS_CTL_RULES));
 	for (std::size_t i = 0; C4Def *pDef = Game.Defs.GetDef(i, C4D_Rule); ++i)
 	{
 		const C4CountSliderParams CountParams = ResolveCountSliderParams(
@@ -858,7 +858,7 @@ void C4OfflineOptionsDlg::CreateWinConditionPanel()
 	// inside the same savegame gate as the pickers (resume rounds never
 	// re-run InitGoals/InitRules — spec edge case 6).
 	static_assert(std::size(kWinConditionDescriptors) == 3); // pWinComboRows bound
-	AddPickerSectionHeader("Winning Conditions");
+	AddPickerSectionHeader(LoadResStr(C4ResStrTableKey::IDS_CTL_WINNINGCONDITIONS));
 	const int32_t iListWdt = pPickerList->GetItemWidth();
 	for (std::size_t i = 0; i < std::size(kWinConditionDescriptors); ++i)
 	{
@@ -992,8 +992,8 @@ void C4OfflineOptionsDlg::CreateLandscapePanel(const C4Rect &rcPanel)
 	// children are laid out in the panel's own coordinate space
 	C4GUI::ComponentAligner caPanel(C4Rect(0, 0, rcPanel.Wdt, rcPanel.Hgt), 6, 3, true);
 
-	// header (hardcoded-English precedent: the picker section headers)
-	pLandscapePanel->AddElement(new C4GUI::Label("Landscape",
+	// header
+	pLandscapePanel->AddElement(new C4GUI::Label(LoadResStr(C4ResStrTableKey::IDS_DLG_LANDSCAPE),
 		caPanel.GetFromTop(16), ALeft, C4GUI_CaptionFontClr, &C4GUI::GetRes()->CaptionFont));
 
 	// hero preview (spec §2: aspect-fit, ~40% of the pane height —
