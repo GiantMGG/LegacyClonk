@@ -316,12 +316,12 @@ foreach(scenario ${SMOKE_SCENARIOS})
 endforeach()
 
 # --- Menu-walk smoke (spec 2026-09-17-menu-walk-smoke, cycle 131) -----------
-# Five-leg new-player-walk driver (tools/menu_walk_smoke.py). Console builds
+# Six-leg new-player-walk driver (tools/menu_walk_smoke.py). Console builds
 # only (headless engine spawns). Deliberately NO FAIL_REGULAR_EXPRESSION:
 # ColonyBay logs pre-existing [error] DebugLog lines (verified at base); the
 # driver owns fail detection + exit codes. Content EXISTS guard mirrors
 # parameter_override_smoke: the Autobuild CI has no content checkout, and the
-# A2/A3/A5 legs need the content tree.
+# A2/A3/A5/A6 legs need the content tree.
 if(PYTHON3 AND USE_CONSOLE
    AND EXISTS "${CMAKE_SOURCE_DIR}/tools/menu_walk_smoke.py"
    AND EXISTS "${LEGACYCLONK_CONTENT_DIR}")
