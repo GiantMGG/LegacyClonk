@@ -195,6 +195,7 @@ void C4SHead::CompileFunc(StdCompiler *pComp, bool fSection)
 		MainForcedControlStyle = ForcedControlStyle;
 		pComp->Value(mkNamingAdapt(mkStringAdaptMA(Engine),        "Engine",                ""));
 		pComp->Value(mkNamingAdapt(mkStringAdaptMA(MissionAccess), "MissionAccess",         ""));
+		pComp->Value(mkNamingAdapt(SkipPreGameOptions,             "SkipPregameOptions",    0));
 		pComp->Value(mkNamingAdapt(NetworkGame,                    "NetworkGame",           false));
 		pComp->Value(mkNamingAdapt(NetworkRuntimeJoin,             "NetworkRuntimeJoin",    false));
 		pComp->Value(mkNamingAdapt(ForcedGfxMode,                  "ForcedGfxMode",         0));

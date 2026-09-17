@@ -85,6 +85,7 @@ public:
 	int32_t RandomSeed{};
 	char Engine[C4MaxTitle + 1]{}; // Relative filename of engine to be used for this scenario
 	char MissionAccess[C4MaxTitle + 1]{};
+	int32_t SkipPreGameOptions{}; // authored scenarios: skip the pre-game options dialog
 	bool NetworkGame{};
 	bool NetworkRuntimeJoin{};
 	int32_t ForcedGfxMode{}; // 0: free; 1/2: newgfx/oldgfx
@@ -98,6 +99,14 @@ public:
 	C4SHead();
 	void Default();
 	void CompileFunc(StdCompiler *pComp, bool fSection);
+
+	// Skip the pre-game options dialog: either the scenario opted in via
+	// SkipPregameOptions, or it is a MissionAccess mission that breaks when
+	// its goals/rules are changed.
+	bool SkipPreGameDialog() const
+	{
+		return SkipPreGameOptions != 0 || MissionAccess[0] != '\0';
+	}
 
 private:
 	static int32_t MainForcedAutoContextMenu;

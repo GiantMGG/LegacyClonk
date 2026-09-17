@@ -666,7 +666,15 @@ bool C4Game::Init()
 			&& lpDDraw->GetEngine() != GFXENGN_NOGFX)
 		{
 			if (!InitGameFirstPart()) return false;   // defs for the pickers (§4.3)
-			if (!C4OfflineOptionsDlg::Show()) return false;
+			if (GameC4S.Head.SkipPreGameDialog())
+			{
+				// Authored/mission scenario: nothing to configure before the
+				// round — skip the net-host pre-round options stage
+				// (roadmap skip-pregame-dialog-for-authored). Single log
+				// line keeps headless/grep verification possible.
+				LogNTr("PreGame: skipping options dialog (authored scenario)");
+			}
+			else if (!C4OfflineOptionsDlg::Show()) return false;
 		}
 #endif
 
@@ -2311,7 +2319,15 @@ bool C4Game::InitGame(C4Group &hGroup, bool fLoadSky)
 			&& !Network.isEnabled()
 			&& lpDDraw->GetEngine() != GFXENGN_NOGFX)
 		{
-			if (!C4OfflineOptionsDlg::Show()) return false;
+			if (GameC4S.Head.SkipPreGameDialog())
+			{
+				// Authored/mission scenario: nothing to configure before the
+				// round — skip the offline options dialog (roadmap
+				// skip-pregame-dialog-for-authored). Single log line keeps
+				// headless/grep verification possible.
+				LogNTr("PreGame: skipping options dialog (authored scenario)");
+			}
+			else if (!C4OfflineOptionsDlg::Show()) return false;
 		}
 #endif
 
