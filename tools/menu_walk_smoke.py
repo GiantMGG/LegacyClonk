@@ -84,12 +84,18 @@ def log_tail(log):
     return ":\n  " + "\n  ".join(tail) if tail else ""
 
 def has_fatal(log):
-    """True when the log carries a [critical]/fatal-class line.
+    """True when the log carries a fatal-class line.
 
-    This deliberately ignores plain [error] lines (ColonyBay logs pre-existing
-    [error] DebugLog noise at base, see spec premise 4).
+    Covers [critical]/'fatal' lines AND the effect-timer FatalError class
+    (engine-behavior-gotchas.md #3): a FatalError inside an effect timer is
+    caught as C4AulExecError, logged '[error] User error: <Name> FAIL: ...',
+    and the process still exits 0 — so the oracle must match the 'FAIL:'
+    marker directly, never rely on the exit code. Plain [error] DebugLog
+    lines stay tolerated (ColonyBay's pre-existing noise is [error], never
+    FAIL:; verified 0 FAIL: occurrences in current A2/A5/A4 logs).
     """
-    return "[critical]" in log.lower() or "fatal" in log.lower()
+    return ("[critical]" in log.lower() or "fatal" in log.lower()
+            or re.search(r"\bFAIL:", log) is not None)
 
 def http_status(url):
     """GET url, retrying HTTP_RETRIES times on connection errors / 5xx.
@@ -137,7 +143,14 @@ def leg_a1(strict):
             return ("FAIL" if strict else "RED_K"), detail
         return "PASS", "guide URL %s -> HTTP %d" % (raw, status)
     # Bundled/local doc target (quickstart-link-fix may take either shape).
-    rel = raw.replace("\\", "/").lstrip("/").lstrip(".")
+    # Resolve relative to the repo docs root, tolerating a leading "./", a
+    # stray "/" or "../" from a doc-relative reference (the old lstrip()
+    # chain mangled './docs/x' into '/docs/x' and joined it as absolute).
+    # An empty constant is a malformed config: hard FAIL in both modes.
+    rel = raw.replace("\\", "/")
+    if not rel or not rel.removeprefix("./").lstrip("/"):
+        return "FAIL", "kFirstGameGuideURL is empty (no bundled target to check)"
+    rel = rel.removeprefix("./").lstrip("/")
     target = os.path.normpath(os.path.join(REPO_DIR, rel))
     if os.path.exists(target):
         return "PASS", "bundled guide target %s exists" % target
@@ -154,7 +167,7 @@ def leg_a2(engine, content_dir):
     if rc != 0:
         return "FAIL", "Tutorial01.c4s exit %d%s" % (rc, log_tail(log))
     if has_fatal(log):
-        return "FAIL", "Tutorial01.c4s log has a [critical]/fatal line%s" % log_tail(log)
+        return "FAIL", "Tutorial01.c4s log has a [critical]/fatal/FAIL: line%s" % log_tail(log)
     return "PASS", "Tutorial01.c4s loads (exit 0, no fatal)"
 
 def scan_packs(content_dir):
@@ -235,7 +248,7 @@ def leg_a5(engine, content_dir):
     if rc != 0:
         return "FAIL", "ColonyBay.c4s exit %d%s" % (rc, log_tail(log))
     if has_fatal(log):
-        return "FAIL", "ColonyBay.c4s log has a [critical]/fatal line%s" % log_tail(log)
+        return "FAIL", "ColonyBay.c4s log has a [critical]/fatal/FAIL: line%s" % log_tail(log)
     return "PASS", "ColonyBay.c4s loads (exit 0, no FATAL)"
 
 def main(argv=None):
