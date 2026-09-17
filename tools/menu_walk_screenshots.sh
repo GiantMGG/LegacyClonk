@@ -44,8 +44,12 @@
 #     Colony Bay D40 at position 9; values read from content/Worlds.c4f) ->
 #     8 Down presses from Gold Mine select Colony Bay.
 #
-# Requires (checked at startup): Xvfb, xdotool, import, identify, tesseract
-# (OCR only for best-effort state checks), > 8 GiB free memory.
+# Requires (checked at startup): Xvfb, xdotool, import, identify, tesseract,
+# gm (GraphicsMagick) — held to the same bar as tesseract: both serve the
+# OCR state checks after the engine's small fonts defeat bare tesseract, so a
+# missing gm fails preflight loudly instead of silently no-oping every
+# ocr_has() and degrading all OCR gates to blind navigation (cycle-131 nits),
+# > 8 GiB free memory.
 #
 # Usage:  bash tools/menu_walk_screenshots.sh
 #
@@ -114,7 +118,13 @@ kill_clonk()
 # Players are looked up in ExePath (= build3/) with PlayerPath "", NOT in HOME.
 # A leftover *.c4p (e.g. Neuling.c4p) suppresses the first-run player-creation
 # dialog, so existing players are parked for the walk and restored at exit.
+# BACKUP_RAN gates every destructive player-file operation: a preflight exit
+# (missing tool, engine already running, display busy) happens BEFORE
+# backup_players(), so without the gate restore_players() would treat every
+# build3/*.c4p as walk-created (is_walk_player with an empty list returns 0
+# for everything) and delete all player profiles (cycle-131 BLOCKING #1).
 PRECREATED_PLAYERS=()
+BACKUP_RAN=0
 
 backup_players()
 {
@@ -127,6 +137,7 @@ backup_players()
 		mv "$p" "$PLAYER_BACKUP/"
 	done
 	[ "${#PRECREATED_PLAYERS[@]}" -gt 0 ] && log "parked pre-existing players: ${PRECREATED_PLAYERS[*]}"
+	BACKUP_RAN=1
 }
 
 is_walk_player()
@@ -142,6 +153,14 @@ is_walk_player()
 restore_players()
 {
 	local p b
+	# Never touch build3/ player files unless the walk actually backed them up
+	# first. On a preflight exit (missing tool, engine already running, display
+	# busy) no walk ever started, so no *.c4p can be walk-created and deleting
+	# any of them would wipe pre-existing profiles (cycle-131 BLOCKING #1).
+	if [ "$BACKUP_RAN" != 1 ]; then
+		log "skipping player restore (walk never backed up players)"
+		return 0
+	fi
 	for p in "$REPO"/build3/*.c4p; do
 		[ -e "$p" ] || continue
 		b="$(basename "$p")"
@@ -162,6 +181,10 @@ restore_players()
 drop_walk_players()
 {
 	local p b
+	if [ "$BACKUP_RAN" != 1 ]; then
+		log "skipping drop (walk never backed up players)"
+		return 0
+	fi
 	for p in "$REPO"/build3/*.c4p; do
 		[ -e "$p" ] || continue
 		b="$(basename "$p")"
@@ -175,12 +198,17 @@ drop_walk_players()
 # --- capture / screen helpers -------------------------------------------------
 shot()
 {
-	local name="$1" path="$CUR_DIR/$1"
+	local name="$1" path="$CUR_DIR/$1" imginfo
 	# import can hang for minutes under heavy llvmpipe load; timeout keeps the walk moving
 	DISPLAY="$CUR_DISP" timeout 30 import -window root "$path" 2>/dev/null
-	if [ -s "$path" ]; then
-		log "shot $name ($(identify -format '%wx%h/%k colors' "$path" 2>/dev/null))"
+	imginfo="$(identify -format '%wx%h/%k colors' "$path" 2>/dev/null)"
+	if [ -s "$path" ] && [ -n "$imginfo" ]; then
+		log "shot $name ($imginfo)"
 	else
+		# a `timeout`-killed import can leave a truncated PNG that [ -s ]
+		# accepts; only a successful identify counts as a real shot
+		# (cycle-131 flash nit 7), so the partial file is dropped as GAP
+		rm -f "$path"
 		log "GAP shot $name failed (no image)"
 	fi
 }
@@ -272,7 +300,7 @@ focus_window()
 check_tools()
 {
 	local t
-	for t in Xvfb xdotool import identify tesseract setsid; do
+	for t in Xvfb xdotool import identify tesseract gm setsid; do
 		command -v "$t" >/dev/null 2>&1 || { echo "missing tool: $t"; return 1; }
 	done
 	[ -x "$BINARY" ] || { echo "GUI build not found: $BINARY"; return 1; }
