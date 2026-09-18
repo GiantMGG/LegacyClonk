@@ -799,6 +799,14 @@ foreach(def DatePalm Date Oasis Quarry Quicksand SandDrift SandstoneBlock)
 	endif()
 endforeach()
 
+# --- Cog donor-art byte gate (spec art-pipeline-v3, cycle 144) ------------
+if(PYTHON3 AND EXISTS "${LEGACYCLONK_CONTENT_DIR}/OceanTrade.c4d/Cog.c4d/Graphics.png")
+	add_test(NAME gfx_check_cog
+		COMMAND "${PYTHON3}" "${CMAKE_SOURCE_DIR}/tools/gen_cog_gfx.py"
+			"${LEGACYCLONK_CONTENT_DIR}/OceanTrade.c4d/Cog.c4d/Graphics.png" --check)
+	set_tests_properties(gfx_check_cog PROPERTIES TIMEOUT 60 LABELS "lint")
+endif()
+
 # --- Playtest sweep (spec scenario-playtest-harness, cycle 97) -----------
 # Runs every shipped playtest scenario (ci.toml [groups.content] set,
 # minus Tests.c4f) headless for N ticks via tools/playtest_sweep.py.

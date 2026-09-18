@@ -54,7 +54,6 @@ Missions.c4f/SevenKeys.c4s/Warp.c4d/FlyingKey.c4d               # transparent fi
 Objects.c4d/Animals.c4d/Fish.c4d/Dead.c4d                       # transparent Dead facet — debt
 Objects.c4d/Effects.c4d/Bubble.c4d                              # empty 64x64 sheet — debt
 Objects.c4d/GlowStone.c4d                                       # transparent Idle facet — debt
-OceanTrade.c4d/Cog.c4d                                          # transparent Sailing facet — debt
 OceanTrade.c4d/PirateSloop.c4d                                  # transparent Float facet — debt
 Tutorial.c4f/Objects.c4d/MenuDeco.c4d                           # transparent menu facets — debt
 Western.c4d/Animals.c4d/Wildhorse.c4d                           # facets point at empty rows — debt
