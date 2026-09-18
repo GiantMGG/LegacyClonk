@@ -1532,4 +1532,105 @@ Spec: .opencode/specs/2026-08-29-1000-connection-migration-reconnect.md (cf8c883
 
 - **lobby**: Drop duplicate btnRun tooltip (38f9523d) — line already present at base 7c777e86:296-297; review finding F1 (Flash), false-premise fix (09b9c09)
 
+## [370] - 2026-09-18
+
+### Added
+
+- **CCAN**: Quarantine record + subcommand + outreach templates (seepack FAIL branch) (5dec24b)
+
+- **tools**: Gen_rtap_gfx - RTAP standpipe sprite generator (clonk-gfx) (5e4ca99)
+
+- **tools**: Sdl_api_drift.py - SDL2->SDL3 API drift mapper (cycle 129) (44ab54b)
+
+- **tools**: Add menu_walk_smoke.py five-leg driver with --strict (Addendum 1) (9e5b5d9)
+
+- **tools**: Add menu_walk_screenshots.sh Leg B Xvfb driver (4473039)
+
+- **scenario**: Skip pre-game options dialog for authored scenarios (04e4d00)
+
+- **dialog**: Tabletize welcome + pre-game option strings (5808cfa)
+
+- **pregame**: String-table keys for the store tab (d55c2ab)
+
+- **pregame**: ComputeStoreWrap helper + SliderContract fit pins (5619da8)
+
+- **pregame**: Store tab with dense grid + shared count editor (85c95fa)
+
+- **pregame**: String-table keys for free game menu entry (5302fbf)
+
+- **startup**: Free Game main-menu entry opening world settings (8e5a854)
+
+
+### Changed
+
+- **tools**: Auto_format pass - condense double blank lines in ccan tools (cycle 128) (913d973)
+
+
+### Fixed
+
+- **CCAN**: Triage default 'ok'->'unknown' - B6 quarantine tier machine-enforced (d17e10f)
+
+- **CCAN**: Quarantine record -> durable hold path; DE template typo (43b27fa)
+
+- **gui**: Keep pre-game settings buttons on screen, drop empty options box (072ad49)
+
+- **tools**: Menu_walk_smoke fatal oracle catches effect-timer FAIL + A1 path robustness (a6a33e3)
+
+- **tools**: Menu_walk_screenshots preflight player-delete trap + gm check (9672513)
+
+- **tools**: Capture join-log offset before join keystrokes (critic fix-now) (a48a29d)
+
+- **ui**: Point quickstart link at the bundled first-game guide on GitHub (881b12c)
+
+- **docs**: Replace remaining dead docs-site links with bundled blob URLs (c103daa)
+
+- **tools**: A3 strict flip, A6 browser-purity leg, walk nav for new browser order (024f13c)
+
+- **pregame**: Retune store wrap cells to 170px for measured 1080p fit (4945b01)
+
+- **pregame**: Pending count preview so unchecked store cells commit drags (cd7091a)
+
+- **pregame**: Rename Zoom factor to Map scale + Latin-1 unit glyph (7b9f12f)
+
+- **startup**: KTutorial01Path backslash breaks parent-pack registration (b4b7e30)
+
+
+### Internal
+
+- **changelog**: Update for v369 [skip ci] (a170cff)
+
+- **smoke**: Pin FirstLightSmoke RNG seed 721 (cycle 127) (021c28f)
+
+- **smoke**: Pin ReactionLabSmoke RNG seed + register ReactionLab.c4f content group (01062a9)
+
+- **upstream**: Add fork<->upstream sync policy (cycle 129) (ad1b4c0)
+
+- **smoke**: Add MenuWalkLocked mission-access refusal fixture (c3fe67f)
+
+- **smoke**: Register menu_walk_smoke CTest entry (bfa94ad)
+
+- **smoke**: Raise menu_walk_smoke CTest TIMEOUT to 240 (1b07dd1)
+
+- **Players**: Rewrite first-game guide to match the real game (c688c86)
+
+- **Players**: Fix chemical-factory claim and where-next links (e10fa19)
+
+- **Players**: Apply critic fixes to first-game guide (a0590b9)
+
+- **Players**: Quote the actual unlock toast text (a4160e2)
+
+- **cmake**: Six-leg menu walk comment (b111b86)
+
+- **language-tables**: Add translate-new-dialogs regression gate (b26f188)
+
+- **language-tables**: Wrap GetEntry views in std::string for MSVC link (c2ca970)
+
+- **blueprints**: Register blueprint_live_smoke (a67a000)
+
+- **gate**: Scenario_link_gate W1/W2/L link tiers (eff5d90)
+
+- **version**: Bump content version to 4.9.11.7 for v370 (49df3d1)
+
+- **changelog**: Scope v370 highlights to resolvable claims (audit fix) (a8b39c2)
+
 <!-- git-cliff prepends new release sections above this line. -->
