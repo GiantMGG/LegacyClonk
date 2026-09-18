@@ -25,8 +25,6 @@ Objects.c4d/Environment.c4d/Lenseflare.c4d                      # lens-flare fle
 #
 # --- Survey-missed INVISIBLE_ACTION debt (fully transparent sampled facets) ---
 Agriculture.c4d/Structures.c4d/Smokehouse.c4d                   # transparent Idle facet — debt
-Agriculture.c4d/Structures.c4d/Windmill.c4d                     # transparent Idle facet — debt
-Agriculture.c4d/Structures.c4d/Windmill.c4d/Wing.c4d            # transparent Turn facet — debt
 Agriculture.c4d/Tools.c4d/FishTrap.c4d                          # transparent Idle facet — debt
 Agriculture.c4d/Tools.c4d/FishingNet.c4d                        # transparent Idle facet — debt
 Agriculture.c4d/Tools.c4d/FishingRod.c4d                        # transparent throw/fish facets — debt

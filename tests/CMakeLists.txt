@@ -719,6 +719,14 @@ if(PYTHON3 AND EXISTS "${LEGACYCLONK_CONTENT_DIR}/Desert.c4d/Camel.c4d/Graphics.
 			"${LEGACYCLONK_CONTENT_DIR}/Desert.c4d/Camel.c4d/Graphics.png" --check)
 	set_tests_properties(gfx_check_camel PROPERTIES TIMEOUT 60 LABELS "lint")
 endif()
+# --- Windmill+Wing donor-art byte gate (spec art-pipeline-v3, cycle 144) --
+if(PYTHON3 AND EXISTS "${LEGACYCLONK_CONTENT_DIR}/Agriculture.c4d/Structures.c4d/Windmill.c4d/Graphics.png")
+	add_test(NAME gfx_check_windmill
+		COMMAND "${PYTHON3}" "${CMAKE_SOURCE_DIR}/tools/gen_windmill_gfx.py"
+			"${LEGACYCLONK_CONTENT_DIR}/Agriculture.c4d/Structures.c4d/Windmill.c4d/Graphics.png"
+			"${LEGACYCLONK_CONTENT_DIR}/Agriculture.c4d/Structures.c4d/Windmill.c4d/Wing.c4d/Graphics.png" --check)
+	set_tests_properties(gfx_check_windmill PROPERTIES TIMEOUT 60 LABELS "lint")
+endif()
 # --- Vision judge serialization (spec vision-judge-serialization, cycle 121)
 # Shared-lock contract: every ollama-judge CTest entry MUST carry
 # RESOURCE_LOCK "qwen_judge" (the ctest scheduler never starts two of
