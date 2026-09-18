@@ -34,11 +34,31 @@
 #include "C4WinConditionDescriptors.h"
 
 #include <string>
+#include <string_view>
 
 TEST_CASE("SliderContractTable", "[slider-contract]")
 {
 	C4SLandscape Landscape;
 	Landscape.Default();
+
+	SECTION("MapZoom row: Map scale label + Latin-1 unit glyph")
+	{
+		// cycle 140: the label was renamed away from camera-zoom ambiguity
+		// ("Zoom factor" -> "Map scale"), and the readout unit is the raw
+		// Latin-1 multiplication-sign BYTE 0xD7 — the C4GUI font draws
+		// per-byte Latin-1, so the old UTF-8 "×" (C3 97) mojibaked as "Ã—".
+		const C4SliderDescriptor *pMapZoom = nullptr;
+		for (const auto &Descriptor : kSliderDescriptors)
+			if (std::string_view{Descriptor.szIniKey} == "MapZoom")
+				pMapZoom = &Descriptor;
+		REQUIRE(pMapZoom != nullptr); // the only row carrying that key
+		REQUIRE(std::string{pMapZoom->szLabel} == "Map scale");
+		REQUIRE(std::string{pMapZoom->szIniKey} == "MapZoom");
+		// encoding gate: exactly one Latin-1 byte + NUL — a UTF-8 "×" revert
+		// stays RED (multi-byte unit fails the byte pin)
+		REQUIRE(static_cast<unsigned char>(pMapZoom->szUnit[0]) == 0xD7);
+		REQUIRE(pMapZoom->szUnit[1] == '\0');
+	}
 
 	SECTION("Row count is eleven")
 	{

@@ -42,7 +42,12 @@ inline constexpr C4SliderDescriptor kSliderDescriptors[]
 	{"Water level",            "LiquidLevel",     &C4SLandscape::LiquidLevel,  ""},
 	{"Map width",              "MapWidth",        &C4SLandscape::MapWdt,       ""},
 	{"Map height",             "MapHeight",       &C4SLandscape::MapHgt,       ""},
-	{"Zoom factor",            "MapZoom",         &C4SLandscape::MapZoom,      "×"},
+	// MapZoom readout unit: raw Latin-1 multiplication-sign BYTE 0xD7 (like
+	// the DE string tables — the C4GUI font renders per-byte Latin-1). A UTF-8
+	// "×" (C3 97) would mojibake into two glyphs ("Ã—"), which is what v368's
+	// playtest saw. Label "Map scale" = landscape pixels per generated map cell
+	// (world chunkiness), NOT camera zoom — hence the rename off "Zoom factor".
+	{"Map scale",              "MapZoom",         &C4SLandscape::MapZoom,      "\xD7"},
 	{"Gravity level",          "Gravity",         &C4SLandscape::Gravity,      "%"},
 	{"Vegetation amount",      "VegetationLevel", &C4SLandscape::VegLevel,     ""},
 	{"In-earth object amount", "InEarthLevel",    &C4SLandscape::InEarthLevel, ""},
