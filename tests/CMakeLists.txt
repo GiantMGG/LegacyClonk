@@ -370,6 +370,26 @@ if(PYTHON3 AND USE_CONSOLE
 		PASS_REGULAR_EXPRESSION "menu_walk_smoke PASS")
 endif()
 
+# --- scenario_link_gate (spec tutorial-guidance-live, cycle 142) -----------
+# Three-tier link gate: W1 pins kTutorial01Path (src/C4StartupWelcomeDlg.cpp),
+# W2 boots Tutorial01 exactly as the welcome dialog will (post-fix), L sweeps
+# Tutorial02-10 + the 14 clean Worlds.c4f scenarios (CaveExplorer/Stormwatch
+# on the driver's printed skip list). The driver owns fail detection and
+# prints the aggregate `scenario_link_gate PASS` line.
+if(PYTHON3 AND USE_CONSOLE
+   AND EXISTS "${CMAKE_SOURCE_DIR}/tools/scenario_link_gate.py"
+   AND EXISTS "${LEGACYCLONK_CONTENT_DIR}")
+	add_test(NAME scenario_link_gate
+		COMMAND "${PYTHON3}" "${CMAKE_SOURCE_DIR}/tools/scenario_link_gate.py"
+			"--engine" "$<TARGET_FILE:clonk>"
+			"--content-dir" "${LEGACYCLONK_CONTENT_DIR}"
+		WORKING_DIRECTORY "${CMAKE_BINARY_DIR}")
+	set_tests_properties(scenario_link_gate PROPERTIES
+		TIMEOUT 600
+		LABELS "smoke;link"
+		PASS_REGULAR_EXPRESSION "scenario_link_gate PASS")
+endif()
+
 # --- PXS perf gate (spec pxs-particle-budget-benchmark) --------------------
 # Raw-throughput companion to smoke_PXSPerfSmoke: --frame-rate-cap 1000
 # lifts the 28 ms/tick pace so per-window wall-clock reflects simulation
