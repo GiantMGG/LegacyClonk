@@ -695,6 +695,17 @@ if(PYTHON3)
 	set_tests_properties(clonkgfx_selftest PROPERTIES TIMEOUT 60 LABELS "lint")
 endif()
 
+# --- classicart raster-pipeline selftest (spec art-pipeline-v3, cycle 144)
+# Cross-validates the full-filter decoder against PIL on the three in-tree
+# donor sheets and exercises op determinism + encode round-trip. The donor
+# EXISTS guard mirrors content_gfx_lint: Autobuild CI has no content
+# checkout and would otherwise redden this entry.
+if(PYTHON3 AND EXISTS "${CMAKE_SOURCE_DIR}/../content/Objects.c4d/Vehicles.c4d/Sailboat.c4d/Graphics.png")
+	add_test(NAME classicart_selftest
+		COMMAND "${PYTHON3}" "${CMAKE_SOURCE_DIR}/tools/classicart.py" --selftest)
+	set_tests_properties(classicart_selftest PROPERTIES TIMEOUT 120 LABELS "lint")
+endif()
+
 # --- Generator --check byte gates (spec clonk-gfx-skill, cycle 99) --------
 if(PYTHON3 AND EXISTS "${LEGACYCLONK_CONTENT_DIR}/Desert.c4d/Scorpion.c4d/Graphics.png")
 	add_test(NAME gfx_check_scorpion
