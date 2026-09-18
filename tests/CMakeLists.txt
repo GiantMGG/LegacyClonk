@@ -260,6 +260,27 @@ if(EXISTS "${CMAKE_SOURCE_DIR}/../content/WeatherEvents.c4d/Tests.c4f/WinCondMod
 		FAIL_REGULAR_EXPRESSION "FatalError|\\[error\\]|\\[fatal\\]")
 endif()
 
+# --- PlrStart Knowledge --parameter override smoke (roadmap
+# blueprints-live-round): the override replaces the scenario's base
+# [Player1] knowledge list (FLNT=1) with Knowledge=WMIL=1, and the smoke
+# asserts the LIVE-round player knows WMIL and can build it. Same
+# EXISTS-guard + explicit-flags pattern as wincond_mode_smoke above; NO
+# Smoke suffix in the scenario name (the glob must not double-register it).
+if(EXISTS "${CMAKE_SOURCE_DIR}/../content/WeatherEvents.c4d/Tests.c4f/BlueprintLive.c4s")
+	add_test(NAME blueprint_live_smoke
+		COMMAND "${PYTHON3}" "${CMAKE_SOURCE_DIR}/tools/run_engine_headless.py"
+			"$<TARGET_FILE:clonk>" --console --smoke-run 350
+			--parameter Knowledge=WMIL=1
+			--smoke-player-fixture "${CMAKE_SOURCE_DIR}/tests/fixtures/TestPlayer.c4p"
+			-s "${CMAKE_SOURCE_DIR}/../content/WeatherEvents.c4d/Tests.c4f/BlueprintLive.c4s"
+		WORKING_DIRECTORY "${CMAKE_BINARY_DIR}")
+	set_tests_properties(blueprint_live_smoke PROPERTIES
+		TIMEOUT 60
+		LABELS "smoke"
+		PASS_REGULAR_EXPRESSION "BlueprintLive PASS"
+		FAIL_REGULAR_EXPRESSION "FatalError|\\[error\\]|\\[fatal\\]")
+endif()
+
 # --- Seed=/Amplitude= --parameter override smoke (spec landscape-generator-research).
 # Relative-determinism driver: the map generator's output is machine/build-
 # dependent (FP in the creator chain), so the pin is same-seed-equality across
