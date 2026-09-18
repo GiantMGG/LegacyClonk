@@ -161,5 +161,15 @@ namespace
 		REQUIRE(std::string{de.GetEntry(C4ResStrTableKey::IDS_CTL_STORERESTOCK)} == "Nachschub");
 		REQUIRE(std::string{de.GetEntry(C4ResStrTableKey::IDS_CTL_TAB_ROUND)} == "Runde");
 		REQUIRE(std::string{de.GetEntry(C4ResStrTableKey::IDS_CTL_TAB_STORE)} == "Lager");
+
+		// --- main menu Free Game button (free-game-menu-entry cycle) ---
+		// English
+		REQUIRE(std::string{us.GetEntry(C4ResStrTableKey::IDS_BTN_FREEGAME)} == "&Free Game");
+		REQUIRE(std::string{us.GetEntry(C4ResStrTableKey::IDS_DLGTIP_FREEGAME)}
+			== "Start a settlement on a freshly generated world.");
+		// German
+		REQUIRE(std::string{de.GetEntry(C4ResStrTableKey::IDS_BTN_FREEGAME)} == "&Freies Spiel");
+		REQUIRE(std::string{de.GetEntry(C4ResStrTableKey::IDS_DLGTIP_FREEGAME)}
+			== "Beginne eine Siedlung auf einer frisch erzeugten Welt.");
 	}
 }
