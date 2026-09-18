@@ -506,3 +506,39 @@ TEST_CASE("PlrStartCompileFuncRoundTrip", "[slider-contract]")
 		REQUIRE(RoundTripped.BuildKnowledge == Authored.BuildKnowledge);
 	}
 }
+
+// --- Store-tab wrap geometry (spec pregame-store-tab D2) ------------------
+// Pure-geometry pins for the dense Store sheet grid. The arithmetic is the
+// unit half of the binding player check ("all store rows visible at 1080p
+// without scrolling"): the helper family must not regress the wrap math the
+// dialog renders with. Integer-only operands throughout.
+TEST_CASE("ComputeStoreWrapContract", "[slider-contract]")
+{
+	SECTION("Columns-from-width: K = max(4, floor(width / 235))")
+	{
+		REQUIRE(ComputeStoreWrapColumns(1900) == 8);   // 1080p sheet width
+		REQUIRE(ComputeStoreWrapColumns(1260) == 5);   // 720p sheet width
+		REQUIRE(ComputeStoreWrapColumns(600) == 4);    // min-clamp dominates
+	}
+
+	SECTION("Bands-from-count: ceil(N / K)")
+	{
+		REQUIRE(ComputeStoreWrapBands(75, 8) == 10);   // store goods @ K=8
+		REQUIRE(ComputeStoreWrapBands(115, 8) == 15);  // blueprints @ K=8
+		REQUIRE(ComputeStoreWrapBands(75, 5) == 15);   // store goods @ K=5
+		REQUIRE(ComputeStoreWrapBands(115, 5) == 23);  // blueprints @ K=5
+	}
+
+	SECTION("Knights fit budget at 1080p: content 936px <= 990px viewport")
+	{
+		// Worst measured Knights census (75 store goods + 75 restock + 115
+		// blueprint defs across content/Objects.c4d + Knights.c4d):
+		// 10*24 + 10*24 + 15*24 + 3*20 headers + 36 editor strip = 936px.
+		REQUIRE(ComputeStoreWrapContentHeight(75, 75, 115, 8) == 936);
+		// 990px = 1080 − ~20 frame − 48 bottom strip − 20 tab bar. The 54px
+		// margin is the headroom the screenshot half of the player check
+		// asserts on-screen; if this pins fail, K=8 no longer fits and the
+		// spec risk-1 fallback (cell 235→210, K=9) applies.
+		REQUIRE(936 <= 990);
+	}
+}

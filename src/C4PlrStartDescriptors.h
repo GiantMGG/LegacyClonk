@@ -74,3 +74,40 @@ constexpr C4PlrStartCountParams ResolvePlrStartCountParams(const C4PlrStartListD
 		: rDescriptor.iDefault;
 	return {true, rDescriptor.iCountMin, rDescriptor.iCountMax, iDefault};
 }
+
+// Store-tab wrap geometry (spec pregame-store-tab D2). Pure constexpr
+// family, no engine state: the Store sheet lays defs out in "band" rows of
+// K cells, K = max(4, floor(width / 235px)) from the sheet width. With the
+// worst measured Knights census (75 store goods + 75 restock + 115
+// blueprint defs across content/Objects.c4d + content/Knights.c4d) the
+// content height at 1080p (width 1900px → K = 8) is 936px <= the 990px
+// viewport budget — the player check ("no scroll at 1080p") is unit-pinned
+// in TstSliderContract.
+constexpr int32_t kStoreWrapMinBandCells = 4;
+constexpr int32_t kStoreWrapCellWidth    = 235;  // one def cell (icon + name + count)
+constexpr int32_t kStoreWrapBandHeight   = 24;
+constexpr int32_t kStoreWrapHeaderHeight = 20;   // PlrStartSectionHeader with All/None
+constexpr int32_t kStoreWrapEditorStrip  = 36;   // shared count-editor strip
+
+// Sheet width -> cells per band: K = max(4, floor(width / 235px))
+constexpr int32_t ComputeStoreWrapColumns(int32_t iWidth)
+{
+	return (std::max)(kStoreWrapMinBandCells, iWidth / kStoreWrapCellWidth);
+}
+
+// Def count + cells per band -> band rows: ceil(N / K)
+constexpr int32_t ComputeStoreWrapBands(int32_t iCount, int32_t iColumns)
+{
+	return (iCount + iColumns - 1) / iColumns;
+}
+
+// Total Store-sheet content height from the three section def counts:
+// (bands(goods) + bands(restock) + bands(blueprints)) * band + headers + editor strip
+constexpr int32_t ComputeStoreWrapContentHeight(int32_t iGoodsCount, int32_t iRestockCount, int32_t iBlueprintCount, int32_t iColumns)
+{
+	return (ComputeStoreWrapBands(iGoodsCount, iColumns)
+	        + ComputeStoreWrapBands(iRestockCount, iColumns)
+	        + ComputeStoreWrapBands(iBlueprintCount, iColumns)) * kStoreWrapBandHeight
+	       + 3 * kStoreWrapHeaderHeight
+	       + kStoreWrapEditorStrip;
+}
