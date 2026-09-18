@@ -25,6 +25,7 @@
 #include <C4GameLobby.h>
 #include <C4GuiComboBox.h>
 #include <C4GuiResource.h>
+#include "C4GuiTabular.h"
 #include <C4Log.h>
 #include <C4RTF.h>
 
@@ -68,6 +69,19 @@ namespace
 	// C4OfflineOptionsDlg::DefPickerRow below: the row needs the dialog's
 	// refresh hook, and the dialog needs a row registry for the
 	// win-condition refresh — spec adjustable-winning-conditions.)
+
+	// Store-tab section labels: the cycle-137 string keys replace the raw
+	// descriptor labels in the section headers (spec pregame-store-tab D4
+	// — the last hardcoded-English corner of this dialog). Member-pointer
+	// identity pins the section; the descriptor table itself is untouched.
+	const char *StoreSectionLabel(const C4PlrStartListDescriptor &rDescriptor)
+	{
+		if (rDescriptor.pList == &C4SPlrStart::HomeBaseMaterial)
+			return LoadResStr(C4ResStrTableKey::IDS_CTL_STOREGOODS);
+		if (rDescriptor.pList == &C4SPlrStart::HomeBaseProduction)
+			return LoadResStr(C4ResStrTableKey::IDS_CTL_STORERESTOCK);
+		return LoadResStr(C4ResStrTableKey::IDS_CTL_BLUEPRINTS);
+	}
 }
 
 // C4OfflineOptionsDlg::SeedEdit — nested so it can reach the dialog's
@@ -332,18 +346,19 @@ void C4OfflineOptionsDlg::DefPickerRow::UpdateCountReadout()
 }
 
 // C4OfflineOptionsDlg::PlrStartSectionHeader — one [PlayerN] section
-// header: section label + the per-section All/None bulk buttons (spec
-// round-setup-parity-complete § User-visible behavior). All enters
-// every enumerated def of the section into the list — store sections at
-// the descriptor default, blueprints at the count-0 presence idiom —
-// unless already present, in which case the authored count stands;
-// None removes every enumerated def of the section. Both go through
-// the dialog's fan-out write path (all four PlrStart slots on both C4S
-// copies).
+// header: section label (on the cycle-137 string keys, spec D4) + the
+// per-section All/None bulk buttons (spec round-setup-parity-complete
+// § User-visible behavior). All enters every enumerated def of the
+// section into the list — store sections at the descriptor default,
+// blueprints at the count-0 presence idiom — unless already present, in
+// which case the authored count stands; None removes every enumerated
+// def of the section. Both go through the dialog's fan-out write path
+// (all four PlrStart slots on both C4S copies).
 class C4OfflineOptionsDlg::PlrStartSectionHeader : public C4GUI::Window
 {
 public:
-	PlrStartSectionHeader(const C4Rect &rcRow, const C4PlrStartListDescriptor &rDescriptor, C4OfflineOptionsDlg *pDlg);
+	PlrStartSectionHeader(const C4Rect &rcRow, const C4PlrStartListDescriptor &rDescriptor,
+		const char *szLabel, C4OfflineOptionsDlg *pDlg);
 
 private:
 	void OnBtnAll(C4GUI::Control *pBtn);
@@ -353,16 +368,17 @@ private:
 	const C4PlrStartListDescriptor *pDescriptor;
 };
 
-C4OfflineOptionsDlg::PlrStartSectionHeader::PlrStartSectionHeader(const C4Rect &rcRow, const C4PlrStartListDescriptor &rDescriptor, C4OfflineOptionsDlg *pDlg)
+C4OfflineOptionsDlg::PlrStartSectionHeader::PlrStartSectionHeader(const C4Rect &rcRow,
+	const C4PlrStartListDescriptor &rDescriptor, const char *szLabel, C4OfflineOptionsDlg *pDlg)
 	: pDlg(pDlg), pDescriptor(&rDescriptor)
 {
 	SetBounds(rcRow);
 	C4GUI::ComponentAligner caRow(GetContainedClientRect(), 2, 1);
-	AddElement(new C4GUI::Label(rDescriptor.szLabel,
+	AddElement(new C4GUI::Label(szLabel,
 		caRow.GetFromLeft(rcRow.Wdt * 3 / 5), ALeft, C4GUI_CaptionFontClr, &C4GUI::GetRes()->CaptionFont));
-	AddElement(new C4GUI::CallbackButtonEx<PlrStartSectionHeader>("All",
+	AddElement(new C4GUI::CallbackButtonEx<PlrStartSectionHeader>(LoadResStr(C4ResStrTableKey::IDS_BTN_ALL),
 		caRow.GetFromLeft(50), this, &PlrStartSectionHeader::OnBtnAll));
-	AddElement(new C4GUI::CallbackButtonEx<PlrStartSectionHeader>("None",
+	AddElement(new C4GUI::CallbackButtonEx<PlrStartSectionHeader>(LoadResStr(C4ResStrTableKey::IDS_BTN_NONE),
 		caRow.GetFromLeft(50), this, &PlrStartSectionHeader::OnBtnNone));
 }
 
@@ -387,127 +403,148 @@ void C4OfflineOptionsDlg::PlrStartSectionHeader::OnBtnNone(C4GUI::Control *pBtn)
 	pDlg->OnPlrStartListsChanged();
 }
 
-// C4OfflineOptionsDlg::PlrStartPickerRow — one [PlayerN] list row: def
-// icon + checkbox + (when the descriptor carries a count channel)
-// count slider + raw count readout. The DefPickerRow layout verbatim,
-// but writes route through the dialog's fan-out writer (all four
-// PlrStart slots on both C4S copies) instead of a single C4IDList
-// pointer — the fan-out cannot be a single pointer.
-class C4OfflineOptionsDlg::PlrStartPickerRow : public C4GUI::Window
+// C4OfflineOptionsDlg::StoreCell — one store-tab grid cell (spec
+// pregame-store-tab D2): 16px def icon + checkbox (def name, truncates)
+// + a raw "×n" count label on count-bearing sections, in a 24px cell of
+// a dense band row. Writes route through the dialog's fan-out writer
+// (all four PlrStart slots on both C4S copies) — the DefPickerRow /
+// PlrStartPickerRow write discipline, in cell geometry. Any click binds
+// the sheet's ONE shared count editor to this cell (by cell, so the
+// binding survives grid scroll and All/None bulk writes — selection is
+// never derived from a slider or scroll position).
+class C4OfflineOptionsDlg::StoreCell : public C4GUI::Window
 {
 public:
-	PlrStartPickerRow(const C4Rect &rcRow, C4Def *pDef, const C4PlrStartListDescriptor &rDescriptor,
+	StoreCell(const C4Rect &rcCell, C4Def *pDef, const C4PlrStartListDescriptor &rDescriptor,
 		const C4PlrStartCountParams &rCountParams, C4OfflineOptionsDlg *pDlg);
 
-	void UpdateFromLists(); // refresh: checkbox + slider re-derived from the list
+	void UpdateFromLists(); // refresh: checkbox + count label re-derived from the lists
+	void SetHighlighted(bool fToVal) { fHighlighted = fToVal; } // shared-editor binding marker
+	C4ID GetDefID() const { return idCellDef; }
+	const char *GetDefName() const { return pCellDef->GetName(); }
+	const C4PlrStartListDescriptor &GetDescriptor() const { return *pDescriptor; }
+	const C4PlrStartCountParams &GetCountParams() const { return CountParams; }
+	int32_t GetCurrentCount() const { return iCurrentCount; }
+
+protected:
+	virtual void DrawElement(C4FacetEx &cgo) override; // selection highlight
+	virtual void MouseInput(C4GUI::CMouse &rMouse, int32_t iButton, int32_t iX, int32_t iY, uint32_t dwKeyParam) override; // click binds the editor
 
 private:
-	void OnToggle();                             // checkbox: membership write + refresh
-	void OnCountSliderChange(int32_t iPosition); // count write + refresh
-	void UpdateCountReadout();
+	void OnToggle(); // checkbox: membership write + editor bind + refresh
+	void UpdateCountLabel();
 
 	C4OfflineOptionsDlg *pDlg;
 	const C4PlrStartListDescriptor *pDescriptor;
-	C4ID idRowDef;
+	const C4Def *pCellDef;
+	C4ID idCellDef;
 	C4PlrStartCountParams CountParams;
 	C4GUI::CheckBox *pCheckBox{nullptr};
-	C4GUI::ScrollBar *pCountSlider{nullptr};
-	C4GUI::Label *pCountReadout{nullptr};
+	C4GUI::Label *pCountLabel{nullptr};
 	int32_t iCurrentCount{1};
+	bool fHighlighted{false};
 };
 
-C4OfflineOptionsDlg::PlrStartPickerRow::PlrStartPickerRow(const C4Rect &rcRow, C4Def *pDef,
+C4OfflineOptionsDlg::StoreCell::StoreCell(const C4Rect &rcCell, C4Def *pDef,
 	const C4PlrStartListDescriptor &rDescriptor, const C4PlrStartCountParams &rCountParams, C4OfflineOptionsDlg *pDlg)
-	: pDlg(pDlg), pDescriptor(&rDescriptor), idRowDef(pDef->id), CountParams(rCountParams)
+	: pDlg(pDlg), pDescriptor(&rDescriptor), pCellDef(pDef), idCellDef(pDef->id), CountParams(rCountParams)
 {
-	SetBounds(rcRow);
+	SetBounds(rcCell);
 
 	// display truth: PlrStart[0] of the active section copy
 	const C4IDList &rDisplayList = Game.GetActiveSections().front()->C4S.PlrStart[0].*rDescriptor.pList;
-	const bool fChecked = rDisplayList.GetIndex(idRowDef) >= 0;
+	const bool fChecked = rDisplayList.GetIndex(idCellDef) >= 0;
 	iCurrentCount = fChecked
-		? std::max(rDisplayList.GetIDCount(idRowDef), CountParams.iMin)
+		? std::max(rDisplayList.GetIDCount(idCellDef), CountParams.iMin)
 		: CountParams.iDefault;
 
-	// checkbox strip — the 36-px layout (icon + name)
+	// 24px cell (spec D2): 16px def icon + checkbox + raw ×n count label
+	// on count-bearing sections
 	const C4Rect rcClient = GetContainedClientRect();
-	C4GUI::ComponentAligner caTop(C4Rect(rcClient.x, rcClient.y, rcClient.Wdt, 36), 2, 1);
-	const int32_t iIconSize = 36 - 4;
-	AddElement(new DefIcon(caTop.GetFromLeft(iIconSize, iIconSize), pDef));
-	pCheckBox = new C4GUI::CheckBox(caTop.GetAll(), pDef->GetName(), fChecked);
-	pCheckBox->SetOnChecked(new C4GUI::CallbackHandlerNoPar<PlrStartPickerRow>(this, &PlrStartPickerRow::OnToggle));
-	AddElement(pCheckBox);
-
+	C4GUI::ComponentAligner caCell(C4Rect(rcClient.x + 2, rcClient.y + (rcClient.Hgt - 16) / 2, rcClient.Wdt - 4, 16), 2, 0);
+	AddElement(new DefIcon(caCell.GetFromLeft(16, 16), pDef));
 	if (CountParams.fEligible)
 	{
-		// count strip — the lower 16 px (52-px row total): slider + RAW
-		// count readout (the DefPickerRow layout)
-		C4GUI::ComponentAligner caCount(C4Rect(rcClient.x, rcClient.y + 36, rcClient.Wdt, rcClient.Hgt - 36), 2, 0);
-		pCountReadout = new C4GUI::Label("", caCount.GetFromRight(44), ARight,
+		pCountLabel = new C4GUI::Label("", caCell.GetFromRight(38), ARight,
 			C4GUI_MessageFontClr, &C4GUI::GetRes()->TextFont);
-		AddElement(pCountReadout);
-		auto *pCB = new C4GUI::ParCallbackHandler<PlrStartPickerRow, int32_t>(this, &PlrStartPickerRow::OnCountSliderChange);
-		pCountSlider = new C4GUI::ScrollBar(caCount.GetAll(), true, pCB, CountParams.iMax - CountParams.iMin + 1);
-		AddElement(pCountSlider);
-		// clamp for display: over-ceiling authored counts pin at the top
-		// (SetScrollPos does NOT fire the callback)
-		pCountSlider->SetScrollPos(BoundBy(iCurrentCount, CountParams.iMin, CountParams.iMax) - CountParams.iMin);
-		UpdateCountReadout();
+		AddElement(pCountLabel);
 	}
+	pCheckBox = new C4GUI::CheckBox(caCell.GetAll(), pDef->GetName(), fChecked);
+	pCheckBox->SetOnChecked(new C4GUI::CallbackHandlerNoPar<StoreCell>(this, &StoreCell::OnToggle));
+	AddElement(pCheckBox);
+	UpdateCountLabel();
 }
 
-void C4OfflineOptionsDlg::PlrStartPickerRow::OnToggle()
+void C4OfflineOptionsDlg::StoreCell::OnToggle()
 {
+	// a checkbox click binds the shared editor to this cell first
+	pDlg->OnStoreCellClicked(this);
 	if (pCheckBox->GetChecked())
 	{
-		// re-check: the slider position IS the count now; the blueprints
-		// row writes the count-0 presence idiom
+		// re-check: the count is the shared editor's readout value; the
+		// blueprints row writes the count-0 presence idiom
 		const int32_t iCount = pDescriptor->fPresenceIdiom ? 0 : iCurrentCount;
-		pDlg->WritePlrStartID(*pDescriptor, idRowDef, iCount, true);
+		pDlg->WritePlrStartID(*pDescriptor, idCellDef, iCount, true);
 	}
 	else
 	{
 		// uncheck: remove the ID from every slot again
-		pDlg->RemovePlrStartID(*pDescriptor, idRowDef);
+		pDlg->RemovePlrStartID(*pDescriptor, idCellDef);
 	}
 	pDlg->OnPlrStartListsChanged();
 }
 
-void C4OfflineOptionsDlg::PlrStartPickerRow::OnCountSliderChange(int32_t iPosition)
+void C4OfflineOptionsDlg::StoreCell::UpdateFromLists()
 {
-	// slider position p in [0, iMax-iMin] -> count p+iMin
-	iCurrentCount = BoundBy(iPosition + CountParams.iMin, CountParams.iMin, CountParams.iMax);
+	// no-fire setters only (CheckBox::SetChecked)
 	const C4IDList &rDisplayList = Game.GetActiveSections().front()->C4S.PlrStart[0].*pDescriptor->pList;
-	// membership stays with the checkbox: drags write only checked-in rows
-	if (rDisplayList.GetIndex(idRowDef) >= 0)
-		pDlg->WritePlrStartID(*pDescriptor, idRowDef, iCurrentCount, true);
-	UpdateCountReadout();
-	pDlg->OnPlrStartListsChanged();
-}
-
-void C4OfflineOptionsDlg::PlrStartPickerRow::UpdateFromLists()
-{
-	// no-fire setters only (CheckBox::SetChecked / ScrollBar::SetScrollPos)
-	const C4IDList &rDisplayList = Game.GetActiveSections().front()->C4S.PlrStart[0].*pDescriptor->pList;
-	const bool fPresent = rDisplayList.GetIndex(idRowDef) >= 0;
+	const bool fPresent = rDisplayList.GetIndex(idCellDef) >= 0;
 	pCheckBox->SetChecked(fPresent);
 	if (fPresent)
 	{
 		// keep the raw list count so an over-ceiling authored count
 		// survives a re-check round-trip (the resolver guarantee)
-		iCurrentCount = std::max(rDisplayList.GetIDCount(idRowDef), CountParams.iMin);
-		if (pCountSlider)
-			pCountSlider->SetScrollPos(BoundBy(iCurrentCount, CountParams.iMin, CountParams.iMax) - CountParams.iMin);
+		iCurrentCount = std::max(rDisplayList.GetIDCount(idCellDef), CountParams.iMin);
 	}
-	UpdateCountReadout();
+	UpdateCountLabel();
 }
 
-void C4OfflineOptionsDlg::PlrStartPickerRow::UpdateCountReadout()
+void C4OfflineOptionsDlg::StoreCell::UpdateCountLabel()
 {
-	if (!pCountReadout) return;
-	StdStrBuf sText;
-	sText.Copy(std::format("{}", iCurrentCount).c_str());
-	pCountReadout->SetText(sText.getData());
+	if (!pCountLabel) return;
+	// raw list count, never an effect (count honesty, spec §2.3); absent
+	// defs show no count
+	const C4IDList &rDisplayList = Game.GetActiveSections().front()->C4S.PlrStart[0].*pDescriptor->pList;
+	const int32_t iCount = rDisplayList.GetIDCount(idCellDef);
+	if (iCount > 0)
+	{
+		StdStrBuf sText;
+		sText.Copy(std::format("×{}", iCount).c_str());
+		pCountLabel->SetText(sText.getData());
+	}
+	else
+	{
+		pCountLabel->SetText("");
+	}
+}
+
+void C4OfflineOptionsDlg::StoreCell::DrawElement(C4FacetEx &cgo)
+{
+	// selection highlight marking the shared-editor binding (the grid's
+	// ListBox item bar is disabled — the bar would span the whole band)
+	if (fHighlighted)
+		lpDDraw->DrawBoxDw(cgo.Surface, cgo.TargetX + rcBounds.x, cgo.TargetY + rcBounds.y,
+			cgo.TargetX + rcBounds.x + rcBounds.Wdt - 1, cgo.TargetY + rcBounds.y + rcBounds.Hgt - 1,
+			C4GUI_ListBoxSelColor);
+}
+
+void C4OfflineOptionsDlg::StoreCell::MouseInput(C4GUI::CMouse &rMouse, int32_t iButton, int32_t iX, int32_t iY, uint32_t dwKeyParam)
+{
+	// any left click reaching the cell (icon / empty space) binds the
+	// shared count editor; checkbox clicks go through OnToggle instead
+	if (iButton == C4MC_Button_LeftDown)
+		pDlg->OnStoreCellClicked(this);
+	Window::MouseInput(rMouse, iButton, iX, iY, dwKeyParam);
 }
 
 // C4OfflineOptionsDlg::WinComboRow — one Winning Conditions ComboBox
@@ -730,6 +767,36 @@ void C4OfflineOptionsDlg::CreateSettingsStage(const C4Rect &rcStage)
 	pBtnStart->SetToolTip(LoadResStr(C4ResStrTableKey::IDS_DLGTIP_GAMEGO));
 	pSettingsStage->AddElement(pBtnStart);
 
+	// The settings body goes into a Round/Store tab pair on the offline
+	// path — the [PlayerN] store sections move to a dedicated full-width
+	// Store tab so the whole Knights store surface fits at 1080p without
+	// scrolling (spec pregame-store-tab D1). The bottom strip above stays
+	// a direct child of the stage on BOTH paths, outside the tabbed area.
+	//
+	// The Tabular is gated on the same condition CreatePlrStartSections
+	// uses (Game.NetworkActive): the net-host dialog (C4Game.cpp:677
+	// reaches this class too) renders today's layout verbatim with no
+	// Store tab — no empty tab can ever appear on the net path (spec D3).
+	// The Round sheet gets today's entire settings body (briefing +
+	// pickers + landscape panel / options strip), re-parented via
+	// pSettingsBody.
+	if (!Game.NetworkActive)
+	{
+		pStageTabs = new C4GUI::Tabular(caMain.GetAll(), C4GUI::Tabular::tbTop);
+		pSettingsStage->AddElement(pStageTabs);
+		// Round is added first, so it is the active sheet on open
+		pRoundSheet = pStageTabs->AddSheet(LoadResStr(C4ResStrTableKey::IDS_CTL_TAB_ROUND));
+		pStoreSheet = pStageTabs->AddSheet(LoadResStr(C4ResStrTableKey::IDS_CTL_TAB_STORE));
+		pSettingsBody = pRoundSheet;
+		// the store sheet must exist before the pickers build the PlrStart
+		// sections (CreatePickers -> CreatePlrStartSections)
+		CreateStoreSheet();
+	}
+	else
+	{
+		pSettingsBody = pSettingsStage;
+	}
+
 	// The options list only has rows for network games and team scenarios
 	// (C4GameOptionsList::InitOptions); in a plain offline round it would be
 	// an empty framed box, so it is left out and its space goes to the pickers.
@@ -753,7 +820,7 @@ void C4OfflineOptionsDlg::CreateSettingsStage(const C4Rect &rcStage)
 	{
 		// compact options strip at the bottom of the left pane
 		pOptionsList = new C4GameOptionsList(caLeft.GetFromBottom(caLeft.GetInnerHeight() * 25 / 100), true, false);
-		pSettingsStage->AddElement(pOptionsList);
+		pSettingsBody->AddElement(pOptionsList);
 	}
 	CreatePickers(caLeft.GetAll());
 
@@ -766,7 +833,7 @@ void C4OfflineOptionsDlg::CreateSettingsStage(const C4Rect &rcStage)
 	else
 	{
 		pOptionsList = new C4GameOptionsList(caMain.GetAll(), true, false);
-		pSettingsStage->AddElement(pOptionsList);
+		pSettingsBody->AddElement(pOptionsList);
 	}
 }
 
@@ -775,7 +842,7 @@ void C4OfflineOptionsDlg::CreateBriefing(const C4Rect &rcBriefing)
 	// briefing text window (ScenDesc pattern, C4GameLobby.cpp:63-72)
 	pBriefing = new C4GUI::TextWindow(rcBriefing, 0, 0, 0, 100, 4096, "", true);
 	pBriefing->SetDecoration(false, false, nullptr, true);
-	pSettingsStage->AddElement(pBriefing);
+	pSettingsBody->AddElement(pBriefing);
 	FillBriefing();
 }
 
@@ -811,7 +878,7 @@ void C4OfflineOptionsDlg::CreatePickers(const C4Rect &rcPickers)
 	if (Game.GameC4S.Head.SaveGame) return;
 
 	pPickerList = new C4GUI::ListBox(rcPickers);
-	pSettingsStage->AddElement(pPickerList);
+	pSettingsBody->AddElement(pPickerList);
 	const int32_t iListWdt = pPickerList->GetItemWidth();
 
 	// Winning Conditions — the four §2.1 acceptance rows atop the pickers
@@ -844,9 +911,10 @@ void C4OfflineOptionsDlg::CreatePickers(const C4Rect &rcPickers)
 		pPickerRows.push_back(pRow);
 	}
 
-	// [PlayerN] start-list sections (spec round-setup-parity-complete):
-	// Store goods / Store restock / Construction blueprints, appended
-	// after Rules. Offline-only (the !Game.NetworkActive gate inside).
+	// [PlayerN] start-list sections (spec round-setup-parity-complete +
+	// pregame-store-tab): Store goods / Store restock / Construction
+	// blueprints. They live in the Store tab's dense grid, NOT this picker
+	// list. Offline-only (the !Game.NetworkActive gate inside).
 	CreatePlrStartSections();
 }
 
@@ -900,20 +968,37 @@ void C4OfflineOptionsDlg::CreatePlrStartSections()
 	// get the full surface.
 	if (Game.NetworkActive) return;
 
-	const int32_t iListWdt = pPickerList->GetItemWidth();
+	// emit into the Store sheet's dense grid (spec pregame-store-tab D2),
+	// not the shared picker list: per-section 20px header with the All/None
+	// bulk buttons and the cycle-137 section label, then 24px band rows of
+	// iColumns def cells (K from ComputeStoreWrap — full store surface
+	// visible without scrolling at 1080p = the player check)
+	const int32_t iListWdt = pStoreList->GetItemWidth();
+	const int32_t iColumns = ComputeStoreWrapColumns(iListWdt);
 	for (const auto &Descriptor : kPlrStartListDescriptors)
 	{
-		pPickerList->AddElement(new PlrStartSectionHeader(C4Rect(0, 0, iListWdt, 20), Descriptor, this));
-		// one row per loaded def matching the descriptor's picker filter
-		// (the Objectives/Rules GetDef bitmask-AND filter, C4Def.cpp:1000)
+		pStoreList->AddElement(new PlrStartSectionHeader(
+			C4Rect(0, 0, iListWdt, kStoreWrapHeaderHeight), Descriptor, StoreSectionLabel(Descriptor), this));
+		// one cell per loaded def matching the descriptor's picker filter
+		// (the Objectives/Rules GetDef bitmask-AND filter, C4Def.cpp:1000),
+		// wrapped into band rows of iColumns cells
+		int32_t iCell = 0;
+		C4GUI::Window *pBand = nullptr;
 		for (std::size_t i = 0; C4Def *pDef = Game.Defs.GetDef(i, Descriptor.dwDefCategory); ++i)
 		{
+			if (iCell == 0)
+			{
+				pBand = new C4GUI::Window();
+				pBand->SetBounds(C4Rect(0, 0, iListWdt, kStoreWrapBandHeight));
+				pStoreList->AddElement(pBand);
+			}
 			const C4IDList &rDisplayList = Game.GetActiveSections().front()->C4S.PlrStart[0].*Descriptor.pList;
 			const C4PlrStartCountParams CountParams = ResolvePlrStartCountParams(Descriptor, rDisplayList.GetIDCount(pDef->id));
-			auto *pRow = new PlrStartPickerRow(C4Rect(0, 0, iListWdt, CountParams.fEligible ? 52 : 36),
+			auto *pCell = new StoreCell(C4Rect(iCell * kStoreWrapCellWidth, 0, kStoreWrapCellWidth, kStoreWrapBandHeight),
 				pDef, Descriptor, CountParams, this);
-			pPickerList->AddElement(pRow);
-			pPlrStartRows.push_back(pRow);
+			pBand->AddElement(pCell);
+			pStoreCells.push_back(pCell);
+			iCell = (iCell + 1) % iColumns;
 		}
 	}
 }
@@ -954,13 +1039,130 @@ void C4OfflineOptionsDlg::RemovePlrStartID(const C4PlrStartListDescriptor &rDesc
 void C4OfflineOptionsDlg::OnPlrStartListsChanged()
 {
 	// PlrStart twin of OnWinConditionListsChanged: re-derive every
-	// [PlayerN] row from the lists via no-fire setters; the guard
-	// breaks any re-entrancy
+	// [PlayerN] cell (and the shared count editor) from the lists via
+	// no-fire setters; the guard breaks any re-entrancy
 	if (fUpdatingPlrStartRows) return;
 	fUpdatingPlrStartRows = true;
-	for (PlrStartPickerRow *pRow : pPlrStartRows)
-		pRow->UpdateFromLists();
+	for (StoreCell *pCell : pStoreCells)
+		pCell->UpdateFromLists();
 	fUpdatingPlrStartRows = false;
+	// the shared editor's slider + readout are list-derived too (e.g. an
+	// All/None bulk write may have changed the bound cell's count)
+	UpdateStoreEditor();
+}
+
+void C4OfflineOptionsDlg::CreateStoreSheet()
+{
+	if (!pStoreSheet) return;
+	C4GUI::ComponentAligner caSheet(pStoreSheet->GetContainedClientRect(), 3, 3);
+
+	// shared count-editor strip pinned at the sheet bottom (~36px, spec
+	// D2); it sits OUTSIDE the grid ListBox, so a wheel over the grid
+	// scrolls the list, never scrubs the shared slider (spec risk 4)
+	pStoreEditorStrip = new C4GUI::Window();
+	pStoreEditorStrip->SetBounds(caSheet.GetFromBottom(kStoreWrapEditorStrip));
+	pStoreSheet->AddElement(pStoreEditorStrip);
+
+	// [Count] <selected def name> [≈slider≈] [#readout] — the slider is
+	// (re)created on demand for the bound cell's count domain (one range
+	// per descriptor: 1..25 goods, 1..10 restock); the name label spans
+	// the strip and the editor widgets just overdraw its right end, which
+	// keeps the layout stable when the editor is locked for a blueprint
+	C4GUI::ComponentAligner caStrip(pStoreEditorStrip->GetContainedClientRect(), 2, 1);
+	pStoreEditorStrip->AddElement(new C4GUI::Label(LoadResStr(C4ResStrTableKey::IDS_CTL_COUNT),
+		caStrip.GetFromLeft(64), ALeft, C4GUI_MessageFontClr, &C4GUI::GetRes()->TextFont));
+	pStoreEditorName = new C4GUI::Label("", caStrip.GetAll(), ALeft,
+		C4GUI_MessageFontClr, &C4GUI::GetRes()->TextFont);
+	pStoreEditorStrip->AddElement(pStoreEditorName);
+	pStoreEditorReadout = new C4GUI::Label("", caStrip.GetFromRight(44), ARight,
+		C4GUI_MessageFontClr, &C4GUI::GetRes()->TextFont);
+	pStoreEditorStrip->AddElement(pStoreEditorReadout);
+	rcStoreEditorSlider = caStrip.GetAll();
+
+	// the dense grid: 24px band rows of K cells (spec D2)
+	pStoreList = new C4GUI::ListBox(caSheet.GetAll());
+	pStoreSheet->AddElement(pStoreList);
+	// cells draw their own selection highlight; the list's own item
+	// selection bar would span a whole band row, so it stays off
+	pStoreList->SetSelectionDiabled(true);
+
+	// no selection yet: the editor is locked
+	UpdateStoreEditor();
+}
+
+void C4OfflineOptionsDlg::OnStoreCellClicked(C4OfflineOptionsDlg::StoreCell *pCell)
+{
+	// move the highlight and rebind the shared editor — the last-clicked
+	// cell wins (spec D2); selection is by cell/id, so it survives grid
+	// scroll and All/None bulk writes
+	if (pSelectedStoreCell == pCell)
+	{
+		UpdateStoreEditor();
+		return;
+	}
+	if (pSelectedStoreCell) pSelectedStoreCell->SetHighlighted(false);
+	pSelectedStoreCell = pCell;
+	pCell->SetHighlighted(true);
+	UpdateStoreEditor();
+}
+
+void C4OfflineOptionsDlg::OnStoreCountSliderChange(int32_t iPosition)
+{
+	// shared-editor drag: position p in [0, iCBMaxRange-1] -> count
+	// iMin+p, written through the unchanged fan-out (the old row slider
+	// discipline, in the shared strip)
+	if (!pSelectedStoreCell) return;
+	const C4PlrStartCountParams &rParams = pSelectedStoreCell->GetCountParams();
+	if (!rParams.fEligible) return; // blueprint (presence) cells are locked
+	const int32_t iCount = BoundBy(iPosition + iStoreEditorMin, iStoreEditorMin, iStoreEditorMax);
+	// membership stays with the cell checkbox: drags write only
+	// checked-in cells
+	const C4IDList &rDisplayList = Game.GetActiveSections().front()->C4S.PlrStart[0]
+		.*pSelectedStoreCell->GetDescriptor().pList;
+	if (rDisplayList.GetIndex(pSelectedStoreCell->GetDefID()) >= 0)
+		WritePlrStartID(pSelectedStoreCell->GetDescriptor(), pSelectedStoreCell->GetDefID(), iCount, true);
+	OnPlrStartListsChanged();
+	UpdateStoreEditor();
+}
+
+void C4OfflineOptionsDlg::UpdateStoreEditor()
+{
+	// re-derive the shared strip from the selected cell; no-fire setters
+	// only. Blueprint cells (presence semantics — no count channel) lock
+	// the editor: slider concealed, readout empty (spec D2).
+	if (!pStoreEditorStrip) return;
+	const bool fValid = pSelectedStoreCell != nullptr;
+	const bool fCount = fValid && pSelectedStoreCell->GetCountParams().fEligible;
+
+	pStoreEditorName->SetText(fValid ? pSelectedStoreCell->GetDefName() : "");
+	if (!fCount)
+	{
+		if (pStoreEditorSlider) pStoreEditorSlider->SetVisibility(false);
+		pStoreEditorReadout->SetVisibility(false);
+		return;
+	}
+	pStoreEditorReadout->SetVisibility(true);
+
+	const C4PlrStartCountParams &rParams = pSelectedStoreCell->GetCountParams();
+	if (!pStoreEditorSlider || iStoreEditorMin != rParams.iMin || iStoreEditorMax != rParams.iMax)
+	{
+		// (re)create the slider for the bound cell's count domain
+		if (pStoreEditorSlider) delete pStoreEditorSlider;
+		iStoreEditorMin = rParams.iMin;
+		iStoreEditorMax = rParams.iMax;
+		pStoreEditorSlider = new C4GUI::ScrollBar(rcStoreEditorSlider, true,
+			new C4GUI::ParCallbackHandler<C4OfflineOptionsDlg, int32_t>(this, &C4OfflineOptionsDlg::OnStoreCountSliderChange),
+			iStoreEditorMax - iStoreEditorMin + 1);
+		pStoreEditorStrip->AddElement(pStoreEditorSlider);
+	}
+	pStoreEditorSlider->SetVisibility(true);
+
+	// slider position + raw readout from the cell's current count
+	// (SetScrollPos does NOT fire the callback)
+	pStoreEditorSlider->SetScrollPos(BoundBy(pSelectedStoreCell->GetCurrentCount(), iStoreEditorMin, iStoreEditorMax) - iStoreEditorMin);
+	StdStrBuf sText;
+	sText.Copy(std::format("{}", pSelectedStoreCell->GetCurrentCount()).c_str());
+	pStoreEditorReadout->SetText(sText.getData());
 }
 
 void C4OfflineOptionsDlg::AddPickerSectionHeader(const char *szSectionLabel)
@@ -987,7 +1189,7 @@ void C4OfflineOptionsDlg::CreateLandscapePanel(const C4Rect &rcPanel)
 {
 	pLandscapePanel = new C4GUI::Window();
 	pLandscapePanel->SetBounds(rcPanel);
-	pSettingsStage->AddElement(pLandscapePanel);
+	pSettingsBody->AddElement(pLandscapePanel);
 
 	// children are laid out in the panel's own coordinate space
 	C4GUI::ComponentAligner caPanel(C4Rect(0, 0, rcPanel.Wdt, rcPanel.Hgt), 6, 3, true);

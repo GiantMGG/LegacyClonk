@@ -15,15 +15,19 @@
 // Offline pre-game options dialog (spec world-generator-ux-rework):
 // two-stage fullscreen dialog. Landing stage: scenario title + the
 // [World Settings]/[Quick Start] pair + small Abort. Settings stage:
-// briefing + pickers + options strip on the left, the world block on
-// the right (hero preview + seed row + the 11 generated slider rows).
-// Page-swap via a Stage enum + fVisible; per-stage Enter/ESC.
+// the settings body — briefing + pickers + options strip on the left,
+// the world block on the right (hero preview + seed row + the 11
+// generated slider rows) — plus, offline, a Round/Store tab pair that
+// holds the [PlayerN] store sections in a dense grid (spec
+// pregame-store-tab). Page-swap via a Stage enum + fVisible; per-stage
+// Enter/ESC.
 
 #ifndef USE_CONSOLE
 
 #include "C4Gui.h"
 #include "C4GuiDialogs.h"
 #include "C4GuiSpinBox.h"
+#include "C4GuiTabular.h" // Round/Store sheet pair of the offline settings stage
 
 #include "C4GameOptions.h"
 
@@ -70,6 +74,24 @@ private:
 	void RemovePlrStartID(const C4PlrStartListDescriptor &rDescriptor, C4ID id);
 	void OnPlrStartListsChanged();
 
+	// Store tab (spec pregame-store-tab D2): the three [PlayerN] sections
+	// render in a dedicated full-width tab of the offline settings stage as
+	// a dense wrapped grid — 24px band rows of K def cells (K from
+	// ComputeStoreWrap, C4PlrStartDescriptors.h) — with ONE shared
+	// count-editor strip pinned at the sheet bottom (IDS_CTL_COUNT caption
+	// + the selected def's name + scroll bar + numeric readout), bound to
+	// the last-clicked highlighted cell; blueprint (presence) cells lock
+	// the editor. Same offline-only gate as CreatePlrStartSections: the
+	// Tabular exists only when the store does (no empty tab on the
+	// net-host dialog path, spec D3). All writes keep going through the
+	// unchanged WritePlrStartID / RemovePlrStartID / OnPlrStartListsChanged
+	// fan-out.
+	class StoreCell; // nested (defined in the .cpp): one store-tab grid cell
+	void CreateStoreSheet();
+	void OnStoreCellClicked(StoreCell *pCell);
+	void OnStoreCountSliderChange(int32_t iPosition);
+	void UpdateStoreEditor(); // shared editor re-derived from the selected cell
+
 	// Winning Conditions panel + picker-row count sliders (spec
 	// adjustable-winning-conditions): the panel rows and the picker
 	// checkboxes edit the SAME Parameters lists; every write funnels
@@ -108,7 +130,7 @@ private:
 	class SliderRow;     // nested: one generated row per descriptor
 	class DefPickerRow;  // nested: one picker row (checkbox + optional count slider)
 	class PlrStartSectionHeader; // nested: one [PlayerN] section header (All/None bulk buttons)
-	class PlrStartPickerRow;     // nested: one [PlayerN] list row (checkbox + optional count slider)
+	class StoreCell;     // nested: one store-tab grid cell (icon + checkbox + count label + selection)
 	class WinComboRow;   // nested: one panel ComboBox row per enum descriptor
 	class SettlementRow; // nested: the settlement-target points slider
 	class PrimaryButton; // nested: the settings-stage Start (styled primary action)
@@ -120,7 +142,7 @@ private:
 	C4GUI::TextWindow *pBriefing{nullptr};
 	C4GUI::ListBox *pPickerList{nullptr};
 	std::vector<DefPickerRow *> pPickerRows; // picker-row registry for the win-condition refresh
-	std::vector<PlrStartPickerRow *> pPlrStartRows; // [PlayerN] row registry for the PlrStart refresh
+	std::vector<StoreCell *> pStoreCells;    // store-cell registry for the PlrStart refresh
 	WinComboRow *pWinComboRows[3]{nullptr, nullptr, nullptr}; // Mode/Elimination/CooperativeGoal
 	SettlementRow *pSettlementRow{nullptr};
 	C4GUI::Window *pLandscapePanel{nullptr};
@@ -128,6 +150,23 @@ private:
 	C4GUI::Picture *pPreviewPicture{nullptr};
 	SeedEdit *pSeedEdit{nullptr};
 	C4GameOptionsList *pOptionsList{nullptr};
+
+	// settings-stage tab set (offline only; the net-host dialog keeps
+	// today's direct layout — the Tabular exists only when the store does)
+	C4GUI::Tabular *pStageTabs{nullptr};
+	C4GUI::Tabular::Sheet *pRoundSheet{nullptr};
+	C4GUI::Tabular::Sheet *pStoreSheet{nullptr};
+	C4GUI::Window *pSettingsBody{nullptr}; // settings-body parent: stage (net) / Round sheet (offline)
+
+	// store tab widgets (spec pregame-store-tab D2)
+	C4GUI::ListBox *pStoreList{nullptr};       // the dense wrapped grid
+	StoreCell *pSelectedStoreCell{nullptr};    // last-clicked highlighted cell (editor binding)
+	C4GUI::Window *pStoreEditorStrip{nullptr}; // shared count-editor strip container
+	C4GUI::Label *pStoreEditorName{nullptr};   // strip: the selected def's name
+	C4GUI::ScrollBar *pStoreEditorSlider{nullptr};
+	C4GUI::Label *pStoreEditorReadout{nullptr};
+	C4Rect rcStoreEditorSlider{};                    // fixed slider rect within the strip
+	int32_t iStoreEditorMin{1}, iStoreEditorMax{1};  // slider domain of the bound cell
 
 	C4GUI::CallbackButton<C4OfflineOptionsDlg> *pBtnQuickStart{nullptr};
 	C4GUI::CallbackButton<C4OfflineOptionsDlg> *pBtnWorldSettings{nullptr};
