@@ -64,9 +64,9 @@ WALK_P2 = (
 	"KKKKKKHHHHHHHHHHHK......",
 	"KSK.KSBBBBBBBBBBBK......",
 	"KBK.KKKKKKKKKKKKKK......",
-	"K....KK.KK.KK.KK........",
-	".K...KK.KK.KK.KK........",
-	".KK..KK.KK.KK.KK........",
+	"K......KK.KK.KK.KK......",
+	".K.....KK.KK.KK.KK......",
+	".KK....KK.KK.KK.KK......",
 )
 WALK_P3 = (
 	"..........KKKKKK........",
