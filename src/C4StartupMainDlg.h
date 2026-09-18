@@ -41,6 +41,7 @@ protected:
 	void UpdateParticipants();
 
 	void OnStartBtn(C4GUI::Control *btn); // callback: run default start button pressed
+	void OnFreeGameBtn(C4GUI::Control *btn); // callback: free game on a generated map (world settings)
 	void OnPlayerSelectionBtn(C4GUI::Control *btn); // callback: player selection (preliminary version via context menus...)
 	void OnNetJoinBtn(C4GUI::Control *btn); // callback: join net work game (direct join only for now)
 	void OnReplaysBtn(C4GUI::Control *btn); // callback: open the replay browser

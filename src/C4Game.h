@@ -201,6 +201,11 @@ public:
 	bool fLobby;
 	int32_t iLobbyTimeout;
 	bool fObserve;
+	// One-shot start hint set by the main-menu Free Game button (roadmap
+	// free-game-menu-entry): consumed (and cleared) by C4OfflineOptionsDlg,
+	// which then opens directly on the world-settings stage. Resets in
+	// Default() between rounds. Not serialized — process-lifetime flag.
+	bool fFreeGameStart{false};
 	bool NetworkActive;
 	StdStrBuf RecordDumpFile;
 	StdStrBuf RecordStream;

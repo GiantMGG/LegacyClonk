@@ -1656,6 +1656,7 @@ void C4Game::Default()
 	ShotAtTick = 0; ShotTaken = false; ShotPath[0] = 0; ShotWdt = 320; ShotHgt = 240;  // likewise reset (spec playtest-vision-tier2)
 	ParameterOverrides.clear();  // likewise reset (spec pregame-options-parity)
 	HasStagedLandscapeOverrides = false;  // likewise reset (spec net-preround-settings-fix)
+	fFreeGameStart = false;  // likewise reset (spec free-game-menu-entry)
 	GameOver = GameOverDlgShown = false;
 	ScenarioFilename[0] = 0;
 	PlayerFilenames[0] = 0;

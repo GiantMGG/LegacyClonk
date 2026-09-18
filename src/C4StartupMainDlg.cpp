@@ -50,6 +50,9 @@ C4StartupMainDlg::C4StartupMainDlg() : C4StartupDlg(nullptr) // create w/o title
 	btn->SetToolTip(LoadResStr(C4ResStrTableKey::IDS_DLGTIP_STARTGAME));
 	btn->SetCustomGraphics(&C4Startup::Get()->Graphics.barMainButtons, &C4Startup::Get()->Graphics.barMainButtonsDown);
 	pStartButton = btn;
+	AddElement(btn = new C4GUI::CallbackButton<C4StartupMainDlg>(LoadResStr(C4ResStrTableKey::IDS_BTN_FREEGAME), caButtons.GetFromTop(iButtonHeight), &C4StartupMainDlg::OnFreeGameBtn));
+	btn->SetToolTip(LoadResStr(C4ResStrTableKey::IDS_DLGTIP_FREEGAME));
+	btn->SetCustomGraphics(&C4Startup::Get()->Graphics.barMainButtons, &C4Startup::Get()->Graphics.barMainButtonsDown);
 	AddElement(btn = new C4GUI::CallbackButton<C4StartupMainDlg>(LoadResStr(C4ResStrTableKey::IDS_BTN_NETWORKGAME), caButtons.GetFromTop(iButtonHeight), &C4StartupMainDlg::OnNetJoinBtn));
 	btn->SetToolTip(LoadResStr(C4ResStrTableKey::IDS_DLGTIP_NETWORKGAME));
 	btn->SetCustomGraphics(&C4Startup::Get()->Graphics.barMainButtons, &C4Startup::Get()->Graphics.barMainButtonsDown);
@@ -213,6 +216,29 @@ void C4StartupMainDlg::OnStartBtn(C4GUI::Control *btn)
 {
 	// advance to scenario selection screen
 	C4Startup::Get()->SwitchDialog(C4Startup::SDID_ScenSel);
+}
+
+void C4StartupMainDlg::OnFreeGameBtn(C4GUI::Control *btn)
+{
+	// Free Game: one click from the main menu onto the world settings of a
+	// generated-map settlement scenario (roadmap free-game-menu-entry).
+	// Resolves the bundled Worlds.c4f/Outset.c4s next to the binary; the
+	// pre-game dialog then opens directly on its world-settings stage
+	// (Game.fFreeGameStart consumed by C4OfflineOptionsDlg).
+	const char *szScenario = Config.AtExePath("Worlds.c4f" DirSep "Outset.c4s");
+	if (!ItemExists(szScenario))
+	{
+		GetScreen()->ShowMessage(std::format("{} {}", LoadResStr(C4ResStrTableKey::IDS_PRC_FILENOTFOUND), szScenario).c_str(),
+			LoadResStr(C4ResStrTableKey::IDS_MSG_CANNOTSTARTSCENARIO), C4GUI::Ico_Error);
+		return;
+	}
+	SCopy(szScenario, Game.ScenarioFilename);
+	Game.DefinitionFilenames.clear();
+	Game.DefinitionFilenames.push_back("Objects.c4d");
+	Game.fLobby = false;
+	Game.fObserve = false;
+	Game.fFreeGameStart = true;
+	C4Startup::Get()->Start();
 }
 
 void C4StartupMainDlg::OnReplaysBtn(C4GUI::Control *btn)

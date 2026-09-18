@@ -719,8 +719,12 @@ C4OfflineOptionsDlg::C4OfflineOptionsDlg()
 	CreateLandingStage(rcStage);
 	CreateSettingsStage(rcStage);
 
-	// land on the landing stage (spec §2: the dialog opens on landing)
-	SetStage(Stage::Landing);
+	// Free Game (roadmap free-game-menu-entry): rounds started via the
+	// main-menu Free Game button open straight onto the world-settings
+	// stage. One-shot: consumed here so the next normal start lands on
+	// the landing stage again.
+	SetStage(Game.fFreeGameStart ? Stage::Settings : Stage::Landing);
+	Game.fFreeGameStart = false;
 }
 
 void C4OfflineOptionsDlg::CreateLandingStage(const C4Rect &rcStage)
