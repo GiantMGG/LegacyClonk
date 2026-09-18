@@ -141,5 +141,25 @@ namespace
 		REQUIRE(std::string{us.GetEntry(C4ResStrTableKey::IDS_MSG_VOTE_ENABLED_DESC)} == "Voting is enabled.");
 		REQUIRE(std::string{de.GetEntry(C4ResStrTableKey::IDS_ERR_SECTION)} == "Fehler beim Laden der Sektion.");
 		REQUIRE(std::string{de.GetEntry(C4ResStrTableKey::IDS_MSG_VOTE_ENABLED_DESC)} == "Es wird abgestimmt.");
+
+		// --- store tab (pregame-store-tab cycle) ---
+		// English
+		REQUIRE(std::string{us.GetEntry(C4ResStrTableKey::IDS_BTN_ALL)} == "All");
+		REQUIRE(std::string{us.GetEntry(C4ResStrTableKey::IDS_BTN_NONE)} == "None");
+		REQUIRE(std::string{us.GetEntry(C4ResStrTableKey::IDS_CTL_BLUEPRINTS)} == "Construction blueprints");
+		REQUIRE(std::string{us.GetEntry(C4ResStrTableKey::IDS_CTL_COUNT)} == "Count");
+		REQUIRE(std::string{us.GetEntry(C4ResStrTableKey::IDS_CTL_STOREGOODS)} == "Store goods");
+		REQUIRE(std::string{us.GetEntry(C4ResStrTableKey::IDS_CTL_STORERESTOCK)} == "Store restock");
+		REQUIRE(std::string{us.GetEntry(C4ResStrTableKey::IDS_CTL_TAB_ROUND)} == "Round");
+		REQUIRE(std::string{us.GetEntry(C4ResStrTableKey::IDS_CTL_TAB_STORE)} == "Store");
+		// German, byte-exact Latin-1
+		REQUIRE(std::string{de.GetEntry(C4ResStrTableKey::IDS_BTN_ALL)} == "Alle");
+		REQUIRE(std::string{de.GetEntry(C4ResStrTableKey::IDS_BTN_NONE)} == "Keine");
+		REQUIRE(std::string{de.GetEntry(C4ResStrTableKey::IDS_CTL_BLUEPRINTS)} == "Baupl\xE4" "ne");
+		REQUIRE(std::string{de.GetEntry(C4ResStrTableKey::IDS_CTL_COUNT)} == "Anzahl");
+		REQUIRE(std::string{de.GetEntry(C4ResStrTableKey::IDS_CTL_STOREGOODS)} == "Lagerwaren");
+		REQUIRE(std::string{de.GetEntry(C4ResStrTableKey::IDS_CTL_STORERESTOCK)} == "Nachschub");
+		REQUIRE(std::string{de.GetEntry(C4ResStrTableKey::IDS_CTL_TAB_ROUND)} == "Runde");
+		REQUIRE(std::string{de.GetEntry(C4ResStrTableKey::IDS_CTL_TAB_STORE)} == "Lager");
 	}
 }
