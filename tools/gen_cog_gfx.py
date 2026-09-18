@@ -43,7 +43,6 @@ YARD_RECT = (8, 3, 44, 1)
 SAIL_RECT = (10, 4, 40, 17)
 SAIL_SHADE_ROWS = (8, 12, 16)     # shaded rows inside the sail rect
 
-
 def make_cog_sheet() -> bytes:
 	donor = classicart.decode_png(
 		os.path.join(os.path.dirname(os.path.abspath(__file__)), SLBT_DONOR[0]))[2]
@@ -62,10 +61,8 @@ def make_cog_sheet() -> bytes:
 		                              SAIL_RECT[2], 1, CANVAS_SHADE)
 	return classicart.encode_png(SHEET_SIZE[0], SHEET_SIZE[1], canvas)
 
-
 def render() -> list[bytes]:
 	return [make_cog_sheet()]
-
 
 if __name__ == "__main__":
 	raise SystemExit(classicart.cli_main(

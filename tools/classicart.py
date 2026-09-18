@@ -101,12 +101,10 @@ def _decode(data: bytes) -> tuple[int, int, list[list[RGBA]]]:
 		px.append([tuple(line[4 * x:4 * x + 4]) for x in range(w)])
 	return w, h, px
 
-
 def decode_png(path: str) -> tuple[int, int, list[list[RGBA]]]:
 	"""Decode an RGBA8 PNG file; returns (width, height, pixel grid)."""
 	with open(path, "rb") as f:
 		return _decode(f.read())
-
 
 # --------------------------------------------------------------------------
 # PNG encode (pinned: filter-0 rows, zlib-9, IHDR/IDAT/IEND only)
@@ -131,7 +129,6 @@ def encode_png(w: int, h: int, px: list[list[RGBA]]) -> bytes:
 	        + chunk(b"IDAT", zlib.compress(bytes(raw), 9))
 	        + chunk(b"IEND", b""))
 
-
 # --------------------------------------------------------------------------
 # Raster ops (pure: input grids are never mutated)
 # --------------------------------------------------------------------------
@@ -142,12 +139,10 @@ def blank(w: int, h: int) -> list[list[RGBA]]:
 		raise SystemExit("blank: non-positive dimensions")
 	return [[(0, 0, 0, 0)] * w for _ in range(h)]
 
-
 def crop(px: list[list[RGBA]], x: int, y: int, w: int, h: int) -> list[list[RGBA]]:
 	if w <= 0 or h <= 0 or x < 0 or y < 0 or x + w > len(px[0]) or y + h > len(px):
 		raise SystemExit(f"crop: rect ({x},{y},{w},{h}) out of bounds")
 	return [row[x:x + w] for row in px[y:y + h]]
-
 
 def alpha_over(base: list[list[RGBA]], over: list[list[RGBA]],
                dx: int, dy: int) -> list[list[RGBA]]:
@@ -181,10 +176,8 @@ def alpha_over(base: list[list[RGBA]], over: list[list[RGBA]],
 					aa + (ba * inv) // 255)
 	return out
 
-
 def hflip(px: list[list[RGBA]]) -> list[list[RGBA]]:
 	return [list(reversed(row)) for row in px]
-
 
 def pixel_double(px: list[list[RGBA]]) -> list[list[RGBA]]:
 	"""Exact 2x nearest-neighbour integer upscale; each pixel -> 2x2 block."""
@@ -197,7 +190,6 @@ def pixel_double(px: list[list[RGBA]]) -> list[list[RGBA]]:
 			out[2 * y + 1][2 * x] = p
 			out[2 * y + 1][2 * x + 1] = p
 	return out
-
 
 def box_downscale_2x(px: list[list[RGBA]]) -> list[list[RGBA]]:
 	"""Exact 2:1 alpha-weighted box downscale.
@@ -225,7 +217,6 @@ def box_downscale_2x(px: list[list[RGBA]]) -> list[list[RGBA]]:
 		out.append(row)
 	return out
 
-
 def fill_rect(px: list[list[RGBA]], x: int, y: int, w: int, h: int,
               color: RGBA) -> list[list[RGBA]]:
 	"""Return px with the rect (x, y, w, h) filled with color (clipped)."""
@@ -241,7 +232,6 @@ def fill_rect(px: list[list[RGBA]], x: int, y: int, w: int, h: int,
 				dst[xx] = color
 	return out
 
-
 def recolor(px: list[list[RGBA]], mapping: dict[RGBA, RGBA]) -> list[list[RGBA]]:
 	"""Return px with every exact-RGBA-match key replaced by its value."""
 	out = [list(row) for row in px]
@@ -250,7 +240,6 @@ def recolor(px: list[list[RGBA]], mapping: dict[RGBA, RGBA]) -> list[list[RGBA]]
 			if p in mapping:
 				row[i] = mapping[p]
 	return out
-
 
 # --------------------------------------------------------------------------
 # Byte-gate CLI helpers (clonkgfx.cli_main pattern; N output variant)
@@ -270,12 +259,10 @@ def check_output(path: str, png: bytes) -> int:
 	print(f"OK: {path} matches generator output")
 	return 0
 
-
 def write_output(path: str, png: bytes) -> None:
 	with open(path, "wb") as f:
 		f.write(png)
 	print(f"wrote {path} ({len(png)} bytes)")
-
 
 def cli_main(description: str, render) -> int:
 	"""Generator byte-gate CLI: positional output path(s) + --check.
@@ -303,7 +290,6 @@ def cli_main(description: str, render) -> int:
 		write_output(path, png)
 	return 0
 
-
 # --------------------------------------------------------------------------
 # Selftest: PIL cross-validation on the three donors + determinism + round-trip
 # --------------------------------------------------------------------------
@@ -314,7 +300,6 @@ DONORS = [
 	("Objects.c4d/Vehicles.c4d/Sailboat.c4d/Graphics.png", "SLBT sailboat 72x108"),
 ]
 
-
 def donor_paths() -> list[str]:
 	root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "content"))
 	paths = [os.path.join(root, rel) for rel, _ in DONORS]
@@ -322,7 +307,6 @@ def donor_paths() -> list[str]:
 		if not os.path.isfile(path):
 			raise SystemExit(f"--selftest: donor missing at {path}")
 	return paths
-
 
 def _check_pil(path: str, w: int, h: int, px: list[list[RGBA]], label: str) -> None:
 	try:
@@ -339,7 +323,6 @@ def _check_pil(path: str, w: int, h: int, px: list[list[RGBA]], label: str) -> N
 				if px[y][x] != pil[x, y]:
 					raise SystemExit(f"--selftest: {label} pixel mismatch at ({x},{y})")
 
-
 def _sample_grid() -> list[list[RGBA]]:
 	"""Nontrivial 16x12 grid: opaque, semi-transparent, and transparent px."""
 	grid = blank(16, 12)
@@ -348,7 +331,6 @@ def _sample_grid() -> list[list[RGBA]]:
 	grid = fill_rect(grid, 4, 4, 6, 6, (200, 40, 200, 128))
 	grid = fill_rect(grid, 8, 8, 8, 4, (255, 255, 255, 128))
 	return grid
-
 
 def _check_determinism() -> None:
 	"""Every op applied twice yields identical output (and identical bytes)."""
@@ -371,7 +353,6 @@ def _check_determinism() -> None:
 		if encode_png(wa, ha, a) != encode_png(wa, ha, b):
 			raise SystemExit(f"--selftest: {name} encode not deterministic")
 
-
 def _check_roundtrip() -> None:
 	"""decode(encode(px)) == px for an alpha-bearing grid."""
 	grid = _sample_grid()
@@ -381,7 +362,6 @@ def _check_roundtrip() -> None:
 		raise SystemExit(f"--selftest: round-trip size mismatch ({rw}x{rh})")
 	if back != grid:
 		raise SystemExit("--selftest: round-trip pixel mismatch")
-
 
 def run_selftest() -> None:
 	print("classicart selftest")
@@ -396,7 +376,6 @@ def run_selftest() -> None:
 	print("round-trip: decode(encode(px)) == px")
 	print("classicart selftest PASS (3 donors, PIL cross-validated)")
 
-
 def main(argv: list[str] | None = None) -> int:
 	ap = argparse.ArgumentParser(description="classicart raster pipeline selftest")
 	ap.add_argument("--selftest", action="store_true",
@@ -407,7 +386,6 @@ def main(argv: list[str] | None = None) -> int:
 		return 0
 	run_selftest()
 	return 0
-
 
 if __name__ == "__main__":
 	raise SystemExit(main())

@@ -61,12 +61,10 @@ FLOUR_DUST = [                                  # per phase 0/1/2, 2x2 puffs
 	[(8, 52), (22, 55)],
 ]
 
-
 def _donor_grid(rel: str) -> list[list[tuple[int, int, int, int]]]:
 	path = os.path.join(os.path.dirname(os.path.abspath(__file__)), rel)
 	_, _, px = classicart.decode_png(path)
 	return px
-
 
 def _grind_phase(tower, index: int):
 	"""One 28x58 Grinding phase: tower crop + phase-indexed deltas."""
@@ -76,7 +74,6 @@ def _grind_phase(tower, index: int):
 	for (dx, dy) in FLOUR_DUST[index]:
 		phase = classicart.fill_rect(phase, dx, dy, 2, 2, FLOUR_COLOR)
 	return phase
-
 
 def make_mill_sheet() -> bytes:
 	"""84x116 mill sheet: Idle (0,0,28,58) + Grinding band (y=58, 3 phases)."""
@@ -98,7 +95,6 @@ def make_mill_sheet() -> bytes:
 		canvas = classicart.alpha_over(canvas, phase, i * 28, GRIND_BAND_Y)
 	return classicart.encode_png(MILL_SIZE[0], MILL_SIZE[1], canvas)
 
-
 def make_wing_sheet() -> bytes:
 	"""160x40 wing sheet: donor 80x80 -> exact 2:1 alpha-aware downscale -> 4x."""
 	rotor = classicart.box_downscale_2x(
@@ -110,10 +106,8 @@ def make_wing_sheet() -> bytes:
 		canvas = classicart.alpha_over(canvas, rotor, i * 40, 0)
 	return classicart.encode_png(160, 40, canvas)
 
-
 def render() -> list[bytes]:
 	return [make_mill_sheet(), make_wing_sheet()]
-
 
 if __name__ == "__main__":
 	raise SystemExit(classicart.cli_main(
