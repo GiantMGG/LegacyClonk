@@ -39,7 +39,7 @@ constexpr const char *kFirstGameGuideURL =
 	"https://github.com/GiantMGG/LegacyClonk/blob/master/docs/players/first-game.md";
 
 // Hardcoded scenario path for the first tutorial.
-constexpr const char *kTutorial01Path = "Tutorial.c4f\\Tutorial01.c4s";
+constexpr const char *kTutorial01Path = "Tutorial.c4f/Tutorial01.c4s";
 } // namespace
 
 C4StartupWelcomeDlg::C4StartupWelcomeDlg()
