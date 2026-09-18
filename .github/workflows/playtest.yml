@@ -93,6 +93,9 @@ jobs:
         run: cp -r planet/Graphics.c4g planet/System.c4g build/
         working-directory: LegacyClonk
 
+      - name: "Install Pillow (classicart_selftest PIL cross-validation oracle)"
+        run: python3 -m pip install pillow
+
       - name: "Test"
         # -LE network: exclude the two timing-sensitive lockstep tests
         # (net_desync_smoke, live_reconnect_smoke) — they flake ~50% on
