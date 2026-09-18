@@ -514,31 +514,32 @@ TEST_CASE("PlrStartCompileFuncRoundTrip", "[slider-contract]")
 // dialog renders with. Integer-only operands throughout.
 TEST_CASE("ComputeStoreWrapContract", "[slider-contract]")
 {
-	SECTION("Columns-from-width: K = max(4, floor(width / 235))")
+	SECTION("Columns-from-width: K = max(4, floor(width / 170))")
 	{
-		REQUIRE(ComputeStoreWrapColumns(1900) == 8);   // 1080p sheet width
-		REQUIRE(ComputeStoreWrapColumns(1260) == 5);   // 720p sheet width
+		REQUIRE(ComputeStoreWrapColumns(1788) == 10);  // measured 1080p Store-list item width (cycle 138 Task 4)
+		REQUIRE(ComputeStoreWrapColumns(1174) == 6);   // measured 720p Store-list item width (cycle 138 Task 4)
 		REQUIRE(ComputeStoreWrapColumns(600) == 4);    // min-clamp dominates
 	}
 
 	SECTION("Bands-from-count: ceil(N / K)")
 	{
-		REQUIRE(ComputeStoreWrapBands(75, 8) == 10);   // store goods @ K=8
-		REQUIRE(ComputeStoreWrapBands(115, 8) == 15);  // blueprints @ K=8
-		REQUIRE(ComputeStoreWrapBands(75, 5) == 15);   // store goods @ K=5
-		REQUIRE(ComputeStoreWrapBands(115, 5) == 23);  // blueprints @ K=5
+		REQUIRE(ComputeStoreWrapBands(75, 10) == 8);    // store goods @ K=10
+		REQUIRE(ComputeStoreWrapBands(115, 10) == 12);  // blueprints @ K=10
+		REQUIRE(ComputeStoreWrapBands(75, 6) == 13);    // store goods @ K=6 (measured 720p)
+		REQUIRE(ComputeStoreWrapBands(115, 6) == 20);   // blueprints @ K=6 (measured 720p)
 	}
 
-	SECTION("Knights fit budget at 1080p: content 936px <= 990px viewport")
+	SECTION("Knights fit budget at 1080p: content 768px <= 810px viewport")
 	{
 		// Worst measured Knights census (75 store goods + 75 restock + 115
 		// blueprint defs across content/Objects.c4d + Knights.c4d):
-		// 10*24 + 10*24 + 15*24 + 3*20 headers + 36 editor strip = 936px.
-		REQUIRE(ComputeStoreWrapContentHeight(75, 75, 115, 8) == 936);
-		// 990px = 1080 − ~20 frame − 48 bottom strip − 20 tab bar. The 54px
-		// margin is the headroom the screenshot half of the player check
-		// asserts on-screen; if this pins fail, K=8 no longer fits and the
-		// spec risk-1 fallback (cell 235→210, K=9) applies.
-		REQUIRE(936 <= 990);
+		// 28 bands*24 + 3*20 headers + 36 editor strip = 768px (formula model).
+		REQUIRE(ComputeStoreWrapContentHeight(75, 75, 115, 10) == 768);
+		// Cycle-138 Task-4 measurement: the Store list's item width is 1788px
+		// and its viewport is 810px tall at 1920x1080 (list bounds 1810x810).
+		// 768px of content fits the 810px viewport — no scrollbar on the 1080p
+		// Store tab (the player check's no-scroll budget; if these pins fail,
+		// K=10 no longer fits and the spec risk-1 fallback applies).
+		REQUIRE(768 <= 810);
 	}
 }
