@@ -41,7 +41,18 @@ CANVAS_SHADE = (211, 211, 211, 255)
 MAST_RECT = (28, 2, 2, 21)
 YARD_RECT = (8, 3, 44, 1)
 SAIL_RECT = (10, 4, 40, 17)
-SAIL_SHADE_ROWS = (8, 12, 16)     # shaded rows inside the sail rect
+
+def _billow(r: int, rows: int) -> int:
+	"""Parabolic wind-billow offset for canvas row r of rows.
+
+	Returns rows//2 at mid-sail and 0 at the top/bottom rows (integer
+	math only) -- the shade bands bulge outward at mid-height, so the
+	canvas reads as wind-filled instead of a flat panel.
+	"""
+	half = (rows - 1) // 2
+	t = r - half
+	peak = (t * t) // (rows // 2)
+	return (rows // 2) - peak
 
 def make_cog_sheet() -> bytes:
 	donor = classicart.decode_png(
@@ -56,9 +67,21 @@ def make_cog_sheet() -> bytes:
 	canvas = classicart.fill_rect(canvas, *MAST_RECT, MAST_COLOR)
 	canvas = classicart.fill_rect(canvas, *YARD_RECT, YARD_COLOR)
 	canvas = classicart.fill_rect(canvas, *SAIL_RECT, CANVAS_WHITE)
-	for row_y in SAIL_SHADE_ROWS:
-		canvas = classicart.fill_rect(canvas, SAIL_RECT[0], row_y,
-		                              SAIL_RECT[2], 1, CANVAS_SHADE)
+	# Billow shading: per-row 2px shade runs whose x offset follows a
+	# parabola (deepest near the canvas edges at mid-sail) -- curved
+	# fabric folds, not straight shade rows.
+	sail_x0 = SAIL_RECT[0]
+	sail_x1 = SAIL_RECT[0] + SAIL_RECT[2] - 1
+	for r in range(SAIL_RECT[3]):
+		q = _billow(r, SAIL_RECT[3])          # 0 top/bottom, peak mid-sail
+		canvas = classicart.fill_rect(canvas, sail_x0 + 9 - q,
+		                              SAIL_RECT[1] + r, 2, 1, CANVAS_SHADE)
+		canvas = classicart.fill_rect(canvas, sail_x1 - 9 + q,
+		                              SAIL_RECT[1] + r, 2, 1, CANVAS_SHADE)
+	# Mast passes IN FRONT of the canvas (but still under the yard at y=3):
+	# a continuous 2px vertical line from the yard down to its bottom.
+	canvas = classicart.fill_rect(canvas, MAST_RECT[0], SAIL_RECT[1],
+	                              MAST_RECT[2], SAIL_RECT[3], MAST_COLOR)
 	return classicart.encode_png(SHEET_SIZE[0], SHEET_SIZE[1], canvas)
 
 def render() -> list[bytes]:
