@@ -425,6 +425,10 @@ public:
 	const C4PlrStartListDescriptor &GetDescriptor() const { return *pDescriptor; }
 	const C4PlrStartCountParams &GetCountParams() const { return CountParams; }
 	int32_t GetCurrentCount() const { return iCurrentCount; }
+	// preview channel for unchecked cells: a shared-editor drag on a def
+	// that is NOT in the display list lands here, so the count the player
+	// settled on is what OnToggle commits when the box gets checked
+	void SetPendingCount(int32_t iCount) { iCurrentCount = BoundBy(iCount, CountParams.iMin, CountParams.iMax); }
 
 protected:
 	virtual void DrawElement(C4FacetEx &cgo) override; // selection highlight
@@ -1115,12 +1119,17 @@ void C4OfflineOptionsDlg::OnStoreCountSliderChange(int32_t iPosition)
 	const C4PlrStartCountParams &rParams = pSelectedStoreCell->GetCountParams();
 	if (!rParams.fEligible) return; // blueprint (presence) cells are locked
 	const int32_t iCount = BoundBy(iPosition + iStoreEditorMin, iStoreEditorMin, iStoreEditorMax);
-	// membership stays with the cell checkbox: drags write only
-	// checked-in cells
+	// two paths (membership stays with the cell checkbox): a present def
+	// (already checked) writes through the fan-out immediately — the old
+	// row-slider discipline, in the shared strip; an absent def (still
+	// unchecked) only updates the pending preview so the drag doesn't
+	// snap back — the checkbox click commits it via OnToggle
 	const C4IDList &rDisplayList = Game.GetActiveSections().front()->C4S.PlrStart[0]
 		.*pSelectedStoreCell->GetDescriptor().pList;
 	if (rDisplayList.GetIndex(pSelectedStoreCell->GetDefID()) >= 0)
 		WritePlrStartID(pSelectedStoreCell->GetDescriptor(), pSelectedStoreCell->GetDefID(), iCount, true);
+	else
+		pSelectedStoreCell->SetPendingCount(iCount);
 	OnPlrStartListsChanged();
 	UpdateStoreEditor();
 }
