@@ -31,6 +31,7 @@
 #include <StdSdlSubSystem.h>
 #include <optional>
 #include <set>
+#include <unordered_map>
 #endif
 
 struct _SDL_Joystick;
@@ -38,6 +39,8 @@ typedef struct _SDL_Joystick SDL_Joystick;
 
 union SDL_Event;
 typedef union SDL_Event SDL_Event;
+
+typedef struct _SDL_GameController SDL_GameController;
 
 #ifdef _WIN32
 
@@ -99,10 +102,21 @@ public:
 
 public:
 	void FeedEvent(SDL_Event &e);
+	// SDL_GameController bridge (spec gamepad-defaults §3.2): SDL_CONTROLLER*
+	// events carry the joystick *instance id*; these map instance ->
+	// device index (the config table's pad id) and gate the raw-event
+	// double-fire.
+	void RegisterGCInstance(SDL_JoystickID instanceID, int32_t iDeviceIndex);
+	void UnregisterGCInstance(SDL_JoystickID instanceID);
+	int32_t GCDeviceIndex(SDL_JoystickID instanceID) const; // -1: unknown
+	bool IsGCManaged(SDL_JoystickID instanceID) const;
+	static C4GamePadControl *pInstance; // opener registers here
 
 private:
+	void FeedAxisMotion(int32_t iPad, uint8_t iAxis, int16_t iValue);
 	std::optional<StdSdlSubSystem> sdlJoystickSubSys;
 	std::set<C4KeyCode> PressedAxis;
+	std::unordered_map<SDL_JoystickID, int32_t> GCInstanceToDevice;
 
 #endif
 
@@ -121,10 +135,12 @@ class C4GamePadOpener
 #endif
 
 public:
-	C4GamePadOpener(int iGamePad);
+	C4GamePadOpener(int iGamepad);
 	~C4GamePadOpener();
 	void SetGamePad(int iNewGamePad);
 #ifdef USE_SDL_FOR_GAMEPAD
 	SDL_Joystick *Joy;
+	SDL_GameController *GameCon{nullptr};
+	void OpenPad(int iGamepad); // GC-open if recognized, raw fallback; registers the instance map
 #endif
 };

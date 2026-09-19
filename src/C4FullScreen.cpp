@@ -426,6 +426,9 @@ void C4FullScreen::HandleMessage(SDL_Event &e)
 	case SDL_JOYBALLMOTION:
 	case SDL_JOYBUTTONDOWN:
 	case SDL_JOYBUTTONUP:
+	case SDL_CONTROLLERAXISMOTION:
+	case SDL_CONTROLLERBUTTONDOWN:
+	case SDL_CONTROLLERBUTTONUP:
 		Application.pGamePadControl->FeedEvent(e);
 		break;
 	case SDL_WINDOWEVENT:

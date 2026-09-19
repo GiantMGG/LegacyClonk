@@ -20,6 +20,11 @@
 #include "C4GamepadDefaults.h"
 #include "C4KeyboardInput.h"
 
+#ifdef USE_SDL_FOR_GAMEPAD
+#include "C4GamePadCon.h"
+#include <SDL2/SDL.h>
+#endif
+
 #include <filesystem>
 #include <fstream>
 #include <set>
@@ -134,3 +139,65 @@ TEST_CASE("GamepadDefaults.IniLoadSideDefaultsG2", "[gamepad-defaults]")
 		CHECK(Config.Gamepads[1].Button[iSlot] == KEY_Gamepad(1, ExpectedLayout[iSlot]));
 	}
 }
+
+#ifdef USE_SDL_FOR_GAMEPAD
+TEST_CASE("GamepadDefaults.SyntheticDispatchG3", "[gamepad-defaults]")
+{
+	// G3 (spec §5): synthesize SDL_CONTROLLER* events and drive the REAL
+	// FeedEvent -> Game.DoKeyboardInput -> named-key path with no hardware.
+	// This is the strongest in-loop proxy for "press A -> jump fires".
+	Game.KeyboardInput.Clear();
+
+	struct Probe { int fired = 0; bool Fire() { ++fired; return true; } };
+	Probe probeA, probeLeft;
+
+	const int32_t codeA = GetGamepadDefaultButton(0, CON_Up);     // A button
+	const int32_t codeLeft = GetGamepadDefaultButton(0, CON_Left); // lstick west
+	REQUIRE(Key_GetGamepad(codeA) == 0);
+	REQUIRE(Key_GetGamepadButton(codeA) == KEY_JOY_Button(0));
+
+	Game.KeyboardInput.RegisterKey(new C4CustomKey(C4KeyCodeEx(codeA), "JoyProbeA",
+		KEYSCOPE_Control, new C4KeyCB<Probe>(probeA, &Probe::Fire, &Probe::Fire), C4CustomKey::PRIO_PlrControl));
+	Game.KeyboardInput.RegisterKey(new C4CustomKey(C4KeyCodeEx(codeLeft), "JoyProbeLeft",
+		KEYSCOPE_Control, new C4KeyCB<Probe>(probeLeft, &Probe::Fire, &Probe::Fire), C4CustomKey::PRIO_PlrControl));
+
+	C4GamePadControl control;
+	constexpr SDL_JoystickID kFakeInstance = 42;
+	control.RegisterGCInstance(kFakeInstance, 0);
+
+	// 1. GC A-press fires the bound named key exactly once.
+	SDL_Event ev{}; ev.type = SDL_CONTROLLERBUTTONDOWN;
+	ev.cbutton.which = kFakeInstance;
+	ev.cbutton.button = SDL_CONTROLLER_BUTTON_A;
+	control.FeedEvent(ev);
+	CHECK(probeA.fired == 1);
+
+	// 2. Double-fire guard: the raw JOY event of the same physical press
+	//    (GC-opened pads still emit both families) is dropped.
+	SDL_Event raw{}; raw.type = SDL_JOYBUTTONDOWN;
+	raw.jbutton.which = kFakeInstance;
+	raw.jbutton.button = SDL_CONTROLLER_BUTTON_A;
+	control.FeedEvent(raw);
+	CHECK(probeA.fired == 1);
+
+	// 3. Left-stick west through the GC axis path fires the movement binding.
+	SDL_Event ax{}; ax.type = SDL_CONTROLLERAXISMOTION;
+	ax.caxis.which = kFakeInstance;
+	ax.caxis.axis = SDL_CONTROLLER_AXIS_LEFTX;
+	ax.caxis.value = -20000;
+	control.FeedEvent(ax);
+	CHECK(probeLeft.fired == 1);
+
+	// 4. Releasing the stick fires the matching Up (dedupe bookkeeping).
+	ax.caxis.value = 0;
+	control.FeedEvent(ax);
+	CHECK(probeLeft.fired == 2);
+
+	// 5. Dpad alias: a GC dpad-left press ALSO drives the movement axis.
+	SDL_Event dp{}; dp.type = SDL_CONTROLLERBUTTONDOWN;
+	dp.cbutton.which = kFakeInstance;
+	dp.cbutton.button = SDL_CONTROLLER_BUTTON_DPAD_LEFT;
+	control.FeedEvent(dp);
+	CHECK(probeLeft.fired == 3);
+}
+#endif

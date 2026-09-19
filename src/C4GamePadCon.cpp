@@ -234,6 +234,17 @@ void C4GamePadControl::Execute()
 					Game.DoKeyboardInput(KEY_Gamepad(pad->GetID(), KEY_JOY_Axis(iAxis, (ePrevAxisPos == C4GamePad::High))), KEYEV_Up, false, false, false, false);
 				if (eAxisPos != C4GamePad::Mid)
 					Game.DoKeyboardInput(KEY_Gamepad(pad->GetID(), KEY_JOY_Axis(iAxis, (eAxisPos == C4GamePad::High))), KEYEV_Down, false, false, false, false);
+				// POV alias (spec gamepad-defaults §3.2.6): the coolie hat
+				// (virtual axes 6/7) also drives the left-stick movement
+				// axes, so dpad and stick share the movement bindings.
+				if (iAxis == C4GamePad::AxisPOV::X || iAxis == C4GamePad::AxisPOV::Y)
+				{
+					const int iAliasAxis = (iAxis == C4GamePad::AxisPOV::X) ? 0 : 1;
+					if (ePrevAxisPos != C4GamePad::Mid)
+						Game.DoKeyboardInput(KEY_Gamepad(pad->GetID(), KEY_JOY_Axis(iAliasAxis, (ePrevAxisPos == C4GamePad::High))), KEYEV_Up, false, false, false, false);
+					if (eAxisPos != C4GamePad::Mid)
+						Game.DoKeyboardInput(KEY_Gamepad(pad->GetID(), KEY_JOY_Axis(iAliasAxis, (eAxisPos == C4GamePad::High))), KEYEV_Down, false, false, false, false);
+				}
 			}
 		}
 
@@ -283,7 +294,7 @@ C4GamePadControl::C4GamePadControl()
 	// Initialize SDL, if necessary.
 	try
 	{
-		sdlJoystickSubSys.emplace(SDL_INIT_JOYSTICK);
+		sdlJoystickSubSys.emplace(SDL_INIT_JOYSTICK | SDL_INIT_GAMECONTROLLER);
 	}
 	catch (const std::runtime_error &e)
 	{
@@ -292,12 +303,40 @@ C4GamePadControl::C4GamePadControl()
 		throw;
 	}
 	SDL_JoystickEventState(SDL_ENABLE);
+	SDL_GameControllerEventState(SDL_ENABLE); // GC events flow through the same FeedEvent funnel (spec gamepad-defaults §3.2)
 	if (SDL_GameControllerAddMappingsFromFile(Config.AtExePath("gamecontrollerdb.txt")) == -1)
 		LogNTr("No gamecontrollerdb.txt found; using default gamepad mappings");
 	if (!SDL_NumJoysticks()) LogNTr("No Gamepad found");
+	pInstance = this;
 }
 
-C4GamePadControl::~C4GamePadControl() {}
+C4GamePadControl::~C4GamePadControl()
+{
+	if (pInstance == this) pInstance = nullptr;
+}
+
+C4GamePadControl *C4GamePadControl::pInstance = nullptr;
+
+void C4GamePadControl::RegisterGCInstance(SDL_JoystickID instanceID, int32_t iDeviceIndex)
+{
+	GCInstanceToDevice[instanceID] = iDeviceIndex;
+}
+
+void C4GamePadControl::UnregisterGCInstance(SDL_JoystickID instanceID)
+{
+	GCInstanceToDevice.erase(instanceID);
+}
+
+int32_t C4GamePadControl::GCDeviceIndex(SDL_JoystickID instanceID) const
+{
+	const auto it = GCInstanceToDevice.find(instanceID);
+	return it == GCInstanceToDevice.end() ? -1 : it->second;
+}
+
+bool C4GamePadControl::IsGCManaged(SDL_JoystickID instanceID) const
+{
+	return GCInstanceToDevice.count(instanceID) != 0;
+}
 
 void C4GamePadControl::Execute()
 {
@@ -331,36 +370,121 @@ namespace
 			return deadZone + 1;
 		return 0;
 	}
+
+	// Dpad buttons (SDL_CONTROLLER_BUTTON_DPAD_*, indices 11-14) also drive the
+	// left-stick movement axes, so dpad and stick share one movement binding
+	// per slot (spec §3.2.6).
+	uint8_t DpadAxisCode(uint8_t iButton)
+	{
+		switch (iButton)
+		{
+		case SDL_CONTROLLER_BUTTON_DPAD_LEFT:  return KEY_JOY_Axis(0, false);
+		case SDL_CONTROLLER_BUTTON_DPAD_RIGHT: return KEY_JOY_Axis(0, true);
+		case SDL_CONTROLLER_BUTTON_DPAD_UP:    return KEY_JOY_Axis(1, false);
+		case SDL_CONTROLLER_BUTTON_DPAD_DOWN:  return KEY_JOY_Axis(1, true);
+		}
+		return 0;
+	}
+}
+
+// Axis min/max emission shared by the raw and GC axis paths (deadzone +
+// PressedAxis dedupe moved verbatim from the old SDL_JOYAXISMOTION body).
+void C4GamePadControl::FeedAxisMotion(int32_t iPad, uint8_t iAxis, int16_t iValue)
+{
+	C4KeyCode minCode = KEY_Gamepad(iPad, KEY_JOY_Axis(iAxis, false));
+	C4KeyCode maxCode = KEY_Gamepad(iPad, KEY_JOY_Axis(iAxis, true));
+
+	// FIXME(legacyclonk/LegacyClonk#000): axis rest assumed (0,0); some controllers need calibration
+	if (iValue < -deadZone)
+	{
+		if (PressedAxis.count(minCode) == 0)
+		{
+			Game.DoKeyboardInput(minCode, KEYEV_Down, false, false, false, false);
+			PressedAxis.insert(minCode);
+		}
+	}
+	else
+	{
+		if (PressedAxis.count(minCode) != 0)
+		{
+			Game.DoKeyboardInput(minCode, KEYEV_Up, false, false, false, false);
+			PressedAxis.erase(minCode);
+		}
+	}
+	if (iValue > +deadZone)
+	{
+		if (PressedAxis.count(maxCode) == 0)
+		{
+			Game.DoKeyboardInput(maxCode, KEYEV_Down, false, false, false, false);
+			PressedAxis.insert(maxCode);
+		}
+	}
+	else
+	{
+		if (PressedAxis.count(maxCode) != 0)
+		{
+			Game.DoKeyboardInput(maxCode, KEYEV_Up, false, false, false, false);
+			PressedAxis.erase(maxCode);
+		}
+	}
 }
 
 void C4GamePadControl::FeedEvent(SDL_Event &event)
 {
 	switch (event.type)
 	{
-	case SDL_JOYHATMOTION:
+	case SDL_CONTROLLERAXISMOTION:
 	{
-		SDL_Event fakeX;
-		fakeX.jaxis.type = SDL_JOYAXISMOTION;
-		fakeX.jaxis.which = event.jhat.which;
-		fakeX.jaxis.axis = event.jhat.hat * 2 + 6; /* *magic*number* */
-		fakeX.jaxis.value = 0;
-		SDL_Event fakeY = fakeX;
-		fakeY.jaxis.axis += 1;
-		switch (event.jhat.value)
-		{
-		case SDL_HAT_LEFTUP:    fakeX.jaxis.value = amplify(-1); fakeY.jaxis.value = amplify(-1); break;
-		case SDL_HAT_LEFT:      fakeX.jaxis.value = amplify(-1); break;
-		case SDL_HAT_LEFTDOWN:  fakeX.jaxis.value = amplify(-1); fakeY.jaxis.value = amplify(+1); break;
-		case SDL_HAT_UP:        fakeY.jaxis.value = amplify(-1); break;
-		case SDL_HAT_DOWN:      fakeY.jaxis.value = amplify(+1); break;
-		case SDL_HAT_RIGHTUP:   fakeX.jaxis.value = amplify(+1); fakeY.jaxis.value = amplify(-1); break;
-		case SDL_HAT_RIGHT:     fakeX.jaxis.value = amplify(+1); break;
-		case SDL_HAT_RIGHTDOWN: fakeX.jaxis.value = amplify(+1); fakeY.jaxis.value = amplify(+1); break;
-		}
-		FeedEvent(fakeX);
-		FeedEvent(fakeY);
-		return;
+		const int32_t iDevice = GCDeviceIndex(event.caxis.which);
+		if (iDevice < 0) break; // stale or foreign instance id
+		FeedAxisMotion(iDevice, event.caxis.axis, event.caxis.value);
+		break;
 	}
+	case SDL_CONTROLLERBUTTONDOWN:
+	case SDL_CONTROLLERBUTTONUP:
+	{
+		const int32_t iDevice = GCDeviceIndex(event.cbutton.which);
+		if (iDevice < 0) break; // stale or foreign instance id
+		Game.DoKeyboardInput(
+			KEY_Gamepad(iDevice, KEY_JOY_Button(event.cbutton.button)),
+			(event.type == SDL_CONTROLLERBUTTONUP) ? KEYEV_Up : KEYEV_Down,
+			false, false, false, false);
+		// Dpad alias (spec §3.2.6): the GC dpad buttons also drive the
+		// left-stick movement axes, so dpad and stick share the §3.1
+		// movement bindings with one binding per slot.
+		if (event.cbutton.button >= SDL_CONTROLLER_BUTTON_DPAD_UP &&
+			event.cbutton.button <= SDL_CONTROLLER_BUTTON_DPAD_RIGHT)
+			Game.DoKeyboardInput(
+				KEY_Gamepad(iDevice, DpadAxisCode(event.cbutton.button)),
+				(event.type == SDL_CONTROLLERBUTTONUP) ? KEYEV_Up : KEYEV_Down,
+				false, false, false, false);
+		break;
+	}
+	case SDL_JOYHATMOTION:
+		if (IsGCManaged(event.jhat.which)) return; // double-fire guard
+		{
+			SDL_Event fakeX;
+			fakeX.jaxis.type = SDL_JOYAXISMOTION;
+			fakeX.jaxis.which = event.jhat.which;
+			fakeX.jaxis.axis = event.jhat.hat * 2 + 6; /* *magic*number* */
+			fakeX.jaxis.value = 0;
+			SDL_Event fakeY = fakeX;
+			fakeY.jaxis.axis += 1;
+			switch (event.jhat.value)
+			{
+			case SDL_HAT_LEFTUP:    fakeX.jaxis.value = amplify(-1); fakeY.jaxis.value = amplify(-1); break;
+			case SDL_HAT_LEFT:      fakeX.jaxis.value = amplify(-1); break;
+			case SDL_HAT_LEFTDOWN:  fakeX.jaxis.value = amplify(-1); fakeY.jaxis.value = amplify(+1); break;
+			case SDL_HAT_UP:        fakeY.jaxis.value = amplify(-1); break;
+			case SDL_HAT_DOWN:      fakeY.jaxis.value = amplify(+1); break;
+			case SDL_HAT_RIGHTUP:   fakeX.jaxis.value = amplify(+1); fakeY.jaxis.value = amplify(-1); break;
+			case SDL_HAT_RIGHT:     fakeX.jaxis.value = amplify(+1); break;
+			case SDL_HAT_RIGHTDOWN: fakeX.jaxis.value = amplify(+1); fakeY.jaxis.value = amplify(+1); break;
+			}
+			FeedEvent(fakeX);
+			FeedEvent(fakeY);
+			return;
+		}
 	case SDL_JOYBALLMOTION:
 	{
 		SDL_Event fake;
@@ -375,59 +499,17 @@ void C4GamePadControl::FeedEvent(SDL_Event &event)
 		return;
 	}
 	case SDL_JOYAXISMOTION:
-	{
-		C4KeyCode minCode = KEY_Gamepad(event.jaxis.which, KEY_JOY_Axis(event.jaxis.axis, false));
-		C4KeyCode maxCode = KEY_Gamepad(event.jaxis.which, KEY_JOY_Axis(event.jaxis.axis, true));
-
-		// FIXME(legacyclonk/LegacyClonk#000): axis rest assumed (0,0); some controllers need calibration
-		if (event.jaxis.value < -deadZone)
-		{
-			if (PressedAxis.count(minCode) == 0)
-			{
-				Game.DoKeyboardInput(
-					KEY_Gamepad(event.jaxis.which, minCode),
-					KEYEV_Down, false, false, false, false);
-				PressedAxis.insert(minCode);
-			}
-		}
-		else
-		{
-			if (PressedAxis.count(minCode) != 0)
-			{
-				Game.DoKeyboardInput(
-					KEY_Gamepad(event.jaxis.which, minCode),
-					KEYEV_Up, false, false, false, false);
-				PressedAxis.erase(minCode);
-			}
-		}
-		if (event.jaxis.value > +deadZone)
-		{
-			if (PressedAxis.count(maxCode) == 0)
-			{
-				Game.DoKeyboardInput(
-					KEY_Gamepad(event.jaxis.which, maxCode),
-					KEYEV_Down, false, false, false, false);
-				PressedAxis.insert(maxCode);
-			}
-		}
-		else
-		{
-			if (PressedAxis.count(maxCode) != 0)
-			{
-				Game.DoKeyboardInput(
-					KEY_Gamepad(event.jaxis.which, maxCode),
-					KEYEV_Up, false, false, false, false);
-				PressedAxis.erase(maxCode);
-			}
-		}
+		if (IsGCManaged(event.jaxis.which)) break; // double-fire guard
+		FeedAxisMotion(event.jaxis.which, event.jaxis.axis, event.jaxis.value);
 		break;
-	}
 	case SDL_JOYBUTTONDOWN:
+		if (IsGCManaged(event.jbutton.which)) break; // double-fire guard
 		Game.DoKeyboardInput(
 			KEY_Gamepad(event.jbutton.which, KEY_JOY_Button(event.jbutton.button)),
 			KEYEV_Down, false, false, false, false);
 		break;
 	case SDL_JOYBUTTONUP:
+		if (IsGCManaged(event.jbutton.which)) break; // double-fire guard
 		Game.DoKeyboardInput(
 			KEY_Gamepad(event.jbutton.which, KEY_JOY_Button(event.jbutton.button)),
 			KEYEV_Up, false, false, false, false);
@@ -440,24 +522,69 @@ int C4GamePadControl::GetGamePadCount()
 	return (SDL_NumJoysticks());
 }
 
-C4GamePadOpener::C4GamePadOpener(int iGamepad)
+void C4GamePadOpener::OpenPad(int iGamepad)
 {
+	// Recognized pads open as SDL_GameController so their events arrive in
+	// the standardized mapping (spec gamepad-defaults §3.2.2); the instance
+	// id is registered with C4GamePadControl so SDL_CONTROLLER* events
+	// translate back to this device index. Unrecognized pads keep the raw
+	// SDL_Joystick behavior unchanged.
+	if (SDL_IsGameController(iGamepad))
+	{
+		SDL_GameController *gameCon = SDL_GameControllerOpen(iGamepad);
+		if (gameCon)
+		{
+			GameCon = gameCon;
+			Joy = SDL_GameControllerGetJoystick(GameCon);
+			if (C4GamePadControl::pInstance)
+				C4GamePadControl::pInstance->RegisterGCInstance(SDL_JoystickInstanceID(Joy), iGamepad);
+			return;
+		}
+	}
 	Joy = SDL_JoystickOpen(iGamepad);
 	if (!Joy) LogNTr(spdlog::level::err, "SDL: {}", SDL_GetError());
 }
 
-C4GamePadOpener::~C4GamePadOpener()
+C4GamePadOpener::C4GamePadOpener(int iGamepad)
 {
-	if (Joy) SDL_JoystickClose(Joy);
+	OpenPad(iGamepad);
 }
 
-void C4GamePadOpener::SetGamePad(int iGamepad)
+C4GamePadOpener::~C4GamePadOpener()
 {
-	if (Joy)
+	if (GameCon)
+	{
+		if (C4GamePadControl::pInstance)
+			C4GamePadControl::pInstance->UnregisterGCInstance(
+				SDL_JoystickInstanceID(SDL_GameControllerGetJoystick(GameCon)));
+		SDL_GameControllerClose(GameCon);
+		GameCon = nullptr;
+		Joy = nullptr;
+	}
+	else if (Joy)
+	{
 		SDL_JoystickClose(Joy);
-	Joy = SDL_JoystickOpen(iGamepad);
-	if (!Joy)
-		LogNTr(spdlog::level::err, "SDL: {}", SDL_GetError());
+		Joy = nullptr;
+	}
+}
+
+void C4GamePadOpener::SetGamePad(int iNewGamePad)
+{
+	if (GameCon)
+	{
+		if (C4GamePadControl::pInstance)
+			C4GamePadControl::pInstance->UnregisterGCInstance(
+				SDL_JoystickInstanceID(SDL_GameControllerGetJoystick(GameCon)));
+		SDL_GameControllerClose(GameCon);
+		GameCon = nullptr;
+		Joy = nullptr;
+	}
+	else if (Joy)
+	{
+		SDL_JoystickClose(Joy);
+		Joy = nullptr;
+	}
+	OpenPad(iNewGamePad);
 }
 
 #else
