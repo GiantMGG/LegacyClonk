@@ -19,6 +19,9 @@ minutes on the shipped **Colony Bay** scenario.
     **Options → Keyboard** carry a **Preset** dropdown, so switching to
     the traditional **Classic One-Hand** layout is one click away — see
     the [controls reference](controls.md) for all presets and keys.
+    Gamepads work out of the box too: plug in an Xbox-style controller
+    and the default bindings apply automatically — move with the left
+    stick or dpad, A jumps, X digs.
 
 ---
 

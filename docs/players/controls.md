@@ -219,14 +219,39 @@ values).
 ## Gamepad
 
 Gamepads expose the same 12 `CON_*` slots, mapped via
-`Config.Gamepads[i].Button[j]` (`src/C4Game.cpp:3296-3311`). Axes
-are translated into synthetic keys at
-`src/C4GamePadCon.cpp:230-236`. The default gamepad mapping is
-configurable in the in-game Options dialog; this page does not list
-a default per-button table because the engine ships no gamepad
-default in `C4Config.cpp` (the `Button[]` array defaults to `-1`,
-meaning "unbound", per the `if (cfg.Button[iCtrl] == -1) continue;`
-guard at `src/C4Game.cpp:3303`).
+`Config.Gamepads[i].Button[j]` (`src/C4Game.cpp:3673-3688`). Fresh
+installs ship an **Xbox-style default table** — plug a standard pad
+in and it plays with zero setup: left stick (or dpad) moves, A
+jumps, X digs, B throws.
+
+| slot | `CON_*`      | default (SDL standard mapping) | default (winmm facade) |
+|------|--------------|--------------------------------|------------------------|
+| 0    | CursorLeft   | LB (button 9)                  | LB (button 4)          |
+| 1    | CursorToggle | Back (button 4)                | Back (button 6)        |
+| 2    | CursorRight  | RB (button 10)                 | RB (button 5)          |
+| 3    | Throw        | B (button 1)                   | B (button 1)           |
+| 4    | Up           | A (button 0)                   | A (button 0)           |
+| 5    | Dig          | X (button 2)                   | X (button 2)           |
+| 6    | Left         | left stick west                | axis 0 min             |
+| 7    | Down         | left stick south               | axis 1 max             |
+| 8    | Right        | left stick east                | axis 0 max             |
+| 9    | Menu         | Start (button 6)               | Start (button 7)       |
+| 10   | Special      | Y (button 3)                   | Y (button 3)           |
+| 11   | Special2     | R3 (button 8)                  | R3 (button 9)          |
+
+These are CompileFunc INI defaults (`src/C4GamepadDefaults.{h,cpp}`,
+consumed at `src/C4Config.cpp:313-324`): a config entry you never
+wrote loads the default; an explicitly saved `ButtonN=` wins
+per-slot. The Options dialog's gamepad reset button restores them
+(`src/C4StartupOptionsDlg.cpp:512-519`).
+
+**Backend caveats.** On Linux/macOS a pad recognized by the
+`gamecontrollerdb.txt` mapping opens as an `SDL_GameController`, so
+its buttons arrive in the standardized order the defaults assume; an
+unrecognized pad falls back to the raw joystick path and needs
+manual binding as before. On Windows the winmm XInput-facade order
+is used. Physical-pad feel (dpad aliasing, deadzone) is playtest
+territory — see the controls reference intro.
 
 ## Engine hotkeys
 
