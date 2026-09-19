@@ -5,7 +5,7 @@ src/C4Console.cpp:917
 src/C4DevmodeDlg.h:26
 src/C4GameObjects.cpp:440
 src/C4GameObjects.cpp:508
-src/C4GamePadCon.cpp:291
+src/C4GamePadCon.cpp:302
 src/C4GraphicsResource.cpp:411
 src/C4GuiDialogs.cpp:307
 src/C4HudBars.cpp:460
