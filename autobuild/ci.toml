@@ -35,6 +35,8 @@ parts = [
 
 [groups.content.'Desert.c4d']
 
+[groups.content.'EscapeRooms.c4f']
+
 [groups.content.'Fantasy.c4d']
 
 [groups.content.'Fantasy.c4f']

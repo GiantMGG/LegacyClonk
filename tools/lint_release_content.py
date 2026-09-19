@@ -152,10 +152,17 @@ def main():
 				encoding="utf-8", errors="replace") as f:
 				refs = parse_scenario_refs(f.read())
 			for ref in refs:
-				if ref not in shipped:
-					findings.append(
-						f"FAIL closure {rel} -> {ref} "
-						f"(not in [groups.content])")
+				if ref in shipped:
+					continue
+				# Folder-local resolution (Knights.c4f/Camp.c4s precedent):
+				# [Definitions] names resolve against the scenario's parent
+				# group chain first, so a ref shipped inside this very pack
+				# subtree closes even though it is not a top-level pack.
+				if os.path.isdir(os.path.join(pack_dir, ref)):
+					continue
+				findings.append(
+					f"FAIL closure {rel} -> {ref} "
+					f"(not in [groups.content])")
 
 	if args.report:
 		print(f"shipped set ({len(shipped)}):")
