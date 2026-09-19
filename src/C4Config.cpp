@@ -19,6 +19,7 @@
 #include <C4Config.h>
 
 #include "C4ControlPresets.h"
+#include "C4GamepadDefaults.h"
 #include "C4Version.h"
 #ifdef C4ENGINE
 #include <C4Application.h>
@@ -310,18 +311,18 @@ void C4ConfigGamepad::CompileFunc(StdCompiler *pComp, bool fButtonsOnly)
 			pComp->Value(mkNamingAdapt(AxisCalibrated[i], std::format("Axis{}Calibrated", i).c_str(), false));
 		}
 	}
-	pComp->Value(mkNamingAdapt(Button[0],  "Button1",  -1));
-	pComp->Value(mkNamingAdapt(Button[1],  "Button2",  -1));
-	pComp->Value(mkNamingAdapt(Button[2],  "Button3",  -1));
-	pComp->Value(mkNamingAdapt(Button[3],  "Button4",  -1));
-	pComp->Value(mkNamingAdapt(Button[4],  "Button5",  -1));
-	pComp->Value(mkNamingAdapt(Button[5],  "Button6",  -1));
-	pComp->Value(mkNamingAdapt(Button[6],  "Button7",  -1));
-	pComp->Value(mkNamingAdapt(Button[7],  "Button8",  -1));
-	pComp->Value(mkNamingAdapt(Button[8],  "Button9",  -1));
-	pComp->Value(mkNamingAdapt(Button[9],  "Button10", -1));
-	pComp->Value(mkNamingAdapt(Button[10], "Button11", -1));
-	pComp->Value(mkNamingAdapt(Button[11], "Button12", -1));
+	pComp->Value(mkNamingAdapt(Button[0],  "Button1",  GetGamepadDefaultButton(iGamepadIndex, 0)));
+	pComp->Value(mkNamingAdapt(Button[1],  "Button2",  GetGamepadDefaultButton(iGamepadIndex, 1)));
+	pComp->Value(mkNamingAdapt(Button[2],  "Button3",  GetGamepadDefaultButton(iGamepadIndex, 2)));
+	pComp->Value(mkNamingAdapt(Button[3],  "Button4",  GetGamepadDefaultButton(iGamepadIndex, 3)));
+	pComp->Value(mkNamingAdapt(Button[4],  "Button5",  GetGamepadDefaultButton(iGamepadIndex, 4)));
+	pComp->Value(mkNamingAdapt(Button[5],  "Button6",  GetGamepadDefaultButton(iGamepadIndex, 5)));
+	pComp->Value(mkNamingAdapt(Button[6],  "Button7",  GetGamepadDefaultButton(iGamepadIndex, 6)));
+	pComp->Value(mkNamingAdapt(Button[7],  "Button8",  GetGamepadDefaultButton(iGamepadIndex, 7)));
+	pComp->Value(mkNamingAdapt(Button[8],  "Button9",  GetGamepadDefaultButton(iGamepadIndex, 8)));
+	pComp->Value(mkNamingAdapt(Button[9],  "Button10", GetGamepadDefaultButton(iGamepadIndex, 9)));
+	pComp->Value(mkNamingAdapt(Button[10], "Button11", GetGamepadDefaultButton(iGamepadIndex, 10)));
+	pComp->Value(mkNamingAdapt(Button[11], "Button12", GetGamepadDefaultButton(iGamepadIndex, 11)));
 }
 
 void C4ConfigGamepad::Reset()
@@ -446,6 +447,13 @@ void C4ConfigLogging::CompileFunc(StdCompiler *const comp)
 
 C4Config::C4Config()
 {
+#ifdef C4ENGINE
+	// Pad indexes first: the registry defaults compiled by Default() embed
+	// each pad's own id (spec gamepad-defaults §3.3). The loop is C4ENGINE-
+	// guarded because Gamepads[] only exists on engine builds (C4Config.h).
+	for (int i = 0; i < C4ConfigMaxGamepads; ++i)
+		Gamepads[i].iGamepadIndex = i;
+#endif
 	Default();
 }
 

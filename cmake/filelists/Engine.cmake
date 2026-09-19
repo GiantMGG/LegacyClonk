@@ -95,6 +95,8 @@ src/C4GameOverDlg.cpp
 src/C4GameOverDlg.h
 src/C4GamePadCon.cpp
 src/C4GamePadCon.h
+src/C4GamepadDefaults.cpp
+src/C4GamepadDefaults.h
 src/C4GameParameters.cpp
 src/C4GameParameters.h
 src/C4GameSave.cpp

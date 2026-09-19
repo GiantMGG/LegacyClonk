@@ -278,6 +278,7 @@ public:
 	int32_t Button[C4MaxKey];
 	uint32_t AxisMin[6], AxisMax[6];
 	bool AxisCalibrated[6];
+	int32_t iGamepadIndex{0}; // array index within Config.Gamepads; registry defaults embed this pad's id
 	void CompileFunc(StdCompiler *pComp, bool fButtonsOnly = false);
 	void Reset(); // reset all buttons and axis calibration to default
 };

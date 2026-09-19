@@ -162,6 +162,11 @@ add_test_target(C4ControlPresets
 	LINK_ENGINE
 )
 
+add_test_target(C4GamepadDefaults
+	SOURCES "${CMAKE_SOURCE_DIR}/tests/TstC4GamepadDefaults.cpp"
+	LINK_ENGINE
+)
+
 # --- Offline pre-game options (spec pregame-options-parity) ----------------
 add_test_target(OptionsOverride
 	SOURCES "${CMAKE_SOURCE_DIR}/tests/TstC4GameOptions.cpp"
