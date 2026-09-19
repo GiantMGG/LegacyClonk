@@ -75,6 +75,8 @@ parts = [
 
 [groups.content.'Races.c4f']
 
+[groups.content.'SaltRoad.c4f']
+
 [groups.content.'SiegeEngines.c4d']
 
 [groups.content.'SilkRoad.c4f']
