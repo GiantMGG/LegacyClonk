@@ -240,9 +240,11 @@ jumps, X digs, B throws.
 | 11   | Special2     | R3 (button 8)                  | R3 (button 9)          |
 
 These are CompileFunc INI defaults (`src/C4GamepadDefaults.{h,cpp}`,
-consumed at `src/C4Config.cpp:313-324`): a config entry you never
-wrote loads the default; an explicitly saved `ButtonN=` wins
-per-slot. The Options dialog's gamepad reset button restores them
+consumed at `src/C4Config.cpp:314-325`): an explicitly saved
+non-`-1` `ButtonN=` wins per-slot, while a `-1` (unbound) entry — as
+configs written by older versions save for every untouched slot —
+loads the default, so upgrading installations self-heal on first
+load. The Options dialog's gamepad reset button restores the table
 (`src/C4StartupOptionsDlg.cpp:512-519`).
 
 **Backend caveats.** On Linux/macOS a pad recognized by the

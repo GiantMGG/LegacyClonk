@@ -140,6 +140,45 @@ TEST_CASE("GamepadDefaults.IniLoadSideDefaultsG2", "[gamepad-defaults]")
 	}
 }
 
+TEST_CASE("GamepadDefaults.IniLoadMigratesExplicitMinusOneG2", "[gamepad-defaults]")
+{
+	// Upgrade path (cycle-148 review B1): configs written before the
+	// default table existed saved an explicit -1 ("unbound") for every
+	// untouched slot (the v370-and-earlier writer had no default filter,
+	// and the pre-cycle defaults were all -1). A present `ButtonN=-1` key
+	// beats the CompileFunc default, so without a migration upgrading
+	// players would never see the new table. The migration replaces a
+	// loaded -1 with the registry default (pad id embedded); an explicitly
+	// saved non--1 value still wins.
+	const auto path = WriteFixture("g2m1",
+		"[Gamepad1]\n"
+		"Button3=-1\n"
+		"Button5=12345\n");
+	REQUIRE(Config.Load(false, path.string().c_str()));
+
+	// Gamepad0: section absent -> every slot loads its default, pad 0 embedded.
+	for (int32_t iSlot = 0; iSlot < C4MaxKey; ++iSlot)
+	{
+		INFO("Gamepad0 slot " << iSlot);
+		CHECK(Config.Gamepads[0].Button[iSlot] == KEY_Gamepad(0, ExpectedLayout[iSlot]));
+	}
+
+	// Gamepad1 slot 2 ("Button3"): explicitly saved -1 -> migrates to the
+	// registry default with pad 1's id embedded (the upgrade path).
+	CHECK(Config.Gamepads[1].Button[2] == KEY_Gamepad(1, ExpectedLayout[2]));
+
+	// Gamepad1 slot 4 ("Button5"): explicitly saved non--1 -> still wins.
+	CHECK(Config.Gamepads[1].Button[4] == 12345);
+
+	// Every other slot defaulted with pad 1's id embedded.
+	for (int32_t iSlot = 0; iSlot < C4MaxKey; ++iSlot)
+	{
+		if (iSlot == 2 || iSlot == 4) continue;
+		INFO("Gamepad1 slot " << iSlot);
+		CHECK(Config.Gamepads[1].Button[iSlot] == KEY_Gamepad(1, ExpectedLayout[iSlot]));
+	}
+}
+
 #ifdef USE_SDL_FOR_GAMEPAD
 TEST_CASE("GamepadDefaults.SyntheticDispatchG3", "[gamepad-defaults]")
 {

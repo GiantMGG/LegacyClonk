@@ -323,6 +323,20 @@ void C4ConfigGamepad::CompileFunc(StdCompiler *pComp, bool fButtonsOnly)
 	pComp->Value(mkNamingAdapt(Button[9],  "Button10", GetGamepadDefaultButton(iGamepadIndex, 9)));
 	pComp->Value(mkNamingAdapt(Button[10], "Button11", GetGamepadDefaultButton(iGamepadIndex, 10)));
 	pComp->Value(mkNamingAdapt(Button[11], "Button12", GetGamepadDefaultButton(iGamepadIndex, 11)));
+
+	// Upgrade-path migration (cycle-148 review B1): configs written before
+	// the default table existed carry an explicit ButtonN=-1 ("unbound")
+	// for every untouched slot, and a present key beats the CompileFunc
+	// default, so upgrading installs would keep -1 forever and never see
+	// the new bindings. Treat a loaded -1 as "follow the registry table"
+	// and read the default in its place. Read path only (isCompiler): the
+	// writer keeps emitting whatever is in memory unchanged, and
+	// StdCompilerNull (Reset()/Default()) already fills the registry
+	// defaults, so those paths are unaffected.
+	if (pComp->isCompiler())
+		for (int32_t i = 0; i < C4MaxKey; ++i)
+			if (Button[i] == -1)
+				Button[i] = GetGamepadDefaultButton(iGamepadIndex, i);
 }
 
 void C4ConfigGamepad::Reset()
