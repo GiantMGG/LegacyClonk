@@ -1633,4 +1633,62 @@ Spec: .opencode/specs/2026-08-29-1000-connection-migration-reconnect.md (cf8c883
 
 - **changelog**: Scope v370 highlights to resolvable claims (audit fix) (a8b39c2)
 
+## [371] - 2026-09-19
+
+### Added
+
+- **tools**: Classicart v3 raster pipeline + selftest (ac91eb3)
+
+- **tools**: Gen_windmill_gfx + gfx_check_windmill; allowlist -2 (553f2d2)
+
+- **tools**: Gen_cog_gfx + gfx_check_cog; allowlist -1 (cea08ca)
+
+- **gfx**: Scorpion walk v4 - six-phase gait cycle (fdd1655)
+
+- **gfx**: Add escape-rooms helper sprite batch generator (EGAT/ERLV/ERKY) (cycle 147) (40ed4b8)
+
+- **gamepad**: Xbox-style default binding table + CompileFunc INI defaults (cycle 148) (0c9b69e)
+
+- **gamepad**: Migrate SDL event layer to SDL_GameController + dpad alias (cycle 148) (47e9c28)
+
+
+### Changed
+
+- Auto_format pass over classicart v3 tooling (blank-line condense) (dd21066)
+
+
+### Fixed
+
+- **tools**: Gen_cog_gfx draw mast over sail + billow shading (judge critique: sail read as blank panel, mast invisible) (4ee5b79)
+
+- **gfx**: Scorpion walk P2 leg cluster right-shift (judge leg-count merge claw+leg1) (e955850)
+
+- **gamepad**: Migrate legacy -1 button entries to registry defaults (cycle 148) (fefaa2a)
+
+- **lint**: Re-pin gamepad TODO allowlist after SDL_GC rewrite (cycle 148) (cce7555)
+
+
+### Internal
+
+- **playtest**: Install Pillow for classicart_selftest PIL oracle (runner python3 lacks it; Playtest was the only ctest lane registering the test — CI-red fix) (83ea99c)
+
+- **content**: Register SaltRoad.c4f in release content groups (cycle 146) (13e377f)
+
+- **smoke**: Pin SaltRoadStorySmoke RNG seed 146 (cycle 146) (32a852f)
+
+- **content**: Register EscapeRooms.c4f + folder-local closure in release-content lint (cycle 147) (652fbe6)
+
+- **smoke**: Pin escape-room smoke RNG seeds (cycle 147) (1f6f94a)
+
+- **Players**: Document default gamepad bindings and OOTB behavior (cycle 148) (4483a6e)
+
+- **changelog**: Update for v370 [skip ci] (2db1331)
+
+- **version**: Bump content version to 4.9.11.8 for v371 (344ac68)
+
+
+### Other
+
+- Merge branch 'master' into development (pre-v371: bring v370 changelog splice into the release line) (de63f6c)
+
 <!-- git-cliff prepends new release sections above this line. -->
