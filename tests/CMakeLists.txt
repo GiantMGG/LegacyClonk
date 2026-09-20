@@ -286,6 +286,26 @@ if(EXISTS "${CMAKE_SOURCE_DIR}/../content/WeatherEvents.c4d/Tests.c4f/BlueprintL
 		FAIL_REGULAR_EXPRESSION "FatalError|\\[error\\]|\\[fatal\\]")
 endif()
 
+# --- Jump-and-run climb release smoke (roadmap climb-drop-fix) -------------
+# Pins the AutoStopDirectCom fix: a DFA_SCALE clonk holding a flint that
+# receives COM_Dig lets go without dropping the item (no C4CMD_Drop
+# fall-through) and no spurious delayed dig fires (LastCom clear on the
+# let-go). NO Smoke suffix in the scenario name (the glob must not
+# double-register it); the fixture-joined variant is registered explicitly.
+if(EXISTS "${CMAKE_SOURCE_DIR}/../content/WeatherEvents.c4d/Tests.c4f/ClimbDigRelease.c4s")
+	add_test(NAME climb_dig_release_smoke
+		COMMAND "${PYTHON3}" "${CMAKE_SOURCE_DIR}/tools/run_engine_headless.py"
+			"$<TARGET_FILE:clonk>" --console --smoke-run 350
+			--smoke-player-fixture "${CMAKE_SOURCE_DIR}/tests/fixtures/TestPlayer.c4p"
+			-s "${CMAKE_SOURCE_DIR}/../content/WeatherEvents.c4d/Tests.c4f/ClimbDigRelease.c4s"
+		WORKING_DIRECTORY "${CMAKE_BINARY_DIR}")
+	set_tests_properties(climb_dig_release_smoke PROPERTIES
+		TIMEOUT 60
+		LABELS "smoke"
+		PASS_REGULAR_EXPRESSION "ClimbDigRelease PASS"
+		FAIL_REGULAR_EXPRESSION "FatalError|\\[error\\]|\\[fatal\\]")
+endif()
+
 # --- Seed=/Amplitude= --parameter override smoke (spec landscape-generator-research).
 # Relative-determinism driver: the map generator's output is machine/build-
 # dependent (FP in the creator chain), so the pin is same-seed-equality across
