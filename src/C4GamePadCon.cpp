@@ -351,6 +351,9 @@ void C4GamePadControl::Execute()
 		case SDL_JOYHATMOTION:
 		case SDL_JOYBUTTONDOWN:
 		case SDL_JOYBUTTONUP:
+		case SDL_CONTROLLERAXISMOTION:
+		case SDL_CONTROLLERBUTTONDOWN:
+		case SDL_CONTROLLERBUTTONUP:
 			FeedEvent(event);
 			break;
 		}

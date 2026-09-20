@@ -238,5 +238,22 @@ TEST_CASE("GamepadDefaults.SyntheticDispatchG3", "[gamepad-defaults]")
 	dp.cbutton.button = SDL_CONTROLLER_BUTTON_DPAD_LEFT;
 	control.FeedEvent(dp);
 	CHECK(probeLeft.fired == 3);
+
+#ifndef USE_SDL_MAINLOOP
+	// 6. Pump path (review B1): on an X11 build Execute() is the ONLY SDL
+	//    event pump, and it must forward SDL_CONTROLLER* events to FeedEvent
+	//    the way the SDL-mainloop funnel (C4FullScreen.cpp) does. Push a GC
+	//    A-press onto the real SDL queue, let Execute() poll it, and require
+	//    the bound named key to fire exactly once more. SDL-mainloop builds
+	//    compile this out: Execute() is a no-op there, and this queue is not
+	//    what feeds the game.
+	SDL_Event pushed{};
+	pushed.type = SDL_CONTROLLERBUTTONDOWN;
+	pushed.cbutton.which = kFakeInstance;
+	pushed.cbutton.button = SDL_CONTROLLER_BUTTON_A;
+	REQUIRE(SDL_PushEvent(&pushed) == 1);
+	control.Execute();
+	CHECK(probeA.fired == 2);
+#endif
 }
 #endif
