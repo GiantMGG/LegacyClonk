@@ -12,7 +12,6 @@ src/C4HudBars.cpp:460
 src/C4IDList.cpp:191
 src/C4MainMenu.cpp:901
 src/C4Network2Reference.cpp:170
-src/C4Object.cpp:3694
 src/C4ObjectListDlg.cpp:674
 src/C4Particles.cpp:419
 src/C4Player.cpp:196

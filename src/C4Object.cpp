@@ -3638,6 +3638,14 @@ void C4Object::DirectCom(uint8_t byCom, int32_t iData) // By player ObjectCom
 void C4Object::AutoStopDirectCom(uint8_t byCom, int32_t iData) // By DirecCom
 {
 	C4Player *pPlayer = Game.Players.Get(Controller);
+	// Let-go routing: a successful let-go also clears the controlling player's
+	// LastCom buffer, so the com is not re-fired as a delayed single on the
+	// next procedure (upstream issue #119 / PR #120).
+	auto LetGoAndForgetCom = [this, pPlayer](const int xdir)
+	{
+		if (ObjectComLetGo(this, xdir))
+			pPlayer->LastCom = COM_None;
+	};
 	// Control by procedure
 	switch (GetProcedure())
 	{
@@ -3684,14 +3692,16 @@ void C4Object::AutoStopDirectCom(uint8_t byCom, int32_t iData) // By DirecCom
 		switch (byCom)
 		{
 		case COM_Left:
-			if (Action.Dir == DIR_Right) ObjectComLetGo(this, -1);
+			if (Action.Dir == DIR_Right) LetGoAndForgetCom(-1);
 			else AutoStopUpdateComDir();
 			break;
 		case COM_Right:
-			if (Action.Dir == DIR_Left) ObjectComLetGo(this, +1);
+			if (Action.Dir == DIR_Left) LetGoAndForgetCom(+1);
 			else AutoStopUpdateComDir();
 			break;
-		case COM_Dig:    ObjectComLetGo(this, (Action.Dir == DIR_Left) ? +1 : -1); [[fallthrough]]; // FIXME: bug?
+		case COM_Dig:
+			LetGoAndForgetCom((Action.Dir == DIR_Left) ? +1 : -1);
+			break;
 		case COM_Throw:  PlayerObjectCommand(Owner, C4CMD_Drop); break;
 		default: AutoStopUpdateComDir();
 		}
@@ -3700,9 +3710,9 @@ void C4Object::AutoStopDirectCom(uint8_t byCom, int32_t iData) // By DirecCom
 	case DFA_HANGLE:
 		switch (byCom)
 		{
-		case COM_Down:    ObjectComLetGo(this, 0); break;
-		case COM_Dig:     ObjectComLetGo(this, 0); break;
-		case COM_Throw:   PlayerObjectCommand(Owner, C4CMD_Drop); break;
+		case COM_Down:  LetGoAndForgetCom(0); break;
+		case COM_Dig:   LetGoAndForgetCom(0); break;
+		case COM_Throw: PlayerObjectCommand(Owner, C4CMD_Drop); break;
 		default: AutoStopUpdateComDir();
 		}
 		break;
