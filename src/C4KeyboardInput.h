@@ -417,6 +417,13 @@ public:
 	~C4KeyboardInput() { Clear(); IsValid = false; }
 
 	const KeyNameMap &GetKeysByName() const { return KeysByName; }
+
+	// Scan the registered keys for every OTHER key (pointer != pKey) that has
+	// `key` among its current codes AND whose scope overlaps pKey's scope
+	// (bitwise AND != 0) — i.e. a rebind of pKey onto `key` would silently
+	// shadow that other key. Deterministic order: KeysByName (name) order.
+	// Used by the rebind UI to warn before committing (rebind-conflicts).
+	std::vector<C4CustomKey *> GetConflictingKeys(const C4CustomKey *pKey, C4KeyCode key) const;
 	void RebindKey(C4CustomKey *pKey, const C4CustomKey::CodeList &rNewCodes);
 	void ResetKey(C4CustomKey *pKey);
 	void ResetAllKeys();

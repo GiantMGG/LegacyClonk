@@ -650,6 +650,28 @@ void C4KeyboardInput::UpdateKeyCodes(C4CustomKey *pKey, const C4CustomKey::CodeL
 	}
 }
 
+std::vector<C4CustomKey *> C4KeyboardInput::GetConflictingKeys(const C4CustomKey *pKey, C4KeyCode key) const
+{
+	std::vector<C4CustomKey *> Conflicts;
+	if (!pKey) return Conflicts;
+	for (KeyNameMap::const_iterator i = KeysByName.begin(); i != KeysByName.end(); ++i)
+	{
+		C4CustomKey *pOther = i->second;
+		// a key is never in conflict with itself
+		if (pOther == pKey) continue;
+		// must actually be bound to the code in question
+		const C4CustomKey::CodeList &rCodes = pOther->GetCodes();
+		bool fHasKey = false;
+		for (C4CustomKey::CodeList::const_iterator j = rCodes.begin(); j != rCodes.end() && !fHasKey; ++j)
+			fHasKey = (j->Key == key);
+		if (!fHasKey) continue;
+		// scopes must overlap: same code in disjoint scopes does not conflict
+		if (!(pOther->GetScope() & pKey->GetScope())) continue;
+		Conflicts.push_back(pOther);
+	}
+	return Conflicts;
+}
+
 void C4KeyboardInput::RebindKey(C4CustomKey *pKey, const C4CustomKey::CodeList &rNewCodes)
 {
 	if (!pKey) return;

@@ -713,4 +713,63 @@ TEST_CASE("FreshDefaults.LegacyParityL2", "[control-presets]")
 #endif
 }
 
+TEST_CASE("ConflictScan.OverlappingScope", "[rebind-conflicts]")
+{
+	// Plan case A (roadmap rebind-conflicts): two control-scope keys with
+	// distinct codes; GetConflictingKeys for keyA on keyB's code returns
+	// exactly {B}. After RebindKey(keyA, {codeB}) the conflict is still
+	// reported — the bindings-tab dialog must warn before committing.
+	const C4KeyCode codeA = KEY(VK_RETURN, XK_Return, SDL_SCANCODE_RETURN);
+	const C4KeyCode codeB = KEY(VK_LEFT, XK_Left, SDL_SCANCODE_LEFT);
+
+	C4KeyboardInput input;
+	C4CustomKey *pKeyA = new C4CustomKey(C4KeyCodeEx(codeA), "ConflictTestKeyA", KEYSCOPE_Control, nullptr, C4CustomKey::PRIO_PlrControl);
+	C4CustomKey *pKeyB = new C4CustomKey(C4KeyCodeEx(codeB), "ConflictTestKeyB", KEYSCOPE_Control, nullptr, C4CustomKey::PRIO_PlrControl);
+	input.RegisterKey(pKeyA);
+	input.RegisterKey(pKeyB);
+
+	const std::vector<C4CustomKey *> conflicts = input.GetConflictingKeys(pKeyA, codeB);
+	REQUIRE(conflicts.size() == 1);
+	REQUIRE(conflicts[0] == pKeyB);
+
+	// Rebinding keyA onto B's code must keep reporting the conflict.
+	C4CustomKey::CodeList newCodes;
+	newCodes.push_back(C4KeyCodeEx(codeB));
+	input.RebindKey(pKeyA, newCodes);
+
+	const std::vector<C4CustomKey *> afterRebind = input.GetConflictingKeys(pKeyA, codeB);
+	REQUIRE(afterRebind.size() == 1);
+	REQUIRE(afterRebind[0] == pKeyB);
+}
+
+TEST_CASE("ConflictScan.DisjointScopes", "[rebind-conflicts]")
+{
+	// Plan case B: same code, disjoint scopes (KEYSCOPE_Control vs
+	// KEYSCOPE_Gui, bitwise AND == 0) → no conflict reported in either
+	// direction.
+	const C4KeyCode code = KEY(VK_RETURN, XK_Return, SDL_SCANCODE_RETURN);
+
+	C4KeyboardInput input;
+	C4CustomKey *pKeyControl = new C4CustomKey(C4KeyCodeEx(code), "ConflictTestKeyControl", KEYSCOPE_Control, nullptr, C4CustomKey::PRIO_PlrControl);
+	C4CustomKey *pKeyGui = new C4CustomKey(C4KeyCodeEx(code), "ConflictTestKeyGui", KEYSCOPE_Gui, nullptr, C4CustomKey::PRIO_PlrControl);
+	input.RegisterKey(pKeyControl);
+	input.RegisterKey(pKeyGui);
+
+	CHECK(input.GetConflictingKeys(pKeyControl, code).empty());
+	CHECK(input.GetConflictingKeys(pKeyGui, code).empty());
+}
+
+TEST_CASE("ConflictScan.SelfBindingExcluded", "[rebind-conflicts]")
+{
+	// Plan case C: the key itself is excluded from its own conflict scan —
+	// a key whose own code is queried must not report itself.
+	const C4KeyCode code = KEY(VK_RETURN, XK_Return, SDL_SCANCODE_RETURN);
+
+	C4KeyboardInput input;
+	C4CustomKey *pKey = new C4CustomKey(C4KeyCodeEx(code), "ConflictTestKeySelf", KEYSCOPE_Control, nullptr, C4CustomKey::PRIO_PlrControl);
+	input.RegisterKey(pKey);
+
+	CHECK(input.GetConflictingKeys(pKey, code).empty());
+}
+
 #undef KEY

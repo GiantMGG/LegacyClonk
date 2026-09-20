@@ -690,6 +690,31 @@ void C4StartupOptionsDlg::BindingsTab::OnRebindBtn(C4GUI::Control *btn)
 
 			C4CustomKey::CodeList newCodes;
 			newCodes.push_back(C4KeyCodeEx(key));
+
+			// Warn before committing when the chosen key is already bound to
+			// another action whose scope overlaps the one being rebound
+			// (rebind-conflicts): declining leaves both bindings untouched.
+			const std::vector<C4CustomKey *> conflicts = Game.KeyboardInput.GetConflictingKeys(row.pKey, key);
+			if (!conflicts.empty())
+			{
+				std::string sConflictingNames;
+				for (size_t i = 0; i < conflicts.size(); ++i)
+				{
+					if (i) sConflictingNames += ", ";
+					sConflictingNames += GetKeyDisplayName(conflicts[i]);
+				}
+				C4GUI::MessageDialog *pConflictDlg = new C4GUI::MessageDialog(
+					LoadResStr(C4ResStrTableKey::IDS_MSG_KEYCONFLICT, sConflictingNames).c_str(),
+					LoadResStr(C4ResStrTableKey::IDS_DLG_OPTIONS),
+					C4GUI::MessageDialog::btnYesNo,
+					C4GUI::Ico_None,
+					C4GUI::MessageDialog::dsRegular);
+				pConflictDlg->SetDelOnClose(false);
+				bool fConfirmed = GetScreen()->ShowModalDlg(pConflictDlg, false);
+				delete pConflictDlg;
+				if (!fConfirmed) return;
+			}
+
 			Game.KeyboardInput.RebindKey(row.pKey, newCodes);
 			UpdateBindingLabel(row);
 			return;
