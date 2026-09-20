@@ -21,6 +21,7 @@
 #include "C4Constants.h"
 
 #include <cstdint>
+#include <vector>
 
 // One stock control preset: a full 12-slot key table + a mouse recommendation.
 struct C4ControlPreset
@@ -62,5 +63,18 @@ bool ApplyPreset(int32_t iSet, const C4ControlPreset &rPreset);
 // The old-editor fix primitive: writes the config-table slot AND RebindKeys the
 // live named key (mirrors what the BindingsTab rebind does).
 void SetKeyboardControlKey(int32_t iSet, int32_t iKey, int32_t iKeyCode);
+
+// Hot-seat set resolver (spec per-player-controls): pick the keyboard set a
+// preset apply should target, given the preferred set and the PrefControl of
+// the sibling player files in the same picker.
+// - non-keyboard iPrefSet is returned unchanged (belt-and-braces; callers guard);
+// - an uncontested iPrefSet is returned unchanged;
+// - a contested iPrefSet bumps to the FIRST keyboard set (0..C4MaxKeyboardSet-1)
+//   no sibling prefers (deterministic);
+// - if all four keyboard sets are contended, iPrefSet is returned unchanged
+//   (saturated fallback = status-quo apply).
+// Gamepad entries in rSiblingPrefSets are naturally inert (never equal a
+// keyboard set).
+int32_t ResolvePresetApplySet(int32_t iPrefSet, const std::vector<int32_t> &rSiblingPrefSets);
 
 #endif

@@ -839,6 +839,21 @@ void C4StartupPlrSelDlg::UpdateActivatedPlayers()
 		}
 }
 
+std::vector<int32_t> C4StartupPlrSelDlg::GetSiblingPrefControls(const ListItem *pExclude)
+{
+	// Hot-seat control-set dedup (spec per-player-controls): collect the
+	// preferred control set of every player item but the one being edited, so
+	// a preset apply can bump off sets the siblings already prefer. Reader
+	// mode only; crew mode / main-menu creation dialogs yield an empty list.
+	if (eMode != PSDM_Player)
+		return {};
+	std::vector<int32_t> siblingPrefs;
+	for (ListItem *pPlrItem = static_cast<ListItem *>(pPlrListBox->GetFirst()); pPlrItem; pPlrItem = pPlrItem->GetNext())
+		if (pPlrItem != pExclude)
+			siblingPrefs.push_back(static_cast<PlayerListItem *>(pPlrItem)->GetCore().PrefControl);
+	return siblingPrefs;
+}
+
 void C4StartupPlrSelDlg::OnActivateBtn(C4GUI::Control *btn)
 {
 	// toggle activation state of current item
@@ -1219,7 +1234,14 @@ C4StartupPlrPropertiesDlg::C4StartupPlrPropertiesDlg(C4StartupPlrSelDlg::PlayerL
 	pPresetCombo->SetColors(C4StartupFontClr, C4StartupEditBGColor, C4StartupEditBorderColor);
 	pPresetCombo->SetFont(pUseFont);
 	pPresetCombo->SetDecoration(&(C4Startup::Get()->Graphics.fctContext));
-	pPresetCombo->SetText("(keep current)");
+	// Pre-select the remembered preset (spec per-player-controls): reopening
+	// the dialog shows what the file has. The staged iSelectedPreset still
+	// starts at C4PR_None, so OK without touching the combo applies nothing
+	// and keeps the remembered PrefPreset intact.
+	if (Inside<int32_t>(C4P.PrefPreset, 0, C4PR_Max - 1))
+		pPresetCombo->SetText(GetPreset(C4P.PrefPreset).szName);
+	else
+		pPresetCombo->SetText("(keep current)");
 	AddElement(pPresetCombo);
 	caMain.ExpandTop(-BetweenElementDist);
 	// place AutoStopControl label
@@ -1420,11 +1442,23 @@ void C4StartupPlrPropertiesDlg::OnClosed(bool fOK)
 			// SaveConfig tail (spec two-hand-control-presets §2.5).
 			if (iSelectedPreset != C4PR_None && C4P.PrefControl < C4MaxKeyboardSet)
 			{
+				// Hot-seat dedup: resolve the target set against the sibling
+				// player files, so two players editing distinct presets on
+				// one machine end up on distinct keyboard sets; then persist
+				// the claim in this player's core (spec per-player-controls).
+				const std::vector<int32_t> siblings =
+					pMainDlg ? pMainDlg->GetSiblingPrefControls(pForPlayer) : std::vector<int32_t>{};
+				C4P.PrefControl = ResolvePresetApplySet(C4P.PrefControl, siblings);
+				UpdatePlayerControl(); // icon refresh after the possible set bump
 				const C4ControlPreset rPreset = GetPreset(iSelectedPreset);
 				if (rPreset.MouseMode >= 0) C4P.PrefMouse = rPreset.MouseMode; // saved into the player core
 				ApplyPreset(C4P.PrefControl, rPreset);
 				Config.Save();                          // layer 1 → config INI
 				Game.KeyboardInput.SaveCustomConfig();  // layer 2 → Extra.c4g/KeyConfig.txt
+				// Remember the chosen preset in the player file (memory write;
+				// persisted by the UpdateCore/C4P.Save call below; gamepad-
+				// guarded files keep their old PrefPreset since nothing was applied)
+				C4P.PrefPreset = iSelectedPreset;
 			}
 			C4Group PlrGroup;
 			bool fSucc = false;

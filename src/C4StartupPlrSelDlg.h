@@ -198,6 +198,7 @@ private:
 	void OnSelChange(class C4GUI::Element *pEl) { UpdateSelection(); }
 	void OnSelDblClick(class C4GUI::Element *pEl) { C4GUI::GUISound("Click"); OnPropertyBtn(nullptr); }
 	void UpdateActivatedPlayers(); // update Config.General.Participants by currently activated players
+	std::vector<int32_t> GetSiblingPrefControls(const ListItem *pExclude); // PrefControl of all player items but pExclude (hot-seat dedup, spec per-player-controls)
 	void SelectItem(const std::string &filename, bool fActivate); // find item by filename and select (and activate it, if desired)
 
 	void SetPlayerMode(); // change view to listing players

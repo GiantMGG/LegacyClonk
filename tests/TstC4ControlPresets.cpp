@@ -56,11 +56,15 @@
 #include "C4ControlPresets.h"
 #include "C4Config.h"
 #include "C4Game.h"
+#include "C4Group.h"
+#include "C4InfoCore.h"
 #include "C4KeyboardInput.h"
 #include "C4Wrappers.h"
 #include "StdCompiler.h"
 
+#include <filesystem>
 #include <format>
+#include <fstream>
 #include <string>
 
 // Expectations are platform-resolved with the same triples the registry and
@@ -770,6 +774,114 @@ TEST_CASE("ConflictScan.SelfBindingExcluded", "[rebind-conflicts]")
 	input.RegisterKey(pKey);
 
 	CHECK(input.GetConflictingKeys(pKey, code).empty());
+}
+
+// --- P-series: per-player control preset persistence + hot-seat dedup
+// (spec per-player-controls) -------------------------------------------------
+//
+// P1-P4 pin the pure set resolver ResolvePresetApplySet: the properties
+// dialog bumps an applied preset off a keyboard set a sibling player file
+// already prefers, so hot-seat players end up on distinct sets.
+// P5 pins the C4PlayerInfoCore::PrefPreset serialization: write-side default
+// skip (preset-less files stay byte-stable), read-side default -1, and the
+// Load()-time out-of-range sanitize.
+
+TEST_CASE("PresetApplySet.UncontestedKeepsSet", "[per-player-controls]")
+{
+	// A preferred set no sibling claims is applied unchanged.
+	CHECK(ResolvePresetApplySet(0, {1}) == 0);
+	CHECK(ResolvePresetApplySet(2, {0, 1}) == 2);
+}
+
+TEST_CASE("PresetApplySet.ContestedBumpsToFirstFree", "[per-player-controls]")
+{
+	// A preferred set a sibling already has bumps to the FIRST keyboard set
+	// no sibling prefers (deterministic).
+	CHECK(ResolvePresetApplySet(0, {0}) == 1);
+	CHECK(ResolvePresetApplySet(0, {0, 2}) == 1);
+	CHECK(ResolvePresetApplySet(3, {3, 0}) == 1);
+	CHECK(ResolvePresetApplySet(1, {1}) == 0);
+}
+
+TEST_CASE("PresetApplySet.SaturatedKeepsRequested", "[per-player-controls]")
+{
+	// All four keyboard sets contended: saturated fallback = status-quo apply
+	// on the requested set (never an out-of-range write).
+	CHECK(ResolvePresetApplySet(0, {0, 1, 2, 3}) == 0);
+}
+
+TEST_CASE("PresetApplySet.GamepadPrefPassthrough", "[per-player-controls]")
+{
+	// Gamepad prefs (C4P_Control_GamePad1+) are not keyboard sets; the
+	// resolver leaves them untouched (the dialog guards the picker anyway).
+	CHECK(ResolvePresetApplySet(4, {}) == 4);
+	CHECK(ResolvePresetApplySet(4, {0, 1, 2, 3}) == 4);
+	CHECK(ResolvePresetApplySet(C4P_Control_GamePad2, {0, 4}) == C4P_Control_GamePad2);
+}
+
+namespace
+{
+	// Writes `rIni` as a Player.txt fixture into a temp folder and loads it
+	// through the real C4PlayerInfoCore::Load(C4Group&) group path, so the
+	// Load()-side PrefPreset sanitize is exercised. The folder is removed
+	// afterwards.
+	void LoadCoreFromFixture(C4PlayerInfoCore &rCore, const std::string &rIni, const char *szTag)
+	{
+		const auto dir = std::filesystem::temp_directory_path() / std::format("ppc_fixture_{}", szTag);
+		std::filesystem::create_directories(dir);
+		bool fHadFile = false;
+		{
+			std::ofstream out{dir / C4CFN_PlayerInfoCore, std::ios::binary};
+			fHadFile = static_cast<bool>(out << rIni);
+		}
+		REQUIRE(fHadFile);
+		{
+			C4Group grp;
+			REQUIRE(grp.Open(dir.string().c_str()));
+			rCore.Default();
+			REQUIRE(rCore.Load(grp));
+			grp.Close();
+		}
+		REQUIRE(std::filesystem::remove_all(dir) > 0);
+	}
+}
+
+TEST_CASE("PrefPreset.SerializationRoundTrip", "[per-player-controls]")
+{
+	// P5(a): decompile a PrefPreset=4 core → the INI carries "Preset=4";
+	// recompile → PrefPreset == 4 again.
+	C4PlayerInfoCore core;
+	core.Default();
+	core.PrefPreset = C4PR_TwoHandIJKL;
+	std::string out;
+	REQUIRE(DecompileToBuf_Log<StdCompilerINIWrite>(core, &out, "ppc"));
+	CHECK(out.find("Preset=4") != std::string::npos);
+	C4PlayerInfoCore reread;
+	reread.Default();
+	REQUIRE(CompileFromBuf_LogWarn<StdCompilerINIRead>(reread, StdStrBuf(out), "ppc"));
+	CHECK(reread.PrefPreset == C4PR_TwoHandIJKL);
+
+	// P5(b): a preset-less file compiles to -1 ("remember no preset").
+	C4PlayerInfoCore noPreset;
+	LoadCoreFromFixture(noPreset,
+		"[Player]\nName=Fixture\n[Preferences]\nColor=7\n",
+		"nopreset");
+	CHECK(noPreset.PrefPreset == C4PR_None);
+
+	// P5(c): an out-of-range stored preset is sanitized to -1 by Load().
+	C4PlayerInfoCore outOfRange;
+	LoadCoreFromFixture(outOfRange,
+		"[Player]\nName=Fixture\n[Preferences]\nPreset=99\n",
+		"oorange");
+	CHECK(outOfRange.PrefPreset == C4PR_None);
+
+	// P5(d): a default (-1) core decompiles to NO "Preset=" entry — the
+	// write-side default skip keeps preset-less player files byte-stable.
+	C4PlayerInfoCore def;
+	def.Default();
+	std::string defOut;
+	REQUIRE(DecompileToBuf_Log<StdCompilerINIWrite>(def, &defOut, "ppc"));
+	CHECK(defOut.find("Preset=") == std::string::npos);
 }
 
 #undef KEY

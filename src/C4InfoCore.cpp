@@ -19,6 +19,7 @@
 #include "C4Def.h"
 #include <C4InfoCore.h>
 
+#include "C4ControlPresets.h"
 #include <C4Random.h>
 #include <C4RankSystem.h>
 #include "StdMarkup.h"
@@ -80,6 +81,7 @@ void C4PlayerInfoCore::Default(C4RankSystem *pRanks)
 	PrefColorDw = 0xff;
 	PrefColor2Dw = 0;
 	PrefControl = C4P_Control_Keyboard1;
+	PrefPreset = C4PR_None;
 	PrefPosition = 0;
 	PrefMouse = 1;
 	PrefControlStyle = 0;
@@ -114,6 +116,10 @@ bool C4PlayerInfoCore::Load(C4Group &hGroup)
 		// Pref for AutoContextMenus is still undecided: default by player's control style
 		if (PrefAutoContextMenu == -1)
 			PrefAutoContextMenu = PrefControlStyle;
+		// Sanitize the remembered preset: stale/future values just mean
+		// "remember no preset" (spec per-player-controls)
+		if (PrefPreset < C4PR_None || PrefPreset >= C4PR_Max)
+			PrefPreset = C4PR_None;
 		// Determine true color from indexed pref color
 		if (!PrefColorDw)
 			PrefColorDw = GetPrefColorValue(PrefColor);
@@ -168,6 +174,7 @@ void C4PlayerInfoCore::CompileFunc(StdCompiler *pComp)
 		pComp->Value(mkNamingAdapt(PrefColorDw,         "ColorDw",          0xffu));
 		pComp->Value(mkNamingAdapt(PrefColor2Dw,        "AlternateColorDw", 0u));
 		pComp->Value(mkNamingAdapt(PrefControl,         "Control",          C4P_Control_Keyboard2));
+		pComp->Value(mkNamingAdapt(PrefPreset,          "Preset",           C4PR_None));
 		pComp->Value(mkNamingAdapt(PrefControlStyle,    "AutoStopControl",  0));
 		pComp->Value(mkNamingAdapt(PrefAutoContextMenu, "AutoContextMenu",  -1)); // compiling default is -1 (if this is detected, AutoContextMenus will be defaulted by control style)
 		pComp->Value(mkNamingAdapt(PrefPosition,        "Position",         0));

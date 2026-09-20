@@ -279,4 +279,38 @@ void SetKeyboardControlKey(int32_t iSet, int32_t iKey, int32_t iKeyCode)
 	}
 }
 
+int32_t ResolvePresetApplySet(int32_t iPrefSet, const std::vector<int32_t> &rSiblingPrefSets)
+{
+	// Non-keyboard preferences are out of scope (belt-and-braces; the caller
+	// guards the picker to keyboard sets anyway).
+	if (!Inside<int32_t>(iPrefSet, 0, C4MaxKeyboardSet - 1))
+		return iPrefSet;
+	// Uncontested: apply on the requested set.
+	bool fContested = false;
+	for (int32_t iSibling : rSiblingPrefSets)
+		if (iSibling == iPrefSet)
+		{
+			fContested = true;
+			break;
+		}
+	if (!fContested)
+		return iPrefSet;
+	// Contested: bump to the first keyboard set no sibling prefers.
+	for (int32_t iSet = 0; iSet < C4MaxKeyboardSet; ++iSet)
+	{
+		bool fTaken = false;
+		for (int32_t iSibling : rSiblingPrefSets)
+			if (iSibling == iSet)
+			{
+				fTaken = true;
+				break;
+			}
+		if (!fTaken)
+			return iSet;
+	}
+	// All four keyboard sets contended: saturated fallback — status-quo apply
+	// on the requested set (never an out-of-range write).
+	return iPrefSet;
+}
+
 #undef KEY

@@ -209,6 +209,7 @@ public:
 	int32_t PrefColor;
 	uint32_t PrefColorDw, PrefColor2Dw;
 	int32_t PrefControl;
+	int32_t PrefPreset; // remembered control-preset id (C4PR_*); C4PR_None = none (spec per-player-controls)
 	int32_t PrefPosition;
 	int32_t PrefControlStyle;
 	int32_t PrefAutoContextMenu; // enable automatically opened context menus in structures
