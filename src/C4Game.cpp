@@ -72,6 +72,23 @@
 #include <algorithm>
 #include <cmath>
 
+// GUI builds show the join failure reason in a modal dialog before the
+// application exits (upstream #91); console builds must not open dialogs -
+// the LogFatal entry already carries the reason.
+static void ShowJoinFailureDlg(const StdStrBuf &rsReason);
+
+static void ShowJoinFailureDlg(const StdStrBuf &rsReason)
+{
+	if (rsReason.isNull()) return;
+#ifdef USE_CONSOLE
+	// no dialogs in console builds (LogFatal already carries the reason)
+#else
+	if (Game.pGUI && !Console.Active)
+		Game.pGUI->ShowMessageModal(rsReason.getData(), LoadResStr(C4ResStrTableKey::IDS_DLG_ERROR),
+			C4GUI::MessageDialog::btnOK, C4GUI::Ico_Error);
+#endif
+}
+
 C4Object *C4Game::MultipleObjectLists::Next()
 {
 	C4Object *value;
@@ -600,19 +617,26 @@ bool C4Game::Init()
 		SetInitProgress(5);
 
 		// Initialize network
+		StdStrBuf sJoinFailureReason;
 		if (pJoinReference)
 		{
 			// By reference
-			bool fSuccess = InitNetworkFromReference(*pJoinReference);
+			bool fSuccess = InitNetworkFromReference(*pJoinReference, &sJoinFailureReason);
 			delete pJoinReference; pJoinReference = nullptr;
 			if (!fSuccess)
+			{
+				ShowJoinFailureDlg(sJoinFailureReason);
 				return false;
+			}
 		}
 		else
 		{
 			// By address
-			if (!InitNetworkFromAddress(DirectJoinAddress))
+			if (!InitNetworkFromAddress(DirectJoinAddress, &sJoinFailureReason))
+			{
+				ShowJoinFailureDlg(sJoinFailureReason);
 				return false;
+			}
 		}
 
 		// check wether console mode is allowed
@@ -4155,7 +4179,7 @@ void C4Game::Synchronize(bool fSavePlayerFiles)
 	std::ranges::for_each(GetNotDeletedSections(), &C4Section::SynchronizeTransferZones);
 }
 
-bool C4Game::InitNetworkFromAddress(const char *szAddress)
+bool C4Game::InitNetworkFromAddress(const char *szAddress, StdStrBuf *pFailureReason)
 {
 	// Query reference
 	C4Network2RefClient RefClient;
@@ -4163,7 +4187,9 @@ bool C4Game::InitNetworkFromAddress(const char *szAddress)
 		!RefClient.SetServer(szAddress, Config.Network.PortRefServer) ||
 		!RefClient.QueryReferences())
 	{
-		LogFatal(C4ResStrTableKey::IDS_NET_REFQUERY_FAILED, RefClient.GetError()); return false;
+		LogFatal(C4ResStrTableKey::IDS_NET_REFQUERY_FAILED, RefClient.GetError());
+		if (pFailureReason) pFailureReason->Copy(LoadResStr(C4ResStrTableKey::IDS_NET_REFQUERY_FAILED, RefClient.GetError()).c_str());
+		return false;
 	}
 	// We have to wait for the answer
 	const std::string message{LoadResStr(C4ResStrTableKey::IDS_NET_REFQUERY_QUERYMSG, szAddress)};
@@ -4196,16 +4222,20 @@ bool C4Game::InitNetworkFromAddress(const char *szAddress)
 	// Error?
 	if (!RefClient.isSuccess())
 	{
-		LogFatal(C4ResStrTableKey::IDS_NET_REFQUERY_FAILED, RefClient.GetError()); return false;
+		LogFatal(C4ResStrTableKey::IDS_NET_REFQUERY_FAILED, RefClient.GetError());
+		if (pFailureReason) pFailureReason->Copy(LoadResStr(C4ResStrTableKey::IDS_NET_REFQUERY_FAILED, RefClient.GetError()).c_str());
+		return false;
 	}
 	// Get references
 	C4Network2Reference **ppRefs = nullptr; int32_t iRefCount;
 	if (!RefClient.GetReferences(ppRefs, iRefCount) || iRefCount <= 0)
 	{
-		LogFatal(C4ResStrTableKey::IDS_NET_REFQUERY_FAILED, LoadResStr(C4ResStrTableKey::IDS_NET_REFQUERY_NOREF)); return false;
+		LogFatal(C4ResStrTableKey::IDS_NET_REFQUERY_FAILED, LoadResStr(C4ResStrTableKey::IDS_NET_REFQUERY_NOREF));
+		if (pFailureReason) pFailureReason->Copy(LoadResStr(C4ResStrTableKey::IDS_NET_REFQUERY_FAILED, LoadResStr(C4ResStrTableKey::IDS_NET_REFQUERY_NOREF)).c_str());
+		return false;
 	}
 	// Connect to first reference
-	bool fSuccess = InitNetworkFromReference(*ppRefs[0]);
+	bool fSuccess = InitNetworkFromReference(*ppRefs[0], pFailureReason);
 	// Remove references
 	for (int i = 0; i < iRefCount; i++)
 		delete ppRefs[i];
@@ -4213,11 +4243,16 @@ bool C4Game::InitNetworkFromAddress(const char *szAddress)
 	return fSuccess;
 }
 
-bool C4Game::InitNetworkFromReference(const C4Network2Reference &Reference)
+bool C4Game::InitNetworkFromReference(const C4Network2Reference &Reference, StdStrBuf *pFailureReason)
 {
 	// Find host data
 	C4Client *pHostData = Reference.Parameters.Clients.getClientByID(C4ClientIDHost);
-	if (!pHostData) { LogFatal(C4ResStrTableKey::IDS_NET_INVALIDREF); return false; }
+	if (!pHostData)
+	{
+		LogFatal(C4ResStrTableKey::IDS_NET_INVALIDREF);
+		if (pFailureReason) pFailureReason->Copy(LoadResStr(C4ResStrTableKey::IDS_NET_INVALIDREF));
+		return false;
+	}
 	// Save scenario title
 	Parameters.ScenarioTitle.CopyValidated(Reference.getTitle());
 	// Log
@@ -4228,6 +4263,7 @@ bool C4Game::InitNetworkFromReference(const C4Network2Reference &Reference)
 	if (Network.InitClient(Reference, false) != C4Network2::IR_Success)
 	{
 		LogFatal(C4ResStrTableKey::IDS_NET_NOHOSTCON, pHostData->getName());
+		if (pFailureReason) pFailureReason->Copy(LoadResStr(C4ResStrTableKey::IDS_NET_NOHOSTCON, pHostData->getName()).c_str());
 		return false;
 	}
 	// init control

@@ -613,6 +613,28 @@ if (PYTHON3 AND USE_CONSOLE)
 		RUN_SERIAL TRUE)
 endif()
 
+# --- Join-failure message pin (upstream #91, cycle 153) --------------------
+# Console builds only (headless engine spawn, same reason as the network
+# smokes above). The driver launches the engine with a bogus clonk://
+# direct-join address (RFC 2606 .invalid TLD = fast NXDOMAIN) and asserts
+# (a) the engine exits non-zero and (b) the localized join-failure reason
+# line appears in the engine log. Hermetic child env (temp HOME + C
+# locale) pins the language so a persisted ~/.legacyclonk/config or a
+# de_DE runner cannot flip the reason text the assertion greps for.
+if (PYTHON3 AND USE_CONSOLE)
+	add_test(NAME join_failure_message_pin
+		COMMAND "${PYTHON3}"
+			"${CMAKE_SOURCE_DIR}/tools/join_failure_message_pin.py"
+			"--engine" "$<TARGET_FILE:clonk>"
+		WORKING_DIRECTORY "${CMAKE_BINARY_DIR}")
+	set_tests_properties(join_failure_message_pin PROPERTIES
+		# NXDOMAIN + engine startup complete in ~1s; headroom for loaded CI
+		# runners and slow DNS resolver timeouts on the 20s query turning
+		# point (the engine re-fails at the timeout LogFatal site).
+		TIMEOUT 120
+		LABELS "network")
+endif()
+
 # --- Network settings-sync CI smoke ---------------------------------------
 # See spec net-preround-settings-fix. Two headless engines on loopback;
 # asserts host->client landscape/rules/goals/seed sync via JoinData.

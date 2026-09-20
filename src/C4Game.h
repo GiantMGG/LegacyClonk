@@ -473,8 +473,10 @@ protected:
 	bool InitGameFirstPart();
 	bool InitGameSecondPart(C4Group &hGroup, bool fLoadSky, bool preloading);
 	bool InitGameFinal();
-	bool InitNetworkFromAddress(const char *szAddress);
-	bool InitNetworkFromReference(const C4Network2Reference &Reference);
+	// pFailureReason (optional): receives the localized failure text on failure
+	// (same text as the LogFatal entry), so the caller can present it before exit.
+	bool InitNetworkFromAddress(const char *szAddress, StdStrBuf *pFailureReason = nullptr);
+	bool InitNetworkFromReference(const C4Network2Reference &Reference, StdStrBuf *pFailureReason = nullptr);
 	bool InitNetworkHost();
 	bool InitControl();
 	bool InitScriptEngine();
