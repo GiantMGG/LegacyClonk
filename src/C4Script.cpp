@@ -2930,6 +2930,20 @@ static bool FnClearLastPlrCom(C4AulContext *cthr, C4ValueInt iPlr)
 	return true;
 }
 
+static bool FnSimulatePlrCom(C4AulContext *cthr, C4ValueInt iPlr, C4ValueInt iCom)
+{
+	// Minimal simulation/testing primitive (climb-drop-fix): queue a raw
+	// player com into the synchronized control stream, exactly like a local
+	// key press (mirrors C4Game::LocalPlayerControl). The queued com executes
+	// on the next control pass. InCom synthesizes _S/_D variants in its
+	// single/double logic, so callers must pass raw coms only (e.g. COM_Dig,
+	// never COM_Dig_S).
+	if (!ValidPlr(iPlr)) return false;
+	if (iCom < COM_None || iCom >= COM_Single) return false;
+	Game.Input.Add(CID_PlrControl, new C4ControlPlayerControl(iPlr, iCom, 0));
+	return true;
+}
+
 static bool FnSetPlrKnowledge(C4AulContext *cthr, C4ValueInt iPlr, C4ID id, bool fRemove)
 {
 	C4Player *pPlr = Game.Players.Get(iPlr);
@@ -7484,6 +7498,7 @@ void InitFunctionMap(C4AulScriptEngine *pEngine)
 	AddFunc(pEngine, "SetPlrMagic",                     FnSetPlrMagic);
 	AddFunc(pEngine, "GetPlrDownDouble",                FnGetPlrDownDouble);
 	AddFunc(pEngine, "ClearLastPlrCom",                 FnClearLastPlrCom);
+	AddFunc(pEngine, "SimulatePlrCom",                  FnSimulatePlrCom);
 	AddFunc(pEngine, "GetPlrViewMode",                  FnGetPlrViewMode);
 	AddFunc(pEngine, "GetPlrView",                      FnGetPlrView);
 	AddFunc(pEngine, "GetWealth",                       FnGetWealth);
