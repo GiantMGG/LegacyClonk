@@ -135,12 +135,15 @@ LRESULT APIENTRY FullScreenWinProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM l
 		}
 	}
 		break;
-	case WM_ACTIVATEAPP:
-		if (Config.Graphics.UseDisplayMode == DisplayMode::Fullscreen && !wParam)
+	case WM_ACTIVATE:
+		// Upstream #101: WM_ACTIVATEAPP never arrives when deactivation goes to the
+		// desktop (no other app activates), so the fullscreen window stayed covering
+		// the screen. WA_INACTIVE fires on every deactivation.
+		if (LOWORD(wParam) == WA_INACTIVE && Config.Graphics.UseDisplayMode == DisplayMode::Fullscreen)
 		{
 			ShowWindow(hwnd, SW_SHOWMINIMIZED);
 		}
-		return 0;
+		break;
 	}
 
 	return CStdWindow::DefaultWindowProc(hwnd, uMsg, wParam, lParam);
@@ -441,10 +444,12 @@ void C4FullScreen::HandleMessage(SDL_Event &e)
 			break;
 		case SDL_WINDOWEVENT_MINIMIZED:
 		case SDL_WINDOWEVENT_HIDDEN:
+		case SDL_WINDOWEVENT_FOCUS_LOST:
 			Application.Active = false;
 			break;
 		case SDL_WINDOWEVENT_SHOWN:
 		case SDL_WINDOWEVENT_EXPOSED:
+		case SDL_WINDOWEVENT_FOCUS_GAINED:
 			Application.Active = true;
 		}
 		break;
