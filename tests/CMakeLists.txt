@@ -26,6 +26,16 @@ function (add_test_target TEST_NAME)
 	endif ()
 	target_link_libraries("${TARGET}" PRIVATE Catch2::Catch2WithMain standard ${ADD_TEST_LIBRARIES})
 
+	# GUI configs compile every test target with USE_SDL_FOR_GAMEPAD=1 (macro
+	# block in CMakeLists.txt), so any test TU whose include chain reaches
+	# StdSdlSubSystem.h needs the SDL2 headers. LINK_ENGINE tests inherit them
+	# via clonk_engine's PUBLIC SDL2::SDL2; standalone tests don't — link the
+	# imported target so the include dir (and lib) flows. Console/Windows
+	# configs never set USE_SDL_FOR_GAMEPAD and stay untouched.
+	if (USE_SDL_FOR_GAMEPAD AND TARGET SDL2::SDL2)
+		target_link_libraries("${TARGET}" PRIVATE SDL2::SDL2)
+	endif ()
+
 	if (WIN32)
 		# Match clonk_engine's cppwinrt include path: TstEngineGlobals.cpp.obj
 		# (and any test TU pulling in WinRT headers) must embed the same
