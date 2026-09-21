@@ -69,6 +69,19 @@ public:
 		UpdateMaxText();
 	}
 
+	// Maximum allowed text length for the given value range. Edit::InsertText
+	// checks `iTextLen + iTextEnd <= (iMaxTextLength - 1)`, so the max text
+	// length must be one char LARGER than the widest value string of the
+	// range, or a full-width value (e.g. the 10-digit default seed
+	// "1789962431", or INT32_MIN's "-2147483648") would fill the whole budget
+	// and every typed character would be clamped to zero and rejected
+	// (the seed-typed-entry defect, C4GuiEdit.cpp InsertText). Public so the
+	// char_input_routing test pin can assert the capacity contract directly.
+	static unsigned short MaxTextLengthForRange(const T min, const T max)
+	{
+		return std::max(GetNumberLength(min), GetNumberLength(max)) + 1;
+	}
+
 	T GetValue()
 	{
 		const auto result = [this]
@@ -132,6 +145,15 @@ protected:
 
 	void MouseInput(CMouse &mouse, const std::int32_t button, const std::int32_t x, const std::int32_t y, const std::uint32_t keyParam) override
 	{
+		// A click that freshly grants focus to the value text must keep the
+		// select-all established by Edit::OnGetFocus, so typed characters
+		// REPLACE the whole value instead of hitting the length clamp. The
+		// base Edit::MouseInput LeftDown handler would otherwise collapse the
+		// selection to a caret at the click point; when the value fills the
+		// text budget (e.g. the 10-digit default seed "1789962431"), a
+		// caret-insert then clamps to zero chars and the character is lost
+		// (seed-typed-entry defect, cycle 159).
+		const bool fHadFocusBefore = HasFocus();
 		switch (button)
 		{
 			case C4MC_Button_Wheel:
@@ -174,6 +196,10 @@ protected:
 			}
 		}
 		Edit::MouseInput(mouse, button, x, y, keyParam);
+		if (button == C4MC_Button_LeftDown && !fHadFocusBefore)
+		{
+			SelectAll();
+		}
 	}
 
 	void DoDragging(CMouse &mouse, const std::int32_t x, const std::int32_t y, const std::uint32_t keyParam) override
@@ -278,7 +304,7 @@ private:
 
 	void UpdateMaxText()
 	{
-		SetMaxText(std::max(GetNumberLength(minimum), GetNumberLength(maximum)));
+		SetMaxText(MaxTextLengthForRange(minimum, maximum));
 	}
 
 	static unsigned short GetNumberLength(T number)

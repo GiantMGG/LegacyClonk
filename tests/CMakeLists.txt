@@ -179,6 +179,16 @@ add_test_target(SliderContract
 	LINK_ENGINE
 )
 
+# --- Char-input-routing pin (seed-typed-entry defect, cycle 159) ----------
+# Pure-capacity contract behind C4GUI::SpinBox::MaxTextLengthForRange: typed
+# characters into a spinbox value field must never be silently clamped away
+# because the value string fills the whole InsertText budget. Exercises the
+# template's static sizing arithmetic without needing the GUI resource
+# system (no Edit/Screen construction, no fonts).
+add_test_target(CharInputRouting
+	SOURCES "${CMAKE_SOURCE_DIR}/tests/TstCharInputRouting.cpp"
+)
+
 # --- Language-table regression test (spec translate-new-dialogs) -----------
 add_test_target(LanguageTables
 	SOURCES "${CMAKE_SOURCE_DIR}/tests/TstLanguageTables.cpp"
