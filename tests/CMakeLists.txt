@@ -602,6 +602,10 @@ add_test_target(SmokeRunFlag
 	SOURCES "${CMAKE_SOURCE_DIR}/tests/TstSmokeRunFlag.cpp"
 	LINK_ENGINE
 )
+add_test_target(SelectionLimits
+	SOURCES "${CMAKE_SOURCE_DIR}/tests/TstSelectionLimits.cpp"
+	LINK_ENGINE
+)
 
 # --- Network desync CI smoke ---------------------------------------------
 # See spec network-desync-ci-smoke. Runs two headless engine instances on
