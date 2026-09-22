@@ -89,11 +89,13 @@ option(USE_STAT "Enable internal performance statistics for developers" OFF)
 option(USE_TESTS "Enable testing" OFF)
 
 # ENABLE_SOUND
-CMAKE_DEPENDENT_OPTION(ENABLE_SOUND "Compile with sound support" ON
-	"NOT USE_CONSOLE" OFF)
+# Default ON for all builds (console included): console builds get a silent
+# C4AudioSystemNone (USE_SDL_MIXER stays off for console), so def-folder
+# sounds still register and smokes can pin sound wiring via SoundExists.
+option(ENABLE_SOUND "Compile with sound support" ON)
 # USE_SDL_MIXER
 CMAKE_DEPENDENT_OPTION(USE_SDL_MIXER "Whether SDL2_mixer shall be used for sound" ON
-	"ENABLE_SOUND" OFF)
+	"ENABLE_SOUND AND NOT USE_CONSOLE" OFF)
 # USE_SDL_MAINLOOP
 if (APPLE)
 	set(USE_SDL_MAINLOOP_DEFAULT ON)
