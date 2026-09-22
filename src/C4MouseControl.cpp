@@ -646,7 +646,7 @@ int32_t C4MouseControl::UpdateObjectSelection()
 						if (Inside(iObjY, (std::min)(Y, DownY), (std::max)(Y, DownY)))
 						{
 							Selection.Add(cObj, C4ObjectList::stNone);
-							if (Selection.ObjectCount() >= 20) break; // max. 20 objects
+							if (Selection.ObjectCount() >= C4MaxObjectSelection) break; // max. selectable objects
 						}
 				}
 	return Selection.ObjectCount();

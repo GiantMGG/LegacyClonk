@@ -3982,10 +3982,13 @@ bool C4Object::AddCommand(int32_t iCommand, C4Object *pTarget, C4Value iTx, int3
 	int32_t iRetries, const char *szText, int32_t iBaseMode)
 {
 	// Command stack size safety
-	const int32_t MaxCommandStack = 35;
 	C4Command *pCom, *pLast; int32_t iCommands;
 	for (pCom = Command, iCommands = 0; pCom; pCom = pCom->Next, iCommands++);
-	if (iCommands >= MaxCommandStack) return false;
+	if (iCommands >= C4MaxCommandStack)
+	{
+		LogNTr("{} (#{}) command stack full: refusing further commands ({} pending)", GetName(), Number, iCommands);
+		return false;
+	}
 	// Valid command safety
 	if (!Inside<int32_t>(iCommand, C4CMD_First, C4CMD_Last)) return false;
 	// Allocate and set new command

@@ -47,6 +47,9 @@ const int C4MaxNameList = 10,
           C4MaxGammaUserRamps = 8,
           C4MaxGammaRamps     = C4MaxGammaUserRamps + 1;
 
+const int C4MaxObjectSelection = 100, // drag-selectable loose objects per mouse frame
+          C4MaxCommandStack = 200; // pending commands per object
+
 // gamma ramp indices
 #define C4GRI_SCENARIO  0
 #define C4GRI_SEASON    1
