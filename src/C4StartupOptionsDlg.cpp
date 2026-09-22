@@ -174,9 +174,10 @@ const char *LoadKeyDescResStr(const int32_t iKeyID)
 	return LoadResStr(KeyIDStringIDs[iKeyID]);
 }
 
-static std::string GetKeyDisplayName(const C4CustomKey *pKey)
+// Map a key-slot name ("Kbd1Key7", "Joy1Btn3") to the control-slot index, or -1
+// when the name does not carry a parseable slot number.
+static int32_t GetKeySlotIndex(const char *szName)
 {
-	const char *szName = pKey->GetName().getData();
 	const char *pKeyNum = nullptr;
 	if (strncmp(szName, "Kbd", 3) == 0)
 	{
@@ -188,12 +189,33 @@ static std::string GetKeyDisplayName(const C4CustomKey *pKey)
 		pKeyNum = strstr(szName, "Btn");
 		if (pKeyNum) pKeyNum += 3;
 	}
-	if (pKeyNum && *pKeyNum)
+	return (pKeyNum && *pKeyNum) ? atoi(pKeyNum) - 1 : -1;
+}
+
+static std::string GetKeyDisplayName(const C4CustomKey *pKey)
+{
+	const char *szName = pKey->GetName().getData();
+	const int32_t iKeyID = GetKeySlotIndex(szName);
+	if (iKeyID >= 0)
 	{
-		int32_t iKeyID = atoi(pKeyNum) - 1;
 		const char *szDesc = LoadKeyDescResStr(iKeyID);
 		if (szDesc)
 			return std::string(szName) + " (" + szDesc + ")";
+	}
+	return std::string(szName);
+}
+
+// Player-meaningful form for the conflict dialog: the localized control
+// description only ("Left"), never the engine slot id ("Kbd1Key7 (Left)").
+static std::string GetKeyDescription(const C4CustomKey *pKey)
+{
+	const char *szName = pKey->GetName().getData();
+	const int32_t iKeyID = GetKeySlotIndex(szName);
+	if (iKeyID >= 0)
+	{
+		const char *szDesc = LoadKeyDescResStr(iKeyID);
+		if (szDesc)
+			return szDesc;
 	}
 	return std::string(szName);
 }
@@ -705,7 +727,7 @@ void C4StartupOptionsDlg::BindingsTab::OnRebindBtn(C4GUI::Control *btn)
 				for (size_t i = 0; i < conflicts.size(); ++i)
 				{
 					if (i) sConflictingNames += ", ";
-					sConflictingNames += GetKeyDisplayName(conflicts[i]);
+					sConflictingNames += GetKeyDescription(conflicts[i]);
 				}
 				C4GUI::MessageDialog *pConflictDlg = new C4GUI::MessageDialog(
 					LoadResStr(C4ResStrTableKey::IDS_MSG_KEYCONFLICT, sKeyName, sConflictingNames).c_str(),
