@@ -2587,6 +2587,11 @@ static bool FnSound(C4AulContext *cthr, C4String *szSound, bool fGlobal, C4Objec
 	return true;
 }
 
+static bool FnSoundExists(C4AulContext *cthr, C4String *szSound)
+{
+	return SoundExists(FnStringPar(szSound));
+}
+
 static void FnMusic(C4AulContext *cthr, C4String *szSongname, bool fLoop)
 {
 	if (!szSongname)
@@ -7485,6 +7490,7 @@ void InitFunctionMap(C4AulScriptEngine *pEngine)
 	AddFunc(pEngine, "FindOtherContents",               FnFindOtherContents);
 	AddFunc(pEngine, "FindBase",                        FnFindBase);
 	AddFunc(pEngine, "Sound",                           FnSound);
+	AddFunc(pEngine, "SoundExists",                     FnSoundExists);
 	AddFunc(pEngine, "Music",                           FnMusic);
 	AddFunc(pEngine, "MusicLevel",                      FnMusicLevel);
 	AddFunc(pEngine, "SetPlayList",                     FnSetPlayList);

@@ -71,6 +71,21 @@ void StopSoundEffect(const char *const name, const C4SoundSystem::TargetVariant 
 	}
 }
 
+bool SoundExists(const char *const name)
+{
+	// Mirror the sample lookup of C4SoundSystem::NewInstance
+	const auto filenameStr = C4SoundSystem::PrepareFilename(name);
+	// Search for matching file if name contains no wildcard
+	if (filenameStr.find('?') == std::string::npos)
+	{
+		return std::any_of(Application.SoundSystem->samples.cbegin(), Application.SoundSystem->samples.cend(),
+			[&](const auto &sample) { return SEqualNoCase(filenameStr.c_str(), sample.name.c_str()); });
+	}
+	// File name contains wildcard: check for any matching file
+	return std::any_of(Application.SoundSystem->samples.cbegin(), Application.SoundSystem->samples.cend(),
+		[&](const auto &sample) { return WildcardMatch(filenameStr.c_str(), sample.name.c_str()); });
+}
+
 C4SoundSystem::C4SoundSystem()
 {
 	// Load Sound.c4g

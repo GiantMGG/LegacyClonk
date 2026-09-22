@@ -143,6 +143,7 @@ private:
 	friend bool StartSoundEffect(const char *, bool, std::int32_t, C4SoundSystem::TargetVariant, std::int32_t);
 	friend void StartSoundEffectAt(const char *, C4Section &, std::int32_t, std::int32_t);
 	friend void StopSoundEffect(const char *, TargetVariant);
+	friend bool SoundExists(const char *);
 };
 
 bool IsSoundPlaying(const char *name, C4SoundSystem::TargetVariant target);
@@ -151,3 +152,5 @@ bool StartSoundEffect(const char *name, bool loop = false, std::int32_t volume =
 	C4SoundSystem::TargetVariant target = C4SoundSystem::GlobalSound, std::int32_t falloffDistance = 0);
 void StartSoundEffectAt(const char *name, C4Section &section, std::int32_t x, std::int32_t y);
 void StopSoundEffect(const char *name, C4SoundSystem::TargetVariant target);
+// Returns true if a sound sample matching the specified name is loaded.
+bool SoundExists(const char *name);
