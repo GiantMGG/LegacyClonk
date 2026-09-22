@@ -697,6 +697,10 @@ void C4StartupOptionsDlg::BindingsTab::OnRebindBtn(C4GUI::Control *btn)
 			const std::vector<C4CustomKey *> conflicts = Game.KeyboardInput.GetConflictingKeys(row.pKey, key);
 			if (!conflicts.empty())
 			{
+				// Name the pressed key up front (same transform UpdateBindingLabel
+				// uses, so the dialog and the key list agree) and state that the
+				// other binding is kept — both actions will fire on that key.
+				const std::string sKeyName = C4KeyCodeEx::KeyCode2String(key, true, false);
 				std::string sConflictingNames;
 				for (size_t i = 0; i < conflicts.size(); ++i)
 				{
@@ -704,7 +708,7 @@ void C4StartupOptionsDlg::BindingsTab::OnRebindBtn(C4GUI::Control *btn)
 					sConflictingNames += GetKeyDisplayName(conflicts[i]);
 				}
 				C4GUI::MessageDialog *pConflictDlg = new C4GUI::MessageDialog(
-					LoadResStr(C4ResStrTableKey::IDS_MSG_KEYCONFLICT, sConflictingNames).c_str(),
+					LoadResStr(C4ResStrTableKey::IDS_MSG_KEYCONFLICT, sKeyName, sConflictingNames).c_str(),
 					LoadResStr(C4ResStrTableKey::IDS_DLG_OPTIONS),
 					C4GUI::MessageDialog::btnYesNo,
 					C4GUI::Ico_None,

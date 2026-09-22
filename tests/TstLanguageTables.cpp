@@ -172,4 +172,23 @@ namespace
 		REQUIRE(std::string{de.GetEntry(C4ResStrTableKey::IDS_DLGTIP_FREEGAME)}
 			== "Beginne eine Siedlung auf einer frisch erzeugten Welt.");
 	}
+
+	TEST_CASE("LanguageTables_KeyConflictDialog_SpotChecks", "[language-tables]")
+	{
+		const auto usText = ReadTableFile("LanguageUS.txt");
+		const auto deText = ReadTableFile("LanguageDE.txt");
+		const C4ResStrTable us{"US", usText};
+		const C4ResStrTable de{"DE", deText};
+
+		// --- English (rebind conflict dialog, C4StartupOptionsDlg.cpp) ---
+		// %s order: 1st = chosen key name, 2nd = conflicting action names.
+		REQUIRE(std::string{us.GetEntry(C4ResStrTableKey::IDS_MSG_KEYCONFLICT)}
+			== "Key %s is already bound to: %s. The other binding is kept; pressing the key "
+			   "triggers both actions. Rebind anyway?");
+
+		// --- German, byte-exact Latin-1 ---
+		REQUIRE(std::string{de.GetEntry(C4ResStrTableKey::IDS_MSG_KEYCONFLICT)}
+			== "Taste %s ist bereits belegt mit: %s. Die andere Belegung bleibt erhalten; beim "
+			   "Dr\xFC" "cken l\xF6" "sen beide Aktionen aus. Trotzdem neu belegen?");
+	}
 }
