@@ -585,8 +585,15 @@ bool Dialog::KeyHotkey(C4KeyCodeEx key)
 bool Dialog::KeyFocusDefault()
 {
 	// unprocessed key: Focus default control
+	// Except when the active control is a text edit: printable characters
+	// are delivered to edits via the char path (Screen::CharIn ->
+	// Dialog::CharIn -> Edit::CharIn), so this ANY-key default-focus
+	// binding must not steal the focus in the middle of typing - otherwise
+	// every consecutive typed character after the first reroutes to the
+	// default control and is swallowed (seed-edit input routing defect,
+	// cycle 162: the second '5' of "55" went to the default Start button).
 	Control *pDefCtrl = GetDefaultControl();
-	if (pDefCtrl && pDefCtrl != pActiveCtrl)
+	if (pDefCtrl && pDefCtrl != pActiveCtrl && !dynamic_cast<Edit *>(pActiveCtrl))
 		SetFocus(pDefCtrl, false);
 	// never mark this as processed, so a later char message to the control may be sent (for deselected chat)
 	return false;

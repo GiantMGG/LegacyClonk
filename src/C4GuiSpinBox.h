@@ -199,6 +199,21 @@ protected:
 		if (button == C4MC_Button_LeftDown && !fHadFocusBefore)
 		{
 			SelectAll();
+			// remember that a fresh-focus click granted select-all: the
+			// drag-stop on button-up would otherwise collapse it to a caret
+			// (Edit::DoDragging sets iSelectionEnd to the click char pos,
+			// the click-selection defect, cycle 162). Restored in
+			// StopDragging for a plain click; a drag is the user's own
+			// selection gesture and is left alone.
+			fFreshFocusClickPending = true;
+			iFreshFocusClickX = x;
+			iFreshFocusClickY = y;
+		}
+		else if (button == C4MC_Button_LeftDown || button == C4MC_Button_LeftDouble)
+		{
+			// new gesture without a prior fresh-focus grant (or a
+			// word-select double click): nothing to restore at drag stop
+			fFreshFocusClickPending = false;
 		}
 	}
 
@@ -219,6 +234,21 @@ protected:
 		else
 		{
 			Edit::StopDragging(mouse, x, y, keyParam);
+			// A fresh-focus click must leave the whole value selected (the
+			// contract established by the LeftDown select-all): the
+			// drag-stop base path collapses the selection to a caret at the
+			// click position, so the first typed char would replace only a
+			// prefix (e.g. "178" of the default seed) instead of the whole
+			// value. Restore select-all only when the button came up where
+			// it went down — a real drag is the user's own selection.
+			if (fFreshFocusClickPending)
+			{
+				fFreshFocusClickPending = false;
+				if (x == iFreshFocusClickX && y == iFreshFocusClickY)
+				{
+					SelectAll();
+				}
+			}
 		}
 	}
 
@@ -327,6 +357,13 @@ private:
 	}
 
 	C4Rect arrowsRect;
+
+	// fresh-focus click bookkeeping: a LeftDown that newly granted focus
+	// selects all and remembers the press position; StopDragging restores
+	// the select-all for a plain click (see MouseInput/StopDragging)
+	bool fFreshFocusClickPending{false};
+	std::int32_t iFreshFocusClickX{0};
+	std::int32_t iFreshFocusClickY{0};
 
 	std::unique_ptr<C4KeyBinding> keyUp;
 	std::unique_ptr<C4KeyBinding> keyDown;
