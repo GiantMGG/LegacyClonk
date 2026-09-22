@@ -369,6 +369,7 @@ file(GLOB SMOKE_SCENARIOS
 # reproducible, and a local pass predicts the CI outcome.
 set(SMOKE_SEED_PIN_DuneBurialSmoke 368)
 set(SMOKE_SEED_PIN_FirstLightSmoke 721)
+set(SMOKE_SEED_PIN_FirstLightSoundSmoke 721)
 set(SMOKE_SEED_PIN_DammbruchSmoke 124)
 set(SMOKE_SEED_PIN_ReactionLabSmoke 1000)
 set(SMOKE_SEED_PIN_SaltRoadStorySmoke 146)
