@@ -22,12 +22,12 @@ PALETTE = clonkgfx.Palette({
 
 WALK_P0 = (
 	"........................",
-	"..........KKKKKK........",
-	"..........KSSSSK........",
-	".........KK....KK.......",
-	"......KKKKK....KK.......",
-	".....KKSS......KK.......",
-	".....KKKK......KK.......",
+	"........................",
+	"........................",
+	"........................",
+	"........................",
+	"........................",
+	"........................",
 	".....KKKKKKKKKKKK.......",
 	"KKKKKKHHHHHHHHHHHK......",
 	"KSK.KSBBBBBBBBBBBK......",
@@ -37,12 +37,12 @@ WALK_P0 = (
 	".KK...KK.KK.KK.KK.......",
 )
 WALK_P1 = (
-	"..........KKKKKK........",
-	"..........KSSSSK........",
-	".........KK....KK.......",
-	"......KKKKK....KK.......",
-	".....KKSS......KK.......",
-	".....KKKK......KK.......",
+	"........................",
+	"........................",
+	"........................",
+	"........................",
+	"........................",
+	"........................",
 	".....KKKKKKKKKKKK.......",
 	"KKKKKKHHHHHHHHHHHK......",
 	"KSK.KSBBBBBBBBBBBK......",
@@ -54,12 +54,12 @@ WALK_P1 = (
 )
 WALK_P2 = (
 	"........................",
-	"..........KKKKKK........",
-	"..........KSSSSK........",
-	".........KK....KK.......",
-	"......KKKKK....KK.......",
-	".....KKSS......KK.......",
-	".....KKKK......KK.......",
+	"........................",
+	"........................",
+	"........................",
+	"........................",
+	"........................",
+	"........................",
 	".....KKKKKKKKKKKK.......",
 	"KKKKKKHHHHHHHHHHHK......",
 	"KSK.KSBBBBBBBBBBBK......",
@@ -69,12 +69,12 @@ WALK_P2 = (
 	".KK....KK.KK.KK.KK......",
 )
 WALK_P3 = (
-	"..........KKKKKK........",
-	"..........KSSSSK........",
-	".........KK....KK.......",
-	"......KKKKK....KK.......",
-	".....KKSS......KK.......",
-	".....KKKK......KK.......",
+	"........................",
+	"........................",
+	"........................",
+	"........................",
+	"........................",
+	"........................",
 	".....KKKKKKKKKKKK.......",
 	"KKKKKKHHHHHHHHHHHK......",
 	"KSK.KSBBBBBBBBBBBK......",
@@ -86,12 +86,12 @@ WALK_P3 = (
 )
 WALK_P4 = (
 	"........................",
-	"..........KKKKKK........",
-	"..........KSSSSK........",
-	".........KK....KK.......",
-	"......KKKKK....KK.......",
-	".....KKSS......KK.......",
-	".....KKKK......KK.......",
+	"........................",
+	"........................",
+	"........................",
+	"........................",
+	"........................",
+	"........................",
 	".....KKKKKKKKKKKK.......",
 	"KKKKKKHHHHHHHHHHHK......",
 	"KSK.KSBBBBBBBBBBBK......",
@@ -101,12 +101,12 @@ WALK_P4 = (
 	".KK...KK.KK..KK.KK......",
 )
 WALK_P5 = (
-	"..........KKKKKK........",
-	"..........KSSSSK........",
-	".........KK....KK.......",
-	"......KKKKK....KK.......",
-	".....KKSS......KK.......",
-	".....KKKK......KK.......",
+	"........................",
+	"........................",
+	"........................",
+	"........................",
+	"........................",
+	"........................",
 	".....KKKKKKKKKKKK.......",
 	"KKKKKKHHHHHHHHHHHK......",
 	"KSK.KSBBBBBBBBBBBK......",
@@ -285,6 +285,17 @@ def make_png():
 	# invariants (the v3 2-pose twitch collapsed six phases into two
 	# groups whose mutual diff was 4-8 px — adjacent >=25 + ALL-pairs
 	# >=8 kills that collapse and keeps the phase travel readable).
+	# Cycle-167 pincer arch (art-silhouette-followups): the phase-0/2
+	# head+pincer region read as a dog ("blocky head with a pale face
+	# and tan ears"), so the walk band sheds the pale-face/ear dome
+	# entirely (rows above the backline are empty) while the front band,
+	# pincer foot and gait legs stay EXACTLY the battery-validated v4
+	# shape. This is deliberate: advisory probes showed the walk's
+	# feature-gate judges (Q4 legs, Q5 pair coherence) count legs and
+	# pair-motion from that front Gestalt — reshaped claw bands regressed
+	# P4/P5 to 3 legs, and dome/ear/hook uppers regressed the pair to
+	# "no movement" (or hung the judge on phase 0). The empty back keeps
+	# Q5's "same creature, legs shifted" majority and drops the ear read.
 	invariants.check(walk, PALETTE)  # opaque/color window still applies
 	rendered = [phase.pixels(PALETTE) for phase in walk.phases]
 	for i in range(len(rendered) - 1):
