@@ -33,6 +33,20 @@ Sheet layouts + expected ActMap/DefCore wiring:
 - AppleTree: 64x64 sheet; one mature 24x40 canopy at (0,0,24,40);
   Picture (0,0,48,80) -> (0,0,24,40) (fixes the verified
   PICTURE_OOB).
+- FishTrap: 40x24 sheet; slatted basket trap w/ funnel mouth at
+  (0,0,20,24); Picture (0,0,40,48) -> (0,0,20,24). Right half blank
+  (advisory 2-phase vision sample; cycle-110 precedent).
+- Sickle: 32x12 sheet; crescent blade + wooden handle at (0,0,16,12);
+  Picture (0,0,32,32) -> (0,0,16,12).
+- WheatSeed: 16x8 sheet; wheat-grain seed at (0,0,8,8);
+  Picture (0,0,16,16) -> (0,0,8,8).
+- WheatSheaf: 12x12 sheet; golden sheaf at (0,0,6,12);
+  Picture (0,0,16,32) -> (0,0,6,12).
+- SmokedFish: 32x12 sheet; cured/browned fish at (0,0,16,12);
+  Picture (0,0,64,64) -> (0,0,16,12).
+- Smokehouse: 84x80 sheet; Idle (0,0,28,40) at y=0, Smoking 3-phase
+  (0,40,28,40) at y=40 (phases x=0/28/56 animate the smoke plume);
+  Picture (0,0,56,80) -> (0,0,28,40).
 
 The committed Graphics.png must byte-match this script's output
 (verify with --check). Stdlib only. Python 3.10+. Tabs.
@@ -493,6 +507,267 @@ APPLE_TREE = (
 	".........KSSSSK.........",
 )
 
+# --- Wave A: the six FirstLight-load-bearing defs (cycle 168) -------------
+# Sheet widths are padded to 2x the facet width (blank right half) so the
+# advisory vision battery can sample a second phase (tool requires
+# --phases >= 2; cycle-110 precedent). Deviation from the wiring-contract
+# default sheet widths is deliberate and recorded in the session note.
+
+FISH_TRAP = (
+	"........KKKK........",
+	".......K....K.......",
+	".......K....K.......",
+	"........KK..........",
+	"..KKKKKKKKKKKKKKKK..",
+	"..KHHHHHHHHHHHHHHK..",
+	"..KKKKKKKKKKKKKKKK..",
+	"..KoooKdddKoooKddd..",
+	"..KoooKdddKoooKddd..",
+	"..KoooKdddKoooKddd..",
+	"..KoooKdddKoooKddd..",
+	"..KKKKKKKKKKKKKKKK..",
+	"..KoooKdddKoooKddd..",
+	"..KoooKdddKoooKddd..",
+	"..KoooKdddKoooKddd..",
+	"..KoooKdddKoooKddd..",
+	"..KKKKKKKKKKKKKKKK..",
+	"..KoooKdddKoooKddd..",
+	"..KoooKdddKoooKddd..",
+	"..KoooKdddKoooKddd..",
+	"..KKKKKKKKKKKKKKKK..",
+	"..KSSSSSSSSSSSSSSK..",
+	"..KKKKKKKKKKKKKKKK..",
+	"....................",
+)
+
+SICKLE = (
+	"................",
+	"......KKKK......",
+	"....KKHHHHKK....",
+	"...KHHddddHHK...",
+	"..KHHddddddHHK..",
+	"..KHHdddddddHK..",
+	"..KHHddddddHK...",
+	"...KHHddddHK....",
+	"....KHHdddK.....",
+	".....KHHdK......",
+	".....KooK.......",
+	"......oo........",
+)
+
+WHEAT_SEED_MAP = (
+	"........",
+	"...KK...",
+	"..KGGK..",
+	".KGGGGK.",
+	".KGsGGK.",
+	".KGgGGK.",
+	"..KGsK..",
+	"...KK...",
+)
+
+WHEAT_SHEAF_MAP = (
+	".GsGs.",
+	"GGGGGG",
+	"GGGGGG",
+	".sGGs.",
+	".KssK.",
+	"..ss..",
+	"..ss..",
+	".sBBs.",
+	".BBBB.",
+	"..ss..",
+	"..ss..",
+	"..ss..",
+)
+
+SMOKED_FISH_MAP = (
+	"................",
+	"......KK........",
+	".....KHHK.......",
+	"..KKddddddK.....",
+	".KdddddddddWK...",
+	".KodddddddssK...",
+	".KoooooooooK....",
+	".KodddddddddK...",
+	"..KHHHHHHHHK....",
+	"...KKKKKKKK.....",
+	"................",
+	"................",
+)
+
+SMOKEHOUSE_IDLE = (
+	"............................",
+	"............................",
+	"...................KKKK.....",
+	"...................KKKK.....",
+	"...................KKKK.....",
+	"...................KSSK.....",
+	"...................KSSK.....",
+	"...................KSSK.....",
+	"...........dKKKKd..KSSK.....",
+	".........ddddddddddKKKK.....",
+	"......dddddddddddddddd......",
+	"....HHHHHHHHHHHHHHHHHHHH....",
+	"..KSSSSSSSSSSSSSSSSSSSSSSK..",
+	"..KooooooooooooooooooooooK..",
+	"..KKKKKKKKKKKKKKKKKKKKKKKK..",
+	"..KddddddddddddddddddddddK..",
+	"..KddddddddddddddddduuKddK..",
+	"..KKKKKKKKKKKKKKKKKKuuKKKK..",
+	"..KooooooooooooooooouuKooK..",
+	"..KooooooooooooooooouuKooK..",
+	"..KKKKKKKKKKKKKKKKKKHHHKKK..",
+	"..KddddddddddddddddddddddK..",
+	"..KddddddddddddddddddddddK..",
+	"..KKKKKKKKKKKKKKKKKKKKKKKK..",
+	"..KooooooooooooooooooooooK..",
+	"..KooooooooKKKKKKooooooooK..",
+	"..KKKKKKKKKKHHHHKKKKKKKKKK..",
+	"..KddddddddKodooKddddddddK..",
+	"..KddddddddKodooKddddddddK..",
+	"..KKKKKKKKKKodooKKKKKKKKKK..",
+	"..KooooooooKodooKooooooooK..",
+	"..KooooooooKodooKooooooooK..",
+	"..KKKKKKKKKKodooKKKKKKKKKK..",
+	"..KddddddddKooooKddddddddK..",
+	"..KddddddddKKKKKKddddddddK..",
+	"..KKKKKKKKKKKKKKKKKKKKKKKK..",
+	"..KKKKKKKKKKKKKKKKKKKKKKKK..",
+	"..KSSSSSSSSSSSSSSSSSSSSSSK..",
+	"..KSSSSSSSSSSSSSSSSSSSSSSK..",
+	"..BKBBKBBKBBKBBKBBKBBKBBKB..",
+)
+
+SMOKEHOUSE_SMOKE_0 = (
+	"............................",
+	"....................WW......",
+	"...................KPPW.....",
+	"...................KKKK.....",
+	"...................KKKK.....",
+	"...................KSSK.....",
+	"...................KSSK.....",
+	"...................KSSK.....",
+	"...........dKKKKd..KSSK.....",
+	".........ddddddddddKKKK.....",
+	"......dddddddddddddddd......",
+	"....HHHHHHHHHHHHHHHHHHHH....",
+	"..KSSSSSSSSSSSSSSSSSSSSSSK..",
+	"..KooooooooooooooooooooooK..",
+	"..KKKKKKKKKKKKKKKKKKKKKKKK..",
+	"..KddddddddddddddddddddddK..",
+	"..KddddddddddddddddduuKddK..",
+	"..KKKKKKKKKKKKKKKKKKuuKKKK..",
+	"..KooooooooooooooooouuKooK..",
+	"..KooooooooooooooooouuKooK..",
+	"..KKKKKKKKKKKKKKKKKKHHHKKK..",
+	"..KddddddddddddddddddddddK..",
+	"..KddddddddddddddddddddddK..",
+	"..KKKKKKKKKKKKKKKKKKKKKKKK..",
+	"..KooooooooooooooooooooooK..",
+	"..KooooooooKKKKKKooooooooK..",
+	"..KKKKKKKKKKHHHHKKKKKKKKKK..",
+	"..KddddddddKodooKddddddddK..",
+	"..KddddddddKodooKddddddddK..",
+	"..KKKKKKKKKKodooKKKKKKKKKK..",
+	"..KooooooooKodooKooooooooK..",
+	"..KooooooooKodooKooooooooK..",
+	"..KKKKKKKKKKodooKKKKKKKKKK..",
+	"..KddddddddKooooKddddddddK..",
+	"..KddddddddKKKKKKddddddddK..",
+	"..KKKKKKKKKKKKKKKKKKKKKKKK..",
+	"..KKKKKKKKKKKKKKKKKKKKKKKK..",
+	"..KSSSSSSSSSSSSSSSSSSSSSSK..",
+	"..KSSSSSSSSSSSSSSSSSSSSSSK..",
+	"..BKBBKBBKBBKBBKBBKBBKBBKB..",
+)
+
+SMOKEHOUSE_SMOKE_1 = (
+	"...................PWWP.....",
+	"..................PWWWP.....",
+	".................sPWWPK.....",
+	".................sWPWWK.....",
+	"...................KKKK.....",
+	"...................KSSK.....",
+	"...................KSSK.....",
+	"...................KSSK.....",
+	"...........dKKKKd..KSSK.....",
+	".........ddddddddddKKKK.....",
+	"......dddddddddddddddd......",
+	"....HHHHHHHHHHHHHHHHHHHH....",
+	"..KSSSSSSSSSSSSSSSSSSSSSSK..",
+	"..KooooooooooooooooooooooK..",
+	"..KKKKKKKKKKKKKKKKKKKKKKKK..",
+	"..KddddddddddddddddddddddK..",
+	"..KddddddddddddddddduuKddK..",
+	"..KKKKKKKKKKKKKKKKKKuuKKKK..",
+	"..KooooooooooooooooouuKooK..",
+	"..KooooooooooooooooouuKooK..",
+	"..KKKKKKKKKKKKKKKKKKHHHKKK..",
+	"..KddddddddddddddddddddddK..",
+	"..KddddddddddddddddddddddK..",
+	"..KKKKKKKKKKKKKKKKKKKKKKKK..",
+	"..KooooooooooooooooooooooK..",
+	"..KooooooooKKKKKKooooooooK..",
+	"..KKKKKKKKKKHHHHKKKKKKKKKK..",
+	"..KddddddddKodooKddddddddK..",
+	"..KddddddddKodooKddddddddK..",
+	"..KKKKKKKKKKodooKKKKKKKKKK..",
+	"..KooooooooKodooKooooooooK..",
+	"..KooooooooKodooKooooooooK..",
+	"..KKKKKKKKKKodooKKKKKKKKKK..",
+	"..KddddddddKooooKddddddddK..",
+	"..KddddddddKKKKKKddddddddK..",
+	"..KKKKKKKKKKKKKKKKKKKKKKKK..",
+	"..KKKKKKKKKKKKKKKKKKKKKKKK..",
+	"..KSSSSSSSSSSSSSSSSSSSSSSK..",
+	"..KSSSSSSSSSSSSSSSSSSSSSSK..",
+	"..BKBBKBBKBBKBBKBBKBBKBBKB..",
+)
+
+SMOKEHOUSE_SMOKE_2 = (
+	".................PWWWWP.....",
+	"................PWWWWWP.....",
+	"...............sPWWWWWPs....",
+	"...............sPWWWWWPs....",
+	"................PWWWWWP.....",
+	".................sPWWPs.....",
+	"...................KSSK.....",
+	"...................KSSK.....",
+	"...........dKKKKd..KSSK.....",
+	".........ddddddddddKKKK.....",
+	"......dddddddddddddddd......",
+	"....HHHHHHHHHHHHHHHHHHHH....",
+	"..KSSSSSSSSSSSSSSSSSSSSSSK..",
+	"..KooooooooooooooooooooooK..",
+	"..KKKKKKKKKKKKKKKKKKKKKKKK..",
+	"..KddddddddddddddddddddddK..",
+	"..KddddddddddddddddduuKddK..",
+	"..KKKKKKKKKKKKKKKKKKuuKKKK..",
+	"..KooooooooooooooooouuKooK..",
+	"..KooooooooooooooooouuKooK..",
+	"..KKKKKKKKKKKKKKKKKKHHHKKK..",
+	"..KddddddddddddddddddddddK..",
+	"..KddddddddddddddddddddddK..",
+	"..KKKKKKKKKKKKKKKKKKKKKKKK..",
+	"..KooooooooooooooooooooooK..",
+	"..KooooooooKKKKKKooooooooK..",
+	"..KKKKKKKKKKHHHHKKKKKKKKKK..",
+	"..KddddddddKodooKddddddddK..",
+	"..KddddddddKodooKddddddddK..",
+	"..KKKKKKKKKKodooKKKKKKKKKK..",
+	"..KooooooooKodooKooooooooK..",
+	"..KooooooooKodooKooooooooK..",
+	"..KKKKKKKKKKodooKKKKKKKKKK..",
+	"..KddddddddKooooKddddddddK..",
+	"..KddddddddKKKKKKddddddddK..",
+	"..KKKKKKKKKKKKKKKKKKKKKKKK..",
+	"..KKKKKKKKKKKKKKKKKKKKKKKK..",
+	"..KSSSSSSSSSSSSSSSSSSSSSSK..",
+	"..KSSSSSSSSSSSSSSSSSSSSSSK..",
+	"..BKBBKBBKBBKBBKBBKBBKBBKB..",
+)
+
 def build_lobster():
 	walk = clonkgfx.Action("Walk", [
 		clonkgfx.PhaseMap("Walk0", WALK_0),
@@ -588,6 +863,67 @@ def build_appletree():
 	sheet = clonkgfx.Sheet(64, 64, PALETTE, [action])
 	return sheet.png_bytes()
 
+def build_fishtrap():
+	# 20x24 slatted basket trap w/ funnel mouth; sheet 40x24 (right half
+	# blank = advisory 2-phase sample room, cycle-110 precedent).
+	action = clonkgfx.Action("Idle", [
+		clonkgfx.PhaseMap("Trap", FISH_TRAP)])
+	clonkgfx.Invariants(min_opaque_colors=3, opaque_window=(200, 420),
+	                    min_phase_diff=8).check(action, PALETTE)
+	sheet = clonkgfx.Sheet(40, 24, PALETTE, [action])
+	return sheet.png_bytes()
+
+def build_sickle():
+	# 16x12 crescent blade + wooden handle; no ActMap (Rotate=1 carry).
+	action = clonkgfx.Action("Idle", [
+		clonkgfx.PhaseMap("Sickle", SICKLE)])
+	clonkgfx.Invariants(min_opaque_colors=3, opaque_window=(30, 120),
+	                    min_phase_diff=8).check(action, PALETTE)
+	sheet = clonkgfx.Sheet(32, 12, PALETTE, [action])
+	return sheet.png_bytes()
+
+def build_wheatseed():
+	# 8x8 wheat-grain seed (gold G family, echoing the ripe Wheat hue).
+	action = clonkgfx.Action("Idle", [
+		clonkgfx.PhaseMap("Seed", WHEAT_SEED_MAP)])
+	clonkgfx.Invariants(min_opaque_colors=3, opaque_window=(16, 45),
+	                    min_phase_diff=8).check(action, PALETTE)
+	sheet = clonkgfx.Sheet(16, 8, PALETTE, [action])
+	return sheet.png_bytes()
+
+def build_wheatsheaf():
+	# 6x12 golden sheaf: grain heads, straw stalks, tie band.
+	action = clonkgfx.Action("Idle", [
+		clonkgfx.PhaseMap("Sheaf", WHEAT_SHEAF_MAP)])
+	clonkgfx.Invariants(min_opaque_colors=3, opaque_window=(25, 60),
+	                    min_phase_diff=8).check(action, PALETTE)
+	sheet = clonkgfx.Sheet(12, 12, PALETTE, [action])
+	return sheet.png_bytes()
+
+def build_smokedfish():
+	# 16x12 cured/browned fish (dark d/o body, H belly) vs the gray raw FISH.
+	action = clonkgfx.Action("Idle", [
+		clonkgfx.PhaseMap("Smoked", SMOKED_FISH_MAP)])
+	clonkgfx.Invariants(min_opaque_colors=3, opaque_window=(30, 120),
+	                    min_phase_diff=8).check(action, PALETTE)
+	sheet = clonkgfx.Sheet(32, 12, PALETTE, [action])
+	return sheet.png_bytes()
+
+def build_smokehouse():
+	# 84x80: Idle band (28x40) at y=0; Smoking 3-phase band (28x40 each) at
+	# y=40, phases at x=0/28/56 animate the smoke plume above the chimney.
+	idle = clonkgfx.Action("Idle", [
+		clonkgfx.PhaseMap("Idle", SMOKEHOUSE_IDLE)])
+	smoking = clonkgfx.Action("Smoking", [
+		clonkgfx.PhaseMap("Smoke0", SMOKEHOUSE_SMOKE_0),
+		clonkgfx.PhaseMap("Smoke1", SMOKEHOUSE_SMOKE_1),
+		clonkgfx.PhaseMap("Smoke2", SMOKEHOUSE_SMOKE_2)])
+	for action in (idle, smoking):
+		clonkgfx.Invariants(min_opaque_colors=3, opaque_window=(450, 950),
+		                    min_phase_diff=12).check(action, PALETTE)
+	sheet = clonkgfx.Sheet(84, 80, PALETTE, [idle, smoking])
+	return sheet.png_bytes()
+
 BUILDERS = {
 	"Lobster": build_lobster,
 	"CookedLobster": build_cookedlobster,
@@ -598,6 +934,12 @@ BUILDERS = {
 	"LobsterTrap": build_lobstertrap,
 	"Wheat": build_wheat,
 	"AppleTree": build_appletree,
+	"FishTrap": build_fishtrap,
+	"Sickle": build_sickle,
+	"WheatSeed": build_wheatseed,
+	"WheatSheaf": build_wheatsheaf,
+	"SmokedFish": build_smokedfish,
+	"Smokehouse": build_smokehouse,
 }
 
 DEF_SUBDIR = {
@@ -610,6 +952,12 @@ DEF_SUBDIR = {
 	"LobsterTrap": "Tools.c4d",
 	"Wheat": "Vegetation.c4d",
 	"AppleTree": "Vegetation.c4d",
+	"FishTrap": "Tools.c4d",
+	"Sickle": "Tools.c4d",
+	"WheatSeed": "Vegetation.c4d",
+	"WheatSheaf": "Items.c4d/Foodstuff.c4d",
+	"SmokedFish": "Items.c4d/Foodstuff.c4d",
+	"Smokehouse": "Structures.c4d",
 }
 
 def out_default(def_name):
