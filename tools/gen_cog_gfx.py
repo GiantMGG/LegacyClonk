@@ -17,7 +17,7 @@ the classic pack stays in-tree under content/ with its COPYING):
 
 Cycle 167 silhouette rework (judge: "table with a placard", cycle 144):
 the doubled crop carries a light-GRAY frame around the wooden band that
-made the facet read as a flat slab. The silhouette pass (`_cog_silhouette`)
+made the facet read as a flat slab. The silhouette pass (`_silhouette_fill`)
 1) drops that non-wood frame, 2) reshapes the ends into a classic cog
 curvature -- an upswept sternpost and a curved bow stem whose sheer line
 rises at both ends -- and 3) finishes the band with a donor-toned sheer
