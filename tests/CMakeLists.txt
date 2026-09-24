@@ -872,9 +872,15 @@ endforeach()
 # close the gap:
 #   (a) firstlight_scenario_gate — mechanical file gate: the shipped mission
 #       keeps Climate=0,0 and an empty HomeBaseMaterial/Production section,
-#       and Script.c's workbench kit carries exactly 6 AGWS, 12 WOOD, >=1
-#       METL and >=2 ROPE contents (the as-shipped winnable-kit contract;
-#       catches reverts of both fixes).
+#       and Script.c's workbench kit carries exactly 6 AGWS, 14 WOOD, 1 METL
+#       and NO ROPE contents (the as-shipped winnable-kit contract, cycle-168
+#       critic FIX-NOW 2: rope work was re-scoped to timber because Rope.c4d
+#       is not loaded by this mission's def set — CreateContents(ROPE) was a
+#       silent no-op that stranded the windmill's rope leg at "0/1"). It also
+#       pins the components contract: every component id named by the
+#       Windmill/Smokehouse DefCore Components= lines must be one of
+#       WOOD/METL (would have caught both the old CLNK id and the ROPE id;
+#       catches reverts of the fixes).
 #   (b) firstlight_climate_smoke — behavior pin: plays FirstLight's exact
 #       [Weather] with a carved pond + trap (balance-driver replica) and
 #       asserts the pond stays liquid through the old freeze window
@@ -884,7 +890,7 @@ endforeach()
 #       (LavaWallLong precedent).
 if(PYTHON3 AND EXISTS "${LEGACYCLONK_CONTENT_DIR}/Missions.c4f/FirstLight.c4s/Scenario.txt")
 	add_test(NAME firstlight_scenario_gate
-		COMMAND "${PYTHON3}" -c "import re,sys; scen=open('${LEGACYCLONK_CONTENT_DIR}/Missions.c4f/FirstLight.c4s/Scenario.txt').read(); scr=open('${LEGACYCLONK_CONTENT_DIR}/Missions.c4f/FirstLight.c4s/Script.c').read(); ok=bool(re.search(r'^Climate=0,0$', scen, re.M)) and 'HomeBaseMaterial=' not in scen and 'HomeBaseProduction=' not in scen and scr.count('CreateContents(AGWS, pBase)')==6 and scr.count('CreateContents(WOOD, pBase)')==12 and scr.count('CreateContents(METL, pBase)')>=1 and scr.count('CreateContents(ROPE, pBase)')>=2; sys.exit(0 if ok else 1)")
+		COMMAND "${PYTHON3}" -c "import re,sys; scen=open('${LEGACYCLONK_CONTENT_DIR}/Missions.c4f/FirstLight.c4s/Scenario.txt').read(); scr=open('${LEGACYCLONK_CONTENT_DIR}/Missions.c4f/FirstLight.c4s/Script.c').read(); wm=open('${LEGACYCLONK_CONTENT_DIR}/Agriculture.c4d/Structures.c4d/Windmill.c4d/DefCore.txt').read(); sm=open('${LEGACYCLONK_CONTENT_DIR}/Agriculture.c4d/Structures.c4d/Smokehouse.c4d/DefCore.txt').read(); ids=[i.split('=')[0].strip() for ln in re.findall(r'^Components=(.+)$', wm, re.M)+re.findall(r'^Components=(.+)$', sm, re.M) for i in ln.split(';')]; ok=bool(re.search(r'^Climate=0,0$', scen, re.M)) and 'HomeBaseMaterial=' not in scen and 'HomeBaseProduction=' not in scen and scr.count('CreateContents(AGWS, pBase)')==6 and scr.count('CreateContents(WOOD, pBase)')==14 and scr.count('CreateContents(METL, pBase)')==1 and scr.count('CreateContents(ROPE, pBase)')==0 and bool(ids) and all(i in ('WOOD','METL') for i in ids); sys.exit(0 if ok else 1)")
 	set_tests_properties(firstlight_scenario_gate PROPERTIES TIMEOUT 30 LABELS "lint")
 endif()
 if(NOT USE_SANITIZER AND EXISTS "${LEGACYCLONK_CONTENT_DIR}/Agriculture.c4d/Tests.c4f/FirstLightClimate.c4s")
