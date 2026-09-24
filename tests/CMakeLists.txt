@@ -859,17 +859,22 @@ foreach(agri_def ${AGRI_DEFS})
 	endif()
 endforeach()
 
-# --- FirstLight mission climate gate + long behavior smoke (spec
+# --- FirstLight mission scenario gate + long behavior smoke (spec
 # firstlight-visible, cycle 168) --------------------------------------------
 # Task-4 measurement (.opencode/scratch/168/balance/timeline.md): with the
 # shipped Climate=50,0 the seasonal winter froze the homestead pond from
 # ~frame 10640, drying the fish trap before the second audit — the ledger
 # win (frame 12600) was UNREACHABLE in every run. The shipped fix is the
 # mission's Scenario.txt [Weather] Climate=50,0 -> 0,0 (content commit
-# 46c94690). No CTest read the mission Scenario.txt before this block, so
-# the fix was unpinned. Two gates close the gap:
-#   (a) firstlight_climate_gate — mechanical file gate: the shipped mission
-#       file must keep Climate=0,0 (catches reverts of the fix).
+# 46c94690), and the winnable-kit fix is Script.c -> 6 seeds + build
+# materials (content commit, cycle 168 critic FIX-NOW). No CTest read the
+# mission files before this block, so the fixes were unpinned. Two gates
+# close the gap:
+#   (a) firstlight_scenario_gate — mechanical file gate: the shipped mission
+#       keeps Climate=0,0 and an empty HomeBaseMaterial/Production section,
+#       and Script.c's workbench kit carries exactly 6 AGWS, 12 WOOD, >=1
+#       METL and >=2 ROPE contents (the as-shipped winnable-kit contract;
+#       catches reverts of both fixes).
 #   (b) firstlight_climate_smoke — behavior pin: plays FirstLight's exact
 #       [Weather] with a carved pond + trap (balance-driver replica) and
 #       asserts the pond stays liquid through the old freeze window
@@ -878,9 +883,9 @@ endforeach()
 #       --smoke-run 350 and would permanently RED the 16000-frame entry
 #       (LavaWallLong precedent).
 if(PYTHON3 AND EXISTS "${LEGACYCLONK_CONTENT_DIR}/Missions.c4f/FirstLight.c4s/Scenario.txt")
-	add_test(NAME firstlight_climate_gate
-		COMMAND "${PYTHON3}" -c "import re,sys; s=open('${LEGACYCLONK_CONTENT_DIR}/Missions.c4f/FirstLight.c4s/Scenario.txt').read(); sys.exit(0 if re.search(r'^Climate=0,0$', s, re.M) else 1)")
-	set_tests_properties(firstlight_climate_gate PROPERTIES TIMEOUT 30 LABELS "lint")
+	add_test(NAME firstlight_scenario_gate
+		COMMAND "${PYTHON3}" -c "import re,sys; scen=open('${LEGACYCLONK_CONTENT_DIR}/Missions.c4f/FirstLight.c4s/Scenario.txt').read(); scr=open('${LEGACYCLONK_CONTENT_DIR}/Missions.c4f/FirstLight.c4s/Script.c').read(); ok=bool(re.search(r'^Climate=0,0$', scen, re.M)) and 'HomeBaseMaterial=' not in scen and 'HomeBaseProduction=' not in scen and scr.count('CreateContents(AGWS, pBase)')==6 and scr.count('CreateContents(WOOD, pBase)')==12 and scr.count('CreateContents(METL, pBase)')>=1 and scr.count('CreateContents(ROPE, pBase)')>=2; sys.exit(0 if ok else 1)")
+	set_tests_properties(firstlight_scenario_gate PROPERTIES TIMEOUT 30 LABELS "lint")
 endif()
 if(NOT USE_SANITIZER AND EXISTS "${LEGACYCLONK_CONTENT_DIR}/Agriculture.c4d/Tests.c4f/FirstLightClimate.c4s")
 	add_test(NAME firstlight_climate_smoke
