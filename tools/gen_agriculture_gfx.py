@@ -47,6 +47,18 @@ Sheet layouts + expected ActMap/DefCore wiring:
 - Smokehouse: 84x80 sheet; Idle (0,0,28,40) at y=0, Smoking 3-phase
   (0,40,28,40) at y=40 (phases x=0/28/56 animate the smoke plume);
   Picture (0,0,56,80) -> (0,0,28,40).
+- FishingNet: 32x16 sheet; 2-phase net bundle w/ cork floats at
+  (0,0,16,16); Picture (0,0,32,32) -> (0,0,16,16). Both phases are real
+  (a loose thread shifts) so the advisory battery has 2 genuine phases.
+- FishingRod: 160x12 sheet; three 40x4 row bands matching the wired
+  ActMap: ThrowFishingPole L4 (y=0), Fish L2 (y=4), PickupFish L2
+  (y=8); base art faces LEFT (Directions=2/FlipDir=1 mirrors). Row
+  bands share the packet palette (rod wood d/o, S line, r bobber,
+  p/u fish). Picture (0,0,40,32) -> (0,0,40,4).
+- Apple: 16x8 sheet; 8x8 apple-red r sprite at (0,0,8,8); Picture
+  (0,0,16,16) -> (0,0,8,8). Right half blank (advisory phase slot).
+- AppleSeed: 12x6 sheet; 6x6 teardrop seed echoing the apple red at
+  (0,0,6,6); Picture (0,0,16,16) -> (0,0,6,6). Right half blank.
 
 The committed Graphics.png must byte-match this script's output
 (verify with --check). Stdlib only. Python 3.10+. Tabs.
@@ -768,6 +780,126 @@ SMOKEHOUSE_SMOKE_2 = (
 	"..BKBBKBBKBBKBBKBBKBBKBBKB..",
 )
 
+# --- Wave B: FishingNet, FishingRod, Apple, AppleSeed (cycle 168) ---------
+# FishingNet sheet is the plan 32x16 (both 16x16 phases are real art: a
+# loose mesh thread shifts between frames). Apple/AppleSeed sheets are
+# padded to 2x the facet width (blank right half) per the wave-A
+# deviation: the advisory battery needs --phases >= 2.
+
+FISHING_NET_0 = (
+	"KKK.KKK.KKK.KKK.",
+	"KHH.KHH.KHH.KHH.",
+	".KKKKKKKKKKKKKK.",
+	".Kd.d.d.d.d.d.K.",
+	"K.d.d.d.d.d.d.d.",
+	".Kd.d.d.d.d.d.K.",
+	"K.d.o.d.o.d.o.d.",
+	".Kd.d.d.d.d.d.K.",
+	"K.d.d.d.d.d.d.d.",
+	".Kd.d.d.d.d.d.K.",
+	"K.d.o.d.o.d.o.d.",
+	".Kd.d.d.d.d.d.K.",
+	"K.d.d.d.d.d.d.d.",
+	".Kd.d.d.d.d.dK..",
+	"..KKKKKKKKKKKK..",
+	"................",
+)
+
+FISHING_NET_1 = (
+	"KKK.KKK.KKK.KKK.",
+	"KHH.KHH.KHH.KHH.",
+	".KKKKKKKKKKKKKK.",
+	".Kd.d.d.d.d.d.K.",
+	"K.d.d.d.d.d.d.d.",
+	".Kd.d.d.dK.d..d.",
+	"K.d.o.d.dK.o.d.d",
+	".Kd.d.d.d.d.d.d.",
+	"K.d.d.K.d.d.d.d.",
+	".Kd.d.d.d.d.d.K.",
+	"K.d.o.d.d.o.d.d.",
+	".Kd.d.d.d.d.d.K.",
+	"K.d.d.d.d.d.d.d.",
+	".Kd.dd.d.d.d.dK.",
+	"..KKKKKKKKKKKK..",
+	"................",
+)
+
+ROD_THROW_0 = (
+	"........................................",
+	"..........Kdddddddddddddddddddddooooo...",
+	"..........ddddddddddddddddddddddooooo...",
+	"...........SSSSSSr......................",
+)
+
+ROD_THROW_1 = (
+	"............Kddddddddddd................",
+	"............ddddddddddddddddddooooooo...",
+	".............SS.........ddddddooooooo...",
+	"...............SSSr.....................",
+)
+
+ROD_THROW_2 = (
+	"..........Kddddddddddd..................",
+	"..........ddddddddddddddddddooooooooo...",
+	".........SSSS.........ddddddooooooooo...",
+	"....rSSSS...............................",
+)
+
+ROD_THROW_3 = (
+	"........................................",
+	"..........Kdddddddddddddddddddddooooo...",
+	".......SSSSSddddddddddddddddddddooooo...",
+	".rSSSSS.................................",
+)
+
+ROD_FISH_0 = (
+	"........................................",
+	"..........Kdddddddddddddddddddddooooo...",
+	"..........ddSdddddddddddddddddddooooo...",
+	"............SrWW........................",
+)
+
+ROD_FISH_1 = (
+	"..........Kdddddddddddd.................",
+	"..........ddddddddddddddddddddddooooo...",
+	"............SW.........dddddddddooooo...",
+	"...........SrWW.........................",
+)
+
+ROD_PICKUP_0 = (
+	"........................................",
+	"..............Kdddddddddddddddddooooo...",
+	"..............SSddddddddddddddddooooo...",
+	"........pppppu..........................",
+)
+
+ROD_PICKUP_1 = (
+	"............Kddddddddddd................",
+	"............ddddddddddddddddddddooooo...",
+	"............SS..........ddddddddooooo...",
+	"......pppppu............................",
+)
+
+APPLE_MAP = (
+	"....d...",
+	"...dKee.",
+	"...KrrK.",
+	"..KrrrK.",
+	".KrrHrK.",
+	"KrrrrrrK",
+	".KrrrrK.",
+	"..KKKK..",
+)
+
+APPLE_SEED_MAP = (
+	"..K...",
+	".KrrK.",
+	".KdrK.",
+	"KrdrK.",
+	"KrrrK.",
+	".KKKK.",
+)
+
 def build_lobster():
 	walk = clonkgfx.Action("Walk", [
 		clonkgfx.PhaseMap("Walk0", WALK_0),
@@ -924,6 +1056,64 @@ def build_smokehouse():
 	sheet = clonkgfx.Sheet(84, 80, PALETTE, [idle, smoking])
 	return sheet.png_bytes()
 
+def build_fishingnet():
+	# 16x16 2-phase net bundle w/ cork floats; sheet 32x16 (both halves
+	# filled = 2 genuine advisory phases; facet (0,0,16,16) per ActMap).
+	action = clonkgfx.Action("Idle", [
+		clonkgfx.PhaseMap("Net0", FISHING_NET_0),
+		clonkgfx.PhaseMap("Net1", FISHING_NET_1)])
+	clonkgfx.Invariants(min_opaque_colors=3, opaque_window=(100, 200),
+	                    min_phase_diff=10).check(action, PALETTE)
+	sheet = clonkgfx.Sheet(32, 16, PALETTE, [action])
+	return sheet.png_bytes()
+
+def build_fishingrod():
+	# 160x12; three row bands packed in ActMap order: ThrowFishingPole L4
+	# (y=0), Fish L2 (y=4), PickupFish L2 (y=8). Base art faces LEFT.
+	throw = clonkgfx.Action("ThrowFishingPole", [
+		clonkgfx.PhaseMap("Throw0", ROD_THROW_0),
+		clonkgfx.PhaseMap("Throw1", ROD_THROW_1),
+		clonkgfx.PhaseMap("Throw2", ROD_THROW_2),
+		clonkgfx.PhaseMap("Throw3", ROD_THROW_3)])
+	fish = clonkgfx.Action("Fish", [
+		clonkgfx.PhaseMap("Fish0", ROD_FISH_0),
+		clonkgfx.PhaseMap("Fish1", ROD_FISH_1)])
+	pickup = clonkgfx.Action("PickupFish", [
+		clonkgfx.PhaseMap("Pickup0", ROD_PICKUP_0),
+		clonkgfx.PhaseMap("Pickup1", ROD_PICKUP_1)])
+	for action, inv in ((throw, dict(min_opaque_colors=3,
+	                                 opaque_window=(30, 130),
+	                                 min_phase_diff=8)),
+	                    (fish, dict(min_opaque_colors=3,
+	                                opaque_window=(30, 130),
+	                                min_phase_diff=6)),
+	                    (pickup, dict(min_opaque_colors=3,
+	                                  opaque_window=(30, 130),
+	                                  min_phase_diff=6))):
+		clonkgfx.Invariants(**inv).check(action, PALETTE)
+	sheet = clonkgfx.Sheet(160, 12, PALETTE, [throw, fish, pickup])
+	return sheet.png_bytes()
+
+def build_apple():
+	# 8x8 apple in the apple-red r family; sheet 16x8 (right half blank =
+	# advisory 2-phase sample room, wave-A precedent).
+	action = clonkgfx.Action("Idle", [
+		clonkgfx.PhaseMap("Apple", APPLE_MAP)])
+	clonkgfx.Invariants(min_opaque_colors=3, opaque_window=(30, 60),
+	                    min_phase_diff=8).check(action, PALETTE)
+	sheet = clonkgfx.Sheet(16, 8, PALETTE, [action])
+	return sheet.png_bytes()
+
+def build_appleseed():
+	# 6x6 teardrop seed echoing the apple red; sheet 12x6 (right half
+	# blank = advisory 2-phase sample room, wave-A precedent).
+	action = clonkgfx.Action("Idle", [
+		clonkgfx.PhaseMap("Seed", APPLE_SEED_MAP)])
+	clonkgfx.Invariants(min_opaque_colors=3, opaque_window=(14, 32),
+	                    min_phase_diff=8).check(action, PALETTE)
+	sheet = clonkgfx.Sheet(12, 6, PALETTE, [action])
+	return sheet.png_bytes()
+
 BUILDERS = {
 	"Lobster": build_lobster,
 	"CookedLobster": build_cookedlobster,
@@ -940,6 +1130,10 @@ BUILDERS = {
 	"WheatSheaf": build_wheatsheaf,
 	"SmokedFish": build_smokedfish,
 	"Smokehouse": build_smokehouse,
+	"FishingNet": build_fishingnet,
+	"FishingRod": build_fishingrod,
+	"Apple": build_apple,
+	"AppleSeed": build_appleseed,
 }
 
 DEF_SUBDIR = {
@@ -958,6 +1152,10 @@ DEF_SUBDIR = {
 	"WheatSheaf": "Items.c4d/Foodstuff.c4d",
 	"SmokedFish": "Items.c4d/Foodstuff.c4d",
 	"Smokehouse": "Structures.c4d",
+	"FishingNet": "Tools.c4d",
+	"FishingRod": "Tools.c4d",
+	"Apple": "Items.c4d/Foodstuff.c4d",
+	"AppleSeed": "Vegetation.c4d",
 }
 
 def out_default(def_name):
