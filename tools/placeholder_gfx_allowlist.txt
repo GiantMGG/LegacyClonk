@@ -24,10 +24,6 @@ Objects.c4d/Crew.c4d/MagiClonk.c4d/Ringmenu.c4d/MagicSpark.c4d  # flat spark ove
 Objects.c4d/Environment.c4d/Lenseflare.c4d                      # lens-flare flecks — legit flat
 #
 # --- Survey-missed INVISIBLE_ACTION debt (fully transparent sampled facets) ---
-Agriculture.c4d/Structures.c4d/Smokehouse.c4d                   # transparent Idle facet — debt
-Agriculture.c4d/Tools.c4d/FishTrap.c4d                          # transparent Idle facet — debt
-Agriculture.c4d/Tools.c4d/FishingNet.c4d                        # transparent Idle facet — debt
-Agriculture.c4d/Tools.c4d/FishingRod.c4d                        # transparent throw/fish facets — debt
 Airships.c4d/Vehicles.c4d/HotAirBalloon.c4d                     # transparent action facets — debt
 Airships.c4d/Vehicles.c4d/Steampack.c4d                         # transparent Idle facet — debt
 Coastal.c4d/Dock.c4d                                            # transparent Idle facet — debt

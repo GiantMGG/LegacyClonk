@@ -838,7 +838,17 @@ set(AGRI_DEFS
 	"Structures.c4d/TidalPool.c4d"
 	"Tools.c4d/LobsterTrap.c4d"
 	"Vegetation.c4d/Wheat.c4d"
-	"Vegetation.c4d/AppleTree.c4d")
+	"Vegetation.c4d/AppleTree.c4d"
+	"Tools.c4d/FishTrap.c4d"
+	"Tools.c4d/Sickle.c4d"
+	"Vegetation.c4d/WheatSeed.c4d"
+	"Items.c4d/Foodstuff.c4d/WheatSheaf.c4d"
+	"Items.c4d/Foodstuff.c4d/SmokedFish.c4d"
+	"Structures.c4d/Smokehouse.c4d"
+	"Tools.c4d/FishingNet.c4d"
+	"Tools.c4d/FishingRod.c4d"
+	"Items.c4d/Foodstuff.c4d/Apple.c4d"
+	"Vegetation.c4d/AppleSeed.c4d")
 foreach(agri_def ${AGRI_DEFS})
 	get_filename_component(agri_def_name "${agri_def}" NAME_WE)
 	if(PYTHON3 AND EXISTS "${LEGACYCLONK_CONTENT_DIR}/Agriculture.c4d/${agri_def}/Graphics.png")
@@ -848,6 +858,43 @@ foreach(agri_def ${AGRI_DEFS})
 		set_tests_properties("gfx_check_${agri_def_name}" PROPERTIES TIMEOUT 60 LABELS "lint")
 	endif()
 endforeach()
+
+# --- FirstLight mission climate gate + long behavior smoke (spec
+# firstlight-visible, cycle 168) --------------------------------------------
+# Task-4 measurement (.opencode/scratch/168/balance/timeline.md): with the
+# shipped Climate=50,0 the seasonal winter froze the homestead pond from
+# ~frame 10640, drying the fish trap before the second audit — the ledger
+# win (frame 12600) was UNREACHABLE in every run. The shipped fix is the
+# mission's Scenario.txt [Weather] Climate=50,0 -> 0,0 (content commit
+# 46c94690). No CTest read the mission Scenario.txt before this block, so
+# the fix was unpinned. Two gates close the gap:
+#   (a) firstlight_climate_gate — mechanical file gate: the shipped mission
+#       file must keep Climate=0,0 (catches reverts of the fix).
+#   (b) firstlight_climate_smoke — behavior pin: plays FirstLight's exact
+#       [Weather] with a carved pond + trap (balance-driver replica) and
+#       asserts the pond stays liquid through the old freeze window
+#       (trap InLiquid + Water census at frames 11200/12600/14700).
+#       NO "Smoke" suffix in the scenario name: the glob hardcodes
+#       --smoke-run 350 and would permanently RED the 16000-frame entry
+#       (LavaWallLong precedent).
+if(PYTHON3 AND EXISTS "${LEGACYCLONK_CONTENT_DIR}/Missions.c4f/FirstLight.c4s/Scenario.txt")
+	add_test(NAME firstlight_climate_gate
+		COMMAND "${PYTHON3}" -c "import re,sys; s=open('${LEGACYCLONK_CONTENT_DIR}/Missions.c4f/FirstLight.c4s/Scenario.txt').read(); sys.exit(0 if re.search(r'^Climate=0,0$', s, re.M) else 1)")
+	set_tests_properties(firstlight_climate_gate PROPERTIES TIMEOUT 30 LABELS "lint")
+endif()
+if(NOT USE_SANITIZER AND EXISTS "${LEGACYCLONK_CONTENT_DIR}/Agriculture.c4d/Tests.c4f/FirstLightClimate.c4s")
+	add_test(NAME firstlight_climate_smoke
+		COMMAND "${PYTHON3}" "${CMAKE_SOURCE_DIR}/tools/run_engine_headless.py"
+			"$<TARGET_FILE:clonk>" --console --smoke-run 16000 --frame-rate-cap 1000
+			--parameter "Seed=721"
+			-s "${LEGACYCLONK_CONTENT_DIR}/Agriculture.c4d/Tests.c4f/FirstLightClimate.c4s"
+		WORKING_DIRECTORY "${CMAKE_BINARY_DIR}")
+	set_tests_properties(firstlight_climate_smoke PROPERTIES
+		TIMEOUT 300
+		LABELS "smoke"
+		PASS_REGULAR_EXPRESSION "FirstLightClimate PASS"
+		FAIL_REGULAR_EXPRESSION "FatalError|\\[error\\]|\\[fatal\\]")
+endif()
 
 if(PYTHON3 AND EXISTS "${LEGACYCLONK_CONTENT_DIR}/Agriculture.c4d/Animals.c4d/Lobster.c4d/Graphics.png")
 	add_test(NAME vision_qa_agriculture_lobster
