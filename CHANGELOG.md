@@ -1691,4 +1691,67 @@ Spec: .opencode/specs/2026-08-29-1000-connection-migration-reconnect.md (cf8c883
 
 - Merge branch 'master' into development (pre-v371: bring v370 changelog splice into the release line) (de63f6c)
 
+## [372] - 2026-09-22
+
+### Added
+
+- **gamepad**: Enable SDL gamepad layer on X11-mainloop builds (3056aaf)
+
+- **Input**: Warn on conflicting rebinds in Bindings tab (49acfd4)
+
+- **Input**: Remember control preset per player file, dedupe hot-seat sets (59e2ce8)
+
+- **script**: SimulatePlrCom com-injection primitive (climb-drop-fix) (b54a9b9)
+
+- **gui**: Conflict dialog names the pressed key and the both-fire consequence (2bbb0d6)
+
+- **script**: SoundExists probe for sound-wiring tests (1f8cf8a)
+
+- **engine**: Raise mouse drag-select cap to 100 and command stack to 200 (ddddb1b)
+
+
+### Fixed
+
+- **gamepad**: Forward SDL_CONTROLLER* events in the X11 poll path + pin (B1) (ff26813)
+
+- **net**: Show join failure reason before exit (upstream #91) (1548ad9)
+
+- **engine**: Jump-and-run Dig on walls no longer drops the held item (climb-drop-fix) (9324ea1)
+
+- **gui**: SpinBox edit capacity keeps typed entry viable for full-width values (f1c2e05)
+
+- **cmake**: Test targets link SDL2 under USE_SDL_FOR_GAMEPAD (CI red fix) (66b8393)
+
+- **gui**: Minimize fullscreen window on WM_ACTIVATE deactivation (upstream #101) (da2ec78)
+
+- **gui**: Seed edit consecutive-char and click-selection input routing (cc328d1)
+
+- **gui**: Conflict dialog shows the localized key description, not the slot name (critic) (538ab8d)
+
+
+### Internal
+
+- **changelog**: Correct v371 gamepad claims to platform truth (cycle 149 erratum) (068bd6e)
+
+- **changelog**: Update for v371 [skip ci] (356e005)
+
+- **lint**: Track FIXME line shift in C4StartupPlrSelDlg allowlist (b2997b9)
+
+- **smokes**: Register climb_dig_release_smoke (climb-drop-fix) (65e3026)
+
+- **cmake**: Console builds enable silent sound system for smoke sound pins (72313b4)
+
+- **smoke**: Pin FirstLightSoundSmoke seed 721 (e0059a7)
+
+- **engine**: Pin C4MaxObjectSelection/C4MaxCommandStack via Catch2 (22ab1ce)
+
+- **version**: Bump content version to 4.9.11.9 for v372 (3bd864c)
+
+- **changelog**: Apply pre-release audit fixes to v372 highlights (83a6b54)
+
+
+### Other
+
+- Merge branch 'master' into development (post-v371: bring changelog splice + erratum together) (1038351)
+
 <!-- git-cliff prepends new release sections above this line. -->
