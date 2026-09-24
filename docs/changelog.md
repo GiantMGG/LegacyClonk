@@ -1754,4 +1754,36 @@ Spec: .opencode/specs/2026-08-29-1000-connection-migration-reconnect.md (cf8c883
 
 - Merge branch 'master' into development (post-v371: bring changelog splice + erratum together) (1038351)
 
+## [373] - 2026-09-24
+
+### Added
+
+- **gfx**: Cog hull bow/stern curvature (86fe7b4)
+
+- **gfx**: Scorpion walk sheds ear/face dome, keeps battery shape (cycle 167 pincer arch) (47190d1)
+
+- **gfx**: Wave-A agriculture builders for 6 FirstLight defs (cycle 168) (b9e89ab)
+
+- **gfx**: Wave-B agriculture builders for 4 defs (cycle 168) (0f812d6)
+
+
+### Internal
+
+- **gfx**: Fix silhouette function name in gen_cog_gfx docstring (a302401)
+
+- **smokes**: Ten new Agriculture byte gates + FirstLight climate pins, de-allowlist 4 defs (cycle 168) (2b952f8)
+
+- **smokes**: Firstlight scenario gate pins the winnable kit contract (cycle 168) (05e00ca)
+
+- **smokes**: Scenario gate pins the resolvable-components contract (cycle 168) (d360ad7)
+
+- **changelog**: Update for v372 [skip ci] (081a2f1)
+
+- **version**: Bump content version to 4.9.11.10 for v373 (230c044)
+
+
+### Other
+
+- Merge remote-tracking branch 'origin/master' into development (c81d091)
+
 <!-- git-cliff prepends new release sections above this line. -->
