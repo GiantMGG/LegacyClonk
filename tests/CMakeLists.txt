@@ -910,16 +910,23 @@ endif()
 # --- ArenaChampions bot-round smoke + gates (spec arena-rotation,
 # cycle 172) --------------------------------------------------------------
 # The rotation check: a scripted 4-player bot round on the arena format
-# must FINISH. ArenaBotRound.c4s stages the whole game in-script — four
-# TestPlayer fixtures join two Random teams (2+2), a fighter clonk kills
-# defending-crew clonks one per 35-frame step, every kill is asserted
-# against the KILT goal's team-score locals (KillHook #appendto CLNK
-# wiring), the RSPN respawner must demonstrably top the defender back up
-# mid-round (charges 3->1), and the round ends when team 1 hits the
-# 8-kill target -> "ArenaBotRound PASS". NO "Smoke" suffix in the
-# scenario name: the glob must not double-register it (wincond_mode_smoke
+# must FINISH - ended BY THE GOAL, not by the smoke. ArenaBotRound.c4s
+# stages the whole game in-script — four TestPlayer fixtures join two
+# Random teams (2+2), a fighter clonk kills defending-crew clonks one per
+# 35-frame step, every kill is asserted against the KILT goal's team-score
+# locals (KillHook #appendto CLNK wiring), the RSPN respawner must
+# demonstrably top the defender back up mid-round (charges 3->1), and the
+# round is decided by KILT's own 35-frame Guard timer: the smoke polls the
+# guard's fired flag (Local 1000) and logs "ArenaBotRound PASS" only once
+# the goal has initiated the game-over itself (it never calls GameOver, so
+# a KILT that fails to end the round fails loud instead of passing
+# silently). The scenario lives in the def-pack Tests.c4f fixture home
+# (WeatherEvents.c4d/Tests.c4f) because the browser lists *.c4f packs: a
+# Tests.c4f inside the browsable ArenaChampions.c4f would leak test
+# scenarios into the browser (menu_walk_smoke A6). NO "Smoke" suffix in
+# the scenario name: the glob must not double-register it (wincond_mode_smoke
 # precedent).
-if(EXISTS "${LEGACYCLONK_CONTENT_DIR}/ArenaChampions.c4f/Tests.c4f/ArenaBotRound.c4s")
+if(EXISTS "${LEGACYCLONK_CONTENT_DIR}/WeatherEvents.c4d/Tests.c4f/ArenaBotRound.c4s")
 	add_test(NAME arena_bot_round_smoke
 		COMMAND "${PYTHON3}" "${CMAKE_SOURCE_DIR}/tools/run_engine_headless.py"
 			"$<TARGET_FILE:clonk>" --console --smoke-run 1600 --frame-rate-cap 1000
@@ -927,7 +934,7 @@ if(EXISTS "${LEGACYCLONK_CONTENT_DIR}/ArenaChampions.c4f/Tests.c4f/ArenaBotRound
 			--smoke-player-fixture "${CMAKE_SOURCE_DIR}/tests/fixtures/TestPlayer.c4p"
 			--smoke-player-fixture "${CMAKE_SOURCE_DIR}/tests/fixtures/TestPlayer.c4p"
 			--smoke-player-fixture "${CMAKE_SOURCE_DIR}/tests/fixtures/TestPlayer.c4p"
-			-s "${LEGACYCLONK_CONTENT_DIR}/ArenaChampions.c4f/Tests.c4f/ArenaBotRound.c4s"
+			-s "${LEGACYCLONK_CONTENT_DIR}/WeatherEvents.c4d/Tests.c4f/ArenaBotRound.c4s"
 		WORKING_DIRECTORY "${CMAKE_BINARY_DIR}")
 	set_tests_properties(arena_bot_round_smoke PROPERTIES
 		TIMEOUT 240
