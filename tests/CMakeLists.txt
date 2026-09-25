@@ -907,6 +907,63 @@ if(NOT USE_SANITIZER AND EXISTS "${LEGACYCLONK_CONTENT_DIR}/Agriculture.c4d/Test
 		FAIL_REGULAR_EXPRESSION "FatalError|\\[error\\]|\\[fatal\\]")
 endif()
 
+# --- ArenaChampions bot-round smoke + gates (spec arena-rotation,
+# cycle 172) --------------------------------------------------------------
+# The rotation check: a scripted 4-player bot round on the arena format
+# must FINISH. ArenaBotRound.c4s stages the whole game in-script — four
+# TestPlayer fixtures join two Random teams (2+2), a fighter clonk kills
+# defending-crew clonks one per 35-frame step, every kill is asserted
+# against the KILT goal's team-score locals (KillHook #appendto CLNK
+# wiring), the RSPN respawner must demonstrably top the defender back up
+# mid-round (charges 3->1), and the round ends when team 1 hits the
+# 8-kill target -> "ArenaBotRound PASS". NO "Smoke" suffix in the
+# scenario name: the glob must not double-register it (wincond_mode_smoke
+# precedent).
+if(EXISTS "${LEGACYCLONK_CONTENT_DIR}/ArenaChampions.c4f/Tests.c4f/ArenaBotRound.c4s")
+	add_test(NAME arena_bot_round_smoke
+		COMMAND "${PYTHON3}" "${CMAKE_SOURCE_DIR}/tools/run_engine_headless.py"
+			"$<TARGET_FILE:clonk>" --console --smoke-run 1600 --frame-rate-cap 1000
+			--smoke-player-fixture "${CMAKE_SOURCE_DIR}/tests/fixtures/TestPlayer.c4p"
+			--smoke-player-fixture "${CMAKE_SOURCE_DIR}/tests/fixtures/TestPlayer.c4p"
+			--smoke-player-fixture "${CMAKE_SOURCE_DIR}/tests/fixtures/TestPlayer.c4p"
+			--smoke-player-fixture "${CMAKE_SOURCE_DIR}/tests/fixtures/TestPlayer.c4p"
+			-s "${LEGACYCLONK_CONTENT_DIR}/ArenaChampions.c4f/Tests.c4f/ArenaBotRound.c4s"
+		WORKING_DIRECTORY "${CMAKE_BINARY_DIR}")
+	set_tests_properties(arena_bot_round_smoke PROPERTIES
+		TIMEOUT 240
+		LABELS "smoke"
+		PASS_REGULAR_EXPRESSION "ArenaBotRound PASS"
+		FAIL_REGULAR_EXPRESSION "FatalError|\\[error\\]|\\[fatal\\]")
+endif()
+
+# Mechanical file gate for the task-1/task-2 arena content contracts the
+# bot smoke depends on (would have caught the KILC regression and the
+# kitchen-sink store revert before any engine run):
+#   (a) all five shipped maps pin exactly `Goals=MELE=1;KILT=1` and
+#       `Rules=TACC=1` — no KILC (broken GetCaptain rule) may come back,
+#       and both [PlayerN] sections carry the identical trimmed arena
+#       store (HomeBaseMaterial/HomeBaseProduction literals);
+#   (b) the Respawner DefCore keeps `TimerCall=Timer` (the team-wide
+#       refill loop; dropping it kills the in-round respawn proof);
+#   (c) Tidemark's tide keeps the DrawMaterialQuad column raise (the
+#       rescue fix from task 2) — no plain DrawMaterial() 1px scrape.
+if(PYTHON3 AND EXISTS "${LEGACYCLONK_CONTENT_DIR}/ArenaChampions.c4f/Dustsprint.c4s/Scenario.txt")
+	add_test(NAME arena_scenario_gate
+		COMMAND "${PYTHON3}" -c "import sys; base='${LEGACYCLONK_CONTENT_DIR}/ArenaChampions.c4f/'; hbm='HomeBaseMaterial=CNKT=4;LOAM=4;WOOD=4;METL=2;FLNT=5;TFLN=3;GUNP=6;ARWP=1;XARP=1;BARL=2;CLNK=3;MCLK=1;FLAG=1'; hbp='HomeBaseProduction=WOOD=1;FLNT=2;TFLN=1;GUNP=2;ARWP=1;XARP=1;CLNK=1'; ok=all([len([ln for ln in open(base+n+'.c4s/Scenario.txt').read().splitlines() if ln=='Goals=MELE=1;KILT=1'])==1 and len([ln for ln in open(base+n+'.c4s/Scenario.txt').read().splitlines() if ln=='Rules=TACC=1'])==1 and len([ln for ln in open(base+n+'.c4s/Scenario.txt').read().splitlines() if ln==hbm])==2 and len([ln for ln in open(base+n+'.c4s/Scenario.txt').read().splitlines() if ln==hbp])==2 for n in ['Dustsprint','Embervein','Frostlance','Mirrorwood','Tidemark']]); ok=ok and 'TimerCall=Timer' in open(base+'Objects.c4d/Respawner.c4d/DefCore.txt').read(); ok=ok and 'DrawMaterialQuad' in open(base+'Tidemark.c4s/Script.c').read() and 'DrawMaterial(' not in open(base+'Tidemark.c4s/Script.c').read(); sys.exit(0 if ok else 1)"
+		WORKING_DIRECTORY "${CMAKE_BINARY_DIR}")
+	set_tests_properties(arena_scenario_gate PROPERTIES TIMEOUT 30 LABELS "lint")
+endif()
+
+# Byte gate for the deterministic KillTarget/KillHook icon art
+# (tools/gen_arena_gfx.py --check): the committed Graphics.png files must
+# byte-match the generator output (gen_desert_gfx.py gfx_check_* pattern).
+if(PYTHON3 AND EXISTS "${LEGACYCLONK_CONTENT_DIR}/ArenaChampions.c4f/Objects.c4d/KillTarget.c4d/Graphics.png")
+	add_test(NAME gfx_check_KillTarget
+		COMMAND "${PYTHON3}" "${CMAKE_SOURCE_DIR}/tools/gen_arena_gfx.py" --check
+		WORKING_DIRECTORY "${CMAKE_BINARY_DIR}")
+	set_tests_properties(gfx_check_KillTarget PROPERTIES TIMEOUT 60 LABELS "lint")
+endif()
+
 if(PYTHON3 AND EXISTS "${LEGACYCLONK_CONTENT_DIR}/Agriculture.c4d/Animals.c4d/Lobster.c4d/Graphics.png")
 	add_test(NAME vision_qa_agriculture_lobster
 		COMMAND "${PYTHON3}" "${CMAKE_SOURCE_DIR}/tools/vision_qa.py"
