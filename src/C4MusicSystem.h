@@ -64,6 +64,12 @@ private:
 	std::list<Song> songs;
 	const Song *mostRecentlyPlayed{};
 
+	// Set when a play attempt did not result in actual playback (e.g. audio
+	// init failed and the backend never reports music playing). Prevents
+	// Execute() from retrying a broken backend every frame; cleared by any
+	// successful play attempt.
+	bool lastPlaybackFailed{};
+
 	// Valid when a song is currently playing
 	std::unique_ptr<const char[]> playingFileContents;
 	std::unique_ptr<C4AudioSystem::MusicFile> playingFile;

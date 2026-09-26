@@ -50,7 +50,14 @@ void C4MusicSystem::Execute()
 	if (!Application.AudioSystem->IsMusicPlaying())
 	{
 		ClearPlayingSong();
-		Play();
+		// If the last play attempt did not start playback (e.g. audio init
+		// failed and the backend never reports music playing), do not retry
+		// every frame: that would flood the log/message board ("Music: ..."
+		// once per frame) and waste CPU. Wait for an explicit play request.
+		if (!lastPlaybackFailed)
+		{
+			Play();
+		}
 	}
 }
 
@@ -95,8 +102,6 @@ void C4MusicSystem::Play(const char *const songname, const bool loop)
 	// Stop old music
 	Stop();
 
-	Log(C4ResStrTableKey::IDS_PRC_PLAYMUSIC, GetFilename(newSong->name.c_str()));
-
 	// Load and play music file
 	try
 	{
@@ -116,12 +121,26 @@ void C4MusicSystem::Play(const char *const songname, const bool loop)
 	{
 		LogNTr(spdlog::level::err, "Cannot play music file {}: {}", newSong->name, e.what());
 		ClearPlayingSong();
+		lastPlaybackFailed = true;
 		return;
 	}
 	catch (...)
 	{
 		ClearPlayingSong();
 		throw;
+	}
+
+	// Some backends (e.g. after audio init failed) accept the play call but
+	// never report playback. Remember that so Execute() does not retry the
+	// broken backend every frame.
+	lastPlaybackFailed = !Application.AudioSystem->IsMusicPlaying();
+
+	// Announce the song on the message board only when playback actually
+	// started and the song changed; re-requests of the same song (and
+	// attempts that never play anything) must not spam the message board.
+	if (!lastPlaybackFailed && newSong != mostRecentlyPlayed)
+	{
+		Log(C4ResStrTableKey::IDS_PRC_PLAYMUSIC, GetFilename(newSong->name.c_str()));
 	}
 
 	mostRecentlyPlayed = newSong;
