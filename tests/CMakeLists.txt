@@ -1024,6 +1024,38 @@ if (PYTHON3 AND EXISTS "${LEGACYCLONK_CONTENT_DIR}")
 		LABELS "playtest;smoke")
 endif()
 
+# --- scenario_log_sweep (spec scenario-log-clean-sweep, cycle 173) --------
+# Zero-script-error gate on the shipped scenario roster: boots the fixed
+# recon-affected set (every scenario that logged `[error]` on the
+# 2026-09-26 recon — Fantasy x4, FarWorlds x4, Knights x3, SilkRoad,
+# Worlds CaveExplorer+Stormwatch, Races x3, Tutorial 01/02/06/07) headless
+# and fails on any engine `[error]` line (--tick 70, per-scenario 350 for
+# the runtime-exercising entries: SiegeOfHighKeep FindObject storm ~frame
+# 44, Stormwatch CrisisDirector ~70, Tutorial02/06/07). EXCLUSIONS —
+# pinned here because they cannot be swept to zero today: Hazard.c4f (13
+# scenarios; owner directive 2026-09-18 — "not interested in the eke and
+# hazard stuff"), the root stray content/SiegeRange.c4s (content-cleanup's
+# territory — owns the FindObject int-arg x26 cluster) and
+# Tutorial.c4f/Tutorial03+04 (ancient pre-#strict eq""/goto() scripts
+# needing full rewrites; deferred follow-up). --full extends the sweep to
+# every shipped content/**/*.c4s (Tests.c4f pruned) with those exclusions
+# skipped-and-reported (106 pass / 16 skip on e8b0ef98 content). The
+# driver owns fail detection and prints the aggregate
+# `scenario_log_sweep PASS` line. TIMEOUT: measured 5.4 s via ctest at 4
+# concurrent engines (x2 headroom ~11 s); 60 s covers ~5x-slower CI.
+if(PYTHON3 AND EXISTS "${CMAKE_SOURCE_DIR}/tools/scenario_log_sweep.py"
+   AND EXISTS "${LEGACYCLONK_CONTENT_DIR}")
+	add_test(NAME scenario_log_sweep
+		COMMAND "${PYTHON3}" "${CMAKE_SOURCE_DIR}/tools/scenario_log_sweep.py"
+			"--engine" "$<TARGET_FILE:clonk>"
+			"--content" "${LEGACYCLONK_CONTENT_DIR}"
+		WORKING_DIRECTORY "${CMAKE_BINARY_DIR}")
+	set_tests_properties(scenario_log_sweep PROPERTIES
+		TIMEOUT 60
+		LABELS "lint"
+		PASS_REGULAR_EXPRESSION "scenario_log_sweep PASS")
+endif()
+
 # --- Playtest vision judge (spec playtest-vision-tier2, cycle 108) --------
 # tools/playtest_vision.py spawns the console engine with --screenshot-at,
 # validates the PNG + SceneTruth sidecar deterministically (judge-independent
