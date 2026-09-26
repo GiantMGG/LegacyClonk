@@ -35,7 +35,6 @@ PALETTE = clonkgfx.Palette({
 
 SIZE = 64
 
-
 def _dist_seg(x, y, x0, y0, x1, y1):
 	"""Distance of (x, y) to the line segment (x0,y0)-(x1,y1)."""
 	dx, dy = x1 - x0, y1 - y0
@@ -45,7 +44,6 @@ def _dist_seg(x, y, x0, y0, x1, y1):
 	t = max(0.0, min(1.0, ((x - x0) * dx + (y - y0) * dy) / length2))
 	px, py = x0 + t * dx, y0 + t * dy
 	return math.hypot(x - px, y - py)
-
 
 def build_killtarget_rows():
 	"""64x64: dark disc + a bold X of crossed swords."""
@@ -69,11 +67,9 @@ def build_killtarget_rows():
 				grid[y][x] = "g"
 	return ["".join(row) for row in grid]
 
-
 def build_hook_rows():
 	"""Fully transparent 64x64 map for the never-rendering hook def."""
 	return ["." * SIZE for _ in range(SIZE)]
-
 
 def make_killtarget_png():
 	action = clonkgfx.Action("KillTarget",
@@ -82,12 +78,10 @@ def make_killtarget_png():
 	                    min_phase_diff=8).check(action, PALETTE)
 	return clonkgfx.Sheet(SIZE, SIZE, PALETTE, [action]).png_bytes()
 
-
 def make_hook_png():
 	action = clonkgfx.Action("KillHook",
 	                         [clonkgfx.PhaseMap("KillHook", build_hook_rows())])
 	return clonkgfx.Sheet(SIZE, SIZE, PALETTE, [action]).png_bytes()
-
 
 def out_default():
 	base = os.path.normpath(os.path.join(
@@ -96,7 +90,6 @@ def out_default():
 		"KillTarget": os.path.join(base, "KillTarget.c4d", "Graphics.png"),
 		"KillHook": os.path.join(base, "KillTarget.c4d", "KillHook.c4d", "Graphics.png"),
 	}
-
 
 def gate(outputs, make, check=True):
 	for name, path in outputs.items():
@@ -107,7 +100,6 @@ def gate(outputs, make, check=True):
 			return 1
 		print(f"OK: {name} {path} matches generator output")
 	return 0
-
 
 def main():
 	import argparse
@@ -126,7 +118,6 @@ def main():
 			f.write(make_killtarget_png() if name == "KillTarget" else make_hook_png())
 		print(f"wrote {name} {path}")
 	return 0
-
 
 if __name__ == "__main__":
 	raise SystemExit(main())
