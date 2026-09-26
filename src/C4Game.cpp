@@ -267,6 +267,21 @@ bool C4Game::InitDefs()
 	return true;
 }
 
+bool ShouldRegisterScenarioOrigin(const char *szOrigin, const char *szScenarioFilename, bool fParentsRegistered)
+{
+	if (!szOrigin || !szOrigin[0]) return false;
+	// The scenario's own parent chain is already registered by the first
+	// RegisterParentFolders(ScenarioFilename) call; the Origin chain is a
+	// subset of it, so re-registering it would only risk a spurious
+	// CWD-relative open of the bare pack name and its FATAL (cycle 174:
+	// absolute-path launches spammed "[critical] FATAL ERROR: File not
+	// found or invalid: <pack>.c4f"). Only scenarios whose own path has
+	// no c4f parent (e.g. section scenarios inside .c4g groups) still
+	// need the Origin-based registration.
+	if (fParentsRegistered) return false;
+	return !ItemIdentical(szOrigin, szScenarioFilename);
+}
+
 bool C4Game::OpenScenario()
 {
 	// Scenario from record stream
@@ -326,7 +341,7 @@ bool C4Game::OpenScenario()
 	}
 
 	// Add scenario origin to group set
-	if (GameC4S.Head.Origin.getLength() && !ItemIdentical(GameC4S.Head.Origin.getData(), ScenarioFilename))
+	if (ShouldRegisterScenarioOrigin(GameC4S.Head.Origin.getData(), ScenarioFilename, pParentGroup != nullptr))
 		GroupSet.RegisterParentFolders(GameC4S.Head.Origin.getData());
 
 	// Scenario definition preset

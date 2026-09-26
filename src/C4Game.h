@@ -580,3 +580,14 @@ inline std::string GetKeyboardInputName(const char *szKeyName, bool fShort = fal
 {
 	return Game.KeyboardInput.GetKeyCodeNameByKeyName(szKeyName, fShort, iIndex);
 }
+
+// Whether the scenario's stored Origin parent chain still needs registering
+// during OpenScenario. The Origin chain (e.g. "SaltRoad.c4f/SaltRoad03.c4s")
+// is a subset of the chain already registered by the initial
+// RegisterParentFolders(ScenarioFilename) call whenever that call found a
+// c4f parent chain, so re-registering it there is redundant — and it would
+// otherwise attempt a CWD-relative open of the bare pack name that fails
+// (and logs a spurious FATAL) when the pack is not resolvable next to the
+// binary. Only section scenarios whose own path has no c4f parent (e.g.
+// inside .c4g groups) still need the Origin registration.
+bool ShouldRegisterScenarioOrigin(const char *szOrigin, const char *szScenarioFilename, bool fParentsRegistered);

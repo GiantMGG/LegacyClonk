@@ -607,6 +607,12 @@ add_test_target(SelectionLimits
 	LINK_ENGINE
 )
 
+# --- Scenario Origin parent-folder gate (cycle 174) ------------------------
+add_test_target(ParentFolderGating
+	SOURCES "${CMAKE_SOURCE_DIR}/tests/TstParentFolderGating.cpp"
+	LINK_ENGINE
+)
+
 # --- Network desync CI smoke ---------------------------------------------
 # See spec network-desync-ci-smoke. Runs two headless engine instances on
 # localhost with tc netem impairment (Linux only), asserting no desync fatal
