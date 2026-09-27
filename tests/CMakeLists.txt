@@ -376,6 +376,7 @@ set(SMOKE_SEED_PIN_SaltRoadStorySmoke 146)
 set(SMOKE_SEED_PIN_EscapeSiphonSmoke 1471)
 set(SMOKE_SEED_PIN_EscapeFurnaceSmoke 1472)
 set(SMOKE_SEED_PIN_EscapeUndertowSmoke 1473)
+set(SMOKE_SEED_PIN_SturmfrontSmoke 175)
 
 foreach(scenario ${SMOKE_SCENARIOS})
   get_filename_component(scenario_name "${scenario}" NAME_WE)  # e.g. EventSmoke
