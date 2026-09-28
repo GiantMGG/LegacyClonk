@@ -377,6 +377,7 @@ set(SMOKE_SEED_PIN_EscapeSiphonSmoke 1471)
 set(SMOKE_SEED_PIN_EscapeFurnaceSmoke 1472)
 set(SMOKE_SEED_PIN_EscapeUndertowSmoke 1473)
 set(SMOKE_SEED_PIN_SturmfrontSmoke 175)
+set(SMOKE_SEED_PIN_AutoTasksSmoke 180)
 
 foreach(scenario ${SMOKE_SCENARIOS})
   get_filename_component(scenario_name "${scenario}" NAME_WE)  # e.g. EventSmoke
@@ -1105,4 +1106,27 @@ if(PYTHON3 AND NOT WIN32)
 	add_test(NAME vision_lock_selftest
 		COMMAND "${PYTHON3}" "${CMAKE_SOURCE_DIR}/tools/test_vision_lock.py")
 	set_tests_properties(vision_lock_selftest PROPERTIES TIMEOUT 120 LABELS "lint")
+endif()
+
+# --- AutoTasks acceptance run (spec auto-tasks-mvp, cycle 180) --------------
+# 5-minute standing-jobs proof: the roadmap check "a clonk told to chop wood
+# keeps chopping and delivering for 5 minutes" is 10,500 ticks (5 min game
+# time @35 fps, ~10.5 s wall under --frame-rate-cap 1000). Own stanza, NOT the
+# glob: the glob hardcodes --smoke-run 350 and the scenario is named without
+# the "Smoke" suffix so it cannot double-register (firstlight_climate_smoke
+# precedent :903-915). NOT USE_SANITIZER gate per pxs_perf_gate (:450).
+# Seed pinned (anti-overfit, R5); re-pin only with calibration evidence
+# (.opencode/scratch/180/task5-calibration.md).
+if(NOT USE_SANITIZER AND EXISTS "${LEGACYCLONK_CONTENT_DIR}/Agriculture.c4d/Tests.c4f/AutoTasksAccept.c4s")
+	add_test(NAME auto_tasks_acceptance
+		COMMAND "${PYTHON3}" "${CMAKE_SOURCE_DIR}/tools/run_engine_headless.py"
+			"$<TARGET_FILE:clonk>" --console --smoke-run 10500 --frame-rate-cap 1000
+			--parameter "Seed=181"
+			-s "${LEGACYCLONK_CONTENT_DIR}/Agriculture.c4d/Tests.c4f/AutoTasksAccept.c4s"
+		WORKING_DIRECTORY "${CMAKE_BINARY_DIR}")
+	set_tests_properties(auto_tasks_acceptance PROPERTIES
+		TIMEOUT 420
+		LABELS "smoke"
+		PASS_REGULAR_EXPRESSION "AutoTasksAccept PASS"
+		FAIL_REGULAR_EXPRESSION "FatalError|\\[error\\]|\\[fatal\\]")
 endif()
