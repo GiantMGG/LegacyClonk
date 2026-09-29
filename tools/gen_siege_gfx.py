@@ -37,6 +37,17 @@ must never reappear (check_siege_stage_gfx.py, T6).
 Cauldron + trebuchet subcommands land in later tasks (T4/T5) and are
 deliberately NOT stubbed here; argparse registers only `gate`.
 
+Subcommand `cauldron` (cycle 181 T4) renders the single BoilingOilCauldron
+facet as a 40x25 sheet whose phase-0 facet is 20x25 (matches DefCore
+Picture=0,0,20,25 and the Idle Facet=0,0,20,25; DefCore geometry
+untouched -- clonk-gfx hard rule). The right half is transparent padding
+so the vision-QA harness can slice its mandatory --phases 2 probe
+in-bounds (RTAP cycle-128 precedent for Length=1 single facets).
+One Idle phase: iron lip + rim highlight, dark oil surface lens in the
+opening, bulging iron bowl with left highlight / right shade, rounded
+bottom and two tripod feet. Byte-identical Graphics.png is written into
+BOTH def copies (scenario-local + smoke-local).
+
 Stdlib only. Python 3.10+. Tabs.
 """
 
@@ -90,6 +101,15 @@ PALETTE_RUIN = {
 	"i": (70, 74, 86, 255),
 	"I": (130, 136, 150, 255),
 	"s": (150, 140, 125, 255),
+}
+
+# cauldron: i dark iron bowl, I iron highlight (rim/bulge), o dark oil
+# surface, d iron mid-shade (bottom + right-side shadow).
+PALETTE_CAULDRON = {
+	"i": (70, 74, 86, 255),
+	"I": (132, 138, 154, 255),
+	"o": (26, 22, 30, 255),
+	"d": (44, 46, 56, 255),
 }
 
 # ---------------------------------------------------------------------------
@@ -363,6 +383,37 @@ RUIN_B = (
 	"........................................",
 )
 
+# 20x25 single-facet cauldron (Idle, Length=1). Rows: headroom, back
+# lip, rim highlight, dark oil surface lens, front lip, bulging iron
+# bowl (left highlight / right shade), rounded bottom, tripod feet.
+CAULDRON = (
+	"....................",
+	"....................",
+	".iiiiiiiiiiiiiiiiii.",
+	".iIIIIIIIIIIIIIIIIi.",
+	"..IooooooooooooooI..",
+	"..IooooooooooooooI..",
+	"..dooooooooooooood..",
+	"...dooooooooooood...",
+	"....dooooooooood....",
+	".....iooooooooi.....",
+	"......iIIIIIIi......",
+	"..iiiiiiiiiiiiiiii..",
+	".iIIIIiiiiiiiiiiiii.",
+	".iIIIIIiiiiiiiddddi.",
+	".iiIIIIIIiiiidddddd.",
+	"..iIIIIIIiiidddddi..",
+	"...iIIIIIiiddddii...",
+	"....iIIIIiidddii....",
+	".....iIIIiiiddd.....",
+	".....iIIIIidddd.....",
+	"....dddddddddddd....",
+	".....dddddddddd.....",
+	"....iii......iii....",
+	"....iii......iii....",
+	".....dd......dd.....",
+)
+
 # ---------------------------------------------------------------------------
 # map helpers (deterministic composition — the open phases slide the gate
 # up; crack overlays are stamped onto the gate before the slide)
@@ -424,6 +475,19 @@ def build_ruin():
 	act = _action(phases, clonkgfx.Palette(PALETTE_RUIN), 700, 1700, 30)
 	return clonkgfx.Sheet(160, 74, clonkgfx.Palette(PALETTE_RUIN), [act]).png_bytes()
 
+def build_cauldron():
+	act = clonkgfx.Action("Idle", [clonkgfx.PhaseMap("phase0", CAULDRON)])
+	clonkgfx.Invariants(min_opaque_colors=3, opaque_window=(250, 500),
+	                    min_phase_diff=1).check(
+		act, clonkgfx.Palette(PALETTE_CAULDRON))
+	# 40 wide: the right half (cols 20-39) is transparent padding. The
+	# facet stays 0,0,20,25 and DefCore geometry is untouched, but the
+	# padding lets the vision-QA harness run its mandatory --phases 2
+	# probe in-bounds (phase 1 = blank) — the RTAP cycle-128 precedent
+	# for Length=1 single-facet defs.
+	return clonkgfx.Sheet(40, 25, clonkgfx.Palette(PALETTE_CAULDRON),
+	                      [act]).png_bytes()
+
 # ---------------------------------------------------------------------------
 # CLI
 # ---------------------------------------------------------------------------
@@ -448,11 +512,37 @@ def out_gate(filename):
 	return os.path.join(_CONTENT_ROOT, "SiegeEngines.c4d",
 	                    "Structures.c4d", "SiegeGate.c4d", filename)
 
+def out_cauldron():
+	"""Both BOIL copies keep byte-identical Graphics.png."""
+	return [os.path.join(_CONTENT_ROOT, "Knights.c4f", "SiegeOfHighKeep.c4s",
+	                     "BoilingOilCauldron.c4d", "Graphics.png"),
+	        os.path.join(_CONTENT_ROOT, "SiegeEngines.c4d", "Tests.c4f",
+	                     "SiegeSmoke.c4s", "BoilingOilCauldron.c4d",
+	                     "Graphics.png")]
+
 def run_gate(check):
 	rc = 0
 	for filename, builder in GATE_SPEC:
 		png = builder()
 		path = out_gate(filename)
+		if check:
+			with open(path, "rb") as f:
+				committed = f.read()
+			if committed != png:
+				print(f"FAIL: {path} does not match generator output")
+				rc = 1
+				continue
+			print(f"OK: {path} matches generator output")
+		else:
+			with open(path, "wb") as f:
+				f.write(png)
+			print(f"wrote {path} ({len(png)} bytes)")
+	return rc
+
+def run_cauldron(check):
+	png = build_cauldron()
+	rc = 0
+	for path in out_cauldron():
 		if check:
 			with open(path, "rb") as f:
 				committed = f.read()
@@ -473,10 +563,16 @@ def main():
 	p_gate = sub.add_parser("gate", help="SiegeGate 4 stage sheets")
 	p_gate.add_argument("--check", action="store_true",
 	                    help="byte-gate all four sheets without writing")
+	p_cauldron = sub.add_parser("cauldron",
+	                            help="BoilingOilCauldron 20x25 single facet")
+	p_cauldron.add_argument("--check", action="store_true",
+	                        help="byte-gate both def copies without writing")
 	args = ap.parse_args()
-	if args.sub != "gate":
-		ap.error(f"unknown subcommand {args.sub!r}")
-	return run_gate(args.check)
+	if args.sub == "gate":
+		return run_gate(args.check)
+	if args.sub == "cauldron":
+		return run_cauldron(args.check)
+	ap.error(f"unknown subcommand {args.sub!r}")
 
 if __name__ == "__main__":
 	raise SystemExit(main())
