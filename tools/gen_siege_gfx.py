@@ -34,8 +34,8 @@ The four sheets are pairwise distinct; the retire-placeholder hashes
 9ab00a2513435ceafca69462121daf02 / 8d672ea6d7c712c84ef3f4399d387207
 must never reappear (check_siege_stage_gfx.py, T6).
 
-Cauldron + trebuchet subcommands land in later tasks (T4/T5) and are
-deliberately NOT stubbed here; argparse registers only `gate`.
+Cauldron subcommand landed in T4, trebuchet in T5 -- the file registers
+exactly `gate`/`cauldron`/`trebuchet`.
 
 Subcommand `cauldron` (cycle 181 T4) renders the single BoilingOilCauldron
 facet as a 40x25 sheet whose phase-0 facet is 20x25 (matches DefCore
@@ -47,6 +47,26 @@ One Idle phase: iron lip + rim highlight, dark oil surface lens in the
 opening, bulging iron bowl with left highlight / right shade, rounded
 bottom and two tripod feet. Byte-identical Graphics.png is written into
 BOTH def copies (scenario-local + smoke-local).
+
+Subcommand `trebuchet` (cycle 181 T5) renders the purpose-drawn 280x100
+two-band TRBT sheet (was byte-identical to the Western cannon's sheet,
+with a facet grid that mirrored that sheet's irregular crops -- spec
+Context 4):
+- Ready band at y=0..50: 7 phases x 40x50 of the cocked/loaded machine
+  (a tiny sling-stone settle across the phases; Ready keeps Facet
+  0,0,40,50 in ActMap and the engine holds the band via NextAction=Hold,
+  so every phase reads as the loaded rest pose).
+- Swing band at y=50..100: 7 phases x 40x50 of the full throw -- the
+  throwing beam sweeps up from the loaded rest (phase 0) over the top,
+  releasing the stone (phases 5-6, the in-script release point) into
+  follow-through. ActMap Swing + Reset point at (0,50,40,50); Reset is
+  the same band played backwards (Reverse=1 stays).
+Wood-frame trebuchet silhouette: iron-rimmed wheels + ground beam, A-frame
+uprights, cross brace, apex cap (the static TRBT_GROUND literal plus
+programmatic leg/brace/cap), and the movable assembly (counterweight
+pocket, throwing beam, sling, stone projectile) placed per phase from
+the TRBT_READY / TRBT_SWING tables. Base art faces LEFT (Directions=2 +
+FlipDir=1 mirrors for DIR_Right). DefCore geometry untouched.
 
 Stdlib only. Python 3.10+. Tabs.
 """
@@ -414,6 +434,99 @@ CAULDRON = (
 	".....dd......dd.....",
 )
 
+# trebuchet (cycle 181 T5): d/w/W/m wood, i/I iron, r/g stone projectile
+# (r = lit face, g = shade), k sling rope.
+PALETTE_TRBT = {
+	"d": (56, 37, 20, 255),
+	"w": (140, 90, 44, 255),
+	"W": (184, 126, 68, 255),
+	"m": (98, 63, 31, 255),
+	"i": (70, 74, 86, 255),
+	"I": (130, 136, 150, 255),
+	"r": (158, 146, 128, 255),
+	"g": (128, 118, 104, 255),
+	"k": (196, 168, 116, 255),
+}
+
+# Static base art: ground beam + iron-rimmed wheels (+ ground shadow at
+# y=44). The A-frame legs, cross brace and apex cap are placed
+# programmatically on top so left/right mirror perfectly.
+TRBT_GROUND = (
+	"........................................",
+	"........................................",
+	"........................................",
+	"........................................",
+	"........................................",
+	"........................................",
+	"........................................",
+	"........................................",
+	"........................................",
+	"........................................",
+	"........................................",
+	"........................................",
+	"........................................",
+	"........................................",
+	"........................................",
+	"........................................",
+	"........................................",
+	"........................................",
+	"........................................",
+	"........................................",
+	"........................................",
+	"........................................",
+	"........................................",
+	"........................................",
+	"........................................",
+	"........................................",
+	"........................................",
+	"........................................",
+	"........................................",
+	"........................................",
+	"........................................",
+	"........................................",
+	"........................................",
+	"........................................",
+	"........................................",
+	"........................................",
+	"........................................",
+	"........................................",
+	"........................................",
+	"........................................",
+	"........................................",
+	"........................................",
+	"........................................",
+	"........................................",
+	"........mmmmmmmmmmmmmmmmmmmmmmm........",
+	"......WWWWWWWWWWWWWWWWWWWWWWWWWWWW......",
+	"......dwwwwwwwwwwwwwwwwwwwwwwwwwwd......",
+	"......ddIIIIIIIImmmmmmmmIIIIIIIIdd......",
+	"......ddiiiiiiiiddddddddiiiiiiiidd......",
+	".........iiiiii..........iiiiii.........",
+)
+
+# Per-phase movable-assembly placements: (throw-tip, counterweight, stone,
+# released). tips sweep the beam up-left over the spread at x=20 y=19;
+# stones ride the sling until the release phases, then fly on.
+TRBT_READY = (
+	((5, 38), (26, 12), (5, 43), 0),
+	((5, 38), (26, 12), (5, 42), 0),
+	((5, 37), (26, 12), (5, 41), 0),
+	((5, 37), (26, 12), (6, 41), 0),
+	((5, 38), (26, 12), (5, 42), 0),
+	((5, 38), (26, 12), (6, 43), 0),
+	((5, 38), (26, 12), (5, 43), 0),
+)
+
+TRBT_SWING = (
+	((5, 38), (26, 12), (5, 43), 0),
+	((8, 32), (26, 12), (8, 38), 0),
+	((12, 25), (27, 14), (11, 30), 0),
+	((16, 18), (29, 17), (16, 22), 0),
+	((19, 11), (21, 28), (17, 15), 0),
+	((22, 8), (22, 28), (13, 11), 1),
+	((25, 10), (24, 27), (9, 6), 1),
+)
+
 # ---------------------------------------------------------------------------
 # map helpers (deterministic composition — the open phases slide the gate
 # up; crack overlays are stamped onto the gate before the slide)
@@ -488,6 +601,133 @@ def build_cauldron():
 	return clonkgfx.Sheet(40, 25, clonkgfx.Palette(PALETTE_CAULDRON),
 	                      [act]).png_bytes()
 
+def _line_cells(x0, y0, x1, y1):
+	"""Bresenham cells between the two endpoints (both inclusive)."""
+	cells = []
+	x, y = x0, y0
+	dx, sx = abs(x1 - x0), (1 if x0 < x1 else -1)
+	dy, sy = -abs(y1 - y0), (1 if y0 < y1 else -1)
+	err = dx + dy
+	while True:
+		cells.append((x, y))
+		if x == x1 and y == y1:
+			return cells
+		e2 = 2 * err
+		if e2 >= dy:
+			err += dy
+			x += sx
+		if e2 <= dx:
+			err += dx
+			y += sy
+
+def _trbt_frame():
+	"""Static machine on a 40x50 canvas: the TRBT_GROUND base (beam +
+	wheels) plus the programmatic A-frame uprights (Bresenham from the
+	apex pivot down to the feet, 3px thick), two cross braces, diagonal
+	struts and the apex cap. The denser lattice + bulked wheels keep the
+	façade reading as a machine rather than a bird silhouette (cycle 181
+	T5 vision probe: "swan/heron" gestalt on the first draft)."""
+	rows = [list(r) for r in TRBT_GROUND]
+	def put(x, y, ch):
+		if 0 <= x < 40 and 0 <= y < 50:
+			rows[y][x] = ch
+	for fx in (12, 28):
+		for x, y in _line_cells(20, 19, fx, 44):
+			put(x, y, "W")
+			put(x, y + 1, "d")
+			put(x, y + 2, "m")
+	# cross braces
+	for x in range(15, 26):
+		put(x, 31, "m")
+	put(15, 31, "I")
+	put(25, 31, "I")
+	for x in range(13, 28):
+		put(x, 37, "d")
+	put(13, 37, "I")
+	put(27, 37, "I")
+	put(15, 37, "I")
+	put(25, 37, "I")
+	# inner diagonal struts (left/right halves of the A-frame)
+	for x, y in _line_cells(18, 22, 13, 38):
+		put(x, y, "m")
+	for x, y in _line_cells(22, 22, 27, 38):
+		put(x, y, "m")
+	# apex cap + pivot pin
+	for x in range(17, 24):
+		put(x, 19, "w")
+	put(17, 19, "d")
+	put(23, 19, "d")
+	put(20, 19, "I")  # pivot pin at the axle
+	return rows
+
+def _trbt_assembly(grid, tip, cw, rock, released):
+	"""Stamp the movable assembly at the phase's positions: the throwing
+	beam (counterweight end -> arm tip, 2px thick with plank joints), the
+	iron-banded counterweight pocket hanging off the short end, the sling
+	ropes and the stone projectile. `released` drops the stone out of the
+	sling with a short rope streamer behind it."""
+	def put(x, y, ch):
+		if 0 <= x < 40 and 0 <= y < 50:
+			grid[(x, y)] = ch
+	for x, y in _line_cells(cw[0], cw[1], tip[0], tip[1]):
+		put(x, y, "W" if (x + y) % 3 == 0 else "w")
+		put(x, y + 1, "d")
+	# counterweight pocket: 5x6 iron-banded timber box hanging off the
+	# short end. Sized so the machine's mass side reads as a suspended
+	# load, not a creature's head (a 7x7 box + rope wrap flipped the
+	# judge's read to "spider/snail" in the cycle 181 T5 vision loop).
+	by = cw[1] + 1
+	for x in range(cw[0] - 2, cw[0] + 3):
+		for y in range(by, by + 6):
+			edge = x in (cw[0] - 2, cw[0] + 2) or y in (by, by + 5)
+			put(x, y, "m" if edge else "d")
+		if by + 3 < 50:
+			put(x, by + 3, "i")
+	put(cw[0] - 2, by, "I")
+	put(cw[0] + 2, by, "I")
+	put(cw[0] - 1, by + 1, "W")
+	put(cw[0] + 1, by + 1, "W")
+	rx, ry = rock
+	for dy in range(-3, 4):
+		for dx in range(-3, 4):
+			if dx * dx + dy * dy <= 10:
+				put(rx + dx, ry + dy, "g" if dy > 1 else "r")
+	if released:
+		for k, (x, y) in enumerate(
+		        _line_cells(rx + 2, ry - 1, rx + 5, ry + 1)):
+			if k < 3:
+				put(x, y, "k")
+	else:
+		st = ry - 3  # stone top row
+		for x, y in _line_cells(tip[0], tip[1] + 1, rx - 1, st + 1):
+			put(x, y, "k")
+		for x, y in _line_cells(tip[0] - 1, tip[1] + 2, rx + 1, st + 1):
+			put(x, y, "k")
+		put(rx, ry + 3, "k")
+
+def _trbt_phase_map(tip, cw, rock, released):
+	"""One 40x50 phase: the static frame plus the assembly placements."""
+	frame = _trbt_frame()
+	grid = {(x, y): ch for y, row in enumerate(frame)
+	        for x, ch in enumerate(row) if ch != "."}
+	_trbt_assembly(grid, tip, cw, rock, released)
+	return ["".join(grid.get((x, y), ".") for x in range(40))
+	        for y in range(50)]
+
+def build_trebuchet():
+	pal = clonkgfx.Palette(PALETTE_TRBT)
+	ready = clonkgfx.Action("Ready", [
+		clonkgfx.PhaseMap(f"ready{i}",
+		                  _trbt_phase_map(*p)) for i, p in enumerate(TRBT_READY)])
+	swing = clonkgfx.Action("Swing", [
+		clonkgfx.PhaseMap(f"swing{i}",
+		                  _trbt_phase_map(*p)) for i, p in enumerate(TRBT_SWING)])
+	clonkgfx.Invariants(min_opaque_colors=3, opaque_window=(220, 800),
+	                    min_phase_diff=10).check(ready, pal)
+	clonkgfx.Invariants(min_opaque_colors=3, opaque_window=(220, 800),
+	                    min_phase_diff=40).check(swing, pal)
+	return clonkgfx.Sheet(280, 100, pal, [ready, swing]).png_bytes()
+
 # ---------------------------------------------------------------------------
 # CLI
 # ---------------------------------------------------------------------------
@@ -557,6 +797,26 @@ def run_cauldron(check):
 			print(f"wrote {path} ({len(png)} bytes)")
 	return rc
 
+def out_trebuchet():
+	return os.path.join(_CONTENT_ROOT, "SiegeEngines.c4d", "Vehicles.c4d",
+	                    "Trebuchet.c4d", "Graphics.png")
+
+def run_trebuchet(check):
+	png = build_trebuchet()
+	path = out_trebuchet()
+	if check:
+		with open(path, "rb") as f:
+			committed = f.read()
+		if committed != png:
+			print(f"FAIL: {path} does not match generator output")
+			return 1
+		print(f"OK: {path} matches generator output")
+		return 0
+	with open(path, "wb") as f:
+		f.write(png)
+	print(f"wrote {path} ({len(png)} bytes)")
+	return 0
+
 def main():
 	ap = argparse.ArgumentParser(description=__doc__)
 	sub = ap.add_subparsers(dest="sub")
@@ -567,11 +827,18 @@ def main():
 	                            help="BoilingOilCauldron 20x25 single facet")
 	p_cauldron.add_argument("--check", action="store_true",
 	                        help="byte-gate both def copies without writing")
+	p_trebuchet = sub.add_parser("trebuchet",
+	                             help="Trebuchet 280x100 two-band sheet "
+	                                  "(Ready y=0, Swing y=50)")
+	p_trebuchet.add_argument("--check", action="store_true",
+	                         help="byte-gate the sheet without writing")
 	args = ap.parse_args()
 	if args.sub == "gate":
 		return run_gate(args.check)
 	if args.sub == "cauldron":
 		return run_cauldron(args.check)
+	if args.sub == "trebuchet":
+		return run_trebuchet(args.check)
 	ap.error(f"unknown subcommand {args.sub!r}")
 
 if __name__ == "__main__":
