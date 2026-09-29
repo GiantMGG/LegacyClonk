@@ -1786,4 +1786,53 @@ Spec: .opencode/specs/2026-08-29-1000-connection-migration-reconnect.md (cf8c883
 
 - Merge remote-tracking branch 'origin/master' into development (c81d091)
 
+## [374] - 2026-09-29
+
+### Added
+
+- **tools**: Gen_siege_gfx.py gate sheets generator (9a06807)
+
+- **tools**: Gen_siege_gfx.py cauldron subcommand (751af00)
+
+- **tools**: Gen_siege_gfx.py trebuchet subcommand (b292ed9)
+
+
+### Changed
+
+- **tools**: Auto_format - condense empty lines in gen_arena_gfx.py (53e6057)
+
+
+### Fixed
+
+- **music**: Log song changes only + back off on failed audio init - kills the on-screen Music flood (arena playtest F1) (c31bebe)
+
+- **group**: Stop spurious origin-parent FATAL on absolute-path launches (9a70957)
+
+
+### Internal
+
+- **changelog**: Update for v373 [skip ci] (be2a220)
+
+- **gfx**: Deterministic KillTarget icon generator + byte-check gate (628e293)
+
+- **arena**: Bot-round smoke, scenario gate and icon byte gate for ArenaChampions (00c108d)
+
+- **arena**: Bot smoke path fix - def-pack Tests.c4f home (browser purity) (86468e4)
+
+- **arena**: Scenario gate store pin drops FLAG (critic cut) (6fbb556)
+
+- **sweep**: Scenario_log_sweep tool + CI gate - shipped scenarios boot with zero script errors (Hazard/SiegeRange/Tutorial03-04 excluded, documented) (839aec9)
+
+- **smoke**: Pin SturmfrontSmoke RNG seed 175 (c7a5ef1)
+
+- **auto-tasks**: Register AutoTasksSmoke seed pin + auto_tasks_acceptance CTest entry (812e6b3)
+
+- **siege**: Siege_stage_gfx CTest gate (pairwise-distinct, sync, retired-hash blacklist) (634cc6d)
+
+- **tools**: Gen_siege_gfx docstring - base-swap mechanism, not picture overlays (ef7f61a)
+
+- **version**: Bump content version to 4.9.11.11 for v374 (b0ef868)
+
+- **release**: V374 notes per pre-release audit - honest standing-orders framing, full exclusion list (9f8b080)
+
 <!-- git-cliff prepends new release sections above this line. -->
