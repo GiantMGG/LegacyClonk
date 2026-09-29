@@ -23,12 +23,19 @@ sheets, canvas 160x74 each:
   destroyed). Column 0 = main rubble; columns 1-3 = debris-settle
   variants.
 
-Crack-visibility constraint: the crack overlays are applied via
-SetGraphics(..., 1, 3), i.e. a MODE_Picture overlay that samples the
-def Picture rect (0,0,64,64) and min-aspect-zooms it ~40x40 centered
-on the 40x60 gate (rows ~10..50 of the gate). The load-bearing crack
-seams are therefore painted into rows 14..51 of the sheet (the
-upper/middle band that lands on the visible gate).
+Crack-visibility mechanism (cycle-181 finding): the crack/ruin stages are
+applied as slot-0 BASE-GROUP swaps via
+
+    SetGraphics("Crack1"/"Crack2"/"Ruin", this(), GetID(), 0, 0)
+
+(C4Script.cpp SetGraphics overlay 0 routes to C4Object::SetGraphics, which
+swaps the object's base graphics group -- C4Script.cpp:4758-4819 slot-0
+path), so the stage sheets render in-world on the live object. Picture
+overlays (slot != 0, e.g. MODE_Picture 3) only draw in object pictures/HUD
+and never on the live object -- the superseded mode-3 approach painted the
+crack seams into sheet rows 14..51 so the projected overlay sampled them;
+that constraint is now only historical rationale and the sheets are drawn
+as plain base graphics.
 
 The four sheets are pairwise distinct; the retire-placeholder hashes
 9ab00a2513435ceafca69462121daf02 / 8d672ea6d7c712c84ef3f4399d387207
