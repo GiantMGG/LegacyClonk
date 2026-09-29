@@ -760,6 +760,18 @@ if(PYTHON3 AND EXISTS "${LEGACYCLONK_CONTENT_DIR}")
 	set_tests_properties(content_gfx_lint PROPERTIES TIMEOUT 60 LABELS "lint")
 endif()
 
+# --- Siege stage-art gate (spec siege-flagship, cycle 181) -----------------
+# Reddens when the SiegeGate stage sheets stop being pairwise byte-distinct,
+# the two BoilingOilCauldron copies drift apart, or any shipped siege sheet
+# regresses to a retired placeholder hash. EXISTS guard mirrors
+# content_gfx_lint: Autobuild CI has no content checkout.
+if(PYTHON3 AND EXISTS "${LEGACYCLONK_CONTENT_DIR}")
+	add_test(NAME siege_stage_gfx
+		COMMAND "${PYTHON3}" "${CMAKE_SOURCE_DIR}/tools/check_siege_stage_gfx.py"
+			"${LEGACYCLONK_CONTENT_DIR}")
+	set_tests_properties(siege_stage_gfx PROPERTIES TIMEOUT 60 LABELS "lint")
+endif()
+
 # --- Release-content lint (spec release-content-groups-lint, cycle 96) ------
 # Models the release manifest against the content tree: every shipped
 # scenario's DefinitionN refs must resolve to shipped packs. Autobuild CI
