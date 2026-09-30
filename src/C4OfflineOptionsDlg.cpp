@@ -1328,6 +1328,12 @@ bool C4OfflineOptionsDlg::TryStart()
 	if (!firstPlayerFile.empty())
 	{
 		SAddModule(Config.General.Participants, firstPlayerFile.c_str());
+		// Also feed the live round snapshot: C4Game::Init copies
+		// Config.General.Participants into Game.PlayerFilenames once at
+		// preload (C4Game.cpp:611), before this dialog runs. InitLocal
+		// reads that snapshot (C4PlayerInfo.cpp:1249), so the auto-add must
+		// land there too or the round still starts with zero players.
+		SAddModule(Game.PlayerFilenames, firstPlayerFile.c_str());
 		LogNTr("FreeGame: auto-added participant: {}", firstPlayerFile);
 		return true;
 	}
