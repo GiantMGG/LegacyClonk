@@ -101,7 +101,48 @@ void SetUserPath(const std::filesystem::path &root)
 	SCopy(root.string().c_str(), Config.General.UserPath, CFG_MaxString);
 }
 
+// Chooser fixtures: plain files whose names encode the sort order the
+// chooser must follow (C4Config::FirstPlayerFile, spec freegame-real-player-states
+// §4.2 auto-add). Only names + existence matter; content is irrelevant.
+void WritePlayerFixture(const std::filesystem::path &root, const char *szName)
+{
+	std::ofstream out{root / szName, std::ios::binary};
+	out << "dummy player file: only the name and existence matter";
+	out.close();
+}
+
 } // namespace
+
+TEST_CASE("FreeGameEntry.FirstPlayerFile_SortedFirst", "[freegame][chooser]")
+{
+	const auto root = MakeRoot("chooser_sorted");
+	// DirectoryIterator order is filesystem-dependent, so the chooser must
+	// not rely on it: b_second.c4p outranks a_first.c4p on typical
+	// readdir orderings, but the pin must see the lexicographic first.
+	WritePlayerFixture(root, "b_second.c4p");
+	WritePlayerFixture(root, "a_first.c4p");
+	WritePlayerFixture(root, "notes.txt");
+	const std::string first = C4Config::FirstPlayerFile(root.string().c_str());
+	REQUIRE_FALSE(first.empty());
+	CHECK(first == (root / "a_first.c4p").string());
+}
+
+TEST_CASE("FreeGameEntry.FirstPlayerFile_EmptyDir", "[freegame][chooser]")
+{
+	const auto root = MakeRoot("chooser_empty");
+	// no player files: the chooser reports none, the caller blocks with a
+	// guide message (spec §4.2 case 3)
+	CHECK(C4Config::FirstPlayerFile(root.string().c_str()).empty());
+}
+
+TEST_CASE("FreeGameEntry.FirstPlayerFile_IgnoresNonPlayerFiles", "[freegame][chooser]")
+{
+	// only non-.c4p files and no dot-prefixed entries qualify: still none
+	const auto root = MakeRoot("chooser_nonplr");
+	WritePlayerFixture(root, "x.txt");
+	WritePlayerFixture(root, "y.c4s");
+	CHECK(C4Config::FirstPlayerFile(root.string().c_str()).empty());
+}
 
 TEST_CASE("FreeGameEntry.ResolveFreeGameContent_ExePathHit", "[freegame][resolver]")
 {

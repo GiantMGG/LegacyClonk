@@ -191,4 +191,23 @@ namespace
 			== "Taste %s ist bereits belegt mit: %s. Die andere Belegung bleibt erhalten; beim "
 			   "Dr\xFC" "cken l\xF6" "sen beide Aktionen aus. Trotzdem neu belegen?");
 	}
+
+	TEST_CASE("LanguageTables_FreeGameGuide_SpotChecks", "[language-tables]")
+	{
+		const auto usText = ReadTableFile("LanguageUS.txt");
+		const auto deText = ReadTableFile("LanguageDE.txt");
+		const C4ResStrTable us{"US", usText};
+		const C4ResStrTable de{"DE", deText};
+
+		// --- English (Free Game no-player guide, spec freegame-real-player-states
+		// §4.2 case 3: shown by C4OfflineOptionsDlg::TryStart when no player file
+		// exists anywhere, so the start never reaches the fullscreen guard) ---
+		REQUIRE(std::string{us.GetEntry(C4ResStrTableKey::IDS_MSG_FREEGAMENOPLAYER)}
+			== "No player is selected. Create or activate one via Player Selection from the main menu.");
+
+		// --- German, byte-exact Latin-1 ---
+		REQUIRE(std::string{de.GetEntry(C4ResStrTableKey::IDS_MSG_FREEGAMENOPLAYER)}
+			== "Kein Spieler ist ausgew\xE4" "hlt. Erstelle \xFC" "ber die Spielerauswahl im "
+			   "Hauptmen\xFC" " einen Spieler oder aktiviere ihn.");
+	}
 }

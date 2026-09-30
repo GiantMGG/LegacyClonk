@@ -1306,10 +1306,44 @@ void C4OfflineOptionsDlg::OnBtnNewSeed(C4GUI::Control *btn)
 	pSeedEdit->SetValue(iNewSeed, false);
 }
 
+bool C4OfflineOptionsDlg::TryStart()
+{
+	// Start choke point (spec freegame-real-player-states §4.2): instead of
+	// the bare Close(true) of the old OnBtnStart/OnEnter, every start path
+	// first verifies a participant is in place, so a default-config Free
+	// Game start can never dump into the fullscreen zero-player LogFatal
+	// (C4Game.cpp:2779).
+	if (*Config.General.Participants)
+	{
+		// case 1: participant(s) configured — start as today
+		return true;
+	}
+	// No participants configured: scan the player directory (ExePath +
+	// PlayerPath, the C4StartupMainDlg.cpp:143 idiom) for the
+	// lexicographically-first *.c4p and auto-add it in-memory only — no
+	// silent config-file write. One click reaches the round when a player
+	// file exists (the Free Game promise).
+	const std::string searchPath{std::format("{}{}", Config.General.ExePath, Config.General.PlayerPath)};
+	const std::string firstPlayerFile{C4Config::FirstPlayerFile(searchPath.c_str())};
+	if (!firstPlayerFile.empty())
+	{
+		SAddModule(Config.General.Participants, firstPlayerFile.c_str());
+		LogNTr("FreeGame: auto-added participant: {}", firstPlayerFile);
+		return true;
+	}
+	// case 3: no player file anywhere — block the start and guide. The
+	// dialog stays open; actionable, no fatal, no dump back to the menu.
+	LogNTr("FreeGame: start blocked: no player file found");
+	GetScreen()->ShowMessage(LoadResStr(C4ResStrTableKey::IDS_MSG_FREEGAMENOPLAYER),
+		LoadResStr(C4ResStrTableKey::IDS_MSG_CANNOTSTARTSCENARIO), C4GUI::Ico_Error);
+	return false;
+}
+
 void C4OfflineOptionsDlg::OnBtnStart(C4GUI::Control *btn)
 {
-	// start the game
-	Close(true);
+	// start the game through the participant choke point; the dialog only
+	// closes when the round is actually about to start
+	if (TryStart()) Close(true);
 }
 
 void C4OfflineOptionsDlg::OnBtnAbort(C4GUI::Control *btn)
@@ -1340,8 +1374,12 @@ void C4OfflineOptionsDlg::SetStage(Stage eToStage)
 bool C4OfflineOptionsDlg::OnEnter()
 {
 	// per-stage Enter (spec §2): Quick Start on the landing stage,
-	// Start on the settings stage — both close the dialog with OK
-	Close(true);
+	// Start on the settings stage — both route through the TryStart
+	// choke point so the Enter shortcut cannot bypass the participant
+	// check (the repro3 bypass this cycle closes). A blocked start stays
+	// in the dialog and returns true (handled): the default-control
+	// activation must not re-fire the Enter path infinitely.
+	if (TryStart()) Close(true);
 	return true;
 }
 

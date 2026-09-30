@@ -862,6 +862,7 @@ IDS_MSG_FAIRCREW_DEACTIVATED=Faire Crew deaktiviert
 IDS_MSG_FIREPARTICLES=Feuerpartikel
 IDS_MSG_FIREPARTICLES_DESC=Zusätzliche Feuereffekte aktivieren.
 IDS_MSG_FPS=FPS
+IDS_MSG_FREEGAMENOPLAYER=Kein Spieler ist ausgewählt. Erstelle über die Spielerauswahl im Hauptmenü einen Spieler oder aktiviere ihn.
 IDS_MSG_FREELYSCROLLAROUNDTHEMAP=Freies Scrollen der Landkarte.
 IDS_MSG_FREESAVEGAMEPLRS=Spielerzuweisung
 IDS_MSG_FREEVIEW=Freie Sicht

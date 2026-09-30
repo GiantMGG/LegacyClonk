@@ -371,6 +371,10 @@ public:
 	bool Load(bool forceWorkingDirectory = true, const char *szConfigFile = nullptr);
 	bool Init();
 	C4FreeGameRoot ResolveFreeGameContent();
+	// Lexicographically-first *.c4p in szDirectory (full path), or "" when none.
+	// Same filtering as the player-selection scans (C4StartupMainDlg.cpp:143,
+	// C4StartupPlrSelDlg.cpp:698): *.c4p wildcard, dot-prefixed entries skipped.
+	static std::string FirstPlayerFile(const char *szDirectory);
 	const char *AtExePath(const char *szFilename);
 	const char *AtTempPathWithPrefix(std::string_view prefix, std::string_view filename);
 	const char *AtTempPath(const char *szFilename);

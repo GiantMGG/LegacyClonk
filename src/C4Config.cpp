@@ -44,7 +44,9 @@
 #include <clocale>
 #endif
 
+#include <algorithm>
 #include <format>
+#include <vector>
 #ifdef C4ENGINE
 // put this here, because X11 includes break C4EnumAdaptPrefixMode due to #define None when it is in StdWindow.h
 
@@ -713,6 +715,26 @@ const char *C4Config::AtExePath(const char *szFilename)
 	SCopy(General.ExePath, AtPathFilename, _MAX_PATH);
 	SAppend(szFilename, AtPathFilename, _MAX_PATH);
 	return AtPathFilename;
+}
+
+std::string C4Config::FirstPlayerFile(const char *szDirectory)
+{
+	// Lexicographically-first *.c4p in szDirectory (full path), or "" when
+	// none. Same filtering as the player-selection scans
+	// (C4StartupMainDlg.cpp:143, C4StartupPlrSelDlg.cpp:698): *.c4p wildcard,
+	// dot-prefixed entries skipped. DirectoryIterator yields full paths.
+	std::vector<std::string> matches;
+	const char *szFn;
+	for (DirectoryIterator i(szDirectory); (szFn = *i); i++)
+	{
+		if (*GetFilename(szFn) == '.') continue; // ".", ".." and private (".*") files
+		if (!WildcardMatch(C4CFN_PlayerFiles, GetFilename(szFn))) continue;
+		matches.emplace_back(szFn);
+	}
+	if (matches.empty())
+		return "";
+	std::sort(matches.begin(), matches.end());
+	return matches.front();
 }
 
 const char *C4Config::AtUserPath(const char *szFilename)

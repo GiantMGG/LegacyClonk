@@ -51,6 +51,14 @@ private:
 	void OnBtnWorldSettings(C4GUI::Control *btn);
 	void OnBtnBack(C4GUI::Control *btn);
 
+	// Start choke point (spec freegame-real-player-states §4.2): every start
+	// path (Start button, Quick Start, Enter) funnels through here. Returns
+	// true when the game may start — auto-adding the lexicographically-first
+	// player file from ExePath+PlayerPath into the in-memory participant list
+	// when none are configured — false when no player file exists anywhere
+	// (then shows the IDS_MSG_FREEGAMENOPLAYER guide and stays in the dialog).
+	bool TryStart();
+
 	// landing stage
 	void CreateLandingStage(const C4Rect &rcStage);
 
