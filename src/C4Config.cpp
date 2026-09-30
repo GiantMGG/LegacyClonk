@@ -724,6 +724,24 @@ const char *C4Config::AtUserPath(const char *szFilename)
 	return AtPathFilename;
 }
 
+C4FreeGameRoot C4Config::ResolveFreeGameContent()
+{
+	// The bundled Free Game scenario lives beside the binary (dev tree, full
+	// archive) or in the writable user directory (updater/custom installs);
+	// probe ExePath first, then UserPath (spec freegame-real-player-states,
+	// multi-root resolution). AtExePath/AtUserPath write into the shared
+	// AtPathFilename buffer, so each candidate is copied into a local
+	// std::string before the next probe overwrites it.
+	const char *szRelative = "Worlds.c4f" DirSep "Outset.c4s";
+	const std::string exeCandidate{AtExePath(szRelative)};
+	if (ItemExists(exeCandidate.c_str()))
+		return C4FreeGameRoot::ExePath;
+	const std::string userCandidate{AtUserPath(szRelative)};
+	if (ItemExists(userCandidate.c_str()))
+		return C4FreeGameRoot::UserPath;
+	return C4FreeGameRoot::None;
+}
+
 const char *C4Config::AtTempPath(const char *szFilename)
 {
 	SCopy(General.TempPath, AtPathFilename, _MAX_PATH);

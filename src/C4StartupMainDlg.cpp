@@ -222,19 +222,33 @@ void C4StartupMainDlg::OnFreeGameBtn(C4GUI::Control *btn)
 {
 	// Free Game: one click from the main menu onto the world settings of a
 	// generated-map settlement scenario (roadmap free-game-menu-entry).
-	// Resolves the bundled Worlds.c4f/Outset.c4s next to the binary; the
-	// pre-game dialog then opens directly on its world-settings stage
+	// Resolves the bundled Worlds.c4f/Outset.c4s multi-root — beside the
+	// binary first, user directory second (spec freegame-real-player-states);
+	// the pre-game dialog then opens directly on its world-settings stage
 	// (Game.fFreeGameStart consumed by C4OfflineOptionsDlg).
-	const char *szScenario = Config.AtExePath("Worlds.c4f" DirSep "Outset.c4s");
-	if (!ItemExists(szScenario))
+	const C4FreeGameRoot freeGameRoot = Config.ResolveFreeGameContent();
+	if (freeGameRoot == C4FreeGameRoot::None)
 	{
-		GetScreen()->ShowMessage(std::format("{} {}", LoadResStr(C4ResStrTableKey::IDS_PRC_FILENOTFOUND), szScenario).c_str(),
+		GetScreen()->ShowMessage(std::format("{} {}", LoadResStr(C4ResStrTableKey::IDS_PRC_FILENOTFOUND),
+			Config.AtExePath("Worlds.c4f" DirSep "Outset.c4s")).c_str(),
 			LoadResStr(C4ResStrTableKey::IDS_MSG_CANNOTSTARTSCENARIO), C4GUI::Ico_Error);
 		return;
 	}
-	SCopy(szScenario, Game.ScenarioFilename);
+	const std::string scenario{freeGameRoot == C4FreeGameRoot::UserPath
+		? Config.AtUserPath("Worlds.c4f" DirSep "Outset.c4s")
+		: Config.AtExePath("Worlds.c4f" DirSep "Outset.c4s")};
+	SCopy(scenario.c_str(), Game.ScenarioFilename);
 	Game.DefinitionFilenames.clear();
-	Game.DefinitionFilenames.push_back("Objects.c4d");
+	// Absolutize the def pack when the winning root also carries it; keep
+	// the bare entry otherwise (the regular definition search path resolves
+	// it — the portable archive is the case where this root lacks Objects.c4d).
+	const std::string objects{freeGameRoot == C4FreeGameRoot::UserPath
+		? Config.AtUserPath("Objects.c4d")
+		: Config.AtExePath("Objects.c4d")};
+	if (ItemExists(objects.c_str()))
+		Game.DefinitionFilenames.emplace_back(objects);
+	else
+		Game.DefinitionFilenames.push_back("Objects.c4d");
 	Game.fLobby = false;
 	Game.fObserve = false;
 	Game.fFreeGameStart = true;

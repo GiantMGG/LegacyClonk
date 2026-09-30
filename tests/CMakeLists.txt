@@ -177,6 +177,12 @@ add_test_target(C4GamepadDefaults
 	LINK_ENGINE
 )
 
+# --- Free Game multi-root content resolution (spec freegame-real-player-states)
+add_test_target(FreeGameEntry
+	SOURCES "${CMAKE_SOURCE_DIR}/tests/TstFreeGameEntry.cpp"
+	LINK_ENGINE
+)
+
 # --- Offline pre-game options (spec pregame-options-parity) ----------------
 add_test_target(OptionsOverride
 	SOURCES "${CMAKE_SOURCE_DIR}/tests/TstC4GameOptions.cpp"

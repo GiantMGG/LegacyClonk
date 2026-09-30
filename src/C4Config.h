@@ -334,6 +334,11 @@ public:
 
 #endif
 
+// Free Game multi-root content resolution (spec freegame-real-player-states):
+// probes the bundled Free Game scenario under ExePath first, then UserPath.
+// Returns which root carries it, or None when neither does.
+enum class C4FreeGameRoot { None, ExePath, UserPath };
+
 class C4Config
 {
 public:
@@ -365,6 +370,7 @@ public:
 	bool Save();
 	bool Load(bool forceWorkingDirectory = true, const char *szConfigFile = nullptr);
 	bool Init();
+	C4FreeGameRoot ResolveFreeGameContent();
 	const char *AtExePath(const char *szFilename);
 	const char *AtTempPathWithPrefix(std::string_view prefix, std::string_view filename);
 	const char *AtTempPath(const char *szFilename);
