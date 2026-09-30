@@ -236,6 +236,8 @@ jobs:
           Copy-Item -Path ../../c4group* -Destination . -Recurse
           Copy-Item -Path ../../* -Include @('System.c4g', 'Graphics.c4g') -Destination .
           Copy-Item -Path ../../planet/gamecontrollerdb.txt -Destination .
+          Copy-Item -Path '../../Worlds.c4f' -Destination .
+          Copy-Item -Path '../../Objects.c4d' -Destination .
 
       - name: Create Full Archive
         run: |
