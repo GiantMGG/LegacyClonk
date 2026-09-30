@@ -238,6 +238,7 @@ jobs:
           Copy-Item -Path ../../planet/gamecontrollerdb.txt -Destination .
           Copy-Item -Path '../../Worlds.c4f' -Destination .
           Copy-Item -Path '../../Objects.c4d' -Destination .
+          Copy-Item -Path '../../Material.c4g' -Destination .
 
       - name: Create Full Archive
         run: |
