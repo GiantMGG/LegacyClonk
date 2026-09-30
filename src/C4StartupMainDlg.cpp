@@ -239,16 +239,25 @@ void C4StartupMainDlg::OnFreeGameBtn(C4GUI::Control *btn)
 		: Config.AtExePath("Worlds.c4f" DirSep "Outset.c4s")};
 	SCopy(scenario.c_str(), Game.ScenarioFilename);
 	Game.DefinitionFilenames.clear();
-	// Absolutize the def pack when the winning root also carries it; keep
-	// the bare entry otherwise (the regular definition search path resolves
-	// it — the portable archive is the case where this root lacks Objects.c4d).
+	// Absolutize the def pack at the winning root and require it there
+	// (cycle-184 flash review, finding 2): the old bare-entry fallback
+	// ("Objects.c4d") resolves against ExePath only (C4Config::Determine-
+	// Paths; C4Group::Open vs CWD), so a UserPath-root install with
+	// Worlds.c4f but no Objects.c4d would pass Start and dump back to the
+	// menu via LogFatal(IDS_PRC_DEFNOTFOUND) at round init. Refuse instead
+	// with the same not-found box the scenario probe uses — clean message,
+	// stays in menu, no round attempt.
 	const std::string objects{freeGameRoot == C4FreeGameRoot::UserPath
 		? Config.AtUserPath("Objects.c4d")
 		: Config.AtExePath("Objects.c4d")};
-	if (ItemExists(objects.c_str()))
-		Game.DefinitionFilenames.emplace_back(objects);
-	else
-		Game.DefinitionFilenames.push_back("Objects.c4d");
+	if (!ItemExists(objects.c_str()))
+	{
+		GetScreen()->ShowMessage(std::format("{} {}", LoadResStr(C4ResStrTableKey::IDS_PRC_FILENOTFOUND),
+			objects).c_str(),
+			LoadResStr(C4ResStrTableKey::IDS_MSG_CANNOTSTARTSCENARIO), C4GUI::Ico_Error);
+		return;
+	}
+	Game.DefinitionFilenames.emplace_back(objects);
 	Game.fLobby = false;
 	Game.fObserve = false;
 	Game.fFreeGameStart = true;

@@ -1313,6 +1313,19 @@ bool C4OfflineOptionsDlg::TryStart()
 	// first verifies a participant is in place, so a default-config Free
 	// Game start can never dump into the fullscreen zero-player LogFatal
 	// (C4Game.cpp:2779).
+	// Flows where a zero-player start is legal or the roster is already
+	// fixed keep their prior unconditional-start behavior (cycle-184 dual
+	// review, finding 1): network-host pre-round lobbies (zero-player
+	// lobbies are legal; Game.NetworkActive is set before the network
+	// initializes at C4Game.cpp:701-716), savegame resumes (GameC4S.Head.
+	// SaveGame — the embedded player infos own the roster), and rounds
+	// whose player list was already filled (-player command line fills
+	// Game.PlayerFilenames at C4Game.cpp:2897 with Config.General.
+	// Participants still empty). C4Game::Init already special-cases exactly
+	// this state when snapshotting Participants (C4Game.cpp:611-614);
+	// mirror that here.
+	if (Game.NetworkActive || Game.GameC4S.Head.SaveGame || *Game.PlayerFilenames)
+		return true;
 	if (*Config.General.Participants)
 	{
 		// case 1: participant(s) configured — start as today
@@ -1320,9 +1333,15 @@ bool C4OfflineOptionsDlg::TryStart()
 	}
 	// No participants configured: scan the player directory (ExePath +
 	// PlayerPath, the C4StartupMainDlg.cpp:143 idiom) for the
-	// lexicographically-first *.c4p and auto-add it in-memory only — no
-	// silent config-file write. One click reaches the round when a player
-	// file exists (the Free Game promise).
+	// lexicographically-first *.c4p and auto-add it to the in-memory
+	// Config.General.Participants + Game.PlayerFilenames snapshot. The
+	// engine may persist Config.General.Participants into the config at
+	// quit like any other participant selection (C4Application.cpp:366) —
+	// that is normal "sticky participant" semantics, not a silent hidden
+	// write (cycle-184 dual review finding 3/4). The absolute path is kept
+	// intentional: the auto-add must match the file the scan found.
+	// One click reaches the round when a player file exists (the Free Game
+	// promise).
 	const std::string searchPath{std::format("{}{}", Config.General.ExePath, Config.General.PlayerPath)};
 	const std::string firstPlayerFile{C4Config::FirstPlayerFile(searchPath.c_str())};
 	if (!firstPlayerFile.empty())
