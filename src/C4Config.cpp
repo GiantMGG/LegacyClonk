@@ -44,6 +44,9 @@
 #include <clocale>
 #endif
 
+// C4CFN_PlayerFiles for FirstPlayerFile: some include chains (the fresh
+// c4group PCH) do not pull C4Components.h in transitively (CI-red fix).
+#include <C4Components.h>
 #include <algorithm>
 #include <format>
 #include <vector>
