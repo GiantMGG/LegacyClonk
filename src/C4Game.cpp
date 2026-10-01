@@ -1209,6 +1209,23 @@ bool C4Game::Execute() // Returns true if the game is over
 			LogNTr("--screenshot-at: scene shot write failed (non-fatal)");
 	}
 
+	// Smoke save-at probe (spec save-continue §4.3). Fires once, at the
+	// first Execute with FrameCounter >= SmokeSaveAtTick; placement before
+	// the smoke-exit block guarantees the save even when the probe tick
+	// equals SmokeRunTicks (same guarantee as the shot block above).
+	// QuickSave is called with force = true: the CanQuickSave host/league
+	// guards are deliberately bypassed for the headless probe.
+	if (SmokeSaveAtTick > 0 && !SmokeSaveDone && FrameCounter >= SmokeSaveAtTick)
+	{
+		SmokeSaveDone = true;  // one attempt per run (spec §4.3)
+		const std::string slotFile{std::format("{}.c4s", SmokeSaveSlot.getData())};
+		const std::string savePath{Config.AtExePath(std::format("{}" DirSep "{}", Config.General.SaveGameFolder.getData(), slotFile).c_str())};
+		if (QuickSave(slotFile.c_str(), "SaveContinue proof", true))
+			LogNTr("--smoke-save-at: saved {}", savePath);
+		else
+			LogNTr("--smoke-save-at: QuickSave failed for {} (non-fatal)", savePath);
+	}
+
 	// Smoke-run exit (spec headless-scenario-smoke-harness): clean exit on
 	// N ticks reached or GameOver, non-zero on non-empty fatal stack.
 	if (SmokeRunActive())
@@ -1691,6 +1708,7 @@ void C4Game::Default()
 	IsRunning = false;
 	FrameCounter = 0;
 	SmokeRunTicks = 0;  // reset on Clear()->Default() (spec headless-scenario-smoke-harness)
+	SmokeSaveAtTick = 0; SmokeSaveSlot.Clear(); SmokeSaveDone = false;  // likewise reset (spec save-continue)
 	FrameRateCap = 0;   // likewise reset (spec frame-rate-cap-engine-option)
 	ShotAtTick = 0; ShotTaken = false; ShotPath[0] = 0; ShotWdt = 320; ShotHgt = 240;  // likewise reset (spec playtest-vision-tier2)
 	ParameterOverrides.clear();  // likewise reset (spec pregame-options-parity)
@@ -2946,6 +2964,28 @@ void C4Game::ParseCommandLine(const char *szCmdLine)
 			{
 				SmokeRunTicks = std::atol(szValue);
 				++iPar;  // consume the value token
+			}
+		}
+		// Smoke save-at probe (spec save-continue §4.3): one QuickSave at
+		// the given tick into the given slot name. Colon form only:
+		// "--smoke-save-at:700:ProbeSlot" / "/smoke-save-at:...". The tick
+		// is the digit prefix up to the first ':' (--screenshot-at
+		// precedent); the slot is everything after the second ':'. Invalid
+		// (tick <= 0 or empty slot) -> loud non-fatal log, flag ignored.
+		if (SEqual2NoCase(szParameter, "/smoke-save-at:")
+		 || SEqual2NoCase(szParameter, "--smoke-save-at:"))
+		{
+			const char *colon = std::strchr(szParameter, ':');
+			char *tickEnd = nullptr;
+			const int32_t tick = colon ? std::strtol(colon + 1, &tickEnd, 10) : 0;
+			if (tick > 0 && tickEnd && *tickEnd == ':' && tickEnd[1])
+			{
+				SmokeSaveAtTick = tick;
+				SmokeSaveSlot.Copy(tickEnd + 1);
+			}
+			else
+			{
+				LogNTr("--smoke-save-at: invalid (expected --smoke-save-at:<tick>:<slotname>) - probe disabled");
 			}
 		}
 		// Diagnostic scene shot (spec playtest-vision-tier2 §2C).

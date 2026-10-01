@@ -218,6 +218,17 @@ public:
 	int32_t SmokeRunTicks{0};
 	bool SmokeRunActive() const { return SmokeRunTicks > 0; }
 
+	// Smoke save-at probe (spec save-continue §4.3): SmokeSaveAtTick > 0
+	// ⇒ QuickSave one headless probe save at the first Execute running at
+	// or after that tick, into the slot named by SmokeSaveSlot (fire site
+	// in C4Game::Execute, before the smoke-run exit block, so a save-at
+	// tick equal to the smoke-run cap still fires — same placement
+	// guarantee as ShotAtTick above). SmokeSaveDone latches the single
+	// attempt. Not serialized — process-lifetime flags.
+	int32_t SmokeSaveAtTick{0};
+	StdStrBuf SmokeSaveSlot;
+	bool SmokeSaveDone{false};
+
 	// Diagnostic scene shot (spec playtest-vision-tier2 §2C): ShotAtTick > 0
 	// ⇒ compose one --screenshot-at frame at the first Execute running at or
 	// after that tick (fire site in C4Game::Execute, before the smoke-run
