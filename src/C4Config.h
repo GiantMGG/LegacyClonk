@@ -375,6 +375,15 @@ public:
 	// Same filtering as the player-selection scans (C4StartupMainDlg.cpp:143,
 	// C4StartupPlrSelDlg.cpp:698): *.c4p wildcard, dot-prefixed entries skipped.
 	static std::string FirstPlayerFile(const char *szDirectory);
+	// Full path of the newest savegame in the savegame folder
+	// (Config.General.SaveGameFolder, same resolution as C4Game::QuickSave,
+	// C4Game.cpp:2193), or "" when there is none. Scans the folder
+	// recursively for leaf *.c4s groups (folder or packed), ranks them by
+	// file mtime (newest first, mtime ties broken lexicographically by
+	// full path) and returns the first candidate whose scenario core
+	// verifies as a savegame (Head.SaveGame == 1); candidates that fail
+	// verification fall through to the next-newest one.
+	std::string FindNewestSavegame();
 	const char *AtExePath(const char *szFilename);
 	const char *AtTempPathWithPrefix(std::string_view prefix, std::string_view filename);
 	const char *AtTempPath(const char *szFilename);

@@ -183,6 +183,12 @@ add_test_target(FreeGameEntry
 	LINK_ENGINE
 )
 
+# --- Newest-savegame finder (spec save-continue)
+add_test_target(SaveContinue
+	SOURCES "${CMAKE_SOURCE_DIR}/tests/TstSaveContinue.cpp"
+	LINK_ENGINE
+)
+
 # --- Offline pre-game options (spec pregame-options-parity) ----------------
 add_test_target(OptionsOverride
 	SOURCES "${CMAKE_SOURCE_DIR}/tests/TstC4GameOptions.cpp"

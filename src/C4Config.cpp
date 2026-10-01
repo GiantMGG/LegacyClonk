@@ -24,6 +24,7 @@
 #ifdef C4ENGINE
 #include <C4Application.h>
 #include "C4GameControl.h"
+#include <C4Group.h>
 #include <C4Log.h>
 #include <C4EnumInfo.h>
 #include <C4Network2.h>
@@ -32,6 +33,7 @@
 #include "C4Network2UPnP.h"
 #include "C4Record.h"
 #include "C4ResStrTable.h"
+#include <C4Scenario.h>
 #include <C4UpperBoard.h>
 #include "StdPNG.h"
 #endif
@@ -766,6 +768,77 @@ C4FreeGameRoot C4Config::ResolveFreeGameContent()
 		return C4FreeGameRoot::UserPath;
 	return C4FreeGameRoot::None;
 }
+
+#ifdef C4ENGINE
+
+namespace
+{
+
+// Verify that the group at szPath (folder or packed) carries a savegame
+// core: the real core read (C4Scenario::Load -- the same call
+// C4Game::OpenScenario makes at C4Game.cpp:325) must succeed and the
+// [Head] section must mark Head.SaveGame. Unopenable *.c4s entries (a
+// plain garbage file, say) simply fail verification.
+bool SavegameCoreVerified(const char *szPath)
+{
+	C4Group group;
+	if (!group.Open(szPath)) return false;
+	C4Scenario scenario;
+	if (!scenario.Load(group)) return false;
+	return scenario.Head.SaveGame != 0;
+}
+
+} // namespace
+
+std::string C4Config::FindNewestSavegame()
+{
+	// Savegames live in Config.General.SaveGameFolder relative to the exe
+	// path -- the same composition C4Game::QuickSave uses (C4Game.cpp:2193).
+	const std::string root{AtExePath(Config.General.SaveGameFolder.getData())};
+	// Recursively collect leaf *.c4s groups (folder or packed -- both are
+	// openable as C4Group). DirectoryIterator yields full folder-prefixed
+	// paths (StdFile.cpp:816-838); non-.c4s subdirectories are traversed,
+	// dot-prefixed entries are skipped like the player-selection scans
+	// (FirstPlayerFile above, C4StartupMainDlg.cpp:147).
+	struct Candidate { std::string path; time_t mtime; };
+	std::vector<Candidate> candidates;
+	std::vector<std::string> directories{root};
+	while (!directories.empty())
+	{
+		const std::string dir{std::move(directories.back())};
+		directories.pop_back();
+		const char *szFn;
+		for (DirectoryIterator i(dir.c_str()); (szFn = *i); i++)
+		{
+			const std::string path{szFn};
+			if (*GetFilename(path.c_str()) == '.') continue; // ".", "..", private entries
+			if (!SEqualNoCase(GetExtension(path.c_str()), "c4s"))
+			{
+				if (DirectoryExists(path.c_str()))
+					directories.emplace_back(path);
+				continue;
+			}
+			candidates.push_back({path, FileTime(path.c_str())});
+		}
+	}
+	// Newest first; mtime ties go lexicographically (deterministic, not
+	// readdir-dependent) -- the replay-selection ranking precedent
+	// (C4StartupReplaySelDlg.cpp:128-140) plus the tie-break.
+	std::sort(candidates.begin(), candidates.end(),
+		[](const Candidate &lhs, const Candidate &rhs)
+		{
+			if (lhs.mtime != rhs.mtime) return lhs.mtime > rhs.mtime;
+			return lhs.path < rhs.path;
+		});
+	// First candidate whose core verifies as a savegame wins; bounded
+	// fallthrough to the next-newest on verification failure.
+	for (const Candidate &candidate : candidates)
+		if (SavegameCoreVerified(candidate.path.c_str()))
+			return candidate.path;
+	return "";
+}
+
+#endif
 
 const char *C4Config::AtTempPath(const char *szFilename)
 {
