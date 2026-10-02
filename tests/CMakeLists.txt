@@ -1154,3 +1154,29 @@ if(NOT USE_SANITIZER AND EXISTS "${LEGACYCLONK_CONTENT_DIR}/Agriculture.c4d/Test
 		PASS_REGULAR_EXPRESSION "AutoTasksAccept PASS"
 		FAIL_REGULAR_EXPRESSION "FatalError|\\[error\\]|\\[fatal\\]")
 endif()
+
+# --- save_continue_e2e (spec save-continue, cycle 189) -----------------------
+# Two-phase headless proof of the "Continue last game" check: phase A runs the
+# SaveContinueProof fixture (packed first — QuickSave from a directory-form
+# source is corrupted, cycle-189 finding) to --smoke-run 700 and the
+# --smoke-save-at:700:SCProof probe QuickSaves; phase B resumes the savegame
+# and asserts "SaveContinueProof PASS" (t2380 ladder, GameOver). Own stanza,
+# NOT the glob: the name carries no "Smoke" suffix so it cannot double-register
+# (auto_tasks_acceptance precedent :1135). NOT USE_SANITIZER gate per
+# pxs_perf_gate (:450); the fixture keeps the cycle-180 seed pin Seed=181
+# (the driver's phase A; the savegame carries it into phase B). Windows
+# calibrated in .opencode/scratch/189/task4-calibration.md.
+if(PYTHON3 AND NOT USE_SANITIZER
+   AND EXISTS "${LEGACYCLONK_CONTENT_DIR}/Agriculture.c4d/Tests.c4f/SaveContinueProof.c4s"
+   AND EXISTS "${CMAKE_SOURCE_DIR}/tools/save_continue_e2e.py")
+	add_test(NAME save_continue_e2e
+		COMMAND "${PYTHON3}" "${CMAKE_SOURCE_DIR}/tools/save_continue_e2e.py"
+			"$<TARGET_FILE:clonk>"
+			"${LEGACYCLONK_CONTENT_DIR}/Agriculture.c4d/Tests.c4f/SaveContinueProof.c4s"
+		WORKING_DIRECTORY "${CMAKE_BINARY_DIR}")
+	set_tests_properties(save_continue_e2e PROPERTIES
+		TIMEOUT 240
+		LABELS "smoke"
+		PASS_REGULAR_EXPRESSION "SaveContinueProof E2E PASS"
+		FAIL_REGULAR_EXPRESSION "FatalError|\\[error\\]|\\[fatal\\]")
+endif()
