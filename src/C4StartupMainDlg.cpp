@@ -55,7 +55,6 @@ C4StartupMainDlg::C4StartupMainDlg() : C4StartupDlg(nullptr) // create w/o title
 	btn->SetCustomGraphics(&C4Startup::Get()->Graphics.barMainButtons, &C4Startup::Get()->Graphics.barMainButtonsDown);
 	AddElement(btn = new C4GUI::CallbackButton<C4StartupMainDlg>(LoadResStr(C4ResStrTableKey::IDS_BTN_CONTINUELASTGAME), caButtons.GetFromTop(iButtonHeight), &C4StartupMainDlg::OnContinueBtn));
 	btn->SetCustomGraphics(&C4Startup::Get()->Graphics.barMainButtons, &C4Startup::Get()->Graphics.barMainButtonsDown);
-	pContinueButton = btn;
 	AddElement(btn = new C4GUI::CallbackButton<C4StartupMainDlg>(LoadResStr(C4ResStrTableKey::IDS_BTN_NETWORKGAME), caButtons.GetFromTop(iButtonHeight), &C4StartupMainDlg::OnNetJoinBtn));
 	btn->SetToolTip(LoadResStr(C4ResStrTableKey::IDS_DLGTIP_NETWORKGAME));
 	btn->SetCustomGraphics(&C4Startup::Get()->Graphics.barMainButtons, &C4Startup::Get()->Graphics.barMainButtonsDown);
@@ -387,12 +386,6 @@ void C4StartupMainDlg::OnShown()
 	}
 	// make sure participants are updated after switching back from player selection
 	UpdateParticipants();
-
-	// Continue-last-game is only meaningful when a savegame exists; the
-	// check runs on every show so a save written since the last visit
-	// (e.g. by quitting a round) enables the button (spec save-continue).
-	if (pContinueButton)
-		pContinueButton->SetEnabled(!Config.FindNewestSavegame().empty());
 
 	// First show
 	if (fFirstShown)

@@ -28,7 +28,6 @@ private:
 	C4KeyBinding *pKeyEditor;
 	C4GUI::Label *pParticipantsLbl;
 	C4GUI::Button *pStartButton;
-	C4GUI::Button *pContinueButton;
 	bool fFirstShown;
 
 protected:
