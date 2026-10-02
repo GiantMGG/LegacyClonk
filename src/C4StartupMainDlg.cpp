@@ -53,6 +53,9 @@ C4StartupMainDlg::C4StartupMainDlg() : C4StartupDlg(nullptr) // create w/o title
 	AddElement(btn = new C4GUI::CallbackButton<C4StartupMainDlg>(LoadResStr(C4ResStrTableKey::IDS_BTN_FREEGAME), caButtons.GetFromTop(iButtonHeight), &C4StartupMainDlg::OnFreeGameBtn));
 	btn->SetToolTip(LoadResStr(C4ResStrTableKey::IDS_DLGTIP_FREEGAME));
 	btn->SetCustomGraphics(&C4Startup::Get()->Graphics.barMainButtons, &C4Startup::Get()->Graphics.barMainButtonsDown);
+	AddElement(btn = new C4GUI::CallbackButton<C4StartupMainDlg>(LoadResStr(C4ResStrTableKey::IDS_BTN_CONTINUELASTGAME), caButtons.GetFromTop(iButtonHeight), &C4StartupMainDlg::OnContinueBtn));
+	btn->SetCustomGraphics(&C4Startup::Get()->Graphics.barMainButtons, &C4Startup::Get()->Graphics.barMainButtonsDown);
+	pContinueButton = btn;
 	AddElement(btn = new C4GUI::CallbackButton<C4StartupMainDlg>(LoadResStr(C4ResStrTableKey::IDS_BTN_NETWORKGAME), caButtons.GetFromTop(iButtonHeight), &C4StartupMainDlg::OnNetJoinBtn));
 	btn->SetToolTip(LoadResStr(C4ResStrTableKey::IDS_DLGTIP_NETWORKGAME));
 	btn->SetCustomGraphics(&C4Startup::Get()->Graphics.barMainButtons, &C4Startup::Get()->Graphics.barMainButtonsDown);
@@ -264,6 +267,30 @@ void C4StartupMainDlg::OnFreeGameBtn(C4GUI::Control *btn)
 	C4Startup::Get()->Start();
 }
 
+void C4StartupMainDlg::OnContinueBtn(C4GUI::Control *btn)
+{
+	// Continue last game: one click resumes the most recently saved
+	// savegame (C4Config::FindNewestSavegame, spec save-continue). The
+	// savegame core carries its own definition files, so the menu's default
+	// def pack is cleared and DefinitionFilenamesFromSaveGame
+	// (C4Game.cpp:394) restores the definitions from the savegame on load.
+	const std::string save{Config.FindNewestSavegame()};
+	if (save.empty())
+	{
+		// No savegame around (folder empty or nothing verified) -- explain
+		// and stay in the menu.
+		GetScreen()->ShowMessage(std::format("{} {}", LoadResStr(C4ResStrTableKey::IDS_PRC_FILENOTFOUND),
+			Config.AtExePath(Config.General.SaveGameFolder.getData())).c_str(),
+			LoadResStr(C4ResStrTableKey::IDS_MSG_CANNOTSTARTSCENARIO), C4GUI::Ico_Error);
+		return;
+	}
+	SCopy(save.c_str(), Game.ScenarioFilename);
+	Game.DefinitionFilenames.clear();
+	Game.fLobby = false;
+	Game.fObserve = false;
+	C4Startup::Get()->Start();
+}
+
 void C4StartupMainDlg::OnReplaysBtn(C4GUI::Control *btn)
 {
 	// advance to replay browser screen
@@ -360,6 +387,12 @@ void C4StartupMainDlg::OnShown()
 	}
 	// make sure participants are updated after switching back from player selection
 	UpdateParticipants();
+
+	// Continue-last-game is only meaningful when a savegame exists; the
+	// check runs on every show so a save written since the last visit
+	// (e.g. by quitting a round) enables the button (spec save-continue).
+	if (pContinueButton)
+		pContinueButton->SetEnabled(!Config.FindNewestSavegame().empty());
 
 	// First show
 	if (fFirstShown)

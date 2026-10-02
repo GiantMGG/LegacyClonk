@@ -12,6 +12,7 @@ IDS_BTN_CHAT=&Chat
 IDS_BTN_CHECKFORUPDATES=&Updates suchen
 IDS_BTN_CONNECT=Verbinden
 IDS_BTN_CONTINUEGAME=&Weiterspielen
+IDS_BTN_CONTINUELASTGAME=Letztes &Spiel fortsetzen
 IDS_BTN_DEACTIVATE=Deaktivieren
 IDS_BTN_DELETE=Löschen
 IDS_BTN_DL=Herunterladen

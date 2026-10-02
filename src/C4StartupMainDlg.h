@@ -28,6 +28,7 @@ private:
 	C4KeyBinding *pKeyEditor;
 	C4GUI::Label *pParticipantsLbl;
 	C4GUI::Button *pStartButton;
+	C4GUI::Button *pContinueButton;
 	bool fFirstShown;
 
 protected:
@@ -42,6 +43,7 @@ protected:
 
 	void OnStartBtn(C4GUI::Control *btn); // callback: run default start button pressed
 	void OnFreeGameBtn(C4GUI::Control *btn); // callback: free game on a generated map (world settings)
+	void OnContinueBtn(C4GUI::Control *btn); // callback: continue the most recently saved game
 	void OnPlayerSelectionBtn(C4GUI::Control *btn); // callback: player selection (preliminary version via context menus...)
 	void OnNetJoinBtn(C4GUI::Control *btn); // callback: join net work game (direct join only for now)
 	void OnReplaysBtn(C4GUI::Control *btn); // callback: open the replay browser
