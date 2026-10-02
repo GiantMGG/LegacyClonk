@@ -43,16 +43,13 @@ RUN_TIMEOUT = 200  # s, per engine spawn (a hung run must fail, not linger)
 # Same oracle the CTest stanza uses: [error]/[critical]/[fatal] + FatalError.
 FATAL_RE = re.compile(r"FatalError|\[error\]|\[critical\]|\[fatal\]", re.IGNORECASE)
 
-
 def fail(msg):
     print("SaveContinueProof E2E FAIL: %s" % msg)
     return 1
 
-
 def log_tail(log):
     tail = log.strip().splitlines()[-8:]
     return ";\n".join(tail) if tail else "(empty log)"
-
 
 def run_engine(engine, args):
     """Spawn the console engine once; return (rc, combined_log) or
@@ -70,7 +67,6 @@ def run_engine(engine, args):
         return None, "engine run timed out after %d s" % RUN_TIMEOUT
     return proc.returncode, (proc.stdout or "") + (proc.stderr or "")
 
-
 def pack_fixture(c4group, fixture, workdir):
     """Pack the fixture directory into a packed .c4s (or copy an already
     packed fixture as-is) inside workdir. Returns the packed path."""
@@ -86,7 +82,6 @@ def pack_fixture(c4group, fixture, workdir):
     else:
         shutil.copyfile(fixture, target)
     return target, None
-
 
 def savegame_core_ok(c4group, savegame, workdir):
     """Extract the savegame's Scenario.txt and verify [Head] SaveGame=1."""
@@ -107,7 +102,6 @@ def savegame_core_ok(c4group, savegame, workdir):
     if not re.search(r"(?m)^SaveGame\s*=\s*1", text):
         return False, "savegame core lacks SaveGame=1"
     return True, None
-
 
 def main(argv=None):
     args = sys.argv[1:] if argv is None else argv
@@ -190,7 +184,6 @@ def main(argv=None):
                 os.remove(savegame)
             except OSError:
                 pass
-
 
 if __name__ == "__main__":
     sys.exit(main())
