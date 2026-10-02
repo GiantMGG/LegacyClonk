@@ -49,6 +49,7 @@
 #include "C4Strings.h"
 #include <StdFile.h>
 
+#include <chrono>
 #include <filesystem>
 #include <fstream>
 #include <string>
@@ -89,16 +90,17 @@ std::filesystem::path WriteSavegameFixture(const std::filesystem::path &root, co
 	return scenario.parent_path();
 }
 
-// Pin a file's mtime to the given epoch seconds. Never sleeps. The engine's
-// ranking helper (FileTime, StdFile.cpp) works on second granularity, so
-// one-second offsets fully separate ranks.
-void PinMtime(const std::filesystem::path &path, std::time_t seconds)
+// Pin a file's mtime to the given offset from its current value. Never
+// sleeps; the ranking helper (FileTime, StdFile.cpp) works on second
+// granularity, so one-second offsets fully separate ranks. Pinning is
+// relative (current time + offset) rather than absolute: the C++20
+// sys<->file_clock conversion (file_time_type::clock::from_sys) is not
+// available on MSVC's _File_time_clock, while file_clock time_point
+// arithmetic is portable everywhere.
+void PinMtime(const std::filesystem::path &path, std::time_t offsetSeconds)
 {
-	// Last_write_time wants a file_clock time_point; convert via the
-	// C++20-standardized from_sys (file_clock has no from_time_t on GCC).
-	const auto tp = std::filesystem::file_time_type::clock::from_sys(
-		std::chrono::system_clock::from_time_t(seconds));
-	std::filesystem::last_write_time(path, tp);
+	const auto current = std::filesystem::last_write_time(path);
+	std::filesystem::last_write_time(path, current + std::chrono::seconds{offsetSeconds});
 }
 
 // Save/restore guard for the config slots the finder reads: the savegame
