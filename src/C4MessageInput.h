@@ -111,7 +111,7 @@ class C4MessageBoardCommand
 public:
 	std::string script;
 	enum Restriction { C4MSGCMDR_Escaped = 0, C4MSGCMDR_Plain, C4MSGCMDR_Identifier };
-	Restriction restriction;
+	Restriction restriction = C4MSGCMDR_Escaped;
 
 	C4MessageBoardCommand() {}
 	C4MessageBoardCommand(const std::string &script, Restriction restriction) : script(script), restriction(restriction) {}
