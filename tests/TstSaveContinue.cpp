@@ -25,6 +25,11 @@
 // Verification uses the real core loader, so an unreadable or non-savegame
 // newest candidate falls through to the next-newest one.
 //
+// Path compares in the CHECK sites below go through std::filesystem::path
+// equality because the engine's return is `/`-joined while fixture
+// .string() renders `\` on Windows (MSVC normalizes separators in path
+// comparison; identical on Linux).
+//
 // Fixtures are folder-groups under std::filesystem::temp_directory_path():
 // a directory named "<Name>.c4s" holding a minimal Scenario.txt core
 // ([Head] + SaveGame). C4Group::Open handles folder-groups and
@@ -162,7 +167,7 @@ TEST_CASE("SaveContinue.NewestSavegame_NewestWins", "[savecontinue][finder]")
 	const auto newer = WriteSavegameFixture(savegames, "Bravo", 1);
 	PinMtime(older, 1000);
 	PinMtime(newer, 2000);
-	CHECK(Config.FindNewestSavegame() == newer.string());
+	CHECK(std::filesystem::path{Config.FindNewestSavegame()} == newer);
 }
 
 TEST_CASE("SaveContinue.NewestSavegame_MtimeTieLexicographic", "[savecontinue][finder]")
@@ -177,7 +182,7 @@ TEST_CASE("SaveContinue.NewestSavegame_MtimeTieLexicographic", "[savecontinue][f
 	const auto b = WriteSavegameFixture(savegames, "bravo", 1);
 	PinMtime(a, 5000);
 	PinMtime(b, 5000);
-	CHECK(Config.FindNewestSavegame() == a.string());
+	CHECK(std::filesystem::path{Config.FindNewestSavegame()} == a);
 }
 
 TEST_CASE("SaveContinue.NewestSavegame_SkipsNonC4s", "[savecontinue][finder]")
@@ -195,7 +200,7 @@ TEST_CASE("SaveContinue.NewestSavegame_SkipsNonC4s", "[savecontinue][finder]")
 	PinMtime(only, 3000);
 	PinMtime(txt, 4000);
 	PinMtime(hidden, 5000);
-	CHECK(Config.FindNewestSavegame() == only.string());
+	CHECK(std::filesystem::path{Config.FindNewestSavegame()} == only);
 }
 
 TEST_CASE("SaveContinue.NewestSavegame_FallbackNextNewest", "[savecontinue][finder]")
@@ -210,7 +215,7 @@ TEST_CASE("SaveContinue.NewestSavegame_FallbackNextNewest", "[savecontinue][find
 	const auto newestNotSave = WriteSavegameFixture(savegames, "NewestButNotSave", 0);
 	PinMtime(valid, 1000);
 	PinMtime(newestNotSave, 2000);
-	CHECK(Config.FindNewestSavegame() == valid.string());
+	CHECK(std::filesystem::path{Config.FindNewestSavegame()} == valid);
 }
 
 TEST_CASE("SaveContinue.NewestSavegame_SkipsUnreadableGroup", "[savecontinue][finder]")
@@ -231,7 +236,7 @@ TEST_CASE("SaveContinue.NewestSavegame_SkipsUnreadableGroup", "[savecontinue][fi
 	}
 	PinMtime(valid, 1000);
 	PinMtime(garbage, 2000);
-	CHECK(Config.FindNewestSavegame() == valid.string());
+	CHECK(std::filesystem::path{Config.FindNewestSavegame()} == valid);
 }
 
 TEST_CASE("SaveContinue.NewestSavegame_RecursiveSubfolderScan", "[savecontinue][finder]")
@@ -243,7 +248,7 @@ TEST_CASE("SaveContinue.NewestSavegame_RecursiveSubfolderScan", "[savecontinue][
 	SetSavegameRoot(root);
 	const auto savegames = SavegameDir(root);
 	const auto nested = WriteSavegameFixture(savegames / "SubFolder", "nested", 1);
-	CHECK(Config.FindNewestSavegame() == nested.string());
+	CHECK(std::filesystem::path{Config.FindNewestSavegame()} == nested);
 }
 
 TEST_CASE("SaveContinue.NewestSavegame_ReturnsFullPath", "[savecontinue][finder]")
@@ -257,7 +262,7 @@ TEST_CASE("SaveContinue.NewestSavegame_ReturnsFullPath", "[savecontinue][finder]
 	const auto scenario = WriteSavegameFixture(SavegameDir(root), "Slot01", 1);
 	const std::string found = Config.FindNewestSavegame();
 	CHECK_FALSE(found.empty());
-	CHECK(found == scenario.string());
+	CHECK(std::filesystem::path{found} == scenario);
 	CHECK(found.length() < _MAX_PATH);
 	char dst[_MAX_PATH + 1];
 	SCopy(found.c_str(), dst, _MAX_PATH);
