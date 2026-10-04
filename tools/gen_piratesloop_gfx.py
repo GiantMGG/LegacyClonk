@@ -68,7 +68,6 @@ _P0 = (
 	"............................................................",
 )
 
-
 def make_png():
 	fl = clonkgfx.Action("Float", [clonkgfx.PhaseMap("s0", list(_P0))])
 	# 60x30 maps: observed opaque 737 px, 5 opaque colors (one phase:
@@ -78,10 +77,8 @@ def make_png():
 	invariants.check(fl, PALETTE)
 	return clonkgfx.Sheet(64, 64, PALETTE, [fl]).png_bytes()
 
-
 def main():
 	return clonkgfx.cli_main(__doc__, OUT_DEFAULT, make_png)
-
 
 if __name__ == "__main__":
 	raise SystemExit(main())
