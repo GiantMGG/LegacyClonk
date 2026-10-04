@@ -80,8 +80,6 @@ parts = [
 
 [groups.content.'SiegeEngines.c4d']
 
-[groups.content.'SilkRoad.c4f']
-
 [groups.content.'Sound.c4g']
 
 [groups.content.'TradeGoods.c4d']

@@ -86,7 +86,7 @@ FIXED_ROSTER = (
     "Races.c4f/GlowingPeak.c4s",
     "Races.c4f/MonsterRescue.c4s",
     "Races.c4f/Tritonpath.c4s",
-    "SilkRoad.c4f/SilkRoad.c4s",
+    "OceanTrade.c4f/SilkRoad.c4s",
     "Tutorial.c4f/Tutorial01.c4s",
     "Tutorial.c4f/Tutorial02.c4s",
     "Tutorial.c4f/Tutorial06.c4s",
