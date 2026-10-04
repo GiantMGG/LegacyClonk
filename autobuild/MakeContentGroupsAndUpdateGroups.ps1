@@ -24,24 +24,52 @@ foreach ($part in $parts) {
     $downloadedParts.Add($job)
 }
 
+# Release staging root: every shipped pack is copied here WITHOUT its
+# Tests.c4f folders before packing (spec content-cleanup 4.2 -- test
+# scenarios must never ship inside a packed group).
+$stagingRoot = Join-Path $tempDir "release-staging"
+New-Item -Path $stagingRoot -ItemType Directory | Out-Null
+
 $groupPaths = [System.Collections.Generic.List[object]]::new()
 
 foreach ($group in $groups.GetEnumerator() | Where-Object { $_.Name -like "*.c4?" }) {
     Write-Host "Packing $($group.Name)..."
-    & $Env:C4GROUP "$($group.Name)" -p
+
+    $sourceDir = Join-Path (Get-Location) $group.Name
+    $stagedDir = Join-Path $stagingRoot $group.Name
+
+    # Stage a release copy excluding every Tests.c4f folder. Copy-then-
+    # prune works on the Windows runner and local pwsh fixtures alike.
+    Copy-Item -Path $sourceDir -Destination $stagingRoot -Recurse
+    Get-ChildItem -LiteralPath $stagedDir -Recurse -Directory -Filter "Tests.c4f" |
+        Remove-Item -Recurse -Force
+
+    & $Env:C4GROUP $stagedDir -p
+
+    # Post-pack assertion (spec content-cleanup 6.1, NoShippedTests): the
+    # packed group must not contain a Tests.c4f member.
+    $memberListing = @(& $Env:C4GROUP $stagedDir -l)
+    if (($memberListing -join "`n") -match "Tests\.c4f") {
+        throw "NoShippedTests: packed group $($group.Name) contains a Tests.c4f member"
+    }
+
     if ($OutDir) {
-        Move-Item -Path $group.Name -Destination $OutDir
+        Move-Item -Path $stagedDir -Destination $OutDir
         $groupPaths.Add((Resolve-Path -Path (Join-Path $OutDir $group.Name)))
     }
     else {
-        $groupPaths.Add((Resolve-Path -Path $group.Name))
+        $groupPaths.Add((Resolve-Path -Path $stagedDir))
     }
 }
 
 $partsDir = Join-Path $tempDir 'parts'
 New-Item -Path $partsDir -ItemType Directory | Out-Null
 
-Wait-Job $downloadedParts | Out-Null
+# Empty parts lists (local fixture runs) would hand $null to Wait-Job's
+# -Id parameter validation; guard so the pack loop stays testable.
+if ($downloadedParts.Count -gt 0) {
+    Wait-Job $downloadedParts | Out-Null
+}
 
 $c4group = Resolve-Path -Path $Env:C4GROUP
 
