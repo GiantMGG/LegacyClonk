@@ -1063,6 +1063,23 @@ if(PYTHON3 AND EXISTS "${LEGACYCLONK_CONTENT_DIR}/OceanTrade.c4d/Cog.c4d/Graphic
 	set_tests_properties(gfx_check_cog PROPERTIES TIMEOUT 60 LABELS "lint")
 endif()
 
+# --- Saltpan + Piratesloop art byte gates (spec trade-campaign-merge,
+# cycle 193) -- gen_<def>_gfx.py --check must byte-match the committed PNGs.
+if(PYTHON3 AND EXISTS "${LEGACYCLONK_CONTENT_DIR}/TradeGoods.c4d/SaltPan.c4d/Graphics.png")
+	add_test(NAME gfx_check_saltpan
+		COMMAND "${PYTHON3}" "${CMAKE_SOURCE_DIR}/tools/gen_saltpan_gfx.py"
+			"${LEGACYCLONK_CONTENT_DIR}/TradeGoods.c4d/SaltPan.c4d/Graphics.png" --check
+		WORKING_DIRECTORY "${CMAKE_BINARY_DIR}")
+	set_tests_properties(gfx_check_saltpan PROPERTIES TIMEOUT 60 LABELS "lint")
+endif()
+if(PYTHON3 AND EXISTS "${LEGACYCLONK_CONTENT_DIR}/OceanTrade.c4d/PirateSloop.c4d/Graphics.png")
+	add_test(NAME gfx_check_piratesloop
+		COMMAND "${PYTHON3}" "${CMAKE_SOURCE_DIR}/tools/gen_piratesloop_gfx.py"
+			"${LEGACYCLONK_CONTENT_DIR}/OceanTrade.c4d/PirateSloop.c4d/Graphics.png" --check
+		WORKING_DIRECTORY "${CMAKE_BINARY_DIR}")
+	set_tests_properties(gfx_check_piratesloop PROPERTIES TIMEOUT 60 LABELS "lint")
+endif()
+
 # --- Playtest sweep (spec scenario-playtest-harness, cycle 97) -----------
 # Runs every shipped playtest scenario (ci.toml [groups.content] set,
 # minus Tests.c4f) headless for N ticks via tools/playtest_sweep.py.
