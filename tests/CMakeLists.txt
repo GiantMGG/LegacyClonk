@@ -939,6 +939,18 @@ if(NOT USE_SANITIZER AND EXISTS "${LEGACYCLONK_CONTENT_DIR}/Agriculture.c4d/Test
 		FAIL_REGULAR_EXPRESSION "FatalError|\\[error\\]|\\[fatal\\]")
 endif()
 
+# --- ColonyBay coastal-fold gate (spec content-cleanup, cycle 192) ----------
+# Mechanical file gate pinning the ColonyBay <- Coastal fold: the scenario
+# must enroll Coastal.c4d, schedule the coastal TIDE/FOGG weather events,
+# and place a Dock (DKST). Behavior stays covered by scenario_link_gate's
+# L sweep (ColonyBay boots with zero unknown identifiers) plus this cycle's
+# direct boot log (T3 evidence).
+if(PYTHON3 AND EXISTS "${LEGACYCLONK_CONTENT_DIR}/Worlds.c4f/ColonyBay.c4s/Scenario.txt")
+	add_test(NAME colonybay_fold_gate
+		COMMAND "${PYTHON3}" -c "import re,sys; scen=open('${LEGACYCLONK_CONTENT_DIR}/Worlds.c4f/ColonyBay.c4s/Scenario.txt').read(); scr=open('${LEGACYCLONK_CONTENT_DIR}/Worlds.c4f/ColonyBay.c4s/Script.c').read(); ok=bool(re.search(r'Definition[0-9]+=Coastal[.]c4d', scen, re.M)) and bool(re.search(r'^Event=TIDE=', scen, re.M)) and bool(re.search(r'^Event=FOGG=', scen, re.M)) and 'CreateConstruction(DKST' in scr; sys.exit(0 if ok else 1)")
+	set_tests_properties(colonybay_fold_gate PROPERTIES TIMEOUT 30 LABELS "lint")
+endif()
+
 # --- ArenaChampions bot-round smoke + gates (spec arena-rotation,
 # cycle 172) --------------------------------------------------------------
 # The rotation check: a scripted 4-player bot round on the arena format
