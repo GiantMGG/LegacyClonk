@@ -30,8 +30,6 @@ parts = [
 
 [groups.content.'Agriculture.c4d']
 
-[groups.content.'Airships.c4d']
-
 [groups.content.'ArenaChampions.c4f']
 
 [groups.content.'CaveSystem.c4d']
@@ -50,8 +48,6 @@ parts = [
 
 [groups.content.'FarWorlds.c4f']
 
-[groups.content.'FuelSystem.c4d']
-
 [groups.content.'Hazard.c4d']
 
 [groups.content.'Hazard.c4f']
@@ -69,8 +65,6 @@ parts = [
 [groups.content.'Music.c4g']
 
 [groups.content.'Objects.c4d']
-
-[groups.content.'ObjectsAppend.c4d']
 
 [groups.content.'OceanTrade.c4d']
 

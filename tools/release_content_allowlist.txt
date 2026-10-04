@@ -4,4 +4,7 @@
 # ci.toml or deleting it from content/.
 RollbackNet.c4d # test-only pack: rollback-restore CI fixtures; referenced only by its own DefCore.txt + own Tests.c4f smokes
 SavegameTests.c4d # test-only pack: savegame CI fixtures; referenced only by its own DefCore.txt + own Tests.c4f smokes
+Airships.c4d # unshipped 2026-10-04 (cycle 192): zero non-test enrollments, AIRS dup vs Hazard Airstrike; revive with art + hosting scenario
+ObjectsAppend.c4d # unshipped 2026-10-04 (cycle 192): override/append plumbing enrolled only by its own Tests.c4f smokes
+FuelSystem.c4d # unshipped 2026-10-04 (cycle 192): no non-test enrollments; FUEL/DBRN script refs stay dangling no-ops pending a frontier fuel chain
 SiegeRange.c4s # dev-only loose scenario at content/ root; not inside any pack, never shipped, no CTest entry
