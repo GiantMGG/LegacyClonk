@@ -1835,4 +1835,29 @@ Spec: .opencode/specs/2026-08-29-1000-connection-migration-reconnect.md (cf8c883
 
 - **release**: V374 notes per pre-release audit - honest standing-orders framing, full exclusion list (9f8b080)
 
+## [375] - 2026-10-01
+
+### Fixed
+
+- **freegame**: Resolve Free Game content via ExePath-then-UserPath fallback (62dab1e)
+
+- **freegame**: TryStart choke point auto-adds first player file, guides when none (08486d9)
+
+- **freegame**: Auto-add participant reaches the round via Game.PlayerFilenames snapshot (3419e77)
+
+- **freegame**: Scope TryStart to offline playerless starts; require def pack at resolved root (eb0bdf3)
+
+- **build**: Include C4Components.h in C4Config.cpp for C4CFN_PlayerFiles (6306ac5)
+
+
+### Internal
+
+- **changelog**: Update for v374 [skip ci] (5d8a0bb)
+
+- **release**: Portable archive ships Worlds.c4f and Objects.c4d (86860f6)
+
+- **release**: Portable archive ships Material.c4g (Free Game settings-stage requires it) (f62b478)
+
+- **version**: Bump content version to 4.9.11.12 for v375 (1b00ef8)
+
 <!-- git-cliff prepends new release sections above this line. -->
