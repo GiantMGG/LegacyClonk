@@ -951,6 +951,20 @@ if(PYTHON3 AND EXISTS "${LEGACYCLONK_CONTENT_DIR}/Worlds.c4f/ColonyBay.c4s/Scena
 	set_tests_properties(colonybay_fold_gate PROPERTIES TIMEOUT 30 LABELS "lint")
 endif()
 
+# --- Trade-campaign merge gate (spec trade-campaign-merge, cycle 193) -----
+# Mechanical file gate pinning the merged trade campaign: OceanTrade.c4f
+# holds exactly the three scenarios with pairwise-distinct win conditions
+# (SilkRoad MONE=8 wealth / SilkRoadOfTheSea VALG=10 settlement value /
+# StormLane goal-less -- its win is the STLD 3-delivery race), the old
+# SilkRoad.c4f pack is gone, and the six moved SilkRoad defs live in
+# OceanTrade.c4d. RED-demonstrated pre-merge (.opencode/scratch/193/).
+if(PYTHON3 AND EXISTS "${LEGACYCLONK_CONTENT_DIR}/OceanTrade.c4f/StormLane.c4s/Scenario.txt")
+	add_test(NAME trade_campaign_gate
+		COMMAND "${PYTHON3}" -c "import os,re,sys; base='${LEGACYCLONK_CONTENT_DIR}'; otf=base+'/OceanTrade.c4f'; rd=lambda p: open(p).read() if os.path.exists(p) else ''; ok=True; ok = ok and sorted(d[:-4] for d in os.listdir(otf) if d.endswith('.c4s'))==['SilkRoad','SilkRoadOfTheSea','StormLane']; sr=rd(otf+'/SilkRoad.c4s/Scenario.txt'); sos=rd(otf+'/SilkRoadOfTheSea.c4s/Scenario.txt'); sl=rd(otf+'/StormLane.c4s/Scenario.txt'); ok = ok and re.findall(r'^Goals=(.*)$', sr, re.M)==['MONE=8'] and re.findall(r'^Goals=(.*)$', sos, re.M)==['VALG=10'] and re.findall(r'^Goals=(.*)$', sl, re.M)==[]; ok = ok and not os.path.exists(base+'/SilkRoad.c4f'); moved=[('AMB1','Ambush.c4d'),('BNDR','Boundary.c4d'),('MULE','Mule.c4d'),('RDDR','RaidDirector.c4d'),('RSPN','Respawner.c4d'),('TCHS','TeamChest.c4d')]; ok = ok and all(os.path.isdir(base+'/OceanTrade.c4d/'+d) and re.search(r'^id='+i+r'$', rd(base+'/OceanTrade.c4d/'+d+'/DefCore.txt'), re.M) for i,d in moved); sys.exit(0 if ok else 1)"
+		WORKING_DIRECTORY "${CMAKE_BINARY_DIR}")
+	set_tests_properties(trade_campaign_gate PROPERTIES TIMEOUT 30 LABELS "lint")
+endif()
+
 # --- ArenaChampions bot-round smoke + gates (spec arena-rotation,
 # cycle 172) --------------------------------------------------------------
 # The rotation check: a scripted 4-player bot round on the arena format
