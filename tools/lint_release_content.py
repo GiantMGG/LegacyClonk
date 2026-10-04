@@ -22,6 +22,17 @@ Checks (any finding -> exit 1):
                  takes precedence when non-empty, else Definition1..10=
                  (C4S_MaxDefinitions = 10). Backslash paths normalized;
                  comparison is case-sensitive (Linux runtime is).
+                 Scenarios under a Tests.c4f folder are skipped: the
+                 release packer strips Tests.c4f at pack time (spec
+                 content-cleanup 4.2), so their refs never ship.
+  DUP-ID         every DefCore id= under a shipped pack subtree must be
+                 unique unless the colliding pair is baselined in
+                 tools/dup_id_baseline.txt (legacy layered redefs).
+  UNUSED         every shipped .c4d key must be enrolled by >=1 shipped
+                 non-test scenario ([Definitions]); exemptions in
+                 tools/pack_use_exemptions.txt.
+  ZERO-BYTE-ART  no 0-byte Icon.png/Title.png/Graphics.png under any
+                 shipped pack subtree (CaveExplorer icon regression).
 
 Exit 0 clean / 1 violations / 2 usage or IO error.
 """
@@ -37,6 +48,10 @@ KEY_RE = re.compile(
 	re.MULTILINE)
 PACK_FILTER_RE = re.compile(r"\.c4.$")
 CONTENT_PACK_RE = re.compile(r".+\.c4[dfgs]$")
+DEF_ID_RE = re.compile(r"^\s*(?:ID|id)\s*=\s*(\w+)", re.MULTILINE)
+ART_NAMES = ("Icon.png", "Title.png", "Graphics.png")
+DUP_BASELINE_FILENAME = "dup_id_baseline.txt"
+PACK_USE_EXEMPTIONS_FILENAME = "pack_use_exemptions.txt"
 
 def parse_keys(toml_text):
 	"""Extract [groups.content] sub-table keys, order-preserving."""
@@ -85,6 +100,51 @@ def parse_scenario_refs(text):
 	if definitions_list:
 		refs = [r.strip() for r in definitions_list.split(",") if r.strip()]
 	return [r.replace("\\", "/").split("/")[0] for r in refs if r]
+
+def collect_pack_ids(content_dir, shipped):
+	"""Map id -> [relative DefCore.txt dir] for shipped pack subtrees."""
+	ids = {}
+	for k in shipped:
+		pack_dir = os.path.join(content_dir, k)
+		if not os.path.isdir(pack_dir):
+			continue
+		for root, dirs, files in os.walk(pack_dir):
+			dirs[:] = sorted(d for d in dirs if not d.startswith("."))
+			if "DefCore.txt" not in files:
+				continue
+			with open(os.path.join(root, "DefCore.txt"),
+				encoding="utf-8", errors="replace") as f:
+				m = DEF_ID_RE.search(f.read())
+			if not m:
+				continue
+			rel = os.path.relpath(root, content_dir).replace(os.sep, "/")
+			ids.setdefault(m.group(1), []).append(rel)
+	return ids
+
+def load_dup_baseline(path):
+	"""Exempted (id, pathA, pathB) pairs from dup_id_baseline.txt.
+
+	Line format: `<ID> <path> <path> [...] # <reason>`; every unordered
+	path pair on a line becomes one exempt pair. Paths that contain a
+	literal space (e.g. "Command Center.c4d") are %20-encoded by the
+	seeding script so the whitespace split stays unambiguous.
+	"""
+	pairs = set()
+	if os.path.exists(path):
+		with open(path, encoding="utf-8") as f:
+			for line in f:
+				entry = line.split("#", 1)[0].strip()
+				if not entry:
+					continue
+				fields = entry.split()
+				if len(fields) < 3:
+					continue
+				idv, paths = fields[0], sorted(
+					p.replace("%20", " ") for p in fields[1:])
+				for i in range(len(paths)):
+					for j in range(i + 1, len(paths)):
+						pairs.add((idv, paths[i], paths[j]))
+	return pairs
 
 def main():
 	ap = argparse.ArgumentParser(
@@ -148,6 +208,8 @@ def main():
 			if "Scenario.txt" not in files:
 				continue
 			rel = os.path.relpath(root, args.content_dir).replace(os.sep, "/")
+			if any(part == "Tests.c4f" for part in rel.split("/")):
+				continue  # stripped from the release at pack time (4.2)
 			with open(os.path.join(root, "Scenario.txt"),
 				encoding="utf-8", errors="replace") as f:
 				refs = parse_scenario_refs(f.read())
@@ -163,6 +225,64 @@ def main():
 				findings.append(
 					f"FAIL closure {rel} -> {ref} "
 					f"(not in [groups.content])")
+
+	# 5. DUP-ID: DefCore id= collisions under shipped packs must be
+	# baselined legacy pairs (tools/dup_id_baseline.txt).
+	dup_baseline_path = os.path.join(
+		os.path.dirname(os.path.abspath(__file__)), DUP_BASELINE_FILENAME)
+	baseline_pairs = load_dup_baseline(dup_baseline_path)
+	pack_ids = collect_pack_ids(args.content_dir, shipped)
+	for idv in sorted(pack_ids):
+		paths = sorted(pack_ids[idv])
+		for i in range(len(paths)):
+			for j in range(i + 1, len(paths)):
+				if (idv, paths[i], paths[j]) not in baseline_pairs:
+					findings.append(
+						f"FAIL dup-id {idv} {paths[i]} <-> {paths[j]} "
+						f"(unbaselined duplicate ID)")
+
+	# 6. UNUSED: every shipped .c4d key needs a shipped non-test enroller.
+	use_exempt_path = os.path.join(
+		os.path.dirname(os.path.abspath(__file__)),
+		PACK_USE_EXEMPTIONS_FILENAME)
+	use_exempt = load_allowlist(use_exempt_path)
+	enrolled = set()
+	for k in keys:
+		pack_dir = os.path.join(args.content_dir, k)
+		if not os.path.isdir(pack_dir):
+			continue
+		for root, dirs, files in os.walk(pack_dir):
+			dirs[:] = sorted(d for d in dirs if not d.startswith("."))
+			if "Scenario.txt" not in files:
+				continue
+			rel = os.path.relpath(root, args.content_dir).replace(os.sep, "/")
+			if any(part == "Tests.c4f" for part in rel.split("/")):
+				continue
+			with open(os.path.join(root, "Scenario.txt"),
+				encoding="utf-8", errors="replace") as f:
+				enrolled.update(parse_scenario_refs(f.read()))
+	for k in sorted(keys):
+		if not k.endswith(".c4d") or k in enrolled or k in use_exempt:
+			continue
+		findings.append(
+			f"FAIL unused {k} (shipped .c4d pack enrolled by no "
+			f"shipped non-test scenario; enroll it or exempt it)")
+
+	# 7. ZERO-BYTE-ART: no 0-byte icons/titles/graphics under shipped packs.
+	for k in keys:
+		pack_dir = os.path.join(args.content_dir, k)
+		if not os.path.isdir(pack_dir):
+			continue
+		for root, dirs, files in os.walk(pack_dir):
+			dirs[:] = sorted(d for d in dirs if not d.startswith("."))
+			for art in ART_NAMES:
+				if art in files:
+					p = os.path.join(root, art)
+					if os.path.getsize(p) == 0:
+						rel = os.path.relpath(
+							p, args.content_dir).replace(os.sep, "/")
+						findings.append(
+							f"FAIL zero-byte-art {rel} (0-byte {art})")
 
 	if args.report:
 		print(f"shipped set ({len(shipped)}):")

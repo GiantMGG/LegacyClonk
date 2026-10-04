@@ -1,0 +1,4 @@
+# pack_use_exemptions.txt -- shipped .c4d packs exempt from the UNUSED
+# check (lint_release_content.py). One per line, "# reason" suffix.
+# Removing an entry requires enrolling the pack in a shipped scenario
+# or unshipping it in autobuild/ci.toml.
