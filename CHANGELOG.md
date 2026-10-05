@@ -1860,4 +1860,70 @@ Spec: .opencode/specs/2026-08-29-1000-connection-migration-reconnect.md (cf8c883
 
 - **version**: Bump content version to 4.9.11.12 for v375 (1b00ef8)
 
+## [376] - 2026-10-05
+
+### Added
+
+- Add C4Config::FindNewestSavegame (save-continue) (3a6f2d2)
+
+- Add --smoke-save-at probe flag (save-continue) (344cdf5)
+
+- Main-menu Continue last game button (save-continue) (b7b486f)
+
+- **release**: Unship Airships, ObjectsAppend, FuelSystem from [groups.content] (8326a5d)
+
+- **lint**: Dup-id baseline, unused-pack and zero-byte-art checks; closure skips Tests.c4f (7dae594)
+
+- **release**: Pack release groups from a Tests.c4f-stripped staging copy + NoShippedTests assertion (9f6eb6d)
+
+- **gfx**: Dock art byte gate + allowlist drop (37e52a8)
+
+
+### Changed
+
+- **save-continue**: Collapse empty lines in e2e driver (format gate) (314201c)
+
+- Condense triple blank lines in gen_piratesloop_gfx.py (Format Lint red on 3e1a175a) (21a7b6b)
+
+
+### Fixed
+
+- **messageinput**: Initialize MessageBoardCommand restriction (UB on savegame resume) (78a8bbf)
+
+- **startup**: Continue button always enabled with not-found message; DE mnemonic fix (save-continue) (9cb5062)
+
+- **tests**: Portable mtime pinning in save-continue pin (MSVC build fix) (3611222)
+
+- **tests**: Compare savegame paths via std::filesystem::path equality (Windows portability) (d66e71a)
+
+- **tools**: Repoint dup-id baseline, sweep roster and ci.toml at the SilkRoad fold (62c2650)
+
+
+### Internal
+
+- Save_continue_e2e two-phase E2E (save-continue) (e2818f3)
+
+- **tests**: Colonybay_fold_gate pins the Coastal fold file contract (cddaf07)
+
+- **tests**: Trade_campaign_gate pins the merged-campaign contract (RED pre-merge) (5ccd094)
+
+- **gfx**: Saltpan + piratesloop generators and byte gates; drop PirateSloop allowlist debt (3e1a175)
+
+- **changelog**: Update for v375 [skip ci] (f4d4b3d)
+
+- **changelog**: Update for v375 [skip ci] (3146230)
+
+- **version**: Bump content version to 4.9.11.13 for v376 (bcc1a73)
+
+- **changelog**: Fix DE-mnemonic citation to cycle-189 evidence (audit M3) (efe576a)
+
+
+### Other
+
+- Revert "chore(changelog): update for v375 [skip ci]"
+
+This reverts commit f4d4b3dde9d7d42579b772e77be1354af25b6496. (51ab431)
+
+- Reconcile master (v375 changelog bot commits) into development for the v376 cut (352c37a)
+
 <!-- git-cliff prepends new release sections above this line. -->
