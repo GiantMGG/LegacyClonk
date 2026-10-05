@@ -88,7 +88,9 @@ add_test_target(C4NetIOIPv6Loopback
 		"${CMAKE_SOURCE_DIR}/src/StdSync.cpp"
 	LIBRARIES ${C4NETIO_WIN_LIBS}
 )
-set_tests_properties(C4NetIOIPv6Loopback PROPERTIES TIMEOUT 30)
+# "SKIPPED:" is deliberately unanchored: the Catch2 v3 banner is path-prefixed
+# ("<file>:155: SKIPPED:"), so an anchored "^SKIP: " would never match it.
+set_tests_properties(C4NetIOIPv6Loopback PROPERTIES TIMEOUT 30 SKIP_REGULAR_EXPRESSION "SKIPPED:")
 
 # The standalone C4NetIO test targets compile src/C4NetIO.cpp, whose include
 # chain reaches C4ResStrTable.h -> the generated string-table header. Without
