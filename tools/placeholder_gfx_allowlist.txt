@@ -26,7 +26,6 @@ Objects.c4d/Environment.c4d/Lenseflare.c4d                      # lens-flare fle
 # --- Survey-missed INVISIBLE_ACTION debt (fully transparent sampled facets) ---
 Airships.c4d/Vehicles.c4d/HotAirBalloon.c4d                     # transparent action facets — debt
 Airships.c4d/Vehicles.c4d/Steampack.c4d                         # transparent Idle facet — debt
-Coastal.c4d/Dock.c4d                                            # transparent Idle facet — debt
 Coastal.c4d/Fog.c4d                                             # transparent Idle facet — debt
 Coastal.c4d/Lighthouse.c4d                                      # transparent Idle facet — debt
 Coastal.c4d/Tide.c4d                                            # transparent Idle facet — debt

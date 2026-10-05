@@ -1080,6 +1080,17 @@ if(PYTHON3 AND EXISTS "${LEGACYCLONK_CONTENT_DIR}/OceanTrade.c4d/PirateSloop.c4d
 	set_tests_properties(gfx_check_piratesloop PROPERTIES TIMEOUT 60 LABELS "lint")
 endif()
 
+# --- Dock art byte gate (cycle 194, release blocker v376: the Colony Bay
+# dock was invisible, a 96-byte transparent placeholder; the committed
+# Graphics.png must byte-match gen_dock_gfx.py --check output).
+if(PYTHON3 AND EXISTS "${LEGACYCLONK_CONTENT_DIR}/Coastal.c4d/Dock.c4d/Graphics.png")
+	add_test(NAME gfx_check_dock
+		COMMAND "${PYTHON3}" "${CMAKE_SOURCE_DIR}/tools/gen_dock_gfx.py"
+			"${LEGACYCLONK_CONTENT_DIR}/Coastal.c4d/Dock.c4d/Graphics.png" --check
+		WORKING_DIRECTORY "${CMAKE_BINARY_DIR}")
+	set_tests_properties(gfx_check_dock PROPERTIES TIMEOUT 60 LABELS "lint")
+endif()
+
 # --- Playtest sweep (spec scenario-playtest-harness, cycle 97) -----------
 # Runs every shipped playtest scenario (ci.toml [groups.content] set,
 # minus Tests.c4f) headless for N ticks via tools/playtest_sweep.py.
