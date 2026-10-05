@@ -1091,6 +1091,18 @@ if(PYTHON3 AND EXISTS "${LEGACYCLONK_CONTENT_DIR}/Coastal.c4d/Dock.c4d/Graphics.
 	set_tests_properties(gfx_check_dock PROPERTIES TIMEOUT 60 LABELS "lint")
 endif()
 
+# --- Lighthouse art byte gate (cycle 196, frontier-mvp ART-PREREQ LHGT:
+# the last invisible Coastal def was the beacon tower, a 96-byte
+# transparent placeholder; the committed Graphics.png must byte-match
+# gen_lighthouse_gfx.py --check output).
+if(PYTHON3 AND EXISTS "${LEGACYCLONK_CONTENT_DIR}/Coastal.c4d/Lighthouse.c4d/Graphics.png")
+	add_test(NAME gfx_check_lighthouse
+		COMMAND "${PYTHON3}" "${CMAKE_SOURCE_DIR}/tools/gen_lighthouse_gfx.py"
+			"${LEGACYCLONK_CONTENT_DIR}/Coastal.c4d/Lighthouse.c4d/Graphics.png" --check
+		WORKING_DIRECTORY "${CMAKE_BINARY_DIR}")
+	set_tests_properties(gfx_check_lighthouse PROPERTIES TIMEOUT 60 LABELS "lint")
+endif()
+
 # --- Playtest sweep (spec scenario-playtest-harness, cycle 97) -----------
 # Runs every shipped playtest scenario (ci.toml [groups.content] set,
 # minus Tests.c4f) headless for N ticks via tools/playtest_sweep.py.
