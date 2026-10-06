@@ -1024,6 +1024,34 @@ if(EXISTS "${LEGACYCLONK_CONTENT_DIR}/WeatherEvents.c4d/Tests.c4f/ArenaBotRound.
 		FAIL_REGULAR_EXPRESSION "FatalError|\\[error\\]|\\[fatal\\]")
 endif()
 
+# --- Grabstein-Rallye bot-race smoke (cycle 200, roadmap grabstein-rallye-prototype) ---
+# Four TestPlayer fixtures run the GrabsteinRallye course: the twin's
+# GRBotDriver effect drives all four cursors (real MoveTo commands +
+# stuck-watchdog DigFreeRect assist), the leader crossing the finish
+# column hands the round to RACE+RVLR, and the twin asserts the dug-pixel
+# telemetry (GRHM:lap=1 total>0). NO "Smoke" suffix in the scenario name:
+# the Tests.c4f glob must not double-register it (arena_bot_round_smoke
+# precedent) - a glob entry would run it playerless at 350 ticks,
+# permanently RED. Seed 200 pins the seam layout (RNG-fed
+# DrawMaterialQuad positions) and the PXS settles of the instable Sand.
+if(EXISTS "${LEGACYCLONK_CONTENT_DIR}/WeatherEvents.c4d/Tests.c4f/GrabsteinRallyeRound.c4s")
+	add_test(NAME grabstein_rallye_round_smoke
+		COMMAND "${PYTHON3}" "${CMAKE_SOURCE_DIR}/tools/run_engine_headless.py"
+			"$<TARGET_FILE:clonk>" --console --smoke-run 2100 --frame-rate-cap 1000
+			--parameter "Seed=200"
+			--smoke-player-fixture "${CMAKE_SOURCE_DIR}/tests/fixtures/TestPlayer.c4p"
+			--smoke-player-fixture "${CMAKE_SOURCE_DIR}/tests/fixtures/TestPlayer.c4p"
+			--smoke-player-fixture "${CMAKE_SOURCE_DIR}/tests/fixtures/TestPlayer.c4p"
+			--smoke-player-fixture "${CMAKE_SOURCE_DIR}/tests/fixtures/TestPlayer.c4p"
+			-s "${LEGACYCLONK_CONTENT_DIR}/WeatherEvents.c4d/Tests.c4f/GrabsteinRallyeRound.c4s"
+		WORKING_DIRECTORY "${CMAKE_BINARY_DIR}")
+	set_tests_properties(grabstein_rallye_round_smoke PROPERTIES
+		TIMEOUT 240
+		LABELS "smoke"
+		PASS_REGULAR_EXPRESSION "GrabsteinRallyeRound PASS"
+		FAIL_REGULAR_EXPRESSION "FatalError|\\[error\\]|\\[fatal\\]")
+endif()
+
 # Mechanical file gate for the task-1/task-2 arena content contracts the
 # bot smoke depends on (would have caught the KILC regression and the
 # kitchen-sink store revert before any engine run):
