@@ -1034,10 +1034,13 @@ endif()
 # precedent) - a glob entry would run it playerless at 350 ticks,
 # permanently RED. Seed 200 pins the seam layout (RNG-fed
 # DrawMaterialQuad positions) and the PXS settles of the instable Sand.
+# Phase B T3: the run is now a 3-leg cup (legs 1-2 re-arm the course,
+# leg 3 ends engine-owned), so the budget grows from 2100 to 4200 ticks
+# (3 legs ~2500 incl. the engine-end sequence, headroom x1.7).
 if(EXISTS "${LEGACYCLONK_CONTENT_DIR}/WeatherEvents.c4d/Tests.c4f/GrabsteinRallyeRound.c4s")
 	add_test(NAME grabstein_rallye_round_smoke
 		COMMAND "${PYTHON3}" "${CMAKE_SOURCE_DIR}/tools/run_engine_headless.py"
-			"$<TARGET_FILE:clonk>" --console --smoke-run 2100 --frame-rate-cap 1000
+			"$<TARGET_FILE:clonk>" --console --smoke-run 4200 --frame-rate-cap 1000
 			--parameter "Seed=200"
 			--smoke-player-fixture "${CMAKE_SOURCE_DIR}/tests/fixtures/TestPlayer.c4p"
 			--smoke-player-fixture "${CMAKE_SOURCE_DIR}/tests/fixtures/TestPlayer.c4p"
