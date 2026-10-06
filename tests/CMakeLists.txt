@@ -392,6 +392,7 @@ set(SMOKE_SEED_PIN_EscapeFurnaceSmoke 1472)
 set(SMOKE_SEED_PIN_EscapeUndertowSmoke 1473)
 set(SMOKE_SEED_PIN_SturmfrontSmoke 175)
 set(SMOKE_SEED_PIN_AutoTasksSmoke 180)
+set(SMOKE_SEED_PIN_FrontierSmoke 199)
 
 foreach(scenario ${SMOKE_SCENARIOS})
   get_filename_component(scenario_name "${scenario}" NAME_WE)  # e.g. EventSmoke
@@ -411,6 +412,26 @@ foreach(scenario ${SMOKE_SCENARIOS})
     PASS_REGULAR_EXPRESSION "${scenario_name} PASS"
     FAIL_REGULAR_EXPRESSION "FatalError|\\[error\\]|\\[fatal\\]")
 endforeach()
+
+# --- Frontier Outset boot gate (cycle 199, roadmap frontier-mvp) -----------
+# Boots the REAL Outset.c4s (the Free Game pin) under --smoke-run 350 with
+# one TestPlayer fixture and PASSes only when the dealt-card objective
+# lines appear. The glob-registered smoke_FrontierSmoke covers the
+# compressed mechanic proofs; this entry is the "start Frontier from the
+# menu" leg (explicit-entry precedent: parameter_override_smoke).
+if(EXISTS "${LEGACYCLONK_CONTENT_DIR}/Worlds.c4f/Outset.c4s/Script.c")
+	add_test(NAME frontier_outset_boot
+		COMMAND "${PYTHON3}" "${CMAKE_SOURCE_DIR}/tools/run_engine_headless.py"
+			"$<TARGET_FILE:clonk>" --console --smoke-run 350
+			--smoke-player-fixture "${CMAKE_SOURCE_DIR}/tests/fixtures/TestPlayer.c4p"
+			-s "${LEGACYCLONK_CONTENT_DIR}/Worlds.c4f/Outset.c4s"
+		WORKING_DIRECTORY "${CMAKE_BINARY_DIR}")
+	set_tests_properties(frontier_outset_boot PROPERTIES
+		TIMEOUT 90
+		LABELS "smoke"
+		PASS_REGULAR_EXPRESSION "CURRENT GOAL"
+		FAIL_REGULAR_EXPRESSION "FatalError|\\[error\\]|\\[fatal\\]")
+endif()
 
 # --- Menu-walk smoke (spec 2026-09-17-menu-walk-smoke, cycle 131) -----------
 # Six-leg new-player-walk driver (tools/menu_walk_smoke.py). Console builds
