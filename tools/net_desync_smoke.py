@@ -135,6 +135,7 @@ def parse_sync_checks(log_text: str) -> dict[int, dict[str, int]]:
     pattern = re.compile(
         r"SyncCheck: Frm=(\d+) Ctrl=(\d+) Rn3=(\d+) Rnc=(\d+) "
         r"Cpx=(\d+) PXS=(\d+) MMi=(\d+) Obc=(\d+) Oei=(\d+) Sct=(\d+)"
+        r"(?: LGD=([0-9a-f]{16}) PXD=([0-9a-f]{16}) MMD=([0-9a-f]{16}))?"
     )
     result: dict[int, dict[str, int]] = {}
     for line in log_text.splitlines():
@@ -152,6 +153,10 @@ def parse_sync_checks(log_text: str) -> dict[int, dict[str, int]]:
                 "Oei": int(m.group(9)),
                 "Sct": int(m.group(10)),
             }
+            if m.group(11) is not None:
+                result[frame]["LGD"] = int(m.group(11), 16)
+                result[frame]["PXD"] = int(m.group(12), 16)
+                result[frame]["MMD"] = int(m.group(13), 16)
     return result
 
 def compare_sync_checks(host_checks: dict[int, dict[str, int]],
@@ -178,6 +183,23 @@ def compare_sync_checks(host_checks: dict[int, dict[str, int]],
                     f"(host={h[field]} client={c.get(field)})"
                 )
     return divergences
+
+def keep_failed_artifacts(
+    dest_dir: str | None,
+    host_log: tempfile.NamedTemporaryFile | None,
+    client_log: tempfile.NamedTemporaryFile | None,
+) -> None:
+    """Copy peer logs into dest_dir before temp-log deletion (RED banking)."""
+    if not dest_dir:
+        return
+    dest = Path(dest_dir)
+    dest.mkdir(parents=True, exist_ok=True)
+    for lf in (host_log, client_log):
+        if lf is None:
+            continue
+        src = Path(lf.name)
+        if src.is_file():
+            shutil.copy2(src, dest / src.name)
 
 def kill_proc(proc: subprocess.Popen | None) -> None:
     """Terminate then SIGKILL a process if still running."""
@@ -223,6 +245,9 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--state-hash", action="store_true",
                         help="Enable per-tick state-hash comparison via "
                              "--log-sync-checks engine flag.")
+    parser.add_argument("--keep-failed-artifacts", metavar="DIR", default=None,
+                        help="On failure, copy host/client peer logs into DIR "
+                             "before temp-log deletion (RED evidence banking).")
     args = parser.parse_args(argv)
 
     # --- Validate inputs -------------------------------------------------
@@ -299,6 +324,8 @@ def main(argv: list[str] | None = None) -> int:
                   f"{REF_SERVER_PORT} within 15s")
             print(f"Host exit code: {host_exit}")
             print(f"--- Host log (last 20 lines) ---\n{tail(host_out)}")
+            keep_failed_artifacts(
+                args.keep_failed_artifacts, host_log_file, client_log_file)
             return 1
 
         # The reference server port opening does not guarantee the host has
@@ -385,6 +412,8 @@ def main(argv: list[str] | None = None) -> int:
             print(tail(host_out))
             print("--- Client log (last 20 lines) ---")
             print(tail(client_out))
+            keep_failed_artifacts(
+                args.keep_failed_artifacts, host_log_file, client_log_file)
             return 1
 
         print("PASS: both peers exited 0 with no desync.")
