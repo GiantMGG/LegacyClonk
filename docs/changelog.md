@@ -1926,4 +1926,40 @@ This reverts commit f4d4b3dde9d7d42579b772e77be1354af25b6496. (51ab431)
 
 - Reconcile master (v375 changelog bot commits) into development for the v376 cut (352c37a)
 
+## [377] - 2026-10-07
+
+### Added
+
+- **sync**: Position-resolved FNV-1a-64 state digests in SyncCheck (5c2a881)
+
+- **tools**: Net_desync_smoke digest columns + --keep-failed-artifacts (36d76c1)
+
+
+### Fixed
+
+- **lint**: Baseline cycle-199 GRNY granary twins in dup_id_baseline (9a43742)
+
+
+### Internal
+
+- **changelog**: Update for v376 [skip ci] (c056a9d)
+
+- **netio**: SKIP on IPv6 port-probe exhaustion (Windows Hyper-V UDP ranges) (93ceff4)
+
+- **gfx**: Lighthouse generator + byte gate + allowlist shrink (3a4a03d)
+
+- **ctest**: SKIP_REGULAR_EXPRESSION on C4NetIOIPv6Loopback (skip visibility) (ced33ec)
+
+- **ctest**: FrontierSmoke seed pin + frontier_outset_boot entry (af9a9e7)
+
+- **ctest**: Grabstein_rallye_round_smoke entry (4 fixtures, seed 200) (059e473)
+
+- **ctest**: Grabstein smoke budget 4200 for 3-leg cup (50ef367)
+
+- **record**: SyncCheck digest round-trip + FNV-1a-64 KAT (59f97a3)
+
+- **version**: Bump content version to 4.9.11.14 for v377 (05a7eae)
+
+- **v377**: Audit fix - drop test-twin-only stall-deadline claim, tighten leg-3 + desync wording (2a5a0ed)
+
 <!-- git-cliff prepends new release sections above this line. -->
