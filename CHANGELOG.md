@@ -1962,4 +1962,14 @@ This reverts commit f4d4b3dde9d7d42579b772e77be1354af25b6496. (51ab431)
 
 - **v377**: Audit fix - drop test-twin-only stall-deadline claim, tighten leg-3 + desync wording (2a5a0ed)
 
+## [378] - 2026-10-08
+
+### Internal
+
+- **changelog**: Update for v377 [skip ci] (ebed5d9)
+
+- **version**: Bump content version to 4.9.11.15 for v378 (fa933a7)
+
+- **v378**: Audit fix - relabel long-boot provenance, add shipped-flood proof note (e480a19)
+
 <!-- git-cliff prepends new release sections above this line. -->
