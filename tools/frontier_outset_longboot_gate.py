@@ -11,6 +11,8 @@ the shipped Outset logs on stdout:
   FRMT:wy_end=210                            (recede back to base, Script.c:204)
   FRMT:c3_verdict=...                        (drought verdict card, Script.c:343)
   FRMT:outcome=...                           (win/loss card, Script.c:369)
+  FRMT:c5_resolved=...                       (wolf-night verdict card, Script.c:480)
+  FRMT:c6_resolved=...                       (storm verdict card, Script.c:500)
 
 Value pins come from the v378-recorded baseline (scratch/205/t2c/long-boot.log,
 natural pace, 432 s wall, wy_peak=170, wy_end=210, c3_verdict=lost banked=0,
@@ -55,6 +57,8 @@ ASSERTS = [
     ("wy_end pin",            re.compile(r"FRMT:wy_end=210\b")),
     ("c3_verdict card",       re.compile(r"FRMT:c3_verdict=")),
     ("outcome card",          re.compile(r"FRMT:outcome=")),
+    ("c5_resolved card",      re.compile(r"FRMT:c5_resolved=")),
+    ("c6_resolved card",      re.compile(r"FRMT:c6_resolved=")),
 ]
 ERROR_LOG_RE = re.compile(r"FatalError|\[error\]|\[fatal\]")
 
