@@ -58,7 +58,6 @@ ASSERTS = [
 ]
 ERROR_LOG_RE = re.compile(r"FatalError|\[error\]|\[fatal\]")
 
-
 def boot(engine, content_dir):
     """Spawn the engine once; return (rc, log) or (None, msg) on timeout."""
     cmd = [
@@ -78,7 +77,6 @@ def boot(engine, content_dir):
         return None, "<TIMEOUT after %ds>" % SPAWN_TIMEOUT
     log = (proc.stdout or "") + (proc.stderr or "")
     return proc.returncode, log
-
 
 def main():
     parser = argparse.ArgumentParser(description="frontier_outset_longboot gate driver")
@@ -122,7 +120,6 @@ def main():
         return 1
     print("frontier_outset_longboot PASS")
     return 0
-
 
 if __name__ == "__main__":
     sys.exit(main())
