@@ -433,6 +433,29 @@ if(EXISTS "${LEGACYCLONK_CONTENT_DIR}/Worlds.c4f/Outset.c4s/Script.c")
 		FAIL_REGULAR_EXPRESSION "FatalError|\\[error\\]|\\[fatal\\]")
 endif()
 
+# --- Frontier Outset long-boot gate (cycle 208, v378 audit M2) -----------
+# Permanent gate for the v378-shipped Outset flood (40-px rise, C3 verdict,
+# recede): boots the real Outset.c4s for the full 16000-tick run and asserts
+# the FRMT flood telemetry so the next release cites a gate, not the
+# scratch/205/t2c/long-boot.log recording. Value pins from that recording
+# (natural pace 432 s: wy_peak=170, wy_end=210, verdict lost, outcome LOSE,
+# exit 0). D1 (cycle 208): FRMT lines identical at --frame-rate-cap 1000
+# (16 s vs 431 s wall; pxs_perf_gate precedent), so the gate runs capped.
+# Driver owns launch/capture/assertions (menu_walk_smoke, scenario_link_gate
+# precedent); CTest PASS/FAIL regexes are defense-in-depth.
+if(EXISTS "${LEGACYCLONK_CONTENT_DIR}/Worlds.c4f/Outset.c4s/Script.c")
+	add_test(NAME frontier_outset_longboot
+		COMMAND "${PYTHON3}" "${CMAKE_SOURCE_DIR}/tools/frontier_outset_longboot_gate.py"
+			"--engine" "$<TARGET_FILE:clonk>"
+			"--content-dir" "${LEGACYCLONK_CONTENT_DIR}"
+		WORKING_DIRECTORY "${CMAKE_BINARY_DIR}")
+	set_tests_properties(frontier_outset_longboot PROPERTIES
+		TIMEOUT 600
+		LABELS "smoke"
+		PASS_REGULAR_EXPRESSION "frontier_outset_longboot PASS"
+		FAIL_REGULAR_EXPRESSION "FatalError|\\[error\\]|\\[fatal\\]")
+endif()
+
 # --- Menu-walk smoke (spec 2026-09-17-menu-walk-smoke, cycle 131) -----------
 # Six-leg new-player-walk driver (tools/menu_walk_smoke.py). Console builds
 # only (headless engine spawns). Deliberately NO FAIL_REGULAR_EXPRESSION:

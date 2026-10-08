@@ -90,7 +90,12 @@ jobs:
           ASAN_OPTIONS: 'detect_leaks=0:abort_on_error=1:halt_on_error=0:symbolize=1:allocator_may_return_null=1'
           UBSAN_OPTIONS: 'print_stacktrace=1:halt_on_error=0'
         run: |
-          ctest --test-dir build -E 'smoke|net_' --output-on-failure -j2
+          # frontier_outset_longboot excluded (cycle-208 D4): the 16000-tick
+          # Outset long boot takes 803 s wall under ASan (Debug build) vs
+          # 16.5 s native — past its 600 s CTest TIMEOUT and too heavy for
+          # this 30-min job. Keep the exclusion additive; smoke/net_ semantics
+          # unchanged.
+          ctest --test-dir build -E 'smoke|net_|frontier_outset_longboot' --output-on-failure -j2
 
       - name: "Upload LastTest.log"
         if: failure()
@@ -167,7 +172,11 @@ jobs:
           ASAN_OPTIONS: 'detect_leaks=0:abort_on_error=1:halt_on_error=0:symbolize=1:allocator_may_return_null=1'
           UBSAN_OPTIONS: 'print_stacktrace=1:halt_on_error=0'
         run: |
-          ctest --test-dir build --output-on-failure --no-tests=error --timeout 180 -j2
+          # frontier_outset_longboot excluded (cycle-208 D4, same rationale as
+          # the asan-pr lane): the 803 s ASan boot exceeds its own 600 s
+          # TIMEOUT (per-test TIMEOUT wins over this lane's --timeout 180);
+          # the exclusion keeps the full-suite loop red-free.
+          ctest --test-dir build -E frontier_outset_longboot --output-on-failure --no-tests=error --timeout 180 -j2
           ctest --test-dir build -R net_desync_smoke --timeout 600 -j1
 
       - name: "Upload LastTest.log"
