@@ -9,7 +9,10 @@ both dealt cards won in ONE round, with the crew standing:
   FRMT:c5_resolved=won crew=1        (3 wolf nights, no clonk lost)
   FRMT:c6_resolved=won mill=1 granary=1   (storm: mill + granary standing)
 
-Recipe (pinned seed 201, proven 19/19 across drive cadences):
+Recipe (pinned seed 201; preserved transcripts under scratch/210/gate/ —
+final-recipe runs are 15/15 won: famE seed-201 12/12 across drive cadences
+0.02-0.1 s plus famF 3/3; the earlier 8-decoy famD trio (1/3) is what
+motivated the clonk decoys in step 3):
   1. Construct order on the auto-found site right after FRMT:grny_spawn.
      The builder completes the mill (~t=1600) and is squashed by the
      materializing solid mask — unavoidable single-clonk mechanics.
@@ -109,13 +112,13 @@ def run(engine, content_dir, out_log):
                                 encoding="utf-8", errors="replace")
     except OSError as e:
         logf.close()
+        shutil.rmtree(workdir, ignore_errors=True)
         return None, "spawn error: %s" % e
 
     sent = {"order": False, "prespawn": False, "decoys": False}
     grny_xy = None
     mill_xy = None
     decoy_queue = list(DECOY_OFFSETS)
-    n_decoy_markers = 0
     last_len = 0
     t0 = time.time()
     deadline = t0 + SPAWN_TIMEOUT
@@ -146,7 +149,6 @@ def run(engine, content_dir, out_log):
                                   r"cx=-?\d+ cy=-?\d+ ax=(-?\d+) ay=(-?\d+)", ln)
                     if m and m.group(1) != "0":
                         mill_xy = (int(m.group(1)), int(m.group(2)))
-                    n_decoy_markers += len(re.findall(r"\[info\] MILLDRV:decoy\b", ln))
             # Decoys: mill-anchor first (4), then granary- + clonk-anchor (8)
             if not sent["decoys"] and decoy_queue and mill_xy:
                 ox, oy = decoy_queue.pop(0)
@@ -195,7 +197,8 @@ def main():
 
     engine = os.path.abspath(args.engine)
     content_dir = os.path.abspath(args.content_dir)
-    out_log = os.path.join(tempfile.gettempdir(), "frontier_outset_construct_gate.log")
+    out_log = os.path.join(tempfile.gettempdir(),
+                           "frontier_outset_construct_gate_%d.log" % os.getpid())
     failures = []
 
     rc, log = run(engine, content_dir, out_log)
@@ -221,9 +224,11 @@ def main():
         else:
             print("assert mill completed (con=100): FAIL (no con=100 telemetry)")
             failures.append("assert con=100")
+        # DECOY_RE is an any-count presence check; the >=8 bound is asserted
+        # separately via n_decoy_markers_ok right below.
         for name, pat in (("drive order marker", ORDER_RE),
                           ("drive prespawn marker", PRESP_RE),
-                          ("drive decoy markers (>=8)", DECOY_RE),
+                          ("drive decoy markers", DECOY_RE),
                           ("night-3 dawn crew=1", DAWN3_CREW_RE)):
             if pat.search(log):
                 print("assert %s: PASS" % name)
