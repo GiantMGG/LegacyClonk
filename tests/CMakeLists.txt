@@ -395,6 +395,7 @@ set(SMOKE_SEED_PIN_AutoTasksSmoke 180)
 set(SMOKE_SEED_PIN_FrontierSmoke 199)
 set(SMOKE_SEED_PIN_WolfNightsSmoke 199)
 set(SMOKE_SEED_PIN_StormMillSmoke 199)
+set(SMOKE_SEED_PIN_FloodedCrownSmoke 199)
 
 foreach(scenario ${SMOKE_SCENARIOS})
   get_filename_component(scenario_name "${scenario}" NAME_WE)  # e.g. EventSmoke
