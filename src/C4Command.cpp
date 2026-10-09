@@ -2383,6 +2383,17 @@ void C4Command::Call()
 	// The Finish call being misled to the freshly created Build command (by
 	// chance, the this-pointer was simply crap at the time) was reason for
 	// the latest sync losses in 4.62.
+
+	// C4CMD_Call semantics (honest idiom, pinned by CallSemanticsSmoke):
+	// - Finish(true) PRECEDES the callee by design, so the command always
+	//   succeeds-finishes before Target->Call() is even invoked.
+	// - The callee's return value is never read; even if the called function
+	//   returns zero it cannot be turned into a failure here.
+	// - Consequently ~<Text>Failed is effectively unreachable for Call
+	//   commands: the only failure triggers are the degenerate early-outs
+	//   above (empty function name / no target), and CallFailed()'s guard
+	//   suppresses its own function call in exactly those cases, printing
+	//   the standard localized failure message instead.
 }
 
 void C4Command::CompileFunc(StdCompiler *pComp)
