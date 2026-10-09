@@ -458,6 +458,29 @@ if(EXISTS "${LEGACYCLONK_CONTENT_DIR}/Worlds.c4f/Outset.c4s/Script.c")
 		FAIL_REGULAR_EXPRESSION "FatalError|\\[error\\]|\\[fatal\\]")
 endif()
 
+# --- Frontier Outset construct gate (cycle 210, frontier-cards-c5c6) ------
+# Permanent gate for the C5/C6 winning leg: drives the REAL Outset.c4s
+# round headless through the engine's stdin /script seam (one TestPlayer
+# plus a parked second crew clonk plus SGNL lightning-decoy poles) and
+# PASSes only when BOTH dealt cards resolve won in ONE round:
+#   FRMT:c5_resolved=won crew=1  AND  FRMT:c6_resolved=won mill=1 granary=1
+# Pinned seed 201 (cycle-210 probes: 19/19 across drive cadences; the
+# decoys remove the storm-lightning RNG lottery that flips mill/granary
+# burns run to run). Driver owns launch/capture/assertions (longboot
+# precedent); CTest PASS/FAIL regexes are defense-in-depth.
+if(EXISTS "${LEGACYCLONK_CONTENT_DIR}/Worlds.c4f/Outset.c4s/Script.c")
+	add_test(NAME frontier_outset_construct_gate
+		COMMAND "${PYTHON3}" "${CMAKE_SOURCE_DIR}/tools/frontier_outset_construct_gate.py"
+			"--engine" "$<TARGET_FILE:clonk>"
+			"--content-dir" "${LEGACYCLONK_CONTENT_DIR}"
+		WORKING_DIRECTORY "${CMAKE_BINARY_DIR}")
+	set_tests_properties(frontier_outset_construct_gate PROPERTIES
+		TIMEOUT 600
+		LABELS "smoke"
+		PASS_REGULAR_EXPRESSION "frontier_outset_construct_gate PASS"
+		FAIL_REGULAR_EXPRESSION "FatalError|\\[error\\]|\\[fatal\\]")
+endif()
+
 # --- Menu-walk smoke (spec 2026-09-17-menu-walk-smoke, cycle 131) -----------
 # Six-leg new-player-walk driver (tools/menu_walk_smoke.py). Console builds
 # only (headless engine spawns). Deliberately NO FAIL_REGULAR_EXPRESSION:
