@@ -18,7 +18,7 @@ judge-lock-wait.
 """
 import argparse, base64, json, os, re, subprocess, sys, tempfile, urllib.error, urllib.request
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from vision_qa import (DEFAULT_HOST, DEFAULT_MODEL, FIXTURE_JPG, FLAT_RGB,
+from vision_qa import (DEFAULT_HOST, DEFAULT_MODEL, FIXTURE_JPG,
                        FLAT_H, FLAT_W, JudgeError, JudgeLockTimeout,
                        judge_lock, kit_api_key, make_ask, majority,
                        png_decode, render_b64, strip_think, yes_first)
@@ -26,6 +26,12 @@ from vision_qa import (DEFAULT_HOST, DEFAULT_MODEL, FIXTURE_JPG, FLAT_RGB,
 FRAME_RATE_CAP, SMOKE_TICKS, TAGS_TIMEOUT, FLAT_SCALE = 1000, 350, 20, 8
 SIDECAR_KEYS = {"tick", "frame_counter", "view", "camera_source", "players",
                 "objects", "capture"}  # full P5 key set (spec s1)
+# Flat negative control color. Cycle-108 used vision_qa's FLAT_RGB brown;
+# the 2026-10-11 KIT repoint (glm-flash) reads that brown expanse as "soil"
+# -> terrain=True -> ORACLE FAIL (scratch/ptv-flat-color-probe.py). Magenta
+# is unambiguous: no terrain material, no sky, no figures (probe-verified:
+# brown terrain=True; magenta/gray terrain=False; white/black sky=True).
+PTV_FLAT_RGB = (255, 0, 255)
 # Sky wording accepts black sky/space: above terrain the composed sky
 # renders black (Surface32 palette[0], engine-inherent -- Task 3 finding).
 SCENE_QUESTION = ("You are judging a diagnostic screenshot from a 2D "
@@ -263,7 +269,7 @@ def run_oracle(ask3, record):
                        "format_fallback": fb}
     fail = None if photo_ok else (f"photo control: expected terrain=True "
         f"figures>=1 sky=False, got {parsed}")
-    flat = [[(*FLAT_RGB, 255)] * FLAT_W for _ in range(FLAT_H)]
+    flat = [[(*PTV_FLAT_RGB, 255)] * FLAT_W for _ in range(FLAT_H)]
     parsed, raw, fb = ask3(render_b64(flat, FLAT_SCALE))
     print(f"[oracle 2] flat: {raw}", flush=True)
     flat_ok = (parsed.get("terrain") is False and parsed.get("figures") == 0
@@ -460,7 +466,10 @@ def main():
     # Only truth contradictions can RED (feature/full); full also fails on
     # an unreadable battery majority.
     if not oracle_ok:
-        verdict, code = "ORACLE FAIL", 0
+        # Broken instrument: exit 2 (NOT 0) so ctest shows Failed — an
+        # untrusted verdict must never count as a green entry (owner
+        # directive 2026-10-11: playtest vision is first-class).
+        verdict, code = "ORACLE FAIL", 2
     elif args.gate_mode == "advisory":
         verdict, code = "ADVISORY", 0
     elif contr:

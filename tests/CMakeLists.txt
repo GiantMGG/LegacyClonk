@@ -1270,7 +1270,9 @@ endif()
 # below makes ctest count the entry as skipped (still exit 0) — CI stays
 # green without the judge. The loop machine runs --gate-mode feature/full
 # manually for real gating; advisory is the default so verdicts are recorded
-# even when a judge exists.
+# even when a judge exists. A broken instrument is LOUD by design (owner
+# directive 2026-10-11: playtest vision is first-class): ORACLE FAIL exits 2
+# so ctest reports Failed instead of a false-green "Passed".
 if(PYTHON3 AND USE_CONSOLE AND EXISTS "${LEGACYCLONK_CONTENT_DIR}/WeatherEvents.c4d/Tests.c4f/VisionShotSmoke.c4s")
 	add_test(NAME playtest_vision
 		COMMAND "${PYTHON3}" "${CMAKE_SOURCE_DIR}/tools/playtest_vision.py"
