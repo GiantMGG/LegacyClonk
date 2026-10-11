@@ -2,15 +2,15 @@
 """Hermetic selftest for the vision-judge lock (cycle 121, spec
 vision-judge-serialization s5).
 
-No GPU, no ollama, no engine, no content checkout: a fake-ollama stub
-(ThreadingHTTPServer on 127.0.0.1, ephemeral port — the net_* smoke
-precedent) serves /api/tags and /api/chat, recording per-request
+No GPU, no ollama, no engine, no content checkout: a fake OpenAI-compatible
+stub (ThreadingHTTPServer on 127.0.0.1, ephemeral port — the net_* smoke
+precedent) serves /models and /chat/completions, recording per-request
 (start, end) time.monotonic() pairs and the peak in-flight count.
 Two tools/vision_qa.py child batteries run against it sharing a private
 VQ_LOCK_PATH; the test asserts the second battery WAITS, not overlaps:
 
   1. both children exit 0 and print GATE PASS (the lock breaks nothing)
-  2. stub peak in-flight /api/chat == 1
+  2. stub peak in-flight /chat/completions == 1
   3. the recorded intervals, sorted, strictly non-overlap (every start
      >= previous end — all timestamps from one process, no clock skew)
   4. exactly one child output contains WAITING FOR JUDGE LOCK
@@ -21,7 +21,7 @@ concurrent judge use, so a green run of 1-3 cannot be vacuous (this is
 the safety net for the flock fd/GC silent-release trap, s4.3).
 
 Child staggering is event-driven: child B spawns only after child A's
-first /api/chat is in flight at the stub (A is then provably inside its
+first /chat/completions is in flight at the stub (A is then provably inside its
 judge region, holding the lock) — no python-startup jitter can flip
 which child waits.
 
@@ -107,13 +107,13 @@ def make_handler(state, canned):
             self.wfile.write(data)
 
         def do_GET(self):
-            if self.path == "/api/tags":
-                self._reply({"models": [{"name": "stub-qwen"}]})
+            if self.path == "/models":
+                self._reply({"data": [{"id": "stub-kit"}]})
             else:
                 self._reply({"error": "no such path " + self.path}, 404)
 
         def do_POST(self):
-            if self.path != "/api/chat":
+            if self.path != "/chat/completions":
                 self._reply({"error": "no such path " + self.path}, 404)
                 return
             length = int(self.headers.get("Content-Length", 0))
@@ -128,9 +128,21 @@ def make_handler(state, canned):
             # sleep under the lock would serialize requests HERE and mask
             # client-side overlap — the exact vacuity this test polices.
             time.sleep(CHAT_DELAY_S)
+            # OpenAI-style content parts: recover the plain prompt + the
+            # raw base64 (strip the data: prefix) so the canned-answer
+            # keys match vision_qa's render_b64/photo fixtures.
             msg = (body.get("messages") or [{}])[0]
-            prompt = msg.get("content", "")
-            image = (msg.get("images") or [""])[0]
+            prompt, image = "", ""
+            parts = msg.get("content")
+            if isinstance(parts, list):
+                for part in parts:
+                    if part.get("type") == "text":
+                        prompt = part.get("text", "")
+                    elif part.get("type") == "image_url":
+                        url = part.get("image_url", {}).get("url", "")
+                        image = url.split(";base64,", 1)[-1]
+            elif isinstance(parts, str):
+                prompt = parts
             answer = canned.get((prompt, image))
             if answer is None:
                 answer = DEFAULT_ANSWERS.get(prompt, "")
@@ -138,14 +150,13 @@ def make_handler(state, canned):
             with state.mutex:
                 state.in_flight -= 1
                 state.intervals.append((start, end))
-            self._reply({"model": body.get("model", "stub-qwen"),
-                         "message": {"role": "assistant", "content": answer},
-                         "done": True})
+            self._reply({"choices": [{"index": 0, "message": {
+                "role": "assistant", "content": answer}}]})
 
     return Handler
 
 class StubJudge(object):
-    """Fake ollama on an ephemeral loopback port; `with` starts/stops it."""
+    """Fake judge on an ephemeral loopback port; `with` starts/stops it."""
 
     def __init__(self):
         self.state = StubState()
@@ -174,7 +185,9 @@ class StubJudge(object):
 
 def child_env(lock_path, disable_lock=False):
     env = dict(os.environ)
-    env["VQ_ALLOW_DAYTIME"] = "1"  # window rule orthogonal to the lock
+    # Hermetic dummy key: the children authenticate against the stub with
+    # a bearer token that never leaves this process tree.
+    env["KIT_API_KEY"] = "stub-key"
     # Private lockfile: the selftest never contends with a real battery.
     env["VQ_LOCK_PATH"] = lock_path
     # Anti-vacuity control ONLY (spec s4.9) — never bypass contention.
@@ -183,7 +196,7 @@ def child_env(lock_path, disable_lock=False):
     return env
 
 def spawn_child(url, image, lock_path, disable_lock=False):
-    cmd = [sys.executable, CHILD, "--host", url, "--model", "stub-qwen",
+    cmd = [sys.executable, CHILD, "--host", url, "--model", "stub-kit",
            "--image", image, "--facet", "0,0,8,6", "--phases", "2",
            "--runs", "1", "--scale", "8", "--gate-mode", "feature"]
     return subprocess.Popen(cmd, env=child_env(lock_path, disable_lock),
@@ -192,7 +205,7 @@ def spawn_child(url, image, lock_path, disable_lock=False):
 
 def run_pair(stub, image, lock_path, disable_lock=False):
     """(ok, rc_a, rc_b, out_a, out_b). Child B spawns only after child
-    A's first /api/chat is in flight — A then holds the lock for sure,
+    A's first /chat/completions is in flight — A then holds the lock for sure,
     so the wait-line assertion carries no startup-jitter race."""
     a = spawn_child(stub.url, image, lock_path, disable_lock)
     seen = False
@@ -256,7 +269,7 @@ def main():
             check(rc_b == 0 and "GATE PASS" in out_b,
                   "child B exit 0 + GATE PASS")
             check(stub.state.max_in_flight == 1,
-                  "peak in-flight /api/chat == 1 (got "
+                  "peak in-flight /chat/completions == 1 (got "
                   + str(stub.state.max_in_flight) + ")")
             ints = sorted(stub.state.intervals)
             overlap = any(ints[i + 1][0] < ints[i][1]

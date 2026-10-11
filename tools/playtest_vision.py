@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
-"""playtest_vision.py -- Tier-2 playtest vision judge harness (cycle 108).
+"""playtest_vision.py -- Tier-2 playtest vision judge harness (cycle 108;
+repointed to the KIT complex model alias 2026-10-11).
 
 Spawns the console engine with --screenshot-at/--shot-size, deterministically
 validates the PNG + SceneTruth sidecar (judge-independent RED layer: artifact
 faults print "FAIL: artifact ..." and exit 1 before any judge contact), then
-runs an ollama scene-judge battery behind oracle controls (photo positive +
-flat-frame negatives). Stdlib only; imports the shared helpers from vision_qa.
-SKIP-exit-0 without ollama keeps CI green.
+runs a KIT complex-model scene-judge battery behind oracle controls (photo
+positive + flat-frame negatives). Stdlib only; imports the shared helpers
+from vision_qa. SKIP-exit-0 without key/endpoint/model keeps CI green.
 
 Gate modes: advisory = record-only exit 0; feature = RED only on truth
 contradictions (cross-check); full = contradictions RED + an unreadable
@@ -19,11 +20,10 @@ import argparse, base64, json, os, re, subprocess, sys, tempfile, urllib.error, 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from vision_qa import (DEFAULT_HOST, DEFAULT_MODEL, FIXTURE_JPG, FLAT_RGB,
                        FLAT_H, FLAT_W, JudgeError, JudgeLockTimeout,
-                       judge_lock, make_ask, majority, png_decode,
-                       qwen_window_closed, render_b64, strip_think,
-                       yes_first)
+                       judge_lock, kit_api_key, make_ask, majority,
+                       png_decode, render_b64, strip_think, yes_first)
 
-FRAME_RATE_CAP, SMOKE_TICKS, TAGS_TIMEOUT, FLAT_SCALE = 1000, 350, 5, 8
+FRAME_RATE_CAP, SMOKE_TICKS, TAGS_TIMEOUT, FLAT_SCALE = 1000, 350, 20, 8
 SIDECAR_KEYS = {"tick", "frame_counter", "view", "camera_source", "players",
                 "objects", "capture"}  # full P5 key set (spec s1)
 # Sky wording accepts black sky/space: above terrain the composed sky
@@ -46,6 +46,9 @@ SCENE_SCHEMA = {"type": "object",
                                "figures": {"type": "integer"},
                                "sky": {"type": "boolean"}},
                 "required": ["terrain", "figures", "sky"]}
+# (kept as documentation of the answer shape the tolerant parse_answer
+# expects; the structured-output request itself died with the ollama
+# protocol on the 2026-10-11 KIT repoint)
 
 # -- engine capture (run_scenario idiom verbatim from playtest_sweep) --------
 def run_capture(engine, scenario, shot_path, wdt, hgt, tick, timeout):
@@ -133,55 +136,45 @@ def validate_artifacts(png_path, sidecar_path, wdt, hgt, tick):
         return False, f"sidecar tick {sidecar.get('tick')} != requested {tick}"
     return True, sidecar
 
-# -- ollama judge: SKIP probe, structured format ask, tolerant parse --------
+# -- KIT judge: SKIP probe, plain-text ask, tolerant parse -------------------
 def judge_reachable(host, model):
-    """Probe /api/tags; prints SKIP and returns False when judge/model absent."""
+    """Probe /models; prints SKIP and returns False when key/endpoint/model
+    are absent."""
+    key = kit_api_key()
+    if key is None:
+        print("SKIP: no KIT API key (KIT_API_KEY env or key file)",
+              flush=True)
+        return False
     try:
-        with urllib.request.urlopen(host.rstrip("/") + "/api/tags",
-                                    timeout=TAGS_TIMEOUT) as r:
-            tags = json.loads(r.read())
+        req = urllib.request.Request(
+            host.rstrip("/") + "/models",
+            headers={"Authorization": "Bearer " + key})
+        with urllib.request.urlopen(req, timeout=TAGS_TIMEOUT) as r:
+            models = json.loads(r.read())
     except urllib.error.HTTPError as e:
         print(f"SKIP: judge reachability check failed (HTTP {e.code})",
               flush=True)
         return False
     except (urllib.error.URLError, OSError, ValueError) as e:
-        print(f"SKIP: ollama unreachable ({getattr(e, 'reason', e)})",
+        print(f"SKIP: judge endpoint unreachable ({getattr(e, 'reason', e)})",
               flush=True)
         return False
-    names = [m.get("name", "") for m in tags.get("models", [])]
-    if model not in names and model.lower() not in (n.lower() for n in names):
-        print(f"SKIP: model '{model}' not present in ollama tags", flush=True)
+    ids = [m.get("id", "") for m in models.get("data", [])]
+    if model not in ids and model.lower() not in (i.lower() for i in ids):
+        print(f"SKIP: model '{model}' not served by the judge endpoint",
+              flush=True)
         return False
     return True
 
 def make_ask3(host, model, timeout):
-    """ask3(image_b64) -> (parsed, raw, used_fallback). Sends the JSON-schema
-    `format` body; on rejection retries plain-text via make_ask and parses."""
-    plain = make_ask(host, model, timeout)  # fallback bounded by harness --timeout
-    # keep_alive 10m (cycle 121): serialized batteries run back-to-back;
-    # a bounded residency skips the inter-battery 27B cold reload without
-    # pinning VRAM forever (deliberately not -1).
-    body0 = {"model": model, "stream": False, "think": "high",
-             "keep_alive": "10m",
-             "format": SCENE_SCHEMA, "options": {"temperature": 0}}
+    """ask3(image_b64) -> (parsed, raw, used_fallback). Single plain-text
+    ask against the KIT OpenAI-compatible endpoint (the ollama `format`
+    JSON-schema ride-along died with the 2026-10-11 repoint); the tolerant
+    parse_answer handles prose around the JSON."""
+    plain = make_ask(host, model, timeout)
     def ask3(image_b64):
-        body = dict(body0, messages=[{"role": "user", "content": SCENE_QUESTION,
-                                      "images": [image_b64]}])
-        req = urllib.request.Request(
-            host.rstrip("/") + "/api/chat", data=json.dumps(body).encode(),
-            headers={"Content-Type": "application/json"})
-        try:
-            with urllib.request.urlopen(req, timeout=timeout) as r:
-                resp = json.loads(r.read())
-            raw = strip_think((resp.get("message") or {}).get("content", ""))
-            return parse_answer(raw), raw, False
-        except urllib.error.HTTPError as e:
-            print(f"[judge] structured format rejected (HTTP {e.code}) -- "
-                  f"falling back to plain-text ask", flush=True)
-            raw = plain(image_b64, SCENE_QUESTION)
-            return parse_answer(raw), raw, True
-        except (urllib.error.URLError, OSError, ValueError) as e:
-            raise JudgeError(f"ollama /api/chat failed: {e}") from e
+        raw = plain(image_b64, SCENE_QUESTION)
+        return parse_answer(raw), raw, True
     return ask3
 
 def _tf(v):
@@ -408,24 +401,19 @@ def main():
           f"capture={sidecar.get('capture')}", flush=True)
     record["sidecar"] = {k: sidecar.get(k) for k in SIDECAR_KEYS}
 
-    # SKIP path (exit 0): judge unreachable or model absent.
-    if qwen_window_closed():
-        print("SKIP: qwen window closed (08:00-21:00 local; "
-              "set VQ_ALLOW_DAYTIME=1 to override)", flush=True)
-        record["verdict"] = "SKIP"
-        return write_record(record, json_out, 0)
+    # SKIP path (exit 0): key/endpoint/model absent.
     if not judge_reachable(args.host, args.model):
         record["verdict"] = "SKIP"
         return write_record(record, json_out, 0)
     try:
         ask3 = make_ask3(args.host, args.model, args.timeout)
     except JudgeError as e:
-        print(f"SKIP: ollama unreachable ({e})", flush=True)
+        print(f"SKIP: judge unreachable ({e})", flush=True)
         record["verdict"] = "SKIP"
         return write_record(record, json_out, 0)
 
     # Judge-phase lock (cycle 121, spec vision-judge-serialization): ONE
-    # qwen judge consumer at a time — machine-global flock held across
+    # judge consumer at a time — machine-global flock held across
     # the whole judge region below (oracle + battery + cross-check); the
     # capture/validation/SKIP stages above never touch it, so a waiting
     # instance pipelines its CPU capture while another battery runs.

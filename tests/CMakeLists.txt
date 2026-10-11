@@ -908,13 +908,16 @@ if(PYTHON3 AND EXISTS "${LEGACYCLONK_CONTENT_DIR}/Agriculture.c4d/Structures.c4d
 	set_tests_properties(gfx_check_windmill PROPERTIES TIMEOUT 60 LABELS "lint")
 endif()
 # --- Vision judge serialization (spec vision-judge-serialization, cycle 121)
-# Shared-lock contract: every ollama-judge CTest entry MUST carry
+# Shared-lock contract: every judge CTest entry MUST carry
 # RESOURCE_LOCK "qwen_judge" (the ctest scheduler never starts two of
 # them at once — the wait is pre-spawn, burning no TIMEOUT clock) AND
-# the explicit "vision" label. Applies to the three GPU entries:
+# the explicit "vision" label. Applies to the three judge entries:
 # vision_qa_scorpion, vision_qa_agriculture_lobster, playtest_vision.
+# The judge is the remote KIT complex model alias (2026-10-11 repoint;
+# lock name kept) — serialization is client-side politeness toward the
+# shared endpoint, not GPU contention.
 # VERIFIED EXEMPTION: playtest_sweep takes no judge lock —
-# tools/playtest_sweep.py has zero ollama/qwen/judge references (engine
+# tools/playtest_sweep.py has zero judge/endpoint references (engine
 # subprocesses only; labels playtest;smoke) — do NOT "fix" it later.
 if(PYTHON3 AND EXISTS "${LEGACYCLONK_CONTENT_DIR}/Desert.c4d/Scorpion.c4d/Graphics.png")
 	add_test(NAME vision_qa_scorpion
@@ -1261,13 +1264,13 @@ endif()
 # tools/playtest_vision.py spawns the console engine with --screenshot-at,
 # validates the PNG + SceneTruth sidecar deterministically (judge-independent
 # RED layer: artifact faults print "FAIL: artifact ..." and exit 1), and only
-# then contacts the ollama judge. The judge (ollama) is absent on CI runners,
-# so after the engine-side capture + deterministic artifact validation the
-# entry prints "SKIP: ..." and exits 0; SKIP_REGULAR_EXPRESSION below makes
-# ctest count the entry as skipped (still exit 0) — CI stays green without
-# ollama. The loop machine runs --gate-mode feature/full manually for real
-# gating; advisory is the default so verdicts are recorded even when a judge
-# exists.
+# then contacts the KIT complex-model judge. The KIT endpoint/key are absent
+# on CI runners, so after the engine-side capture + deterministic artifact
+# validation the entry prints "SKIP: ..." and exits 0; SKIP_REGULAR_EXPRESSION
+# below makes ctest count the entry as skipped (still exit 0) — CI stays
+# green without the judge. The loop machine runs --gate-mode feature/full
+# manually for real gating; advisory is the default so verdicts are recorded
+# even when a judge exists.
 if(PYTHON3 AND USE_CONSOLE AND EXISTS "${LEGACYCLONK_CONTENT_DIR}/WeatherEvents.c4d/Tests.c4f/VisionShotSmoke.c4s")
 	add_test(NAME playtest_vision
 		COMMAND "${PYTHON3}" "${CMAKE_SOURCE_DIR}/tools/playtest_vision.py"
@@ -1287,9 +1290,9 @@ endif()
 
 # --- Vision judge-lock selftest (spec vision-judge-serialization, cycle 121)
 # Hermetic RED/GREEN proof that judge_lock() serializes two vision_qa
-# batteries: an in-process fake-ollama stub records server-side
+# batteries: an in-process fake-judge stub records server-side
 # (start,end) timestamps and the peak in-flight count; no GPU, no
-# ollama, no engine, no content checkout. Deliberately NO RESOURCE_LOCK
+# network, no engine, no content checkout. Deliberately NO RESOURCE_LOCK
 # (touches no GPU) and NO SKIP_REGULAR_EXPRESSION (must never skip);
 # label "lint" keeps it in the ctest -LE vision parallel phase and the
 # ASan lane's -E 'smoke|net_' set. NOT WIN32: the selftest deliberately

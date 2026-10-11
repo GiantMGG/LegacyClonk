@@ -1,10 +1,14 @@
 #!/usr/bin/env python3
-"""Vision-QA harness: ollama-backed probe battery with oracle validation.
+"""Vision-QA harness: KIT complex-model probe battery with oracle validation.
 
-Cycle 98 (scorpion-art-vision-qa-rework). Renders the target sprite's
+Cycle 98 (scorpion-art-vision-qa-rework); repointed from the local ollama
+qwen3.8 judge to the KIT complex model alias (user directive 2026-10-11:
+no local models on kerbin anymore — the alias currently serves glm-flash,
+which has vision). Renders the target sprite's
 phases xN on white (stdlib PNG decode/encode only — no PIL), runs the
 pinned question battery (Q1-Q4 per phase, Q5 on the stacked pair) against
-a local ollama model, and prints GATE PASS / GATE FAIL.
+the remote judge via its OpenAI-compatible /chat/completions API, and
+prints GATE PASS / GATE FAIL.
 
 Startup oracle controls validate the instrument itself:
   1. photo positive control  — model must read "scorpion" on the fixture
@@ -16,7 +20,7 @@ aborts, it never produces data.
 
 Exit codes: 0 = GATE PASS or SKIP, 1 = GATE FAIL, 2 = ORACLE FAIL /
 usage error / decode error. The harness never pulls models; a missing
-judge prints SKIP and exits 0.
+key/endpoint/model prints SKIP and exits 0.
 """
 
 import argparse
@@ -38,8 +42,12 @@ from contextlib import contextmanager
 # pinned constants
 # ---------------------------------------------------------------------------
 
-DEFAULT_HOST = "http://localhost:11434"
-DEFAULT_MODEL = "qwen3.8:27b"
+# KIT complex model alias: OpenAI-compatible endpoint at KIT; the alias
+# abstraction means KIT can swap the underlying model (currently glm-flash)
+# without touching this harness (user directive 2026-10-11 — the local
+# ollama qwen3.8 judge on kerbin is retired).
+DEFAULT_HOST = "https://ki-toolbox.scc.kit.edu/api/v1"
+DEFAULT_MODEL = "alias.complex-local"
 DEFAULT_IMAGE = os.path.join("..", "content", "Desert.c4d", "Scorpion.c4d",
                              "Graphics.png")
 # Default facet targets the committed content art (144x70 sheet = 6 walk
@@ -48,13 +56,31 @@ DEFAULT_FACET = (0, 0, 24, 14)
 PAIR_GAP = 4          # white rows between stacked frames (sprite pixels)
 FLAT_RGB = (90, 58, 31)
 FLAT_W, FLAT_H = 20, 12
-CHAT_TIMEOUT = 600    # per-call timeout (27B model, cold load)
-TAGS_TIMEOUT = 5      # judge reachability probe
+CHAT_TIMEOUT = 600    # per-call timeout (remote judge; generous bound)
+TAGS_TIMEOUT = 20     # judge reachability probe (KIT /models takes ~4s)
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 FIXTURE_JPG = os.path.normpath(os.path.join(
     SCRIPT_DIR, os.pardir, "tests", "fixtures", "vision_qa",
     "scorpion_photo.jpg"))
+# Bearer-token resolution for the KIT endpoint: the KIT_API_KEY env var
+# (the loop exports it), else the workspace key file opencode reads
+# (`{file:...}` in opencode.json). Dev-machine convenience only — CI has
+# neither and SKIPs before any judge contact.
+KIT_API_KEY_FILE = os.path.normpath(os.path.join(
+    SCRIPT_DIR, os.pardir, os.pardir, ".opencode", "kit_api_key"))
+
+def kit_api_key():
+    """KIT bearer token: KIT_API_KEY env, else the workspace key file."""
+    key = os.environ.get("KIT_API_KEY", "").strip()
+    if key:
+        return key
+    try:
+        with open(KIT_API_KEY_FILE, encoding="utf-8") as f:
+            key = f.read().strip()
+    except OSError:
+        return None
+    return key or None
 
 # Pinned probe wordings (empirically validated — do NOT rephrase).
 Q1 = ("Look at this image. What creature is depicted? Answer in one line: "
@@ -141,14 +167,6 @@ THINK_OPEN_RE = re.compile(r"<think(?:ing)?>.*", re.DOTALL)
 
 CLASS_SEVERITY = ("mammal-reptile", "arthropod-adjacent", "other",
                   "scorpion")
-
-def qwen_window_closed(now=None):
-    """True inside the user's qwen3.8 no-use window (08:00-21:00 local),
-    unless VQ_ALLOW_DAYTIME=1 is set. Inject `now` (a datetime) for tests."""
-    if os.environ.get("VQ_ALLOW_DAYTIME", "") == "1":
-        return False
-    t = now or datetime.datetime.now()
-    return 8 <= t.hour < 21
 
 # ---------------------------------------------------------------------------
 # PNG decode (stdlib, no PIL): 8-bit, color types 0/2/3/4/6, non-interlaced
@@ -302,64 +320,79 @@ def render_b64(grid, scale):
     return base64.b64encode(png).decode()
 
 # ---------------------------------------------------------------------------
-# ollama client
+# judge client (OpenAI-compatible /chat/completions against the KIT
+# complex model alias)
 # ---------------------------------------------------------------------------
 
 class JudgeError(RuntimeError):
     """Mid-battery judge failure (broken instrument -> exit 2)."""
+
+def _data_uri(image_b64):
+    """base64 PNG/JPEG -> data: URI (media type sniffed from the payload)."""
+    try:
+        head = base64.b64decode(image_b64[:8])
+    except (ValueError, TypeError):
+        head = b""
+    mime = "image/jpeg" if head.startswith(b"\xff\xd8") else "image/png"
+    return f"data:{mime};base64,{image_b64}"
 
 def make_ask(host, model, timeout=None):
     """Return ask(image_b64, prompt) -> answer string (think blocks stripped).
     timeout=None keeps the CHAT_TIMEOUT default (backward compatible)."""
     if timeout is None:
         timeout = CHAT_TIMEOUT
+    key = kit_api_key()
 
     def ask(image_b64, prompt):
         body = json.dumps({
             "model": model,
             "messages": [{
                 "role": "user",
-                "content": prompt,
-                "images": [image_b64],
+                "content": [
+                    {"type": "text", "text": prompt},
+                    {"type": "image_url",
+                     "image_url": {"url": _data_uri(image_b64)}},
+                ],
             }],
             "stream": False,
-            # Second-highest ollama think level (ladder: false < low <
-            # medium < high < max) — user directive 2026-09-07: the vision
-            # judge runs at "high", not the model default ("max"/true).
-            "think": "high",
-            # keep_alive 10m (cycle 121): serialized batteries run
-            # back-to-back; a bounded residency skips the inter-battery
-            # 27B cold reload without pinning VRAM (-1 would pin forever).
-            "keep_alive": "10m",
-            "options": {"temperature": 0},
+            "temperature": 0,
         }).encode()
-        req = urllib.request.Request(host.rstrip("/") + "/api/chat", data=body,
-                                     headers={"Content-Type": "application/json"})
+        headers = {"Content-Type": "application/json"}
+        if key:
+            headers["Authorization"] = "Bearer " + key
+        req = urllib.request.Request(
+            host.rstrip("/") + "/chat/completions", data=body,
+            headers=headers)
         try:
             with urllib.request.urlopen(req, timeout=timeout) as r:
                 resp = json.loads(r.read())
         except urllib.error.HTTPError as e:
-            raise JudgeError(f"ollama /api/chat HTTP {e.code}: "
+            raise JudgeError(f"judge /chat/completions HTTP {e.code}: "
                              f"{e.read()[:300]!r}") from e
         except (urllib.error.URLError, OSError) as e:
-            raise JudgeError(f"ollama /api/chat unreachable: {e}") from e
+            raise JudgeError(f"judge /chat/completions unreachable: {e}") from e
         except ValueError as e:
-            raise JudgeError(f"ollama /api/chat returned invalid JSON: "
-                             f"{e}") from e
-        msg = resp.get("message") or {}
+            raise JudgeError(f"judge /chat/completions returned invalid "
+                             f"JSON: {e}") from e
+        try:
+            msg = resp["choices"][0]["message"]
+        except (KeyError, IndexError, TypeError) as e:
+            raise JudgeError(f"judge response lacks choices[0].message: "
+                             f"{str(resp)[:200]!r}") from e
         # Think-block defense: strip from content; tolerate separate field.
-        return strip_think(msg.get("content", ""))
+        return strip_think(msg.get("content", "") or "")
 
     return ask
 
 # ---------------------------------------------------------------------------
-# judge-phase lock (cycle 121, spec vision-judge-serialization): the local
-# ollama judge (qwen3.8) serves ONE consumer at a time — a machine-global
-# flock held across the caller's whole judge session. Kernel-authoritative
-# (released on process death — stale locks impossible), launcher-agnostic
-# (CTest, manual batteries, loop invocations). VQ_LOCK_PATH isolates the
-# selftest; VQ_LOCK_DISABLE=1 exists ONLY for its anti-vacuity control
-# (rules/vision-qa-windows.md rule 6).
+# judge-phase lock (cycle 121, spec vision-judge-serialization; retained
+# after the 2026-10-11 KIT repoint): ONE judge consumer at a time — a
+# machine-global flock held across the caller's whole judge session.
+# Kernel-authoritative (released on process death — stale locks
+# impossible), launcher-agnostic (CTest, manual batteries, loop
+# invocations). VQ_LOCK_PATH isolates the selftest; VQ_LOCK_DISABLE=1
+# exists ONLY for its anti-vacuity control (rules/vision-qa-judge.md
+# rule 6).
 # ---------------------------------------------------------------------------
 
 JUDGE_LOCK_DEFAULT = os.path.join(
@@ -706,7 +739,8 @@ def parse_facet(s):
 
 def main():
     ap = argparse.ArgumentParser(
-        description="Ollama-backed vision-QA battery with oracle validation")
+        description="KIT complex-model vision-QA battery with oracle "
+                    "validation")
     ap.add_argument("--image", default=DEFAULT_IMAGE,
                     help="target sprite sheet PNG")
     ap.add_argument("--facet", type=parse_facet, default=DEFAULT_FACET,
@@ -741,28 +775,31 @@ def main():
              file=sys.stderr)
         return 2
 
-    # -- SKIP path: judge reachability, then model presence -----------
-    if qwen_window_closed():
-        print("SKIP: qwen window closed (08:00-21:00 local; "
-              "set VQ_ALLOW_DAYTIME=1 to override)", flush=True)
+    # -- SKIP path: key, reachability, then model presence ---------------
+    key = kit_api_key()
+    if key is None:
+        print("SKIP: no KIT API key (KIT_API_KEY env or key file)",
+              flush=True)
         return 0
     base = args.host.rstrip("/")
     try:
-        with urllib.request.urlopen(base + "/api/tags",
-                                    timeout=TAGS_TIMEOUT) as r:
-            tags = json.loads(r.read())
+        req = urllib.request.Request(
+            base + "/models",
+            headers={"Authorization": "Bearer " + key})
+        with urllib.request.urlopen(req, timeout=TAGS_TIMEOUT) as r:
+            models = json.loads(r.read())
     except urllib.error.HTTPError as e:
         print(f"SKIP: judge reachability check failed (HTTP {e.code})",
               flush=True)
         return 0
     except (urllib.error.URLError, OSError, ValueError) as e:
-        print(f"SKIP: ollama unreachable ({getattr(e, 'reason', e)})",
+        print(f"SKIP: judge endpoint unreachable ({getattr(e, 'reason', e)})",
               flush=True)
         return 0
-    names = [m.get("name", "") for m in tags.get("models", [])]
-    if args.model not in names and args.model.lower() not in (
-            n.lower() for n in names):
-        print(f"SKIP: model '{args.model}' not present in ollama tags",
+    ids = [m.get("id", "") for m in models.get("data", [])]
+    if args.model not in ids and args.model.lower() not in (
+            i.lower() for i in ids):
+        print(f"SKIP: model '{args.model}' not served by {base}",
               flush=True)
         return 0
 
@@ -796,9 +833,9 @@ def main():
     verdict = None
     oracle_ok = False
     # Judge-phase lock (cycle 121, spec vision-judge-serialization): hold
-    # the machine-global qwen judge exclusively across the whole oracle +
-    # battery region below — every /api/chat call runs inside it; the
-    # SKIP guards and target decode above never reach this line.
+    # the machine-global judge lock exclusively across the whole oracle +
+    # battery region below — every judge call runs inside it; the SKIP
+    # guards and target decode above never reach this line.
     # Acquisition sits INSIDE this existing try so the JudgeError arm
     # below maps a JudgeLockTimeout to ERROR + exit 2 for free (spec s2-B).
     try:
