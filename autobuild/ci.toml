@@ -16,6 +16,7 @@ parts = [
     'v375',
     'v376',
     'v377',
+    'v378',
 ]
 
 [groups.'Graphics.c4g']
