@@ -396,6 +396,7 @@ set(SMOKE_SEED_PIN_FrontierSmoke 199)
 set(SMOKE_SEED_PIN_WolfNightsSmoke 199)
 set(SMOKE_SEED_PIN_StormMillSmoke 199)
 set(SMOKE_SEED_PIN_FloodedCrownSmoke 199)
+set(SMOKE_SEED_PIN_BreakerCoveSmoke 199)
 
 foreach(scenario ${SMOKE_SCENARIOS})
   get_filename_component(scenario_name "${scenario}" NAME_WE)  # e.g. EventSmoke
@@ -430,6 +431,26 @@ if(EXISTS "${LEGACYCLONK_CONTENT_DIR}/Worlds.c4f/Outset.c4s/Script.c")
 			-s "${LEGACYCLONK_CONTENT_DIR}/Worlds.c4f/Outset.c4s"
 		WORKING_DIRECTORY "${CMAKE_BINARY_DIR}")
 	set_tests_properties(frontier_outset_boot PROPERTIES
+		TIMEOUT 90
+		LABELS "smoke"
+		PASS_REGULAR_EXPRESSION "CURRENT GOAL"
+		FAIL_REGULAR_EXPRESSION "FatalError|\\[error\\]|\\[fatal\\]")
+endif()
+
+# --- Frontier Cove boot gate (cycle 217, frontier-cove) ---------------------
+# Boots the REAL BreakerCove.c4s under --smoke-run 350 with one TestPlayer
+# fixture and PASSes only when the dealt-card deal print appears (the
+# frontier_outset_boot pattern). The glob-registered smoke_BreakerCoveSmoke
+# covers the compressed fog+beacon mechanic proofs; this entry is the "start
+# the Cove from the menu" leg.
+if(EXISTS "${LEGACYCLONK_CONTENT_DIR}/Worlds.c4f/BreakerCove.c4s/Script.c")
+	add_test(NAME frontier_cove_boot
+		COMMAND "${PYTHON3}" "${CMAKE_SOURCE_DIR}/tools/run_engine_headless.py"
+			"$<TARGET_FILE:clonk>" --console --smoke-run 350
+			--smoke-player-fixture "${CMAKE_SOURCE_DIR}/tests/fixtures/TestPlayer.c4p"
+			-s "${LEGACYCLONK_CONTENT_DIR}/Worlds.c4f/BreakerCove.c4s"
+		WORKING_DIRECTORY "${CMAKE_BINARY_DIR}")
+	set_tests_properties(frontier_cove_boot PROPERTIES
 		TIMEOUT 90
 		LABELS "smoke"
 		PASS_REGULAR_EXPRESSION "CURRENT GOAL"
@@ -479,6 +500,28 @@ if(EXISTS "${LEGACYCLONK_CONTENT_DIR}/Worlds.c4f/Outset.c4s/Script.c")
 		TIMEOUT 600
 		LABELS "smoke"
 		PASS_REGULAR_EXPRESSION "frontier_outset_construct_gate PASS"
+		FAIL_REGULAR_EXPRESSION "FatalError|\\[error\\]|\\[fatal\\]")
+endif()
+
+# --- Frontier Cove round gate (cycle 217, frontier-cove) --------------------
+# Permanent two-leg gate on the REAL BreakerCove.c4s round via the engine's
+# stdin /script seam (construct-gate pattern; tools/frontier_cove_round_gate.py):
+#   Leg 1 unattended -- the fixture crew never carries WOOD; the round must
+#     resolve lost and print FRMT:outcome=LOSE.
+#   Leg 2 driven -- one /script expression spawns a wood-carrying CLNK at the
+#     stamped tower; the kindling rule must relight it and the round must
+#     resolve won with FRMT:outcome=WIN.
+# Pinned seed 199; --smoke-run 7000 (verdict+GameOver at 6300 + headroom).
+if(EXISTS "${LEGACYCLONK_CONTENT_DIR}/Worlds.c4f/BreakerCove.c4s/Script.c")
+	add_test(NAME frontier_cove_round_gate
+		COMMAND "${PYTHON3}" "${CMAKE_SOURCE_DIR}/tools/frontier_cove_round_gate.py"
+			"--engine" "$<TARGET_FILE:clonk>"
+			"--content-dir" "${LEGACYCLONK_CONTENT_DIR}"
+		WORKING_DIRECTORY "${CMAKE_BINARY_DIR}")
+	set_tests_properties(frontier_cove_round_gate PROPERTIES
+		TIMEOUT 600
+		LABELS "smoke"
+		PASS_REGULAR_EXPRESSION "frontier_cove_round_gate PASS"
 		FAIL_REGULAR_EXPRESSION "FatalError|\\[error\\]|\\[fatal\\]")
 endif()
 
