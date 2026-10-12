@@ -42,13 +42,16 @@ from contextlib import contextmanager
 # pinned constants
 # ---------------------------------------------------------------------------
 
-# Vision judge: KIT OpenAI-compatible endpoint. The model is NOT a pinned
-# literal — KIT_MODEL env overrides, default is the concrete
-# kit.glm-5.3-flash (fingerprint-identical to KIT's alias.complex-local
-# alias; verified 2026-10-12). User directive 2026-10-11 retired the local
-# ollama qwen3.8 judge on kerbin.
+# Vision judge: KIT OpenAI-compatible endpoint. The judge model follows
+# KIT's alias abstraction — DEFAULT_MODEL is the alias (KIT swaps the
+# underlying model freely; the harness never changes). KIT_MODEL env
+# overrides for ad-hoc runs; --model flag overrides per invocation.
+# (alias.complex-local is fingerprint-identical to kit.glm-5.3-flash,
+# verified 2026-10-12 — KIT hosts both names on the same vLLM server.)
+# User directive 2026-10-11: no local models on kerbin; the local ollama
+# qwen3.8 judge is retired.
 DEFAULT_HOST = "https://ki-toolbox.scc.kit.edu/api/v1"
-DEFAULT_MODEL = os.environ.get("KIT_MODEL", "kit.glm-5.3-flash")
+DEFAULT_MODEL = os.environ.get("KIT_MODEL", "alias.complex-local")
 DEFAULT_IMAGE = os.path.join("..", "content", "Desert.c4d", "Scorpion.c4d",
                              "Graphics.png")
 # Default facet targets the committed content art (144x70 sheet = 6 walk
