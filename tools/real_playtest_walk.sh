@@ -130,20 +130,24 @@ trap cleanup EXIT INT TERM
 
 kill_clonk()
 {
-	local p i
-	for p in $(pgrep -x clonk 2>/dev/null); do
+	# kill ONLY walk-spawned engines (CLONK_PIDS); a foreign clonk (e.g. a
+	# concurrent ctest battery engine) must never be touched — cycle-216
+	# incident: the old pgrep -x sweep killed two battery engines mid-test
+	# after a pre-flight FATAL exit.
+	local p i any
+	for p in "${CLONK_PIDS[@]}"; do
 		log "killing clonk pid $p"
 		kill "$p" 2>/dev/null
 	done
 	for i in 1 2 3 4 5; do
-		pgrep -x clonk >/dev/null 2>&1 || break
+		any=0
+		for p in "${CLONK_PIDS[@]}"; do kill -0 "$p" 2>/dev/null && any=1; done
+		[ "$any" = 0 ] && break
 		sleep 1
 	done
-	local any
-	any="$(pgrep -x clonk 2>/dev/null | wc -l)"
-	if [ "$any" -gt 0 ]; then
-		for p in $(pgrep -x clonk 2>/dev/null); do kill -9 "$p" 2>/dev/null; done
-	fi
+	for p in "${CLONK_PIDS[@]}"; do
+		kill -0 "$p" 2>/dev/null && kill -9 "$p" 2>/dev/null
+	done
 	CLONK_PIDS=()
 }
 
