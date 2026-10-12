@@ -63,14 +63,22 @@ COVE_REL = os.path.join("Worlds.c4f", "BreakerCove.c4s")
 ERROR_LOG_RE = re.compile(r"FatalError|\[error\]|\[fatal\]")
 
 # The kindle drive (expression-only; guarded &&-chain). Self-locating:
-# anchored on the stamped LHGT, clonk offset ~32 px inside the Cove's
-# BC_RELIGHT_RADIUS=45, carrying one WOOD (CreateContents(id, obj) with
-# the default count 1 — FnCreateContents C4Script.cpp:2037). The clonk
-# may sit in the shallows (the tower IS at the shoreline) but the
-# scenario-side kindle check fires on the next director tick.
+# anchored on the stamped LHGT, carrying one WOOD (CreateContents(id,
+# obj) with the default count 1 — FnCreateContents C4Script.cpp:2037).
+# The clonk spawns 30 px ABOVE the tower position: 10 px above its 40 px
+# art's top edge, in the water column over the tower (the stamped tower
+# stands on the submerged shore; waterline ~wy=160, tower top edge
+# ~y=178, seed-199 DIAG-218 findings). Every physics rest mode lands
+# inside the Cove's BC_RELIGHT_RADIUS=45 — waterline bob over the tower
+# (d~37), tower-top stand (d~27), seabed rest beside it (d<20) — so the
+# scenario-side kindle check fires on the next director tick,
+# deterministically. (The cycle-217 offset -30,+10 spawned the clonk
+# inside the seabed; the ejection physics raced between seabed-rest
+# d=30-36 and waterline-bob d=46-47 — 2 px outside the radius — which
+# is why leg2 used to flake.)
 COVE_DRIVE = ('/script FindObject(LHGT) && CreateContents(WOOD, '
-              'CreateObject(CLNK, GetX(FindObject(LHGT)) - 30, '
-              'GetY(FindObject(LHGT)) + 10, NO_OWNER)) && '
+              'CreateObject(CLNK, GetX(FindObject(LHGT)), '
+              'GetY(FindObject(LHGT)) - 30, NO_OWNER)) && '
               'Log("COVEDRV:kindle_spawn")')
 
 DARKSTART_RE = re.compile(r"FRMT:c1_darkstart=1\b")
