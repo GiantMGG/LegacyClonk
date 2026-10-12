@@ -699,6 +699,16 @@ add_test_target(ParentFolderGating
 	LINK_ENGINE
 )
 
+# --- Dangling folder-child guard (cycle 216 T1.5) --------------------------
+# A folder-form C4Group must reject children that are neither directories
+# nor existing files (dangling symlinks) instead of recursing to stack
+# exhaustion via IsGroup -> Open -> OpenAsChild -> AccessEntry -> IsGroup.
+add_test_target(C4GroupDangling
+	SOURCES "${CMAKE_SOURCE_DIR}/tests/TstC4GroupDangling.cpp"
+	LINK_ENGINE
+)
+set_tests_properties(C4GroupDangling PROPERTIES TIMEOUT 60)
+
 # --- Network desync CI smoke ---------------------------------------------
 # See spec network-desync-ci-smoke. Runs two headless engine instances on
 # localhost with tc netem impairment (Linux only), asserting no desync fatal

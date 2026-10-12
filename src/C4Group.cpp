@@ -1846,6 +1846,19 @@ bool C4Group::OpenAsChild(C4Group *pMother,
 		return true;
 	}
 
+	// Dangling entry guard: a folder-form mother's children are disk
+	// entries, so a child that is neither a directory nor an existing file
+	// (e.g. a dangling symlink) can never be a group. Probing one would
+	// recurse forever (IsGroup -> Open -> OpenAsChild -> AccessEntry ->
+	// SetFilePtr2Entry -> IsGroup) until the stack is exhausted (cycle-216
+	// walk crash, .opencode/scratch/216/gdb-bt.txt). Packed mothers
+	// (GRPF_File) must skip this: their child paths are pack-internal, not
+	// on-disk paths.
+	if (pMother->Status == GRPF_Folder && !FileExists(path))
+	{
+		CloseExclusiveMother(); Clear(); return Error("OpenAsChild: dangling entry");
+	}
+
 	// Get original entry name
 	C4GroupEntry *centry;
 	if ((centry = Mother->GetEntry(FileName)))
