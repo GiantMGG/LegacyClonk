@@ -97,7 +97,6 @@ LEG2_ASSERTS = [
     ("outcome WIN", OUTCOME_WIN_RE),
 ]
 
-
 def run_leg(engine, content_dir, out_log, drive):
     """Run one Cove round; return (rc, log) or (None, msg) on timeout.
 
@@ -154,7 +153,6 @@ def run_leg(engine, content_dir, out_log, drive):
         shutil.rmtree(workdir, ignore_errors=True)
     return rc, log
 
-
 def _write(proc, line):
     if proc.poll() is not None:
         return
@@ -163,7 +161,6 @@ def _write(proc, line):
         proc.stdin.flush()
     except (BrokenPipeError, OSError):
         pass
-
 
 def check_leg(name, rc, log, asserts):
     """Print one line per assertion; return the failure list."""
@@ -190,7 +187,6 @@ def check_leg(name, rc, log, asserts):
     else:
         print("%s fatal/error lines: PASS (0 matches)" % name)
     return failures
-
 
 def main():
     parser = argparse.ArgumentParser(description="frontier_cove round gate")
@@ -221,7 +217,6 @@ def main():
         return 1
     print("frontier_cove_round_gate PASS")
     return 0
-
 
 if __name__ == "__main__":
     sys.exit(main())
