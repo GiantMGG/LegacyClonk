@@ -52,7 +52,7 @@ import time
 REPO_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 PLAYER_FIXTURE = os.path.join(REPO_DIR, "tests", "fixtures", "TestPlayer.c4p")
 
-SMOKE_RUN = "7000"        # verdict+GameOver at 6300; 700 headroom
+SMOKE_RUN = "7000"        # verdict+GameOver at 4900; 2100 headroom
 SEED = "199"              # pinned round seed (deterministic stamps)
 POLL = 0.0005             # driver cadence: the marker->elimination window
                           # is only ~8-11ms; 30ms cadence won ~1 run in 4.
