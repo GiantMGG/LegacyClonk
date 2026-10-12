@@ -523,7 +523,10 @@ void C4OfflineOptionsDlg::StoreCell::UpdateCountLabel()
 	if (iCount > 0)
 	{
 		StdStrBuf sText;
-		sText.Copy(std::format("×{}", iCount).c_str());
+		// raw Latin-1 multiplication sign (0xD7): the C4GUI font renders per-byte
+		// Latin-1; a UTF-8 "×" (C3 97) mojibakes into "Ã—" (v368 precedent,
+		// C4SliderDescriptors.h:45-50 — cycle-216 walk finding)
+		sText.Copy(std::format("\xD7{}", iCount).c_str());
 		pCountLabel->SetText(sText.getData());
 	}
 	else
