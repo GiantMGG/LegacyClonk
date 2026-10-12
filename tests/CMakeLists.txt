@@ -511,7 +511,7 @@ endif()
 #   Leg 2 driven -- one /script expression spawns a wood-carrying CLNK at the
 #     stamped tower; the kindling rule must relight it and the round must
 #     resolve won with FRMT:outcome=WIN.
-# Pinned seed 199; --smoke-run 7000 (verdict+GameOver at 6300 + headroom).
+# Pinned seed 199; --smoke-run 7000 (verdict+GameOver at 4900 + headroom).
 if(EXISTS "${LEGACYCLONK_CONTENT_DIR}/Worlds.c4f/BreakerCove.c4s/Script.c")
 	add_test(NAME frontier_cove_round_gate
 		COMMAND "${PYTHON3}" "${CMAKE_SOURCE_DIR}/tools/frontier_cove_round_gate.py"
