@@ -6,6 +6,8 @@ Boots the scenario headless three times (the boots-clean bar: min 3
 zero-error boots) and asserts per boot:
   - engine exit code 0
   - zero FatalError/[error]/[fatal] log lines
+  - zero "(placement defect)" lines (the scenario's permanent pan and
+    quarry placement pins -- both log through the same wording)
   - the scenario intro line ("Salt Road Act IV: the salt run begins.")
 
 Each boot joins one TestPlayer fixture; the engine writes player state
@@ -44,6 +46,9 @@ BOOT_TIMEOUT = 90      # per-boot wall bound (350 ticks @ cap 1000 is seconds)
 SCEN_REL = os.path.join("SaltRoad.c4f", "SaltRoad04.c4s")
 
 ERROR_LOG_RE = re.compile(r"FatalError|\[error\]|\[fatal\]")
+
+PLACEMENT_DEFECT_RE = re.compile(r"\(placement defect\)")
+
 INTRO_RE = re.compile(r"Salt Road Act IV: the salt run begins\.")
 
 
@@ -112,6 +117,13 @@ def check_boot(boot, rc, log):
         failures.append("boot %d error lines" % boot)
     else:
         print("boot %d fatal/error lines: PASS (0 matches)" % boot)
+    defects = PLACEMENT_DEFECT_RE.findall(log)
+    if defects:
+        print("boot %d placement-defect lines: FAIL (%d matches, e.g. %r)"
+              % (boot, len(defects), defects[:3]))
+        failures.append("boot %d placement defects" % boot)
+    else:
+        print("boot %d placement-defect lines: PASS (0 matches)" % boot)
     return failures
 
 

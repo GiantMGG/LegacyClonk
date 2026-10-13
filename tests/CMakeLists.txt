@@ -529,7 +529,8 @@ endif()
 # Permanent x3 boot-clean gate on the REAL SaltRoad04.c4s
 # (tools/saltroad04_boot_gate.py): three headless boots with one TestPlayer
 # fixture each (fresh copy per boot), pinned Seed=226; PASSes only when every
-# boot exits 0, logs zero FatalError/[error]/[fatal] lines and prints the
+# boot exits 0, logs zero FatalError/[error]/[fatal] lines, zero
+# "(placement defect)" lines (the permanent pan/quarry pins) and prints the
 # scenario intro line. The economy (Task 2) and the round gate (Task 3) build
 # on this entry.
 if(EXISTS "${LEGACYCLONK_CONTENT_DIR}/SaltRoad.c4f/SaltRoad04.c4s/Script.c")
