@@ -141,7 +141,6 @@ P2_NONE_SCRIPT = '/script SetComDir(COMD_None, GetCrew(1,0))'
 P1_RIGHT_SCRIPT = '/script SetComDir(COMD_Right, GetCrew(0,0))'
 P1_NONE_SCRIPT = '/script SetComDir(COMD_None, GetCrew(0,0))'
 
-
 def _write(proc, line):
     if proc.poll() is not None:
         return
@@ -151,14 +150,12 @@ def _write(proc, line):
     except (BrokenPipeError, OSError):
         pass
 
-
 def _pair_scan(samples, pred):
     """Index i of the first pair (samples[i-1], samples[i]) with pred true."""
     for i in range(1, len(samples)):
         if pred(samples[i - 1], samples[i]):
             return i
     return None
-
 
 def _bail_dip(a, b):
     """Bail cut: strict fl decrease while the breach is open and the
@@ -169,7 +166,6 @@ def _bail_dip(a, b):
     dfl = b[1] - a[1]
     return dfl < 0 and abs(dfl - (dt - 25)) <= 2
 
-
 def _jett_step(a, b):
     """Jettison: sk -1 AND fl -25 net of fill in the same sample step."""
     if b[2] != 1 or b[3] != a[3] - 1:
@@ -178,11 +174,9 @@ def _jett_step(a, b):
     dfl = b[1] - a[1]
     return abs(dfl - (dt - 25)) <= 2
 
-
 def _plug_step(a, b):
     """Plug: op 1->0 AND wd -1 in the same sample step."""
     return a[2] == 1 and b[2] == 0 and b[4] == a[4] - 1
-
 
 def run(engine, content_dir, out_log):
     """Drive one round; returns (rc, res) with rc None on spawn error/timeout."""
@@ -387,7 +381,6 @@ def run(engine, content_dir, out_log):
     }
     return rc, res
 
-
 def main():
     parser = argparse.ArgumentParser(
         description="admirals_crown_coop_smoke gate (cycle 222)")
@@ -525,7 +518,6 @@ def main():
         return 1
     print("admirals_crown_coop_smoke PASS")
     return 0
-
 
 if __name__ == "__main__":
     sys.exit(main())
