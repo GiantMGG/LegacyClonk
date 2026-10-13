@@ -191,6 +191,39 @@ def test_master_index_sorted_by_destination(tmp_path, monkeypatch):
            ("[pack.Alpha]", "[pack.Mu]", "[pack.Zeta]")}
     assert pos["[pack.Alpha]"] < pos["[pack.Mu]"] < pos["[pack.Zeta]"]
 
+def test_bulk_import_sha_survives_consumed_blob(tmp_path, monkeypatch):
+    # Regression (cycle 224 bulk-import tranche): c4group -u unpacks .c4s/.c4d
+    # groups in place, consuming the packed blob — by the time cmd_bulk_import
+    # hashes result.blob_path the file no longer exists and the whole run
+    # crashed. The sha must be captured before unpack and carried on the
+    # ImportResult.
+    e1 = _entry(100, "Alpha")
+    manifest = _write_manifest(tmp_path, [e1])
+    cc = tmp_path / "cc"
+    cc.mkdir()
+    blob = _make_blob(tmp_path)
+    meta = I.CcanMetadata(
+        ccan_id=0, title="", author_nick="", author_uid=0, uploaded="",
+        engine="", filename="", description_de="", description_us="")
+
+    def fake_import_one(entry, entries, content_community, c4group, force,
+                        rate_limit, snapshot_dir=None):
+        result = I.ImportResult(
+            status="imported", metadata=meta, blob_path=blob,
+            blob_sha256=hashlib.sha256(b"blob").hexdigest())
+        blob.unlink()  # simulate c4group -u consuming the packed blob
+        return result
+
+    monkeypatch.setattr(I, "_import_one", fake_import_one)
+    monkeypatch.setattr(I, "resolve_c4group", lambda: Path("/bin/true"))
+
+    rc = I.main(["bulk-import", "--manifest", str(manifest),
+                 "--content-community", str(cc), "--rate-limit", "0",
+                 "--failures-log", str(tmp_path / "f.jsonl")])
+    assert rc == 0
+    master = (cc / "ATTRIBUTION.toml").read_text(encoding="utf-8")
+    assert hashlib.sha256(b"blob").hexdigest() in master
+
 def test_master_index_update_in_place(tmp_path, monkeypatch):
     e1 = _entry(100, "Alpha")
     manifest = _write_manifest(tmp_path, [e1])

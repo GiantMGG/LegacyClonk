@@ -720,6 +720,8 @@ def test_import_one_emits_smoke_artefacts(tmp_path: Path, monkeypatch):
 		description_de="", description_us="",
 	))
 	monkeypatch.setattr(I, "fetch_pack", lambda *a, **kw: tmp_path / "blob")
+	# fetch_pack writes the blob for real; the pre-unpack sha256 hash reads it.
+	(tmp_path / "blob").write_bytes(b"blob")
 	monkeypatch.setattr(I, "unpack", lambda *a, **kw: a[1] / "Sample.c4d")
 	monkeypatch.setattr(I, "validate", lambda *a, **kw: (True, "ok"))
 	# Make unpack_path exist so resolve + emit work.

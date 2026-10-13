@@ -167,6 +167,11 @@ class ImportResult:
     status: str  # "imported" | "skipped"
     metadata: Optional[CcanMetadata] = None
     blob_path: Optional[Path] = None
+    # SHA-256 of the downloaded blob, captured before unpack — c4group -u
+    # unpacks packed groups in place and consumes the blob file, so
+    # blob_path may not exist (or may point at the unpacked directory) after
+    # a successful import.
+    blob_sha256: Optional[str] = None
 
 def sha256_file(path: Path) -> str:
     """Compute the SHA-256 hex digest of a file (streaming)."""
@@ -930,6 +935,8 @@ def _import_one(
     # 2. Fetch pack blob.
     print(f"[{entry.ccan_id}] downloading {entry.filename}...")
     blob_path = _fetch_blob(entry, CACHE_DIR, rate_limit, snapshot_dir)
+    # Hash the blob before unpacking — c4group -u consumes packed blobs.
+    blob_sha256 = sha256_file(blob_path)
 
     # 3. Unpack into the destination.
     print(f"[{entry.ccan_id}] unpacking...")
@@ -960,7 +967,8 @@ def _import_one(
 
     print(f"[{entry.ccan_id}] imported -> {dest_dir}")
     return ImportResult(
-        status="imported", metadata=metadata, blob_path=blob_path)
+        status="imported", metadata=metadata, blob_path=blob_path,
+        blob_sha256=blob_sha256)
 
 def cmd_import(args: argparse.Namespace) -> int:
     entries = load_manifest(args.manifest)
@@ -1334,7 +1342,12 @@ def cmd_bulk_import(args: argparse.Namespace) -> int:
                 write_master_index(master_path, packs)
             continue
         # Success — update master index block.
-        sha = sha256_file(result.blob_path) if result.blob_path else ""
+        # Prefer the sha captured before unpack; blob_path may be consumed
+        # (c4group -u in-place unpack) or point at the unpacked directory.
+        sha = (result.blob_sha256
+               or (sha256_file(result.blob_path)
+                   if result.blob_path and result.blob_path.is_file()
+                   else ""))
         today = time.strftime("%Y-%m-%d", time.gmtime())
         block = {
             "ccan_id": entry.ccan_id,
