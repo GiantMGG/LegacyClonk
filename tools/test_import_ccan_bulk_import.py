@@ -42,12 +42,22 @@ def _write_manifest(tmp_path: Path, entries: list[I.ManifestEntry]) -> Path:
         lines.append(f"[entry.{e.ccan_id}]\n")
         for f in ("title", "ccan_id", "author_nick", "author_uid", "uploaded",
                   "engine", "license", "license_rationale", "filename",
-                  "destination", "notes"):
-            v = getattr(e, f)
+                  "destination", "notes", "rating", "votes", "downloads",
+                  "rank"):
+            v = getattr(e, f, None)
+            if v is None:
+                continue
             if isinstance(v, str):
                 lines.append(f'{f} = "{v}"\n')
             else:
                 lines.append(f"{f} = {v}\n")
+        if e.smoke.skip or e.smoke.curator_script or getattr(
+                e.smoke, "reason", ""):
+            lines.append(f"[entry.{e.ccan_id}.smoke]\n")
+            lines.append(f"ticks = {e.smoke.ticks}\n")
+            lines.append(f"skip = {'true' if e.smoke.skip else 'false'}\n")
+            if e.smoke.reason:
+                lines.append(f'reason = "{e.smoke.reason}"\n')
     p.write_text("".join(lines), encoding="utf-8")
     return p
 
@@ -214,4 +224,98 @@ def test_master_index_update_in_place(tmp_path, monkeypatch):
     assert "oldsha" not in master
     assert hashlib.sha256(b"blob").hexdigest() in master
     # Only one Alpha block.
+    assert master.count("[pack.Alpha]") == 1
+
+# ---------------------------------------------------------------------------
+# Rank fields + verification (cycle 224 import ledger)
+# ---------------------------------------------------------------------------
+
+def test_bulk_import_master_index_carries_rank_fields(tmp_path, monkeypatch):
+    e1 = _entry(100, "Alpha", title="Alpha Pack")
+    e1.rating = 2.9
+    e1.votes = 23
+    e1.downloads = 2615
+    e1.rank = 1
+    manifest = _write_manifest(tmp_path, [e1])
+    cc = tmp_path / "cc"
+    cc.mkdir()
+    blob = _make_blob(tmp_path)
+    meta = I.CcanMetadata(
+        ccan_id=0, title="", author_nick="", author_uid=0, uploaded="",
+        engine="", filename="", description_de="", description_us="")
+
+    def fake_import_one(entry, entries, content_community, c4group, force,
+                        rate_limit, snapshot_dir=None):
+        return I.ImportResult(status="imported", metadata=meta, blob_path=blob)
+
+    monkeypatch.setattr(I, "_import_one", fake_import_one)
+    monkeypatch.setattr(I, "resolve_c4group", lambda: Path("/bin/true"))
+
+    rc = I.main(["bulk-import", "--manifest", str(manifest),
+                 "--content-community", str(cc), "--rate-limit", "0",
+                 "--failures-log", str(tmp_path / "f.jsonl")])
+    assert rc == 0
+    master = (cc / "ATTRIBUTION.toml").read_text(encoding="utf-8")
+    assert "rating = 2.9" in master
+    assert "votes = 23" in master
+    assert "downloads = 2615" in master
+    assert "rank = 1" in master
+    assert 'verification = "ccan_smoke_Alpha"' in master
+
+def test_bulk_import_struct_only_verification_when_smoke_skip(
+        tmp_path, monkeypatch):
+    e1 = _entry(100, "Alpha")
+    e1.smoke = I.SmokeConfig(skip=True)
+    manifest = _write_manifest(tmp_path, [e1])
+    cc = tmp_path / "cc"
+    cc.mkdir()
+    blob = _make_blob(tmp_path)
+    meta = I.CcanMetadata(
+        ccan_id=0, title="", author_nick="", author_uid=0, uploaded="",
+        engine="", filename="", description_de="", description_us="")
+
+    def fake_import_one(entry, entries, content_community, c4group, force,
+                        rate_limit, snapshot_dir=None):
+        return I.ImportResult(status="imported", metadata=meta, blob_path=blob)
+
+    monkeypatch.setattr(I, "_import_one", fake_import_one)
+    monkeypatch.setattr(I, "resolve_c4group", lambda: Path("/bin/true"))
+
+    rc = I.main(["bulk-import", "--manifest", str(manifest),
+                 "--content-community", str(cc), "--rate-limit", "0",
+                 "--failures-log", str(tmp_path / "f.jsonl")])
+    assert rc == 0
+    master = (cc / "ATTRIBUTION.toml").read_text(encoding="utf-8")
+    assert 'verification = "struct-only"' in master
+    assert "ccan_smoke_Alpha" not in master
+
+def test_bulk_import_skipped_entry_refreshes_block(tmp_path, monkeypatch):
+    e1 = _entry(100, "Alpha")
+    e1.smoke = I.SmokeConfig(skip=True)
+    manifest = _write_manifest(tmp_path, [e1])
+    cc = tmp_path / "cc"
+    cc.mkdir()
+    # Pre-existing master index block from an earlier import (smoke ran then).
+    (cc / "ATTRIBUTION.toml").write_text(
+        "# Master attribution index.\n\n"
+        "[pack.Alpha]\n"
+        "ccan_id = 100\n"
+        'verification = "ccan_smoke_Alpha"\n\n',
+        encoding="utf-8")
+    # Entry already imported on disk: matching ccan_id + uploaded.
+    pack_dir = cc / "Alpha"
+    pack_dir.mkdir()
+    (pack_dir / "ATTRIBUTION.txt").write_text(
+        "Source: https://ccan.de/cgi-bin/ccan/ccan-view.pl?a=view&i=100\n"
+        "Uploaded: 2025-01-01\n",
+        encoding="utf-8")
+    monkeypatch.setattr(I, "resolve_c4group", lambda: Path("/bin/true"))
+
+    rc = I.main(["bulk-import", "--manifest", str(manifest),
+                 "--content-community", str(cc), "--rate-limit", "0",
+                 "--failures-log", str(tmp_path / "f.jsonl")])
+    assert rc == 0
+    master = (cc / "ATTRIBUTION.toml").read_text(encoding="utf-8")
+    assert 'verification = "struct-only"' in master
+    assert "ccan_smoke_Alpha" not in master
     assert master.count("[pack.Alpha]") == 1

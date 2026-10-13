@@ -400,6 +400,53 @@ def test_load_manifest_smoke_defaults(tmp_path: Path):
 	assert entries[0].smoke.skip is False
 	assert entries[0].smoke.curator_script is False
 
+def test_load_manifest_parses_optional_rank_fields(tmp_path: Path):
+	p = tmp_path / "manifest.toml"
+	p.write_text(
+		"[entry.100]\n"
+		'title = "A"\nccan_id = 100\nauthor_nick = "x"\nauthor_uid = 1\n'
+		'uploaded = "2026-01-01"\nengine = "LC"\n'
+		'license = "CC-BY-NC-4.0"\nlicense_rationale = "r"\n'
+		'filename = "a.c4s"\ndestination = "A"\nnotes = "n"\n'
+		"rating = 2.9\nvotes = 23\ndownloads = 2615\nrank = 1\n",
+		encoding="utf-8",
+	)
+	entries = I.load_manifest(p)
+	assert entries[0].rating == 2.9
+	assert entries[0].votes == 23
+	assert entries[0].downloads == 2615
+	assert entries[0].rank == 1
+
+def test_load_manifest_hazard3d_block_still_loads():
+	"""The current ccan_curated.toml Hazard3D block (no new fields) loads
+	with the four new rank fields None (backward compatibility)."""
+	entries = I.load_manifest(HERE / "ccan_curated.toml")
+	hazard = [e for e in entries if e.ccan_id == 6421]
+	assert len(hazard) == 1
+	e = hazard[0]
+	assert e.destination == "Hazard3D"
+	assert e.rating is None
+	assert e.votes is None
+	assert e.downloads is None
+	assert e.rank is None
+
+def test_smoke_reason_parsed(tmp_path: Path):
+	p = tmp_path / "manifest.toml"
+	p.write_text(
+		"[entry.100]\n"
+		'title = "A"\nccan_id = 100\nauthor_nick = "x"\nauthor_uid = 1\n'
+		'uploaded = "2026-01-01"\nengine = "LC"\n'
+		'license = "CC-BY-NC-4.0"\nlicense_rationale = "r"\n'
+		'filename = "a.c4s"\ndestination = "A"\nnotes = "n"\n'
+		"[entry.100.smoke]\n"
+		"skip = true\n"
+		'reason = "legacy fatal"\n',
+		encoding="utf-8",
+	)
+	entries = I.load_manifest(p)
+	assert entries[0].smoke.skip is True
+	assert entries[0].smoke.reason == "legacy fatal"
+
 def _make_entry(ccan_id, destination, requires=None):
 	return I.ManifestEntry(
 		ccan_id=ccan_id,
@@ -498,7 +545,9 @@ def test_emit_smoke_artefacts_creates_smoke_scenario(tmp_path: Path):
 	script = (smoke_dir / "Script.c").read_text(encoding="utf-8")
 	assert 'Log("MyPack PASS")' in script
 
-def test_emit_smoke_artefacts_skips_when_skip_true(tmp_path: Path):
+def test_emit_smoke_artefacts_skip_writes_struct_marker_only(tmp_path: Path):
+	"""smoke.skip suppresses only the tier-B smoke scenario; the tier-A
+	struct marker is still written (spec: "tier A still applies")."""
 	entry, dest_dir, unpack_path = _setup_pack(
 		tmp_path, smoke=I.SmokeConfig(skip=True)
 	)
@@ -509,7 +558,11 @@ def test_emit_smoke_artefacts_skips_when_skip_true(tmp_path: Path):
 		requires_closure=[],
 		content_community=tmp_path,
 	)
-	assert not (dest_dir / "Tests.c4f").exists()
+	marker = dest_dir / "Tests.c4f" / "MyPackStruct.txt"
+	assert marker.is_file()
+	content = marker.read_text(encoding="utf-8").strip()
+	assert content == str(unpack_path.resolve())
+	assert not (dest_dir / "Tests.c4f" / "MyPackSmoke.c4s").exists()
 
 def test_emit_smoke_artefacts_preserves_curator_script(tmp_path: Path):
 	entry, dest_dir, unpack_path = _setup_pack(

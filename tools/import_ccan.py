@@ -117,6 +117,7 @@ class SmokeConfig:
     ticks: int = 350
     skip: bool = False
     curator_script: bool = False
+    reason: str = ""
 
 @dataclass
 class ManifestEntry:
@@ -133,6 +134,12 @@ class ManifestEntry:
     notes: str
     requires: list[str] = field(default_factory=list)
     smoke: SmokeConfig = field(default_factory=SmokeConfig)
+    # Optional rank/ledger metadata (cycle 224 import ledger); absent in
+    # older manifest blocks (defaults keep them loadable).
+    rating: Optional[float] = None
+    votes: Optional[int] = None
+    downloads: Optional[int] = None
+    rank: Optional[int] = None
 
     @property
     def view_url(self) -> str:
@@ -601,6 +608,7 @@ def load_manifest(path: Path) -> list[ManifestEntry]:
                 ticks=int(smoke_block.get("ticks", 350)),
                 skip=bool(smoke_block.get("skip", False)),
                 curator_script=bool(smoke_block.get("curator_script", False)),
+                reason=str(smoke_block.get("reason", "")),
             )
 
             entry = ManifestEntry(
@@ -617,6 +625,10 @@ def load_manifest(path: Path) -> list[ManifestEntry]:
                 notes=str(block["notes"]),
                 requires=requires,
                 smoke=smoke,
+                rating=block.get("rating"),
+                votes=block.get("votes"),
+                downloads=block.get("downloads"),
+                rank=block.get("rank"),
             )
         except (ValueError, TypeError) as e:
             sys.exit(f"Manifest entry `{block_key}` has a typed-field error: {e}")
@@ -762,24 +774,26 @@ def emit_smoke_artefacts(
 ) -> None:
     """Emit tier-A struct marker + tier-B smoke scenario into Tests.c4f/.
 
-    No-ops when ``entry.smoke.skip`` is True. Preserves an existing
-    Script.c when ``entry.smoke.curator_script`` is True.
+    The tier-A struct marker is written even when ``entry.smoke.skip`` is
+    True ("tier A still applies" — skip suppresses only the tier-B smoke
+    scenario). Preserves an existing Script.c when
+    ``entry.smoke.curator_script`` is True.
     """
-    if entry.smoke.skip:
-        return
-
     tests_dir = dest_dir / "Tests.c4f"
     tests_dir.mkdir(parents=True, exist_ok=True)
 
     pack_name = entry.destination  # e.g. "Hazard3D"
 
-    # Tier A: struct marker (absolute pack path).
+    # Tier A: struct marker (absolute pack path) — always written.
     marker = tests_dir / f"{pack_name}Struct.txt"
     marker.write_text(
         str(unpack_path.resolve()) + "\n", encoding="utf-8"
     )
 
-    # Tier B: smoke scenario directory.
+    # Tier B: smoke scenario — suppressed by smoke.skip.
+    if entry.smoke.skip:
+        return
+
     smoke_dir = tests_dir / f"{pack_name}Smoke.c4s"
     smoke_dir.mkdir(parents=True, exist_ok=True)
 
@@ -1191,7 +1205,19 @@ MASTER_INDEX_FIELDS = (
     "ccan_id", "title", "author_nick", "author_uid", "uploaded",
     "source_url", "download_url", "filename", "license",
     "license_rationale", "sha256", "imported_at",
+    "rating", "votes", "downloads", "rank", "verification",
 )
+
+def verification_for(entry: ManifestEntry) -> str:
+    """Gate verification token recorded in the master index block.
+
+    `struct-only` when the entry's smoke gate is waived (smoke.skip) — only
+    the tier-A struct marker gates the pack; otherwise the tier-B smoke
+    scenario token `ccan_smoke_<destination>`.
+    """
+    if entry.smoke.skip:
+        return "struct-only"
+    return f"ccan_smoke_{entry.destination}"
 
 def load_master_index(path: Path) -> dict:
     """Load content-community/ATTRIBUTION.toml. Returns {} if absent."""
@@ -1286,11 +1312,16 @@ def cmd_bulk_import(args: argparse.Namespace) -> int:
             continue
         if result.status == "skipped":
             print(f"[{entry.ccan_id}] already imported, skipping.")
+            # Waiver propagation (cycle 224): refresh the verification token
+            # so post-import smoke waivers reach the machine ledger.
+            if entry.destination in packs:
+                packs[entry.destination]["verification"] = verification_for(entry)
+                write_master_index(master_path, packs)
             continue
         # Success — update master index block.
         sha = sha256_file(result.blob_path) if result.blob_path else ""
         today = time.strftime("%Y-%m-%d", time.gmtime())
-        packs[entry.destination] = {
+        block = {
             "ccan_id": entry.ccan_id,
             "title": (result.metadata.title if result.metadata else entry.title),
             "author_nick": (result.metadata.author_nick
@@ -1305,7 +1336,17 @@ def cmd_bulk_import(args: argparse.Namespace) -> int:
             "license_rationale": entry.license_rationale,
             "sha256": sha,
             "imported_at": today,
+            "verification": verification_for(entry),
         }
+        # Optional rank fields (omitted when absent — write_master_index
+        # writes every key present, and None is not valid TOML).
+        for field_name, value in (("rating", entry.rating),
+                                  ("votes", entry.votes),
+                                  ("downloads", entry.downloads),
+                                  ("rank", entry.rank)):
+            if value is not None:
+                block[field_name] = value
+        packs[entry.destination] = block
         write_master_index(master_path, packs)
         imported += 1
         print(f"[{entry.ccan_id}] imported -> "
@@ -1417,6 +1458,97 @@ def cmd_verify_imports(args: argparse.Namespace) -> int:
           f"Report: {report_path}")
     if changed or missing or local_missing:
         return 1
+    return 0
+
+# ===========================================================================
+# ledger (cycle 224: IMPORT-LEDGER.md from the master ATTRIBUTION.toml)
+# ===========================================================================
+
+LEDGER_COLUMNS = (
+    "rank", "ccan_id", "title", "author", "rating", "votes", "downloads",
+    "license", "license_rationale", "destination", "verification",
+)
+
+def _ledger_cell(value) -> str:
+    """Render one master-index value as a markdown table cell."""
+    if value is None:
+        return ""
+    text = str(value)
+    # Keep the table well-formed: no raw pipes or newlines inside cells.
+    return text.replace("\\", "\\\\").replace("|", "\\|") \
+               .replace("\r", " ").replace("\n", " ")
+
+def cmd_ledger(args: argparse.Namespace) -> int:
+    """Render IMPORT-LEDGER.md from ATTRIBUTION.toml [pack.*] blocks.
+
+    One markdown row per imported pack (columns: rank, ccan_id, title,
+    author, rating, votes, downloads, license, license_rationale,
+    destination, verification), sorted by (rank or +inf, destination).
+    Appends a "## Smoke waivers" section from manifest entries with
+    smoke.skip = true.
+    """
+    content_community = args.content_community
+    master_path = content_community / "ATTRIBUTION.toml"
+    if not master_path.is_file():
+        sys.exit(
+            f"Master index not found: {master_path}. "
+            f"Run `bulk-import` first to generate ATTRIBUTION.toml."
+        )
+    master = load_master_index(master_path)
+    packs: dict = master.get("pack", {})
+    if not packs:
+        print("No [pack.*] blocks in the master index yet — nothing to "
+              "render.")
+        return 1
+
+    # Smoke waivers come from the curated manifest (skip + reason).
+    waivers: list[tuple[str, int, str]] = []
+    if args.manifest.is_file():
+        for e in load_manifest(args.manifest):
+            if e.smoke.skip:
+                waivers.append((e.destination, e.ccan_id, e.smoke.reason))
+
+    def sort_key(item):
+        dest, block = item
+        rank = block.get("rank")
+        return (rank if rank is not None else float("inf"), dest)
+
+    out = []
+    out.append(
+        "# CCAN import ledger\n\n"
+        "Generated by `import_ccan.py ledger`. Source of truth: "
+        "`content-community/ATTRIBUTION.toml`.\n\n"
+    )
+    out.append("| " + " | ".join(LEDGER_COLUMNS) + " |\n")
+    out.append("|" + "|".join(["---"] * len(LEDGER_COLUMNS)) + "|\n")
+    for dest, block in sorted(packs.items(), key=sort_key):
+        cells = [
+            _ledger_cell(block.get("rank")),
+            _ledger_cell(block.get("ccan_id")),
+            _ledger_cell(block.get("title")),
+            _ledger_cell(block.get("author_nick")),
+            _ledger_cell(block.get("rating")),
+            _ledger_cell(block.get("votes")),
+            _ledger_cell(block.get("downloads")),
+            _ledger_cell(block.get("license")),
+            _ledger_cell(block.get("license_rationale")),
+            _ledger_cell(dest),
+            _ledger_cell(block.get("verification")),
+        ]
+        out.append("| " + " | ".join(cells) + " |\n")
+
+    if waivers:
+        out.append("\n## Smoke waivers\n\n")
+        out.append("| destination | ccan_id | reason |\n")
+        out.append("|---|---|---|\n")
+        for dest, ccan_id, reason in sorted(waivers):
+            out.append(f"| {_ledger_cell(dest)} | {ccan_id} | "
+                       f"{_ledger_cell(reason)} |\n")
+
+    out_path = Path(args.out) if args.out else (
+        content_community / "IMPORT-LEDGER.md")
+    out_path.write_text("".join(out), encoding="utf-8")
+    print(f"Ledger: {len(packs)} rows, {len(waivers)} waivers -> {out_path}")
     return 0
 
 # ===========================================================================
@@ -1647,6 +1779,32 @@ def build_parser() -> argparse.ArgumentParser:
                         help="Fetch the blob via the record's blob_url if absent.")
     p_quar.add_argument("--rate-limit", type=float, default=DEFAULT_RATE_LIMIT)
     p_quar.set_defaults(func=cmd_quarantine)
+
+    p_led = sub.add_parser(
+        "ledger",
+        help="Render IMPORT-LEDGER.md from the master ATTRIBUTION.toml index.",
+    )
+    p_led.add_argument(
+        "--manifest",
+        type=Path,
+        default=DEFAULT_MANIFEST,
+        help=f"Path to the curated manifest (waiver source; default: "
+             f"{DEFAULT_MANIFEST}).",
+    )
+    p_led.add_argument(
+        "--content-community",
+        type=Path,
+        default=DEFAULT_CONTENT_COMMUNITY,
+        help="Destination repo root (default: ../content-community).",
+    )
+    p_led.add_argument(
+        "--out",
+        type=Path,
+        default=None,
+        help="Ledger output path (default: "
+             "<content-community>/IMPORT-LEDGER.md).",
+    )
+    p_led.set_defaults(func=cmd_ledger)
 
     return parser
 
