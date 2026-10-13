@@ -1160,6 +1160,29 @@ if(EXISTS "${LEGACYCLONK_CONTENT_DIR}/WeatherEvents.c4d/Tests.c4f/GrabsteinRally
 		FAIL_REGULAR_EXPRESSION "FatalError|\\[error\\]|\\[fatal\\]")
 endif()
 
+# --- AdmiralsCrown co-op gate (cycle 222, flooded-crown-coop-paths) -------
+# Permanent gate on the REAL AdmiralsCrown.c4s co-op seam: two TestPlayer
+# fixtures join as P1 (helm) + P2 (boatswain); tools/admirals_crown_coop_gate.py
+# boards one crew clonk per player into the Cog and drives the shipped crew
+# mirror through bail / jettison / plug / steer to 3 deliveries + WIN
+# (construct-gate precedent: literal "/console" argv, stdin-piped /script).
+# NO "Smoke" suffix scenario: the Tests.c4f glob path is playerless by
+# construction; this explicit entry joins two fixtures (wincond_mode_smoke
+# precedent). LABELS "smoke" keeps the ASan lane's ctest -E 'smoke|net_'
+# excluding it.
+if(PYTHON3 AND EXISTS "${LEGACYCLONK_CONTENT_DIR}/OceanTrade.c4f/AdmiralsCrown.c4s/Script.c")
+	add_test(NAME admirals_crown_coop_smoke
+		COMMAND "${PYTHON3}" "${CMAKE_SOURCE_DIR}/tools/admirals_crown_coop_gate.py"
+			"--engine" "$<TARGET_FILE:clonk>"
+			"--content-dir" "${LEGACYCLONK_CONTENT_DIR}"
+		WORKING_DIRECTORY "${CMAKE_BINARY_DIR}")
+	set_tests_properties(admirals_crown_coop_smoke PROPERTIES
+		TIMEOUT 240
+		LABELS "smoke"
+		PASS_REGULAR_EXPRESSION "admirals_crown_coop_smoke PASS"
+		FAIL_REGULAR_EXPRESSION "FatalError|\\[error\\]|\\[fatal\\]")
+endif()
+
 # Mechanical file gate for the task-1/task-2 arena content contracts the
 # bot smoke depends on (would have caught the KILC regression and the
 # kitchen-sink store revert before any engine run):
