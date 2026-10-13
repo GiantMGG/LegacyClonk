@@ -51,7 +51,6 @@ PLACEMENT_DEFECT_RE = re.compile(r"\(placement defect\)")
 
 INTRO_RE = re.compile(r"Salt Road Act IV: the salt run begins\.")
 
-
 def run_boot(engine, content_dir, out_log):
     """Run one SaltRoad04 boot; return (rc, log) or (None, msg) on error.
 
@@ -92,7 +91,6 @@ def run_boot(engine, content_dir, out_log):
         return None, "<TIMEOUT after %ds>" % BOOT_TIMEOUT
     return rc, log
 
-
 def check_boot(boot, rc, log):
     """Print one line per assertion; return the failure list."""
     failures = []
@@ -126,7 +124,6 @@ def check_boot(boot, rc, log):
         print("boot %d placement-defect lines: PASS (0 matches)" % boot)
     return failures
 
-
 def main():
     parser = argparse.ArgumentParser(description="SaltRoad04 x3 boot-clean gate")
     parser.add_argument("--engine", required=True, help="path to the clonk binary")
@@ -150,7 +147,6 @@ def main():
         return 1
     print("saltroad04_boot_gate PASS")
     return 0
-
 
 if __name__ == "__main__":
     sys.exit(main())
