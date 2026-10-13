@@ -178,6 +178,23 @@ def test_idempotency_check_skips_already_imported(
 	e2 = I.ManifestEntry(**{**sample_manifest_entry.__dict__, "uploaded": "2025-01-01"})
 	assert I.is_already_imported(e2, tmp_path) is False
 
+def test_idempotency_check_tolerates_empty_uploaded(
+	tmp_path: Path,
+	sample_manifest_entry: I.ManifestEntry,
+):
+	# Regression (cycle 224 bulk-import tranche): the importer itself writes
+	# "Uploaded: " with an empty value for entries without an upload date;
+	# re-running bulk-import must still recognize that destination.
+	entry = I.ManifestEntry(**{**sample_manifest_entry.__dict__, "uploaded": ""})
+	pack = tmp_path / "Sample"
+	pack.mkdir()
+	(pack / "ATTRIBUTION.txt").write_text(
+		"Source: https://ccan.de/cgi-bin/ccan/ccan-view.pl?a=view&i=4242\n"
+		"Uploaded: \n",
+		encoding="utf-8",
+	)
+	assert I.is_already_imported(entry, tmp_path) is True
+
 def test_validate_runs_c4group_l_and_checks_exit_code(monkeypatch):
 	# Mock subprocess.run: first call returns exit 0 (ok), second call exit 1 (fail).
 	calls = []

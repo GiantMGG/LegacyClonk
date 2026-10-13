@@ -207,7 +207,7 @@ def _parse_attribution_id_and_uploaded(attr_text: str) -> tuple[Optional[int], O
     import re
     id_match = re.search(r"i=(\d+)", attr_text)
     ccan_id = int(id_match.group(1)) if id_match else None
-    up_match = re.search(r"^Uploaded:\s*(.+)$", attr_text, re.MULTILINE)
+    up_match = re.search(r"^Uploaded:\s*(.*)$", attr_text, re.MULTILINE)
     uploaded = up_match.group(1).strip() if up_match else None
     return ccan_id, uploaded
 
