@@ -525,6 +525,26 @@ if(EXISTS "${LEGACYCLONK_CONTENT_DIR}/Worlds.c4f/BreakerCove.c4s/Script.c")
 		FAIL_REGULAR_EXPRESSION "FatalError|\\[error\\]|\\[fatal\\]")
 endif()
 
+# --- SaltRoad04 boot gate (cycle 226, desert-campaign Act IV) ---------------
+# Permanent x3 boot-clean gate on the REAL SaltRoad04.c4s
+# (tools/saltroad04_boot_gate.py): three headless boots with one TestPlayer
+# fixture each (fresh copy per boot), pinned Seed=226; PASSes only when every
+# boot exits 0, logs zero FatalError/[error]/[fatal] lines and prints the
+# scenario intro line. The economy (Task 2) and the round gate (Task 3) build
+# on this entry.
+if(EXISTS "${LEGACYCLONK_CONTENT_DIR}/SaltRoad.c4f/SaltRoad04.c4s/Script.c")
+	add_test(NAME saltroad04_boot_gate
+		COMMAND "${PYTHON3}" "${CMAKE_SOURCE_DIR}/tools/saltroad04_boot_gate.py"
+			"--engine" "$<TARGET_FILE:clonk>"
+			"--content-dir" "${LEGACYCLONK_CONTENT_DIR}"
+		WORKING_DIRECTORY "${CMAKE_BINARY_DIR}")
+	set_tests_properties(saltroad04_boot_gate PROPERTIES
+		TIMEOUT 300
+		LABELS "smoke"
+		PASS_REGULAR_EXPRESSION "saltroad04_boot_gate PASS"
+		FAIL_REGULAR_EXPRESSION "FatalError|\\[error\\]|\\[fatal\\]")
+endif()
+
 # --- Menu-walk smoke (spec 2026-09-17-menu-walk-smoke, cycle 131) -----------
 # Six-leg new-player-walk driver (tools/menu_walk_smoke.py). Console builds
 # only (headless engine spawns). Deliberately NO FAIL_REGULAR_EXPRESSION:
