@@ -546,6 +546,27 @@ if(EXISTS "${LEGACYCLONK_CONTENT_DIR}/SaltRoad.c4f/SaltRoad04.c4s/Script.c")
 		FAIL_REGULAR_EXPRESSION "FatalError|\\[error\\]|\\[fatal\\]")
 endif()
 
+# --- SaltRoad04 round gate (cycle 226, desert-campaign Act IV) ---------------
+# Permanent two-leg gate on the REAL SaltRoad04.c4s round via the engine's
+# stdin /script seam (frontier_cove_round_gate pattern;
+# tools/saltroad04_round_gate.py): leg LOSE removes both camels on the intro
+# marker and asserts the defeat line; leg WON loads the caravan through the
+# scenario-global SaltRoad04_LoadCargo(3) hook so the director's own departure
+# check fires Depart(), then asserts the departure + victory lines with >= 6
+# SALT delivered. Pinned Seed=226; --smoke-run 9000 (the crossing budget).
+if(EXISTS "${LEGACYCLONK_CONTENT_DIR}/SaltRoad.c4f/SaltRoad04.c4s/Script.c")
+	add_test(NAME saltroad04_round_gate
+		COMMAND "${PYTHON3}" "${CMAKE_SOURCE_DIR}/tools/saltroad04_round_gate.py"
+			"--engine" "$<TARGET_FILE:clonk>"
+			"--content-dir" "${LEGACYCLONK_CONTENT_DIR}"
+		WORKING_DIRECTORY "${CMAKE_BINARY_DIR}")
+	set_tests_properties(saltroad04_round_gate PROPERTIES
+		TIMEOUT 600
+		LABELS "smoke"
+		PASS_REGULAR_EXPRESSION "saltroad04_round_gate PASS"
+		FAIL_REGULAR_EXPRESSION "FatalError|\\[error\\]|\\[fatal\\]")
+endif()
+
 # --- Menu-walk smoke (spec 2026-09-17-menu-walk-smoke, cycle 131) -----------
 # Six-leg new-player-walk driver (tools/menu_walk_smoke.py). Console builds
 # only (headless engine spawns). Deliberately NO FAIL_REGULAR_EXPRESSION:
