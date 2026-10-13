@@ -540,6 +540,12 @@ def parse_ccan_metadata(html_text: str, ccan_id: int) -> CcanMetadata:
     uploaded = get("Zeit", "Datum", "Date", "Uploaded")
     engine = get("Engine-Version", "Engine")
     filename = get("Download", "Dateiname", "Filename")
+    # Dual-anchor Download cells mash the real file anchor with the generic
+    # "Externer Link" anchor (href without a filename) into one string:
+    # "file.c4d Externer Link" (cycle 224 verify-manifest finding). The real
+    # filename is the first anchor; entries whose Download cell has only the
+    # generic anchor keep the literal "Externer Link".
+    filename = re.sub(r"(\S)\s*Externer Link$", r"\1", filename).strip()
 
     desc_de, desc_us = _extract_descriptions(f)
 
@@ -1520,6 +1526,33 @@ def _ledger_cell(value) -> str:
     return text.replace("\\", "\\\\").replace("|", "\\|") \
                .replace("\r", " ").replace("\n", " ")
 
+def _load_import_failures(path: Path) -> list[tuple[int, str, str]]:
+    """Load a bulk-import failures JSONL -> sorted [(ccan_id, destination, error)].
+
+    Malformed lines (not JSON, or not an object) are skipped; the ledger must
+    still render when the log contains unexpected records.
+    """
+    failures: list[tuple[int, str, str]] = []
+    with path.open(encoding="utf-8") as fh:
+        for line in fh:
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                rec = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            if not isinstance(rec, dict):
+                continue
+            ccan_id = rec.get("ccan_id")
+            failures.append((
+                ccan_id if isinstance(ccan_id, int) else 0,
+                str(rec.get("destination") or ""),
+                str(rec.get("error") or ""),
+            ))
+    failures.sort()
+    return failures
+
 def cmd_ledger(args: argparse.Namespace) -> int:
     """Render IMPORT-LEDGER.md from ATTRIBUTION.toml [pack.*] blocks.
 
@@ -1527,7 +1560,8 @@ def cmd_ledger(args: argparse.Namespace) -> int:
     author, rating, votes, downloads, license, license_rationale,
     destination, verification), sorted by (rank or +inf, destination).
     Appends a "## Smoke waivers" section from manifest entries with
-    smoke.skip = true.
+    smoke.skip = true, and — when --failures-log points at an existing
+    bulk-import failures JSONL — a "## Import failures" section.
     """
     content_community = args.content_community
     master_path = content_community / "ATTRIBUTION.toml"
@@ -1549,6 +1583,12 @@ def cmd_ledger(args: argparse.Namespace) -> int:
         for e in load_manifest(args.manifest):
             if e.smoke.skip:
                 waivers.append((e.destination, e.ccan_id, e.smoke.reason))
+
+    # Import failures come from the bulk-import JSONL (cycle 224 review):
+    # entries of the ranked list that could not be imported at all.
+    failures: list[tuple[int, str, str]] = []
+    if getattr(args, "failures_log", None) and args.failures_log.is_file():
+        failures = _load_import_failures(args.failures_log)
 
     def sort_key(item):
         dest, block = item
@@ -1587,10 +1627,19 @@ def cmd_ledger(args: argparse.Namespace) -> int:
             out.append(f"| {_ledger_cell(dest)} | {ccan_id} | "
                        f"{_ledger_cell(reason)} |\n")
 
+    if failures:
+        out.append("\n## Import failures\n\n")
+        out.append("| pack | reason |\n")
+        out.append("|---|---|\n")
+        for ccan_id, dest, reason in failures:
+            name = f"{dest} ({ccan_id})" if ccan_id else (dest or "?")
+            out.append(f"| {_ledger_cell(name)} | {_ledger_cell(reason)} |\n")
+
     out_path = Path(args.out) if args.out else (
         content_community / "IMPORT-LEDGER.md")
     out_path.write_text("".join(out), encoding="utf-8")
-    print(f"Ledger: {len(packs)} rows, {len(waivers)} waivers -> {out_path}")
+    print(f"Ledger: {len(packs)} rows, {len(waivers)} waivers, "
+          f"{len(failures)} import failures -> {out_path}")
     return 0
 
 # ===========================================================================
@@ -1845,6 +1894,13 @@ def build_parser() -> argparse.ArgumentParser:
         default=None,
         help="Ledger output path (default: "
              "<content-community>/IMPORT-LEDGER.md).",
+    )
+    p_led.add_argument(
+        "--failures-log",
+        type=Path,
+        default=None,
+        help="Bulk-import failures JSONL (default: none). When the file "
+             "exists, an '## Import failures' section is appended.",
     )
     p_led.set_defaults(func=cmd_ledger)
 

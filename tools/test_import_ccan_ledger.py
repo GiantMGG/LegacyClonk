@@ -7,6 +7,7 @@ Run::
 
     python3.11 -m pytest tools/test_import_ccan_ledger.py -v
 """
+import json
 import sys
 from pathlib import Path
 
@@ -63,13 +64,33 @@ def _write_manifest(tmp_path: Path, *, skip=False, reason="") -> Path:
     p.write_text("".join(lines), encoding="utf-8")
     return p
 
-def _run_ledger(cc: Path, manifest: Path, out: Path) -> int:
-    return I.main([
+def _write_failures(tmp_path: Path) -> Path:
+    """Bulk-import failures JSONL (schema: ccan_id, destination, error)."""
+    p = tmp_path / "ccan_bulk_failures.jsonl"
+    rows = [
+        {"ccan_id": 6383, "destination": "UltimateClonkCompilationv30",
+         "error": "import failed: Text-only compilation entries are not "
+                  "packs; skip."},
+        {"ccan_id": 3047, "destination": "FerneWelten-3047",
+         "error": "InvalidURL: URL can't contain control characters."},
+        {"ccan_id": 1201, "destination": "SpaceLaunchPackv085b",
+         "error": "InvalidURL: URL can't contain control characters."},
+    ]
+    p.write_text("".join(json.dumps(r) + "\n" for r in rows),
+                 encoding="utf-8")
+    return p
+
+def _run_ledger(cc: Path, manifest: Path, out: Path,
+                failures_log: Path | None = None) -> int:
+    argv = [
         "ledger",
         "--manifest", str(manifest),
         "--content-community", str(cc),
         "--out", str(out),
-    ])
+    ]
+    if failures_log is not None:
+        argv += ["--failures-log", str(failures_log)]
+    return I.main(argv)
 
 def test_ledger_renders_table_with_license_column(tmp_path):
     cc = _write_attribution(tmp_path)
@@ -106,3 +127,62 @@ def test_ledger_missing_attribution_fails_cleanly(tmp_path):
         ])
     assert exc.value.code != 0
     assert "ATTRIBUTION.toml" in str(exc.value)
+
+# --- Import failures section (cycle 224 review) ---------------------------
+
+def test_ledger_renders_failures_section_after_waivers(tmp_path):
+    cc = _write_attribution(tmp_path)
+    manifest = _write_manifest(tmp_path, skip=True, reason="legacy fatal")
+    failures = _write_failures(tmp_path)
+    out = tmp_path / "IMPORT-LEDGER.md"
+    rc = _run_ledger(cc, manifest, out, failures_log=failures)
+    assert rc == 0
+    text = out.read_text(encoding="utf-8")
+    assert "## Import failures" in text
+    assert "| pack | reason |" in text
+    assert "|---|---|" in text
+    # One row per failure, sorted by ccan_id: 1201 < 3047 < 6383.
+    assert "| SpaceLaunchPackv085b (1201) | InvalidURL: URL can't contain " \
+           "control characters. |" in text
+    assert "| FerneWelten-3047 (3047) | InvalidURL: URL can't contain " \
+           "control characters. |" in text
+    assert "| UltimateClonkCompilationv30 (6383) | import failed: Text-only " \
+           "compilation entries are not packs; skip. |" in text
+    # Section order: main table < Smoke waivers < Import failures.
+    assert text.index("## Smoke waivers") < text.index("## Import failures")
+
+def test_ledger_no_failures_section_without_flag(tmp_path):
+    cc = _write_attribution(tmp_path)
+    manifest = _write_manifest(tmp_path)
+    out = tmp_path / "IMPORT-LEDGER.md"
+    rc = _run_ledger(cc, manifest, out)
+    assert rc == 0
+    text = out.read_text(encoding="utf-8")
+    assert "## Import failures" not in text
+
+def test_ledger_missing_failures_log_file_is_ignored(tmp_path):
+    cc = _write_attribution(tmp_path)
+    manifest = _write_manifest(tmp_path)
+    out = tmp_path / "IMPORT-LEDGER.md"
+    rc = _run_ledger(cc, manifest, out,
+                     failures_log=tmp_path / "does-not-exist.jsonl")
+    assert rc == 0
+    text = out.read_text(encoding="utf-8")
+    assert "## Import failures" not in text
+
+def test_ledger_skips_malformed_jsonl_lines(tmp_path):
+    cc = _write_attribution(tmp_path)
+    manifest = _write_manifest(tmp_path)
+    failures = tmp_path / "broken.jsonl"
+    failures.write_text(
+        '{"ccan_id": 5555, "destination": "GoodPack", "error": "boom"}\n'
+        "not json at all\n"
+        '["also", "not", "an", "object"]\n',
+        encoding="utf-8",
+    )
+    out = tmp_path / "IMPORT-LEDGER.md"
+    rc = _run_ledger(cc, manifest, out, failures_log=failures)
+    assert rc == 0
+    text = out.read_text(encoding="utf-8")
+    assert "| GoodPack (5555) | boom |" in text
+    assert "not json" not in text

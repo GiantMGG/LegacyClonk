@@ -93,6 +93,43 @@ def test_parse_ccan_metadata_from_synthetic_fixture():
 	assert "Sample DE description" in m.description_de
 	assert "Sample US description" in m.description_us
 
+def test_parse_ccan_metadata_dual_anchor_download_cell():
+	# Real CCAN pages put TWO anchors in the Download cell: the file link
+	# plus a generic "Externer Link" anchor without a filename (cycle 224
+	# verify-manifest finding). The filename is the first anchor only.
+	html = (
+		"<html><head><title>CCAN - Zauberpaket</title></head><body><table>"
+		"<tr><th>Titel</th><td>Zauberpaket</td></tr>"
+		"<tr><th>Autor</th><td>Major</td></tr>"
+		"<tr><th>Zeit</th><td>9.7.2004</td></tr>"
+		"<tr><th>Engine-Version</th><td>GWE4</td></tr>"
+		"<tr><th>Download</th><td>"
+		'<A HREF="ccan-dl-auth.pl/2735/Zauberpaket.C4D">'
+		'<IMG SRC="/img/dl.gif"> Zauberpaket.C4D</A><BR>'
+		'<A HREF="ccan-dl-auth.pl/2735"> Externer Link</A>'
+		"</td></tr>"
+		"</table></body></html>"
+	)
+	m = I.parse_ccan_metadata(html, 2735)
+	assert m.filename == "Zauberpaket.C4D"
+
+def test_parse_ccan_metadata_externer_link_only_download():
+	# Entries whose Download cell has ONLY the generic anchor keep the
+	# literal "Externer Link" filename (e.g. CCAN 3047, cycle 224).
+	html = (
+		"<html><head><title>CCAN - Ferne Welten</title></head><body><table>"
+		"<tr><th>Titel</th><td>Ferne Welten</td></tr>"
+		"<tr><th>Autor</th><td>Someone</td></tr>"
+		"<tr><th>Zeit</th><td>1.1.2004</td></tr>"
+		"<tr><th>Engine-Version</th><td>LC</td></tr>"
+		"<tr><th>Download</th><td>"
+		'<A HREF="ccan-dl-auth.pl/3047"> Externer Link</A>'
+		"</td></tr>"
+		"</table></body></html>"
+	)
+	m = I.parse_ccan_metadata(html, 3047)
+	assert m.filename == "Externer Link"
+
 def test_load_manifest_validates_required_fields(tmp_path: Path):
 	# Missing `filename` field.
 	p = tmp_path / "bad.toml"
