@@ -513,6 +513,29 @@ def _setup_pack(tmp_path: Path, name: str = "MyPack", requires=None, smoke=None)
 	(unpack_path / "Objects.c4d").mkdir()  # sub-def
 	return entry, dest_dir, unpack_path
 
+def _setup_pack_no_subdefs(tmp_path: Path, name: str = "MyPack"):
+	"""Like _setup_pack, but the unpacked pack has no sub-defs at all."""
+	entry = I.ManifestEntry(
+		ccan_id=1,
+		title=name,
+		author_nick="x",
+		author_uid=1,
+		uploaded="2026-01-01",
+		engine="LC",
+		license="CC-BY-NC-4.0",
+		license_rationale="r",
+		filename=f"{name}.c4s",
+		destination=name,
+		notes="n",
+		requires=[],
+		smoke=I.SmokeConfig(),
+	)
+	dest_dir = tmp_path / name
+	dest_dir.mkdir()
+	unpack_path = dest_dir / f"{name}.c4s"
+	unpack_path.mkdir()
+	return entry, dest_dir, unpack_path
+
 def test_emit_smoke_artefacts_creates_struct_marker(tmp_path: Path):
 	entry, dest_dir, unpack_path = _setup_pack(tmp_path)
 	I.emit_smoke_artefacts(
@@ -544,6 +567,60 @@ def test_emit_smoke_artefacts_creates_smoke_scenario(tmp_path: Path):
 	# Script.c logs "<PackName> PASS" for the PASS_REGULAR_EXPRESSION match.
 	script = (smoke_dir / "Script.c").read_text(encoding="utf-8")
 	assert 'Log("MyPack PASS")' in script
+
+def test_emit_smoke_script_uses_global_effect_callbacks(tmp_path: Path):
+	"""SMOKE_SCRIPT_TEMPLATE must declare the effect callbacks `global func`
+	— plain `func` scopes the callback to the scenario object so the effect
+	timer is never resolved and the PASS regex is unreachable (cycle 224)."""
+	entry, dest_dir, unpack_path = _setup_pack(tmp_path)
+	I.emit_smoke_artefacts(
+		entry=entry,
+		dest_dir=dest_dir,
+		unpack_path=unpack_path,
+		requires_closure=[],
+		content_community=tmp_path,
+	)
+	script = (
+		dest_dir / "Tests.c4f" / "MyPackSmoke.c4s" / "Script.c"
+	).read_text(encoding="utf-8")
+	assert "global func FxRunTestStart(target, effect)" in script
+	assert "global func FxRunTestTimer(object target, int effect, int timer)" in script
+	# No object-scoped (non-global) variants left.
+	assert "\nfunc FxRunTest" not in script
+
+def test_emit_smoke_definitions_include_objects_base_def(tmp_path: Path):
+	"""Every emitted smoke scenario must list Objects.c4d — the engine's
+	System.c4g (C4.c) calls GetBarrelType, defined only in content/Objects.c4d
+	(cycle 224)."""
+	entry, dest_dir, unpack_path = _setup_pack_no_subdefs(tmp_path)
+	I.emit_smoke_artefacts(
+		entry=entry,
+		dest_dir=dest_dir,
+		unpack_path=unpack_path,
+		requires_closure=[],
+		content_community=tmp_path,
+	)
+	text = (
+		dest_dir / "Tests.c4f" / "MyPackSmoke.c4s" / "Scenario.txt"
+	).read_text(encoding="utf-8")
+	assert "Definition1=Objects.c4d\n" in text
+
+def test_emit_smoke_definitions_dedupe_objects_base_def(tmp_path: Path):
+	"""A pack shipping its own Objects.c4d sub-def must not produce a
+	duplicate entry in [Definitions]."""
+	entry, dest_dir, unpack_path = _setup_pack(tmp_path)  # has Objects.c4d sub-def
+	I.emit_smoke_artefacts(
+		entry=entry,
+		dest_dir=dest_dir,
+		unpack_path=unpack_path,
+		requires_closure=[],
+		content_community=tmp_path,
+	)
+	text = (
+		dest_dir / "Tests.c4f" / "MyPackSmoke.c4s" / "Scenario.txt"
+	).read_text(encoding="utf-8")
+	assert text.count("Objects.c4d") == 1
+	assert "Definition1=Objects.c4d\n" in text
 
 def test_emit_smoke_artefacts_skip_writes_struct_marker_only(tmp_path: Path):
 	"""smoke.skip suppresses only the tier-B smoke scenario; the tier-A

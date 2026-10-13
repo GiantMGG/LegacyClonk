@@ -93,9 +93,9 @@ SMOKE_SCRIPT_TEMPLATE = (
     "\treturn true;\n"
     "}}\n"
     "\n"
-    "func FxRunTestStart(target, effect) {{ return 1; }}\n"
+    "global func FxRunTestStart(target, effect) {{ return 1; }}\n"
     "\n"
-    "func FxRunTestTimer(object target, int effect, int timer)\n"
+    "global func FxRunTestTimer(object target, int effect, int timer)\n"
     "{{\n"
     "\tif (g_iStep == 0)\n"
     "\t{{\n"
@@ -742,6 +742,12 @@ def _collect_pack_definitions(directory: Path) -> list[str]:
             defs.append(entry.name)
     return defs
 
+# Smoke scenarios always load the engine's base definition pack: System.c4g
+# (content/System.c4g/C4.c) references GetBarrelType, which is defined only
+# in content/Objects.c4d. Every hand-authored main-content scenario lists it
+# as Definition1.
+SMOKE_BASE_DEFINITIONS = ("Objects.c4d",)
+
 def _build_smoke_definitions(
     unpack_path: Path,
     requires_closure: list[str],
@@ -750,11 +756,13 @@ def _build_smoke_definitions(
     """Build the list of definition pack filenames for the smoke scenario's
     [Definitions] block.
 
+    - Always starts with the engine's base definition pack(s)
+      (SMOKE_BASE_DEFINITIONS, deduplicated).
     - For a .c4d/.c4f pack: the pack itself.
     - For a .c4s pack: the .c4d/.c4f sub-defs inside it.
     - Plus each required dep's top-level packs.
     """
-    defs: list[str] = []
+    defs: list[str] = list(SMOKE_BASE_DEFINITIONS)
     suffix = unpack_path.suffix.lower()
     if suffix in (".c4d", ".c4f"):
         defs.append(unpack_path.name)
@@ -763,7 +771,14 @@ def _build_smoke_definitions(
     for dep in requires_closure:
         dep_dir = content_community / dep
         defs.extend(_collect_pack_definitions(dep_dir))
-    return defs
+    # Dedupe, keeping first occurrence (base defs come first).
+    seen: set[str] = set()
+    unique: list[str] = []
+    for d in defs:
+        if d not in seen:
+            seen.add(d)
+            unique.append(d)
+    return unique
 
 def emit_smoke_artefacts(
     entry: ManifestEntry,

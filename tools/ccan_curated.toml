@@ -25,3 +25,5 @@ requires          = ["Medaillensystem"]
 
 [entry.6421.smoke]
 ticks             = 350
+skip              = true
+reason            = "requires Medaillensystem pack (CCAN) not in stash; medal scripts (RewardMedal/ProcessMedalProgress/ArrayAdd) unresolvable"
