@@ -27,3 +27,683 @@ requires          = ["Medaillensystem"]
 ticks             = 350
 skip              = true
 reason            = "requires Medaillensystem pack (CCAN) not in stash; medal scripts (RewardMedal/ProcessMedalProgress/ArrayAdd) unresolvable"
+[entry.6370]
+title             = "HD Clonks"
+ccan_id           = 6370
+author_nick       = "luhi / 17468401"
+author_uid        = 3797
+uploaded          = ""
+engine            = "CR"
+license           = "CC-BY-NC-4.0"
+license_rationale = "CCAN default Clonk content license (CC BY-NC 4.0); private stash, never distributed"
+filename          = "HDClonks.zip"
+destination       = "HDClonksv11"
+notes             = "cycle 224 private stash; rank 1 of top-40"
+rating            = 3.0
+votes             = 5
+downloads         = 963
+rank              = 1
+
+[entry.6354]
+title             = "Arktis 2"
+ccan_id           = 6354
+author_nick       = "mOwl / 15191397"
+author_uid        = 6061
+uploaded          = ""
+engine            = "CR"
+license           = "CC-BY-NC-4.0"
+license_rationale = "CCAN default Clonk content license (CC BY-NC 4.0); private stash, never distributed"
+filename          = "m0Arctic2.c4s"
+destination       = "Arktis2v12"
+notes             = "cycle 224 private stash; rank 2 of top-40"
+rating            = 3.0
+votes             = 4
+downloads         = 1181
+rank              = 2
+
+[entry.6372]
+title             = "HD Knights"
+ccan_id           = 6372
+author_nick       = "luhi / 17468401"
+author_uid        = 3797
+uploaded          = ""
+engine            = "CR"
+license           = "CC-BY-NC-4.0"
+license_rationale = "CCAN default Clonk content license (CC BY-NC 4.0); private stash, never distributed"
+filename          = "HDKnights.c4d"
+destination       = "HDKnightsv12"
+notes             = "cycle 224 private stash; rank 3 of top-40"
+rating            = 3.0
+votes             = 3
+downloads         = 1351
+rank              = 3
+
+[entry.6375]
+title             = "Drachenfels Collection"
+ccan_id           = 6375
+author_nick       = "mOwl / 15191397"
+author_uid        = 6061
+uploaded          = ""
+engine            = "LC"
+license           = "CC-BY-NC-4.0"
+license_rationale = "CCAN default Clonk content license (CC BY-NC 4.0); private stash, never distributed"
+filename          = "Drachenfels.c4f"
+destination       = "DrachenfelsCollection"
+notes             = "cycle 224 private stash; rank 4 of top-40"
+rating            = 3.0
+votes             = 3
+downloads         = 1251
+rank              = 4
+
+[entry.6164]
+title             = "Die Geschichte von Harkon Kapitel 2"
+ccan_id           = 6164
+author_nick       = "Randrian / 19390914"
+author_uid        = 1387
+uploaded          = ""
+engine            = "CR"
+license           = "CC-BY-NC-4.0"
+license_rationale = "CCAN default Clonk content license (CC BY-NC 4.0); private stash, never distributed"
+filename          = "MissionsHarkon.c4f"
+destination       = "DieGeschichtevonHarkonKapitel2v20"
+notes             = "cycle 224 private stash; rank 5 of top-40"
+rating            = 2.9
+votes             = 23
+downloads         = 2618
+rank              = 5
+
+[entry.6327]
+title             = "Turm der Verzweiflung"
+ccan_id           = 6327
+author_nick       = "Sam / 16497180"
+author_uid        = 7436
+uploaded          = ""
+engine            = "LC"
+license           = "CC-BY-NC-4.0"
+license_rationale = "CCAN default Clonk content license (CC BY-NC 4.0); private stash, never distributed"
+filename          = "S2TowerMDSEdit.c4s"
+destination       = "TurmderVerzweiflungv128"
+notes             = "cycle 224 private stash; rank 6 of top-40"
+rating            = 2.9
+votes             = 7
+downloads         = 2213
+rank              = 6
+
+[entry.6058]
+title             = "Turm der Verzweiflung"
+ccan_id           = 6058
+author_nick       = "Sven2"
+author_uid        = 86
+uploaded          = ""
+engine            = "CR"
+license           = "CC-BY-NC-4.0"
+license_rationale = "CCAN default Clonk content license (CC BY-NC 4.0); private stash, never distributed"
+filename          = "S2Tower.c4s"
+destination       = "TurmderVerzweiflungv120"
+notes             = "cycle 224 private stash; rank 7 of top-40"
+rating            = 2.8
+votes             = 60
+downloads         = 3128
+rank              = 7
+
+[entry.6038]
+title             = "Die Geschichte von Harkon Kapitel 1"
+ccan_id           = 6038
+author_nick       = "Randrian / 19390914"
+author_uid        = 1387
+uploaded          = ""
+engine            = "CR"
+license           = "CC-BY-NC-4.0"
+license_rationale = "CCAN default Clonk content license (CC BY-NC 4.0); private stash, never distributed"
+filename          = "HarkonChapter1.zip"
+destination       = "DieGeschichtevonHarkonKapitel1"
+notes             = "cycle 224 private stash; rank 8 of top-40"
+rating            = 2.8
+votes             = 45
+downloads         = 2776
+rank              = 8
+
+[entry.6095]
+title             = "GIDL Race"
+ccan_id           = 6095
+author_nick       = "KKenny"
+author_uid        = 2094
+uploaded          = ""
+engine            = "CR"
+license           = "CC-BY-NC-4.0"
+license_rationale = "CCAN default Clonk content license (CC BY-NC 4.0); private stash, never distributed"
+filename          = "GIDL_Race.zip"
+destination       = "GIDLRacev133"
+notes             = "cycle 224 private stash; rank 9 of top-40"
+rating            = 2.8
+votes             = 38
+downloads         = 1300
+rank              = 9
+
+[entry.6077]
+title             = "Reibachtal"
+ccan_id           = 6077
+author_nick       = "Zapper"
+author_uid        = 1385
+uploaded          = ""
+engine            = "CR"
+license           = "CC-BY-NC-4.0"
+license_rationale = "CCAN default Clonk content license (CC BY-NC 4.0); private stash, never distributed"
+filename          = "ProfitValley.c4s"
+destination       = "Reibachtal"
+notes             = "cycle 224 private stash; rank 10 of top-40"
+rating            = 2.8
+votes             = 12
+downloads         = 1833
+rank              = 10
+
+[entry.6269]
+title             = "SGGP"
+ccan_id           = 6269
+author_nick       = "Fulgen"
+author_uid        = 8304
+uploaded          = ""
+engine            = "CR"
+license           = "CC-BY-NC-4.0"
+license_rationale = "CCAN default Clonk content license (CC BY-NC 4.0); private stash, never distributed"
+filename          = "SGGP_0.zip"
+destination       = "SGGPv31"
+notes             = "cycle 224 private stash; rank 11 of top-40"
+rating            = 2.8
+votes             = 6
+downloads         = 1461
+rank              = 11
+
+[entry.6226]
+title             = "Christmas Debakel 2014"
+ccan_id           = 6226
+author_nick       = "Sven2"
+author_uid        = 86
+uploaded          = ""
+engine            = "CR"
+license           = "CC-BY-NC-4.0"
+license_rationale = "CCAN default Clonk content license (CC BY-NC 4.0); private stash, never distributed"
+filename          = "S2Christmas2014.c4s"
+destination       = "ChristmasDebakel2014v11"
+notes             = "cycle 224 private stash; rank 12 of top-40"
+rating            = 2.8
+votes             = 5
+downloads         = 1515
+rank              = 12
+
+[entry.6383]
+title             = "Ultimate Clonk Compilation"
+ccan_id           = 6383
+author_nick       = "Newton"
+author_uid        = 146
+uploaded          = ""
+engine            = "C4,CP,CR"
+license           = "CC-BY-NC-4.0"
+license_rationale = "CCAN default Clonk content license (CC BY-NC 4.0); private stash, never distributed"
+filename          = "UltimateClonkCompilation-v3_0.txt"
+destination       = "UltimateClonkCompilationv30"
+notes             = "cycle 224 private stash; rank 13 of top-40"
+rating            = 2.8
+votes             = 4
+downloads         = 1770
+rank              = 13
+
+[entry.6308]
+title             = "Test Quest"
+ccan_id           = 6308
+author_nick       = "Ghost Bear / 15341454"
+author_uid        = 2900
+uploaded          = ""
+engine            = "CR"
+license           = "CC-BY-NC-4.0"
+license_rationale = "CCAN default Clonk content license (CC BY-NC 4.0); private stash, never distributed"
+filename          = "Quest_Test.c4s"
+destination       = "TestQuest"
+notes             = "cycle 224 private stash; rank 14 of top-40"
+rating            = 2.8
+votes             = 4
+downloads         = 904
+rank              = 14
+
+[entry.4135]
+title             = "InExantros"
+ccan_id           = 4135
+author_nick       = "byvalle"
+author_uid        = 2826
+uploaded          = ""
+engine            = "NET2"
+license           = "CC-BY-NC-4.0"
+license_rationale = "CCAN default Clonk content license (CC BY-NC 4.0); private stash, never distributed"
+filename          = "InExantrosRPG.zip"
+destination       = "InExantros"
+notes             = "cycle 224 private stash; rank 15 of top-40"
+rating            = 2.7
+votes             = 386
+downloads         = 11321
+rank              = 15
+
+[entry.829]
+title             = "Laptop"
+ccan_id           = 829
+author_nick       = "IndianaClonk"
+author_uid        = 274
+uploaded          = ""
+engine            = "GWE3p2"
+license           = "CC-BY-NC-4.0"
+license_rationale = "CCAN default Clonk content license (CC BY-NC 4.0); private stash, never distributed"
+filename          = "laptop.c4d"
+destination       = "Laptopv15"
+notes             = "cycle 224 private stash; rank 16 of top-40"
+rating            = 2.7
+votes             = 160
+downloads         = 17343
+rank              = 16
+
+[entry.1182]
+title             = "Seilpaket"
+ccan_id           = 1182
+author_nick       = "Günther"
+author_uid        = 426
+uploaded          = ""
+engine            = "GWE4"
+license           = "CC-BY-NC-4.0"
+license_rationale = "CCAN default Clonk content license (CC BY-NC 4.0); private stash, never distributed"
+filename          = "Ropepack.zip"
+destination       = "Seilpaketv094"
+notes             = "cycle 224 private stash; rank 17 of top-40"
+rating            = 2.7
+votes             = 118
+downloads         = 15662
+rank              = 17
+
+[entry.3047]
+title             = "Ferne Welten"
+ccan_id           = 3047
+author_nick       = "RedWolf Design"
+author_uid        = 479
+uploaded          = ""
+engine            = "CR"
+license           = "CC-BY-NC-4.0"
+license_rationale = "CCAN default Clonk content license (CC BY-NC 4.0); private stash, never distributed"
+filename          = "Externer Link"
+destination       = "FerneWelten-3047"
+notes             = "cycle 224 private stash; rank 18 of top-40"
+rating            = 2.7
+votes             = 85
+downloads         = 8214
+rank              = 18
+
+[entry.5762]
+title             = "Clonk Party 2"
+ccan_id           = 5762
+author_nick       = "Killerwipf"
+author_uid        = 2784
+uploaded          = ""
+engine            = "CR"
+license           = "CC-BY-NC-4.0"
+license_rationale = "CCAN default Clonk content license (CC BY-NC 4.0); private stash, never distributed"
+filename          = "Clonkparty2.c4s"
+destination       = "ClonkParty2v110"
+notes             = "cycle 224 private stash; rank 19 of top-40"
+rating            = 2.7
+votes             = 71
+downloads         = 3735
+rank              = 19
+
+[entry.2735]
+title             = "Zauberpack"
+ccan_id           = 2735
+author_nick       = "M.A.J.O.R."
+author_uid        = 882
+uploaded          = ""
+engine            = "GWE4"
+license           = "CC-BY-NC-4.0"
+license_rationale = "CCAN default Clonk content license (CC BY-NC 4.0); private stash, never distributed"
+filename          = "Zauberpaket.C4D Externer Link"
+destination       = "ZauberpackvFVp2"
+notes             = "cycle 224 private stash; rank 20 of top-40"
+rating            = 2.7
+votes             = 69
+downloads         = 12597
+rank              = 20
+
+[entry.4036]
+title             = "Magic Expansion Pack"
+ccan_id           = 4036
+author_nick       = "Oantmoarn / 17380483"
+author_uid        = 3945
+uploaded          = ""
+engine            = "CE"
+license           = "CC-BY-NC-4.0"
+license_rationale = "CCAN default Clonk content license (CC BY-NC 4.0); private stash, never distributed"
+filename          = "MagicExpansionPack.c4d"
+destination       = "MagicExpansionPackv11"
+notes             = "cycle 224 private stash; rank 21 of top-40"
+rating            = 2.7
+votes             = 60
+downloads         = 6949
+rank              = 21
+
+[entry.2989]
+title             = "Quests"
+ccan_id           = 2989
+author_nick       = "sulai"
+author_uid        = 28
+uploaded          = ""
+engine            = "GWE4"
+license           = "CC-BY-NC-4.0"
+license_rationale = "CCAN default Clonk content license (CC BY-NC 4.0); private stash, never distributed"
+filename          = "Quests.c4d"
+destination       = "Questsv101"
+notes             = "cycle 224 private stash; rank 22 of top-40"
+rating            = 2.7
+votes             = 56
+downloads         = 4902
+rank              = 22
+
+[entry.1101]
+title             = "Katapult"
+ccan_id           = 1101
+author_nick       = "Azaneth"
+author_uid        = 82
+uploaded          = ""
+engine            = "GWE3p2"
+license           = "CC-BY-NC-4.0"
+license_rationale = "CCAN default Clonk content license (CC BY-NC 4.0); private stash, never distributed"
+filename          = "Testszenario_0.c4s"
+destination       = "Katapultv12"
+notes             = "cycle 224 private stash; rank 23 of top-40"
+rating            = 2.7
+votes             = 26
+downloads         = 4796
+rank              = 23
+
+[entry.512]
+title             = "Echo-Bomben"
+ccan_id           = 512
+author_nick       = "Schweinchen"
+author_uid        = 60
+uploaded          = ""
+engine            = "CP?/GWE?"
+license           = "CC-BY-NC-4.0"
+license_rationale = "CCAN default Clonk content license (CC BY-NC 4.0); private stash, never distributed"
+filename          = "Echo-Bomben.c4d"
+destination       = "EchoBomben"
+notes             = "cycle 224 private stash; rank 24 of top-40"
+rating            = 2.7
+votes             = 6
+downloads         = 2894
+rank              = 24
+
+[entry.6328]
+title             = "Tempelschubsen"
+ccan_id           = 6328
+author_nick       = "Sam / 16497180"
+author_uid        = 7436
+uploaded          = ""
+engine            = "LC"
+license           = "CC-BY-NC-4.0"
+license_rationale = "CCAN default Clonk content license (CC BY-NC 4.0); private stash, never distributed"
+filename          = "TemplePushingDefinitiveEdition.c4s"
+destination       = "Tempelschubsenv0958"
+notes             = "cycle 224 private stash; rank 25 of top-40"
+rating            = 2.7
+votes             = 3
+downloads         = 1846
+rank              = 25
+
+[entry.1129]
+title             = "Ruf der Wipfe"
+ccan_id           = 1129
+author_nick       = "Søren"
+author_uid        = 223
+uploaded          = ""
+engine            = "GWE4"
+license           = "CC-BY-NC-4.0"
+license_rationale = "CCAN default Clonk content license (CC BY-NC 4.0); private stash, never distributed"
+filename          = "RufDerWipfe.zip Externer Link"
+destination       = "RufderWipfev25"
+notes             = "cycle 224 private stash; rank 26 of top-40"
+rating            = 2.6
+votes             = 244
+downloads         = 15633
+rank              = 26
+
+[entry.1201]
+title             = "SpaceLaunch Pack"
+ccan_id           = 1201
+author_nick       = "sl_flow"
+author_uid        = 590
+uploaded          = ""
+engine            = "GWE4 & CE"
+license           = "CC-BY-NC-4.0"
+license_rationale = "CCAN default Clonk content license (CC BY-NC 4.0); private stash, never distributed"
+filename          = "Externer Link"
+destination       = "SpaceLaunchPackv085b"
+notes             = "cycle 224 private stash; rank 27 of top-40"
+rating            = 2.6
+votes             = 157
+downloads         = 22932
+rank              = 27
+
+[entry.2499]
+title             = "HeliPack"
+ccan_id           = 2499
+author_nick       = "BIG BUG"
+author_uid        = 257
+uploaded          = ""
+engine            = "GWE3p2"
+license           = "CC-BY-NC-4.0"
+license_rationale = "CCAN default Clonk content license (CC BY-NC 4.0); private stash, never distributed"
+filename          = "HeliPack.c4d"
+destination       = "HeliPackv13"
+notes             = "cycle 224 private stash; rank 28 of top-40"
+rating            = 2.6
+votes             = 106
+downloads         = 15191
+rank              = 28
+
+[entry.3581]
+title             = "Elemente Zauberpack"
+ccan_id           = 3581
+author_nick       = "Randrian / 19390914"
+author_uid        = 1387
+uploaded          = ""
+engine            = "CE"
+license           = "CC-BY-NC-4.0"
+license_rationale = "CCAN default Clonk content license (CC BY-NC 4.0); private stash, never distributed"
+filename          = "MagicElements.c4d"
+destination       = "ElementeZauberpackv17"
+notes             = "cycle 224 private stash; rank 29 of top-40"
+rating            = 2.6
+votes             = 106
+downloads         = 10696
+rank              = 29
+
+[entry.5705]
+title             = "Clonk Mars"
+ccan_id           = 5705
+author_nick       = "Nachtfalter / 12952035"
+author_uid        = 2073
+uploaded          = ""
+engine            = "CR"
+license           = "CC-BY-NC-4.0"
+license_rationale = "CCAN default Clonk content license (CC BY-NC 4.0); private stash, never distributed"
+filename          = "ClonkMars_1_5.zip"
+destination       = "ClonkMarsv15"
+notes             = "cycle 224 private stash; rank 30 of top-40"
+rating            = 2.6
+votes             = 99
+downloads         = 5583
+rank              = 30
+
+[entry.2190]
+title             = "SpaceLaunch Levels"
+ccan_id           = 2190
+author_nick       = "sl_flow"
+author_uid        = 590
+uploaded          = ""
+engine            = "GWE4 & CE"
+license           = "CC-BY-NC-4.0"
+license_rationale = "CCAN default Clonk content license (CC BY-NC 4.0); private stash, never distributed"
+filename          = "Externer Link"
+destination       = "SpaceLaunchLevelsv085b"
+notes             = "cycle 224 private stash; rank 31 of top-40"
+rating            = 2.6
+votes             = 94
+downloads         = 11847
+rank              = 31
+
+[entry.2613]
+title             = "Cognition Alliance Pack"
+ccan_id           = 2613
+author_nick       = "Chryss"
+author_uid        = 1091
+uploaded          = ""
+engine            = "GWE4"
+license           = "CC-BY-NC-4.0"
+license_rationale = "CCAN default Clonk content license (CC BY-NC 4.0); private stash, never distributed"
+filename          = "Externer Link"
+destination       = "CognitionAlliancePackv030c"
+notes             = "cycle 224 private stash; rank 32 of top-40"
+rating            = 2.6
+votes             = 84
+downloads         = 15513
+rank              = 32
+
+[entry.4275]
+title             = "Sperrenbausatz"
+ccan_id           = 4275
+author_nick       = "Hobby-Clonk / 32371879"
+author_uid        = 2799
+uploaded          = ""
+engine            = "CR"
+license           = "CC-BY-NC-4.0"
+license_rationale = "CCAN default Clonk content license (CC BY-NC 4.0); private stash, never distributed"
+filename          = "Sperrenbausatz.c4d"
+destination       = "Sperrenbausatzv20"
+notes             = "cycle 224 private stash; rank 33 of top-40"
+rating            = 2.6
+votes             = 82
+downloads         = 3313
+rank              = 33
+
+[entry.4416]
+title             = "Bausatz Appendto"
+ccan_id           = 4416
+author_nick       = "JimiRaynor"
+author_uid        = 1153
+uploaded          = ""
+engine            = "CR"
+license           = "CC-BY-NC-4.0"
+license_rationale = "CCAN default Clonk content license (CC BY-NC 4.0); private stash, never distributed"
+filename          = "Conkit-Append.c4d"
+destination       = "BausatzAppendto"
+notes             = "cycle 224 private stash; rank 34 of top-40"
+rating            = 2.6
+votes             = 81
+downloads         = 1850
+rank              = 34
+
+[entry.5627]
+title             = "Seilpack Remake"
+ccan_id           = 5627
+author_nick       = "Supaplex / 16235786"
+author_uid        = 6679
+uploaded          = ""
+engine            = "CR"
+license           = "CC-BY-NC-4.0"
+license_rationale = "CCAN default Clonk content license (CC BY-NC 4.0); private stash, never distributed"
+filename          = "RopepackRemake.zip"
+destination       = "SeilpackRemakev11"
+notes             = "cycle 224 private stash; rank 35 of top-40"
+rating            = 2.6
+votes             = 80
+downloads         = 3176
+rank              = 35
+
+[entry.3113]
+title             = "Ritter Zusatzpack"
+ccan_id           = 3113
+author_nick       = "Randrian / 19390914"
+author_uid        = 1387
+uploaded          = ""
+engine            = "CE"
+license           = "CC-BY-NC-4.0"
+license_rationale = "CCAN default Clonk content license (CC BY-NC 4.0); private stash, never distributed"
+filename          = "knights-extra.c4d Externer Link"
+destination       = "RitterZusatzpackv15"
+notes             = "cycle 224 private stash; rank 36 of top-40"
+rating            = 2.6
+votes             = 78
+downloads         = 10145
+rank              = 36
+
+[entry.4542]
+title             = "Clonk Party"
+ccan_id           = 4542
+author_nick       = "Killerwipf"
+author_uid        = 2784
+uploaded          = ""
+engine            = "CR"
+license           = "CC-BY-NC-4.0"
+license_rationale = "CCAN default Clonk content license (CC BY-NC 4.0); private stash, never distributed"
+filename          = "Clonkparty.c4s"
+destination       = "ClonkParty"
+notes             = "cycle 224 private stash; rank 37 of top-40"
+rating            = 2.6
+votes             = 78
+downloads         = 2802
+rank              = 37
+
+[entry.825]
+title             = "Akkumulator"
+ccan_id           = 825
+author_nick       = "Newton"
+author_uid        = 146
+uploaded          = ""
+engine            = "GWE4"
+license           = "CC-BY-NC-4.0"
+license_rationale = "CCAN default Clonk content license (CC BY-NC 4.0); private stash, never distributed"
+filename          = "Accumulator.c4d Externer Link"
+destination       = "Akkumulatorv13"
+notes             = "cycle 224 private stash; rank 38 of top-40"
+rating            = 2.6
+votes             = 76
+downloads         = 8316
+rank              = 38
+
+[entry.2004]
+title             = "Golems"
+ccan_id           = 2004
+author_nick       = "matthes"
+author_uid        = 383
+uploaded          = ""
+engine            = "GWE4"
+license           = "CC-BY-NC-4.0"
+license_rationale = "CCAN default Clonk content license (CC BY-NC 4.0); private stash, never distributed"
+filename          = "Externer Link"
+destination       = "Golemsv121"
+notes             = "cycle 224 private stash; rank 39 of top-40"
+rating            = 2.6
+votes             = 74
+downloads         = 12840
+rank              = 39
+
+[entry.4850]
+title             = "Blütenstaub"
+ccan_id           = 4850
+author_nick       = "GunJack / 10179818"
+author_uid        = 4163
+uploaded          = ""
+engine            = "CR"
+license           = "CC-BY-NC-4.0"
+license_rationale = "CCAN default Clonk content license (CC BY-NC 4.0); private stash, never distributed"
+filename          = "Pollen_4.zip"
+destination       = "Bltenstaubv16"
+notes             = "cycle 224 private stash; rank 40 of top-40"
+rating            = 2.6
+votes             = 70
+downloads         = 2043
+rank              = 40
+
