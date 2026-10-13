@@ -729,6 +729,26 @@ foreach(scenario ${CCAN_SMOKE_SCENARIOS})
     FAIL_REGULAR_EXPRESSION "FatalError|\\[error\\]|\\[fatal\\]")
 endforeach()
 
+# --- c4group exit-code contract gate (cycle 228, Epic 7 item 2) -------------
+# Permanent both-directions exit-code gate (tools/c4group_exit_contract.py):
+# `c4group <planet>/Graphics.c4g -l` must exit 0 (clean list op, self-contained
+# ok case) and `c4group <garbage fixture> -l` must exit NON-zero (the group
+# magic check rejects the 100-byte fixture; pre-cycle-228 the tool exited 0 on
+# every failure because iResult was never reassigned). Also makes the tier-A
+# ccan_struct_* probes above exit-code-honest with zero CMake changes.
+if(PYTHON3 AND TARGET c4group
+   AND EXISTS "${CMAKE_SOURCE_DIR}/tools/c4group_exit_contract.py")
+	add_test(NAME c4group_exit_contract
+		COMMAND "${PYTHON3}" "${CMAKE_SOURCE_DIR}/tools/c4group_exit_contract.py"
+			"--c4group" "$<TARGET_FILE:c4group>"
+			"--planet" "${CMAKE_SOURCE_DIR}/planet"
+		WORKING_DIRECTORY "${CMAKE_BINARY_DIR}")
+	set_tests_properties(c4group_exit_contract PROPERTIES
+		TIMEOUT 60
+		LABELS "smoke"
+		PASS_REGULAR_EXPRESSION "c4group_exit_contract PASS")
+endif()
+
 # Symlink content-community packs into the build dir so bare definition
 # names like "DWMedalSystem.c4d" resolve during smoke runs. Covers
 # top-level packs and sub-defs inside .c4s/.c4f packs.

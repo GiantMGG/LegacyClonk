@@ -87,6 +87,7 @@ bool fPromptAtEnd = false;
 char strExecuteAtEnd[_MAX_PATH + 1] = "";
 
 int iResult = 0;
+bool fError = false;
 
 C4Config Config;
 C4Config *GetCfg()
@@ -147,13 +148,17 @@ bool ProcessGroup(const char *FilenamePar)
 					// Add
 					case 'a':
 						if ((iArg + 1 >= argc) || (argv[iArg + 1][0] == '-'))
+						{
+							fError = true;
 							std::println(stderr, "Missing argument for add command");
+						}
 						else
 						{
 							if ((argv[iArg][2] == 's') || (argv[iArg][2] && (argv[iArg][3] == 's')))
 							{
 								if ((iArg + 2 >= argc) || (argv[iArg + 2][0] == '-'))
 								{
+									fError = true;
 									std::println(stderr, "Missing argument for add as command");
 								}
 								else
@@ -181,6 +186,7 @@ bool ProcessGroup(const char *FilenamePar)
 					case 'm':
 						if ((iArg + 1 >= argc) || (argv[iArg + 1][0] == '-'))
 						{
+							fError = true;
 							std::println(stderr, "Missing argument for move command");
 						}
 						else
@@ -201,6 +207,7 @@ bool ProcessGroup(const char *FilenamePar)
 					case 'e':
 						if ((iArg + 1 >= argc) || (argv[iArg + 1][0] == '-'))
 						{
+							fError = true;
 							std::println(stderr, "Missing argument for extract command");
 						}
 						else
@@ -209,6 +216,7 @@ bool ProcessGroup(const char *FilenamePar)
 							{
 								if ((iArg + 2 >= argc) || (argv[iArg + 2][0] == '-'))
 								{
+									fError = true;
 									std::println(stderr, "Missing argument for extract as command");
 								}
 								else
@@ -228,6 +236,7 @@ bool ProcessGroup(const char *FilenamePar)
 					case 'd':
 						if ((iArg + 1 >= argc) || (argv[iArg + 1][0] == '-'))
 						{
+							fError = true;
 							std::println(stderr, "Missing argument for delete command");
 						}
 						else
@@ -243,6 +252,7 @@ bool ProcessGroup(const char *FilenamePar)
 						// Missing argument
 						if ((iArg + 1 >= argc) || (argv[iArg + 1][0] == '-'))
 						{
+							fError = true;
 							std::println(stderr, "Missing argument for sort command");
 						}
 						// Sort, advance to next argument
@@ -258,6 +268,7 @@ bool ProcessGroup(const char *FilenamePar)
 						if ((iArg + 2 >= argc) || (argv[iArg + 1][0] == '-')
 							|| (argv[iArg + 2][0] == '-'))
 						{
+							fError = true;
 							std::println(stderr, "Missing argument(s) for rename command");
 						}
 						else
@@ -291,11 +302,13 @@ bool ProcessGroup(const char *FilenamePar)
 						// Close
 						if (!hGroup.Close())
 						{
+							fError = true;
 							std::println(stderr, "Closing failed: {}", hGroup.GetError());
 						}
 						// Pack
 						else if (!C4Group_PackDirectory(szFilename))
 						{
+							fError = true;
 							std::println(stderr, "Pack failed");
 						}
 						// Reopen
@@ -310,11 +323,13 @@ bool ProcessGroup(const char *FilenamePar)
 						// Close
 						if (!hGroup.Close())
 						{
+							fError = true;
 							std::println(stderr, "Closing failed: {}", hGroup.GetError());
 						}
 						// Pack
 						else if (!C4Group_UnpackDirectory(szFilename))
 						{
+							fError = true;
 							std::println(stderr, "Unpack failed");
 						}
 						// Reopen
@@ -329,11 +344,13 @@ bool ProcessGroup(const char *FilenamePar)
 						// Close
 						if (!hGroup.Close())
 						{
+							fError = true;
 							std::println(stderr, "Closing failed: {}", hGroup.GetError());
 						}
 						// Pack
 						else if (!C4Group_ExplodeDirectory(szFilename))
 						{
+							fError = true;
 							std::println(stderr, "Unpack failed");
 						}
 						// Reopen
@@ -352,6 +369,7 @@ bool ProcessGroup(const char *FilenamePar)
 							|| (argv[iArg + 2][0] == '-')
 							|| (argv[iArg + 3][0] == '-'))
 						{
+							fError = true;
 							std::println(stderr, "Update generation failed: too few arguments");
 						}
 						else
@@ -360,11 +378,13 @@ bool ProcessGroup(const char *FilenamePar)
 							// Close
 							if (!hGroup.Close())
 							{
+								fError = true;
 								std::println(stderr, "Closing failed: {}", hGroup.GetError());
 							}
 							// generate
 							else if (!Upd.MakeUpdate(argv[iArg + 1], argv[iArg + 2], szFilename, argv[iArg + 3], argv[iArg][2] == 'a'))
 							{
+								fError = true;
 								std::println(stderr, "Update generation failed.");
 							}
 							// Reopen
@@ -384,7 +404,10 @@ bool ProcessGroup(const char *FilenamePar)
 							if (argv[iArg][2] == 'd') fDeleteGroup = true;
 						}
 						else
+						{
+							fError = true;
 							std::println(stderr, "Update failed.");
+						}
 						break;
 #ifdef _DEBUG
 					case 'z':
@@ -430,12 +453,14 @@ bool ProcessGroup(const char *FilenamePar)
 #endif
 					// Undefined
 					default:
+						fError = true;
 						std::println(stderr, "Unknown command: {}", argv[iArg]);
 						break;
 					}
 				}
 				else
 				{
+					fError = true;
 					std::println(stderr, "Invalid parameter {}", argv[iArg]);
 				}
 			}
@@ -443,11 +468,13 @@ bool ProcessGroup(const char *FilenamePar)
 		// Error: output status
 		if (!SEqual(hGroup.GetError(), "No Error"))
 		{
+			fError = true;
 			std::println(stderr, "Status: {}", hGroup.GetError());
 		}
 		// Close group file
 		if (!hGroup.Close())
 		{
+			fError = true;
 			std::println(stderr, "Closing: {}", hGroup.GetError());
 		}
 		// Delete group file if desired (i.e. after apply update)
@@ -460,6 +487,7 @@ bool ProcessGroup(const char *FilenamePar)
 	// Couldn't open group
 	else
 	{
+		fError = true;
 		std::println(stderr, "Status: {}", hGroup.GetError());
 	}
 	free(szFilename);
@@ -571,6 +599,7 @@ int main(int argc, char *argv[])
 			case 'x': SCopy(argv[i] + 3, strExecuteAtEnd, _MAX_PATH); break;
 			// Unknown
 			default:
+				fError = true;
 				std::println(stderr, "Unknown option {}", argv[i]);
 				break;
 			}
@@ -713,5 +742,6 @@ int main(int argc, char *argv[])
 	}
 
 	// Done
+	if (fError) iResult = 1;
 	return iResult;
 }
