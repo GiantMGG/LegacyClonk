@@ -707,3 +707,65 @@ votes             = 70
 downloads         = 2043
 rank              = 40
 
+
+# cycle 224 smoke waivers — legacy stash packs that fatal under the LC console engine
+[entry.6354.smoke]
+ticks             = 350
+skip              = true
+reason            = "legacy fatal: pack scripts use removed engine identifiers (DeleteArrayItem, GetEdges, iRand, Speak) and unresolvable #include ids (FIRG, QBII, ...)"
+
+[entry.6372.smoke]
+ticks             = 350
+skip              = true
+reason            = "legacy fatal: Knight scripts reference definition LNCA absent from all installed packs (def not found: LNCA)"
+
+[entry.6327.smoke]
+ticks             = 350
+skip              = true
+reason            = "legacy fatal: S2TowerObj EnemyAI scripts fatal under LC console (unknown identifier Frozen, ActivateTarget not found); 249 script errors"
+
+[entry.6058.smoke]
+ticks             = 350
+skip              = true
+reason            = "legacy fatal: S2TowerObj EnemyAI scripts fatal under LC console (unknown identifier Frozen, ActivateTarget not found); 249 script errors"
+
+[entry.6077.smoke]
+ticks             = 350
+skip              = true
+reason            = "legacy fatal: Hazard.c4d graphics size mismatch (Stripe.c4d) plus EnemyAI scripts use removed identifier Frozen"
+
+[entry.6226.smoke]
+ticks             = 350
+skip              = true
+reason            = "legacy fatal: S2AdventureObj EnemyAI scripts fatal (unknown identifier Frozen, ActivateTarget not found)"
+
+[entry.6308.smoke]
+ticks             = 350
+skip              = true
+reason            = "legacy fatal: Import Objects EnemyAI scripts fatal under LC console (ActivateTarget not found)"
+
+[entry.4036.smoke]
+ticks             = 350
+skip              = true
+reason            = "legacy fatal: pack script syntax error (declaration expected, but found operator, AWipfMorph.c4d/Script.c:48)"
+
+[entry.6328.smoke]
+ticks             = 350
+skip              = true
+reason            = "legacy fatal: pack scripts use removed engine identifiers (iRand, ambienceEnabled, SetScrollSpells)"
+
+[entry.2499.smoke]
+ticks             = 350
+skip              = true
+reason            = "legacy fatal: pack script syntax error ('public' is not a valid declaration keyword under LC script)"
+
+[entry.3581.smoke]
+ticks             = 350
+skip              = true
+reason            = "legacy fatal: pack script syntax errors (misspelled 'protected' keywords in MagicElements.c4d)"
+
+[entry.3113.smoke]
+ticks             = 350
+skip              = true
+reason            = "legacy fatal: knights-extra scripts reference HDKnights identifiers (idArmorType, HasLance) that only exist in HDKnights whose own scripts fatal (LNCA missing)"
+
