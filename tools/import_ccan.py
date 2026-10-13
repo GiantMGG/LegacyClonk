@@ -207,7 +207,9 @@ def _parse_attribution_id_and_uploaded(attr_text: str) -> tuple[Optional[int], O
     import re
     id_match = re.search(r"i=(\d+)", attr_text)
     ccan_id = int(id_match.group(1)) if id_match else None
-    up_match = re.search(r"^Uploaded:\s*(.*)$", attr_text, re.MULTILINE)
+    # [ \t]* (not \s*): the value may be empty, and \s* would span the
+    # newline and swallow the following line's indentation.
+    up_match = re.search(r"^Uploaded:[ \t]*(.*)$", attr_text, re.MULTILINE)
     uploaded = up_match.group(1).strip() if up_match else None
     return ccan_id, uploaded
 
@@ -1332,6 +1334,18 @@ def cmd_bulk_import(args: argparse.Namespace) -> int:
                 "error": str(e),
             })
             print(f"[{entry.ccan_id}] FAILED: {e}", file=sys.stderr)
+            continue
+        except Exception as e:  # noqa: BLE001 — per-entry capture, run continues
+            # Unexpected errors (e.g. malformed URLs) are recorded per entry;
+            # the run continues with the rest of the manifest.
+            failures.append({
+                "ccan_id": entry.ccan_id,
+                "destination": entry.destination,
+                "error": f"{type(e).__name__}: {e}",
+            })
+            print(f"[{entry.ccan_id}] FAILED: {type(e).__name__}: {e}",
+                  file=sys.stderr)
+            rollback_import(content_community / entry.destination)
             continue
         if result.status == "skipped":
             print(f"[{entry.ccan_id}] already imported, skipping.")

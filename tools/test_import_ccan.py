@@ -189,10 +189,13 @@ def test_idempotency_check_tolerates_empty_uploaded(
 	pack = tmp_path / "Sample"
 	pack.mkdir()
 	(pack / "ATTRIBUTION.txt").write_text(
+		"Title:    Sample\n"
 		"Source: https://ccan.de/cgi-bin/ccan/ccan-view.pl?a=view&i=4242\n"
-		"Uploaded: \n",
+		"Uploaded: \n"
+		"License: CC-BY-NC-4.0\n",
 		encoding="utf-8",
 	)
+	# The empty Uploaded value must not leak into the following line.
 	assert I.is_already_imported(entry, tmp_path) is True
 
 def test_validate_runs_c4group_l_and_checks_exit_code(monkeypatch):

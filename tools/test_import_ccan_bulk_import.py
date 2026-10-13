@@ -165,6 +165,41 @@ def test_bulk_import_continues_after_failure(tmp_path, monkeypatch):
     assert "validation failed" in fail
     assert "200" in fail
 
+def test_bulk_import_captures_unexpected_errors_per_entry(tmp_path, monkeypatch):
+	# Regression (cycle 224 bulk-import tranche): an unexpected exception
+	# (not SystemExit) must be recorded per entry and must not kill the run.
+	e1 = _entry(100, "Alpha")
+	e2 = _entry(200, "Beta")
+	e3 = _entry(300, "Gamma")
+	manifest = _write_manifest(tmp_path, [e1, e2, e3])
+	cc = tmp_path / "cc"
+	cc.mkdir()
+	blob = _make_blob(tmp_path)
+	meta = I.CcanMetadata(
+		ccan_id=0, title="", author_nick="", author_uid=0, uploaded="",
+		engine="", filename="", description_de="", description_us="")
+
+	def fake_import_one(entry, entries, content_community, c4group, force,
+						rate_limit, snapshot_dir=None):
+		if entry.ccan_id == 200:
+			raise ValueError("URL can't contain control characters")
+		return I.ImportResult(status="imported", metadata=meta,
+							blob_path=blob)
+
+	monkeypatch.setattr(I, "_import_one", fake_import_one)
+	monkeypatch.setattr(I, "resolve_c4group", lambda: Path("/bin/true"))
+
+	rc = I.main(["bulk-import", "--manifest", str(manifest),
+				"--content-community", str(cc), "--rate-limit", "0",
+				"--failures-log", str(tmp_path / "f.jsonl")])
+	assert rc == 1  # failures present
+	master = (cc / "ATTRIBUTION.toml").read_text(encoding="utf-8")
+	assert "[pack.Alpha]" in master
+	assert "[pack.Gamma]" in master
+	fail = (tmp_path / "f.jsonl").read_text(encoding="utf-8")
+	assert "ValueError" in fail
+	assert "200" in fail
+
 def test_master_index_sorted_by_destination(tmp_path, monkeypatch):
     entries = [_entry(1, "Zeta"), _entry(2, "Alpha"), _entry(3, "Mu")]
     manifest = _write_manifest(tmp_path, entries)
