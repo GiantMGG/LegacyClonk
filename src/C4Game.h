@@ -229,6 +229,15 @@ public:
 	StdStrBuf SmokeSaveSlot;
 	bool SmokeSaveDone{false};
 
+	// Smoke scenario save-at (spec worldeditor-save-roundtrip §E):
+	// SmokeScenarioSaveAtTick > 0 ⇒ one C4Console::SaveGame(false) — the
+	// pinned scenario save path — at the first Execute running at or after
+	// that tick, before the smoke-exit block (same placement guarantee as
+	// SmokeSaveAtTick above). SmokeScenarioSaveDone latches the single
+	// attempt. Not serialized — process-lifetime flags.
+	int32_t SmokeScenarioSaveAtTick{0};
+	bool SmokeScenarioSaveDone{false};
+
 	// Diagnostic scene shot (spec playtest-vision-tier2 §2C): ShotAtTick > 0
 	// ⇒ compose one --screenshot-at frame at the first Execute running at or
 	// after that tick (fire site in C4Game::Execute, before the smoke-run

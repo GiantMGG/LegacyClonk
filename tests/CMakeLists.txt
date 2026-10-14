@@ -1471,3 +1471,30 @@ if(PYTHON3 AND NOT USE_SANITIZER
 		PASS_REGULAR_EXPRESSION "SaveContinueProof E2E PASS"
 		FAIL_REGULAR_EXPRESSION "FatalError|\\[error\\]|\\[fatal\\]")
 endif()
+
+# --- worldeditor_save_roundtrip (spec worldeditor-save-roundtrip, cycle 230) --
+# Two-phase headless proof of the world-editor save round trip: phase A paints
+# Rock+Gold into the packed WorldEditorRoundtrip fixture and the engine flag
+# --smoke-scenario-save-at:210 fires one C4Console::SaveGame(false) — the
+# pinned console scenario save — in-place into the packed group; the driver
+# then sha256-diffs the saved Map.bmp against the pristine fixture (paint
+# must reach the FILE), and phase B reopens the saved group in a fresh
+# process where the fixture's Initialize probe flips to the reload arm and
+# asserts MARK1/MARK2/NEG in-engine. Own stanza, NOT the glob: the fixture
+# name carries no "Smoke" suffix so it cannot double-register
+# (save_continue_e2e precedent :1449). NOT USE_SANITIZER gate per
+# pxs_perf_gate (:450).
+if(PYTHON3 AND NOT USE_SANITIZER
+	AND EXISTS "${LEGACYCLONK_CONTENT_DIR}/SavegameTests.c4d/Tests.c4f/WorldEditorRoundtrip.c4s"
+	AND EXISTS "${CMAKE_SOURCE_DIR}/tools/worldeditor_roundtrip.py")
+	add_test(NAME worldeditor_save_roundtrip
+		COMMAND "${PYTHON3}" "${CMAKE_SOURCE_DIR}/tools/worldeditor_roundtrip.py"
+			"$<TARGET_FILE:clonk>"
+			"${LEGACYCLONK_CONTENT_DIR}/SavegameTests.c4d/Tests.c4f/WorldEditorRoundtrip.c4s"
+		WORKING_DIRECTORY "${CMAKE_BINARY_DIR}")
+	set_tests_properties(worldeditor_save_roundtrip PROPERTIES
+		TIMEOUT 240
+		LABELS "smoke"
+		PASS_REGULAR_EXPRESSION "WorldEditorRoundtrip E2E PASS"
+		FAIL_REGULAR_EXPRESSION "FatalError|\\[error\\]|\\[fatal\\]")
+endif()

@@ -168,7 +168,7 @@ bool C4GameSave::SaveRuntimeData()
 
 		for (const auto &section : Game.GetNotDeletedSections())
 		{
-			if (!SaveSection(*section, std::format(C4CFN_SavedSection, counter++, section->Number), true))
+			if (!SaveSection(*section, std::format(C4CFN_SavedSection, counter++, section->Number), true, false))
 			{
 				return false;
 			}
@@ -181,7 +181,7 @@ bool C4GameSave::SaveRuntimeData()
 			C4Group sectGroup;
 			if (section->IsMain())
 			{
-				if (!SaveSection(*section, *pSaveGroup, false))
+				if (!SaveSection(*section, *pSaveGroup, false, false))
 				{
 					return false;
 				}
@@ -191,14 +191,14 @@ bool C4GameSave::SaveRuntimeData()
 				const std::string filename{std::format(C4CFN_Section, section->GetNameForSaveGame())};
 				if (sectGroup.OpenAsChild(pSaveGroup, filename.c_str()))
 				{
-					if (!SaveSection(*section, sectGroup, false))
+					if (!SaveSection(*section, sectGroup, false, true))
 					{
 						return false;
 					}
 				}
 				else
 				{
-					if (!SaveSection(*section, filename, false))
+					if (!SaveSection(*section, filename, false, true))
 					{
 						return false;
 					}
@@ -269,7 +269,7 @@ bool C4GameSave::SaveRuntimeData()
 	return true;
 }
 
-bool C4GameSave::SaveSection(C4Section &section, const std::string &filename, const bool saveRuntimeData)
+bool C4GameSave::SaveSection(C4Section &section, const std::string &filename, const bool saveRuntimeData, const bool fSectionGroup)
 {
 	pSaveGroup->SetStdOutput(true);
 	std::string tmpFile{Config.AtTempPath(filename.c_str())};
@@ -282,7 +282,7 @@ bool C4GameSave::SaveSection(C4Section &section, const std::string &filename, co
 			return false;
 		}
 
-		if (!SaveSection(section, tmpGroup, saveRuntimeData))
+		if (!SaveSection(section, tmpGroup, saveRuntimeData, fSectionGroup))
 		{
 			return false;
 		}
@@ -298,7 +298,7 @@ bool C4GameSave::SaveSection(C4Section &section, const std::string &filename, co
 	return true;
 }
 
-bool C4GameSave::SaveSection(C4Section &section, C4Group &group, const bool saveRuntimeData)
+bool C4GameSave::SaveSection(C4Section &section, C4Group &group, const bool saveRuntimeData, const bool fSectionGroup)
 {
 	// landscape
 	if (!SaveLandscape(section, group))
@@ -314,8 +314,13 @@ bool C4GameSave::SaveSection(C4Section &section, C4Group &group, const bool save
 		return false;
 	}
 
-	// Save core for non-scenarios
-	if (!IsExact())
+	// Save a standalone section core (partial scenario core) into section
+	// child groups (Sect*.c4g), so each section can be re-initialized on its
+	// own. Never write it into the main save group: SaveCore() has already
+	// put the full scenario core there, and a partial core would clobber
+	// [Head]/[Definitions] and make the saved scenario unloadable
+	// (cycle-230 worldeditor-save-roundtrip).
+	if (fSectionGroup && !IsExact())
 	{
 		C4Scenario c4s;
 		c4s.Animals = rC4S.Animals;

@@ -1226,6 +1226,21 @@ bool C4Game::Execute() // Returns true if the game is over
 			LogNTr("--smoke-save-at: QuickSave failed for {} (non-fatal)", savePath);
 	}
 
+	// Smoke scenario save-at (spec worldeditor-save-roundtrip §E). Fires
+	// once, at the first Execute with FrameCounter >= SmokeScenarioSaveAtTick;
+	// placement before the smoke-exit block guarantees the save even when
+	// the save tick equals SmokeRunTicks (same guarantee as the smoke-save-at
+	// block above). Saves via the pinned console path: C4Console::SaveGame(false)
+	// => C4GameSaveScenario into the open scenario group.
+	if (SmokeScenarioSaveAtTick > 0 && !SmokeScenarioSaveDone && FrameCounter >= SmokeScenarioSaveAtTick)
+	{
+		SmokeScenarioSaveDone = true;  // one attempt per run (spec §E)
+		if (Console.SaveGame(false))
+			LogNTr("--smoke-scenario-save-at: saved {} (tick {})", ScenarioFilename, FrameCounter);
+		else
+			LogNTr("--smoke-scenario-save-at: scenario save FAILED (tick {})", FrameCounter);
+	}
+
 	// Smoke-run exit (spec headless-scenario-smoke-harness): clean exit on
 	// N ticks reached or GameOver, non-zero on non-empty fatal stack.
 	if (SmokeRunActive())
@@ -1709,6 +1724,7 @@ void C4Game::Default()
 	FrameCounter = 0;
 	SmokeRunTicks = 0;  // reset on Clear()->Default() (spec headless-scenario-smoke-harness)
 	SmokeSaveAtTick = 0; SmokeSaveSlot.Clear(); SmokeSaveDone = false;  // likewise reset (spec save-continue)
+	SmokeScenarioSaveAtTick = 0; SmokeScenarioSaveDone = false;  // likewise reset (spec worldeditor-save-roundtrip)
 	FrameRateCap = 0;   // likewise reset (spec frame-rate-cap-engine-option)
 	ShotAtTick = 0; ShotTaken = false; ShotPath[0] = 0; ShotWdt = 320; ShotHgt = 240;  // likewise reset (spec playtest-vision-tier2)
 	ParameterOverrides.clear();  // likewise reset (spec pregame-options-parity)
@@ -2987,6 +3003,23 @@ void C4Game::ParseCommandLine(const char *szCmdLine)
 			{
 				LogNTr("--smoke-save-at: invalid (expected --smoke-save-at:<tick>:<slotname>) - probe disabled");
 			}
+		}
+		// Smoke scenario save-at (spec worldeditor-save-roundtrip §E): one
+		// C4Console::SaveGame(false) — the pinned scenario save path — at the
+		// first Execute running at or after the given tick. Colon form only:
+		// "--smoke-scenario-save-at:210" / "/smoke-scenario-save-at:210".
+		// Invalid (tick <= 0) -> loud non-fatal log, flag ignored
+		// (--smoke-save-at precedent).
+		if (SEqual2NoCase(szParameter, "/smoke-scenario-save-at:")
+		 || SEqual2NoCase(szParameter, "--smoke-scenario-save-at:"))
+		{
+			const char *colon = std::strchr(szParameter, ':');
+			char *tickEnd = nullptr;
+			const int32_t tick = colon ? std::strtol(colon + 1, &tickEnd, 10) : 0;
+			if (tick > 0)
+				SmokeScenarioSaveAtTick = tick;
+			else
+				LogNTr("--smoke-scenario-save-at: invalid tick (expected --smoke-scenario-save-at:<tick>) - probe disabled");
 		}
 		// Diagnostic scene shot (spec playtest-vision-tier2 §2C).
 		// Colon form: "--screenshot-at:120:/s.png" / "/screenshot-at:...".

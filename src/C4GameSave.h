@@ -101,8 +101,8 @@ private:
 	bool SaveCore(); // save C4S core
 	bool SaveLandscape(C4Section &section, C4Group &group); // save current landscape
 	bool SaveRuntimeData(); // save any runtime data
-	bool SaveSection(C4Section &section, const std::string &filename, bool saveRuntimeData);
-	bool SaveSection(C4Section &section, C4Group &group, bool saveRuntimeData);
+	bool SaveSection(C4Section &section, const std::string &filename, bool saveRuntimeData, bool fSectionGroup);
+	bool SaveSection(C4Section &section, C4Group &group, bool saveRuntimeData, bool fSectionGroup);
 
 public:
 	virtual ~C4GameSave() { Close(); } // dtor: close group

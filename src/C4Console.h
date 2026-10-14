@@ -122,6 +122,11 @@ protected:
 #else
 	bool FileSelect(char *sFilename, int iSize, const char *szFilter, uint32_t dwFlags, bool fSave = false);
 #endif
+	// Smoke scenario save-at (spec worldeditor-save-roundtrip §E):
+	// C4Game::Execute fires the pinned scenario-save path headlessly
+	// (Console.SaveGame(false)), so it needs access to the protected
+	// SaveGame — same friend precedent as C4MessageInput's C4Game grant.
+	friend class C4Game;
 	bool SaveGame(bool fSaveGame);
 	bool FileSaveAs(bool fSaveGame);
 	bool FileSave(bool fSaveGame);
