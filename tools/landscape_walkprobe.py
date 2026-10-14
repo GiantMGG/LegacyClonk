@@ -18,8 +18,10 @@ Protocol (adapted from the cycle-226 scratch probes):
     walkprobe_v1 resend discipline). Single-%d Format forms only: the
     %%-escaped forms are mangled by the seam (fmt_probe.log finding).
   - First /script Log(Format("LW %d", LandscapeWidth())) to learn the map
-    width, then the GroundY batch across the requested band; each answered
-    sample echoes "GY <x> <y>" into the engine log, which is polled.
+    width (optionally --query-lh also asks Log(Format("LH %d",
+    LandscapeHeight())) the same way), then the GroundY batch across the
+    requested band; each answered sample echoes "GY <x> <y>" into the
+    engine log, which is polled.
 
 GroundY is NOT engine-generic: it is a global func defined by the
 SaltRoad04 scenario script (cycle-232 finding — Outset.c4s answers the
@@ -27,15 +29,20 @@ seam with "unknown identifier: GroundY"), and the console seam is parsed
 expression-only (C4AulParse.cpp ParseFn fExprOnly=true — no var, no
 statements). So the probe sends, per column, ONE self-contained
 arithmetic expression over the engine-global GBackSolid that computes
-the first solid y within the passable window [0, height):
+the first solid y within the passable window [y_start, y_start+height)
+— anchored at --y-start (default 0 = map top; the generated expression
+is byte-identical to the cycle-232 one then):
 
   GY' = height*(1-Min(1, S)) + sum_{y=1..height-1} y*s(y)*(1-Min(1, s(0)+..+s(y-1)))
 
-where s(y) = GBackSolid(x, y) and S = s(0)+..+s(height-1). GY' is the
-exact first-solid y when it falls below the window, and = height when
-the top window is solid-free. The verdict rule "passable iff GY >=
-height" and the GY=0 ceiling-touching headline are unchanged; the exact
-depth beyond the window does not affect the corridor verdict.
+where s(y) = GBackSolid(x, y_start+y) and S = s(0)+..+s(height-1). GY'
+is the first-solid OFFSET FROM THE WINDOW TOP (absolute surface y =
+y_start + GY'), and = height when the window is solid-free. The verdict
+rule "passable iff GY >= height" and the GY=0 window-top-touching
+headline are unchanged; the exact depth beyond the window does not
+affect the corridor verdict. --query-lh (optional, non-breaking) makes
+the probe additionally ask LandscapeHeight() over the seam and report
+it as a note, mirroring the LW resend pattern.
 
 Analysis: a sample column is PASSABLE iff GY >= --height (the walker fits
 under the sky; GY==0 columns are ceiling-touching walls). The corridor is
@@ -67,6 +74,7 @@ BATCH_SPACING = 0.02   # s between initial sends of the sample batch
 GAME_STARTED_RE = re.compile(r"Game started\.")
 
 LW_RE = re.compile(r"\[info\] LW (\d+)\s*$", re.MULTILINE)
+LH_RE = re.compile(r"\[info\] LH (\d+)\s*$", re.MULTILINE)
 GY_RE = re.compile(r"\[info\] GY (\d+) (-?\d+)\s*$", re.MULTILINE)
 
 def parse_args(argv=None):
@@ -91,6 +99,16 @@ def parse_args(argv=None):
 	                    help="last sampled column (default map width - 1)")
 	parser.add_argument("--step", type=int, default=20,
 	                    help="sampling stride in px (default 20)")
+	parser.add_argument("--y-start", type=int, default=0,
+	                    help="absolute map-y anchor of the GY window "
+	                         "(default 0 = map top). GY reports the "
+	                         "first-solid offset from y_start; a column "
+	                         "is passable iff no solid lies within "
+	                         "[y_start, y_start+height)")
+	parser.add_argument("--query-lh", action="store_true",
+	                    help="additionally ask LandscapeHeight() over the "
+	                         "seam and report it as a note (mirrors the "
+	                         "LW resend pattern)")
 	parser.add_argument("--min-run-px", required=True, type=int,
 	                    help="min acceptable corridor length in px")
 	parser.add_argument("--timeout", type=int, default=240,
@@ -162,13 +180,14 @@ def run_probe(args):
 
 	def gy_line(x):
 		"""One self-contained /script line per column (see docstring)."""
+		y0 = args.y_start
 		terms = []
 		for y in range(1, args.height):
-			above = "+".join("GBackSolid(%d,%d)" % (x, z)
+			above = "+".join("GBackSolid(%d,%d)" % (x, y0 + z)
 			                 for z in range(y))
 			terms.append("%d*GBackSolid(%d,%d)*(1-Min(1,%s))"
-			             % (y, x, y, above))
-		window = "+".join("GBackSolid(%d,%d)" % (x, z)
+			             % (y, x, y0 + y, above))
+		window = "+".join("GBackSolid(%d,%d)" % (x, y0 + z)
 		                  for z in range(args.height))
 		expr = "%d*(1-Min(1,%s))+%s" % (args.height, window,
 		                                "+".join(terms))
@@ -176,7 +195,10 @@ def run_probe(args):
 
 	samples = []
 	lw = None
+	lh = None
 	lw_attempts = 0
+	lh_attempts = 0
+	lh_last = 0.0
 	lw_last = [0.0]
 	deadline = time.time() + args.timeout
 	spawn_at = time.time()
@@ -230,6 +252,17 @@ def run_probe(args):
 			if proc.poll() is not None:
 				break
 			txt = log_text()
+			# Optional LH echo (--query-lh): informational map height,
+			# resent on the LW cadence until it is answered.
+			if args.query_lh and lh is None:
+				mlh = LH_RE.search(txt)
+				if mlh:
+					lh = int(mlh.group(1))
+				elif time.time() - lh_last >= RESEND_INTERVAL:
+					lh_last = time.time()
+					lh_attempts += 1
+					send('/script Log(Format("LH %d", '
+					     'LandscapeHeight()));')
 			for m in GY_RE.finditer(txt):
 				x, y = int(m.group(1)), int(m.group(2))
 				for s in samples:
@@ -265,6 +298,16 @@ def run_probe(args):
 		for s in samples:
 			if s.x == x and not s.answered:
 				s.x, s.y, s.answered = x, y, True
+	if args.query_lh and lh is None:
+		mlh = LH_RE.search(txt)
+		if mlh:
+			lh = int(mlh.group(1))
+	if args.query_lh:
+		if lh is not None:
+			notes.append("LH=%d (LH resends: %d)"
+			             % (lh, lh_attempts))
+		else:
+			notes.append("LH: no echo (never answered)")
 
 	shutil.rmtree(workdir, ignore_errors=True)
 	return samples, lw, notes, log_path
