@@ -2441,6 +2441,16 @@ static bool FnInsertMaterial(C4AulContext *cthr, C4ValueInt mat, C4ValueInt x, C
 	return !!cthr->GetSection().Landscape.InsertMaterial(mat, x, y, vx, vy);
 }
 
+static bool FnEMDrawTool(C4AulContext *cthr, C4ValueInt iAction, C4ValueInt iX, C4ValueInt iY, C4ValueInt iX2, C4ValueInt iY2, C4ValueInt iGrade, C4ValueInt fIFT, C4String *szMaterial, C4String *szTexture, C4ValueInt iModeOverride)
+{
+	// editor drawing tools: enqueue an EM control packet like the edit cursor does
+	if (Game.Control.SyncMode()) return false;
+	C4Section &section{cthr->GetSection()};
+	const int mode = iModeOverride >= 0 ? static_cast<int>(iModeOverride) : section.Landscape.Mode;
+	Game.Control.DoInput(CID_EMDrawTool, new C4ControlEMDrawTool(static_cast<C4ControlEMDrawAction>(iAction), mode, iX, iY, iX2, iY2, iGrade, !!fIFT, section.Number, FnStringPar(szMaterial), FnStringPar(szTexture)), CDT_Decide);
+	return true;
+}
+
 static C4ValueInt FnGetMaterialCount(C4AulContext *cthr, C4ValueInt iMaterial, bool fReal)
 {
 	C4Section &section{cthr->GetSection()};
@@ -7584,6 +7594,7 @@ void InitFunctionMap(C4AulScriptEngine *pEngine)
 	AddFunc(pEngine, "BlastObject",                     FnBlastObject);
 	AddFunc(pEngine, "BlastFree",                       FnBlastFree);
 	AddFunc(pEngine, "InsertMaterial",                  FnInsertMaterial);
+	AddFunc(pEngine, "EMDrawTool",                      FnEMDrawTool);
 	AddFunc(pEngine, "DrawVolcanoBranch",               FnDrawVolcanoBranch,               false);
 	AddFunc(pEngine, "FlameConsumeMaterial",            FnFlameConsumeMaterial,            false);
 	AddFunc(pEngine, "LandscapeWidth",                  FnLandscapeWidth);
