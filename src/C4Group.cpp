@@ -1391,11 +1391,15 @@ bool C4Group::View(const char *szFiles)
 		maxFilenameLength = std::max(maxFilenameLength, std::strlen(centry->FileName));
 	}
 
+	// Head is #pragma pack(1): its int members may sit at misaligned
+	// addresses inside C4Group. Hoist them into aligned locals so
+	// std::println never binds int& references to them.
+	const int32_t creation = Head.Creation, ver1 = Head.Ver1, ver2 = Head.Ver2;
 	std::println("Maker: {}  Creation: {}  {}\n\rVersion: {}.{}  CRC: {} ({:X})",
 		GetMaker(),
-		Head.Creation,
+		creation,
 		GetOriginal() ? "Original" : "",
-		Head.Ver1, Head.Ver2,
+		ver1, ver2,
 		crc, crc);
 	ResetSearch();
 	while ((centry = SearchNextEntry(szFiles)))
@@ -2551,13 +2555,20 @@ C4Group *C4Group::GrabMother()
 void C4Group::PrintInternals(const char *szIndent)
 {
 	if (!szIndent) szIndent = "";
+	// Same misalignment concern as View(): hoist packed Head ints into
+	// aligned locals before handing them to std::println.
+	const int32_t head_ver1 = Head.Ver1;
+	const int32_t head_ver2 = Head.Ver2;
+	const int32_t head_entries = Head.Entries;
+	const int32_t head_creation = Head.Creation;
+	const int32_t head_original = Head.Original;
 	std::println("{}Head.id: '{}'", szIndent, Head.id);
-	std::println("{}Head.Ver1: {}", szIndent, Head.Ver1);
-	std::println("{}Head.Ver2: {}", szIndent, Head.Ver2);
-	std::println("{}Head.Entries: {}", szIndent, Head.Entries);
+	std::println("{}Head.Ver1: {}", szIndent, head_ver1);
+	std::println("{}Head.Ver2: {}", szIndent, head_ver2);
+	std::println("{}Head.Entries: {}", szIndent, head_entries);
 	std::println("{}Head.Maker: '{}'", szIndent, Head.Maker);
-	std::println("{}Head.Creation: {}", szIndent, Head.Creation);
-	std::println("{}Head.Original: {}", szIndent, Head.Original);
+	std::println("{}Head.Creation: {}", szIndent, head_creation);
+	std::println("{}Head.Original: {}", szIndent, head_original);
 	for (C4GroupEntry *p = FirstEntry; p; p = p->Next)
 	{
 		std::println("{}Entry '{}':", szIndent, p->FileName);
