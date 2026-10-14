@@ -546,6 +546,40 @@ if(EXISTS "${LEGACYCLONK_CONTENT_DIR}/SaltRoad.c4f/SaltRoad04.c4s/Script.c")
 		FAIL_REGULAR_EXPRESSION "FatalError|\\[error\\]|\\[fatal\\]")
 endif()
 
+# --- Landscape walkprobe gate (cycle 232, landscape-walkprobe) --------------
+# Permanent terrain-corridor gate (tools/landscape_walkprobe.py): boots the
+# REAL BreakerCove.c4s headless, samples GroundY across the whole map band
+# through the console /script seam (resend-until-answered; one windowed
+# GBackSolid expression per column, because GroundY is a SaltRoad04
+# scenario func, not engine-generic) and PASSes only when every sampled
+# column is answered and the longest contiguous passable run is >= 600 px
+# (measured corridor at Seed=199: full map width 1200 px, 0 blocked
+# columns; the pin is half of that). A column is passable iff GY >= 26
+# (walker fits under the sky); GY=0 columns are ceiling-touching walls --
+# the cycle-226 SaltRoad04 bozo-belt failure this gate class exists to
+# catch (probe run RED on SaltRoad04@master Seed=226: longest corridor
+# 60 px, 48/72 columns ceiling-touching). Pinned seed 199 (the fleet
+# seed); run against any candidate landscape BEFORE build cycles burn it.
+if(EXISTS "${CMAKE_SOURCE_DIR}/tools/landscape_walkprobe.py"
+   AND EXISTS "${LEGACYCLONK_CONTENT_DIR}/Worlds.c4f/BreakerCove.c4s/Script.c")
+	add_test(NAME landscape_walkprobe_gate
+		COMMAND "${PYTHON3}" "${CMAKE_SOURCE_DIR}/tools/landscape_walkprobe.py"
+			"--engine" "$<TARGET_FILE:clonk>"
+			"--content-dir" "${LEGACYCLONK_CONTENT_DIR}"
+			"--scenario" "Worlds.c4f/BreakerCove.c4s"
+			"--seed" "199"
+			"--height" "26"
+			"--step" "20"
+			"--min-run-px" "600"
+			"--out-log" "landscape_walkprobe_gate.log"
+		WORKING_DIRECTORY "${CMAKE_BINARY_DIR}")
+	set_tests_properties(landscape_walkprobe_gate PROPERTIES
+		TIMEOUT 300
+		LABELS "smoke"
+		PASS_REGULAR_EXPRESSION "landscape_walkprobe PASS"
+		FAIL_REGULAR_EXPRESSION "FatalError|\\[error\\]|\\[fatal\\]")
+endif()
+
 # --- Menu-walk smoke (spec 2026-09-17-menu-walk-smoke, cycle 131) -----------
 # Six-leg new-player-walk driver (tools/menu_walk_smoke.py). Console builds
 # only (headless engine spawns). Deliberately NO FAIL_REGULAR_EXPRESSION:
