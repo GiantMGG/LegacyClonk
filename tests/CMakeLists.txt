@@ -1498,3 +1498,27 @@ if(PYTHON3 AND NOT USE_SANITIZER
 		PASS_REGULAR_EXPRESSION "WorldEditorRoundtrip E2E PASS"
 		FAIL_REGULAR_EXPRESSION "FatalError|\\[error\\]|\\[fatal\\]")
 endif()
+
+# --- quicksave_directory_roundtrip (spec quicksave-directory-fix, cycle 231) --
+# Two-phase headless proof of the directory-source quicksave round trip:
+# phase A runs the directory-form Knights scenario SiegeOfHighKeep.c4s to
+# --smoke-run 700 with --smoke-save-at:200:QuicksaveDirRT firing one
+# QuickSave; the driver then asserts the slot is a packed file >= 1024 B
+# (76-byte corpse => RED) with extractable Game.txt/Scenario.txt, and
+# phase B reloads the slot in a fresh process. Own stanza, NOT the glob
+# (worldeditor_save_roundtrip precedent :1475). NOT USE_SANITIZER gate
+# per pxs_perf_gate (:450).
+if(PYTHON3 AND NOT USE_SANITIZER
+	AND EXISTS "${LEGACYCLONK_CONTENT_DIR}/Knights.c4f/SiegeOfHighKeep.c4s"
+	AND EXISTS "${CMAKE_SOURCE_DIR}/tools/quicksave_directory_roundtrip.py")
+	add_test(NAME quicksave_directory_roundtrip
+		COMMAND "${PYTHON3}" "${CMAKE_SOURCE_DIR}/tools/quicksave_directory_roundtrip.py"
+			"$<TARGET_FILE:clonk>"
+			"${LEGACYCLONK_CONTENT_DIR}/Knights.c4f/SiegeOfHighKeep.c4s"
+		WORKING_DIRECTORY "${CMAKE_BINARY_DIR}")
+	set_tests_properties(quicksave_directory_roundtrip PROPERTIES
+		TIMEOUT 240
+		LABELS "smoke"
+		PASS_REGULAR_EXPRESSION "QuicksaveDirectoryRoundtrip E2E PASS"
+		FAIL_REGULAR_EXPRESSION "FatalError|\\[error\\]|\\[fatal\\]")
+endif()
