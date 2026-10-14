@@ -47,6 +47,18 @@ bool C4GameSave::SaveCreateGroup(const char *szFilename, C4Group &hUseGroup)
 			{
 				Log(C4ResStrTableKey::IDS_CNS_SAVEASERROR, szFilename); return false;
 			}
+	// Layer 1 (spec quicksave-directory-fix, cycle 231): a directory-form
+	// scenario source copies to a directory target; left as a folder, the
+	// save group opens as GRPF_Folder with zero in-memory entries and
+	// C4GameSave::Close's packer replaces it with a 76-byte corpse while
+	// reporting success. Pack the copied target in place so Open() below
+	// takes the OpenRealGrpFile arm (C4Group.cpp:747) - the proven
+	// packed-source path. Packed sources skip this untouched.
+	if (GetCopyScenario() && DirectoryExists(Game.ScenarioFilename))
+		if (!C4Group_PackDirectory(szFilename))
+		{
+			Log(C4ResStrTableKey::IDS_CNS_SAVEASERROR, szFilename); return false;
+		}
 	// open it
 	if (!hUseGroup.Open(szFilename, !GetCopyScenario()))
 	{
@@ -601,6 +613,22 @@ bool C4GameSave::Close()
 		// close if owned group
 		if (fOwnGroup)
 		{
+			// Layer 2 guard (spec quicksave-directory-fix, cycle 231): a
+			// folder-group save target must never reach the packer below —
+			// C4Group::Save on a folder-group writes a header-only temp group
+			// (Head.Entries == 0, no in-memory entries) and then EraseItem's the
+			// folder: total data wipe reported as success (the cycle-189/231
+			// corpse). Refuse loudly; the folder stays readable. Unreachable via
+			// SaveCreateGroup post-Layer 1; defense in depth.
+			if (pSaveGroup->IsFolder())
+			{
+				LogNTr(spdlog::level::err, "C4GameSave::Close: refusing to pack folder-group save {} - save not finalized", pSaveGroup->GetFullName().getData());
+				pSaveGroup->Close();
+				delete pSaveGroup;
+				pSaveGroup = nullptr;
+				fOwnGroup = false;
+				return false;
+			}
 			fSuccess = !!pSaveGroup->Save(false);
 			if (!fSuccess)
 			{

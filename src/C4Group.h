@@ -256,6 +256,7 @@ public:
 	inline bool IsOpen() { return Status != GRPF_Inactive; }
 	C4Group *GetMother();
 	inline bool IsPacked() { return Status == GRPF_File; }
+	inline bool IsFolder() { return Status == GRPF_Folder; }
 	inline bool HasPackedMother() { if (!Mother) return false; return Mother->IsPacked(); }
 	inline bool SetNoSort(bool fNoSort) { NoSort = fNoSort; return true; }
 #ifndef NDEBUG
