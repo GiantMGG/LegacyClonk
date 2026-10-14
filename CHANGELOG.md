@@ -1972,4 +1972,72 @@ This reverts commit f4d4b3dde9d7d42579b772e77be1354af25b6496. (51ab431)
 
 - **v378**: Audit fix - relabel long-boot provenance, add shipped-flood proof note (e480a19)
 
+## [379] - 2026-10-12
+
+### Added
+
+- **tools**: Real_playtest_walk.sh -- scripted full pre-game flow walk (cycle 216 T1) (cf3ea63)
+
+
+### Changed
+
+- Collapse condensed empty lines in frontier_outset_longboot_gate.py (auto_format.py) (94ac36d)
+
+- Hygiene fixes for frontier_outset_construct_gate.py (4c50a29)
+
+- Auto_format frontier_cove_round_gate.py (CI dirt) (8f2b39b)
+
+
+### Fixed
+
+- **engine**: Fail fast on dangling folder-child entries (C4Group OpenAsChild) (0d6d52b)
+
+- **tools**: Real_playtest_walk.sh — player-state, deadline waits, landing-click, desync guards (cycle 216 T2) (97504fe)
+
+- **ui**: Store count labels use raw Latin-1 × byte (0xD7) — UTF-8 × mojibaked in per-byte font render (cycle 216) (5785fed)
+
+- **tools**: Real_playtest_walk kill_clonk — tracked PIDs only, never foreign engines (cycle 216) (7e32574)
+
+- **tools**: Frontier_cove_round_gate COVE_DRIVE — anchor above tower, kill leg2 physics-race flake (cycle 218) (d1d92e4)
+
+
+### Internal
+
+- **changelog**: Update for v378 [skip ci] (534484b)
+
+- **ctest**: Frontier_outset_longboot gate for the v378 Outset long boot (a3affa1)
+
+- **ctest**: Seed pins + longboot c5/c6 presence asserts for frontier-cards-c5c6 (999da90)
+
+- **ctest**: Frontier_outset_construct_gate for the C5/C6 winning leg (94533d9)
+
+- **command**: C4CMD_Call honest idiom -- Finish(true) precedes callee, return unread, ~\<fn\>Failed unreachable (1018e49)
+
+- **ctest**: SMOKE_SEED_PIN_FloodedCrownSmoke (storm dressing only) (a4627e7)
+
+- **ctest**: Trade_campaign_gate expected list gains AdmiralsCrown (efd8365)
+
+- **gates**: Frontier_cove_boot + frontier_cove_round_gate (cycle 217) (2922a4a)
+
+- **tools**: Frontier_cove_round_gate SMOKE_RUN comment — verdict at 4900 post-fogcut (43e36f1)
+
+- **tests**: Frontier_cove_round_gate CTest registration comment — verdict at 4900 post-fogcut (cycle 218) (7cb8fd5)
+
+- Real_playtest_walk_cove.sh — cycle-217 Cove real-playtest walk (fork of real_playtest_walk.sh; T2-hardened, not a battery entry) (c1438f5)
+
+- **version**: Bump content version to 4.9.11.16 for v379 (6cc13fa)
+
+- **changelog**: V379 audit-fix — probe scope, FRMT citation, fog first-pass, FINDINGS scope (cycle 220) (0068164)
+
+
+### Other
+
+- Repoint judge from local ollama qwen3.8 to KIT endpoint (d0b6077)
+
+- Unambiguous playtest_vision flat control + loud oracle failure (5898d08)
+
+- Judge model from KIT_MODEL env, concrete default (bce449f)
+
+- Restore alias as judge default — no concrete model pins (91ea5e3)
+
 <!-- git-cliff prepends new release sections above this line. -->
