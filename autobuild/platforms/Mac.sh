@@ -39,3 +39,39 @@ LIBCLANG_DIR="$PWD/libexec/llvm-$LLVM_VERSION/lib/clang/$LLVM_VERSION/lib/darwin
 echo "LIBCLANG_RT=$LIBCLANG_DIR/libclang_rt.osx.a" >> $GITHUB_ENV
 
 popd
+
+# ---------------------------------------------------------------------------
+# LLVM-tapi SDK probe (macos-26-arm64 image roll 20261013.0424.1 ships CLT 27)
+#
+# CLT 27.0's SDK tbds carry arm64e.x1-* arch slices the pinned Homebrew
+# LLVM-$LLVM_VERSION linker's tapi cannot parse ("ld: tapi error: malformed
+# file"), killing every mac lane in CMake's compiler-ABI probe. When a
+# minimal link against the CLT SDK fails, pin OSX_SDK + DEVELOPER_DIR to the
+# Xcode 26.6 toolchain the runner image still ships. Images with a
+# LLVM-parseable CLT SDK (e.g. 20260907.0351.1, CLT 26.6) keep the default
+# path unchanged.
+# ---------------------------------------------------------------------------
+
+CLT_SYSROOT="/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk"
+PROBE_ARCH="${CLANG_ARCH:-$(uname -m)}"
+
+llvm_links_sdk() {
+	"$LLVM_PREFIX/bin/clang++" -arch "$PROBE_ARCH" -isysroot "$1" \
+		-x c++ -o /dev/null - <<< 'int main() { return 0; }'
+}
+
+if llvm_links_sdk "$CLT_SYSROOT"; then
+	echo "CLT SDK $CLT_SYSROOT links cleanly with LLVM-$LLVM_VERSION; no pin needed"
+elif [ -d "/Applications/Xcode_26.6.app/Contents/Developer" ]; then
+	XCODE_DEV_DIR="/Applications/Xcode_26.6.app/Contents/Developer"
+	PINNED_SDK="$(DEVELOPER_DIR="$XCODE_DEV_DIR" xcrun --sdk macosx --show-sdk-path | tail -n 1)"
+	if [ -n "$PINNED_SDK" ] && llvm_links_sdk "$PINNED_SDK"; then
+		echo "OSX_SDK=$PINNED_SDK" >> $GITHUB_ENV
+		echo "DEVELOPER_DIR=$XCODE_DEV_DIR" >> $GITHUB_ENV
+		echo "Pinned mac toolchain to Xcode 26.6 (SDK: $PINNED_SDK) for LLVM-$LLVM_VERSION tapi compatibility"
+	else
+		echo "WARNING: CLT SDK unparsable and no working Xcode 26.6 SDK found; mac lane will likely fail to configure"
+	fi
+else
+	echo "WARNING: CLT SDK unparsable and Xcode 26.6 unavailable; mac lane will likely fail to configure"
+fi
