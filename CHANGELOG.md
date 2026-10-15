@@ -2114,21 +2114,4 @@ This reverts commit f4d4b3dde9d7d42579b772e77be1354af25b6496. (51ab431)
 
 - Absorb v379 changelog splice (origin/master) into development for the v380 cut (364df40)
 
-## [381] - 2026-10-15
-
-### Internal
-
-- **landscape**: Walkprobe --y-start window anchor (cycle 234) (7b58ba5)
-
-- **smoke**: Dustrunner_crossing_round_smoke gates the shipped DustrunnerCrossing round (cycle 236) (e5d6c24)
-
-- **version**: Bump content version to 4.9.11.18 for v381 (9bdd1bd)
-
-- **changelog**: Update for v380 [skip ci] (7ca7131)
-
-
-### Other
-
-- Absorb v380 changelog splice (origin/master) into development for the v381 cut (f9c67f0)
-
 <!-- git-cliff prepends new release sections above this line. -->
