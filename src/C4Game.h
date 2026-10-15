@@ -218,6 +218,11 @@ public:
 	int32_t SmokeRunTicks{0};
 	bool SmokeRunActive() const { return SmokeRunTicks > 0; }
 
+	// Input-path trace gate (cycle 245, spec input-path-truth): --input-trace
+	// enables the [T1]–[T5] input-path trace log lines. Log-only — absent ⇒
+	// inert, zero behavior change. Not serialized — process-lifetime flag.
+	bool InputTraceEnabled{false};
+
 	// Smoke save-at probe (spec save-continue §4.3): SmokeSaveAtTick > 0
 	// ⇒ QuickSave one headless probe save at the first Execute running at
 	// or after that tick, into the slot named by SmokeSaveSlot (fire site

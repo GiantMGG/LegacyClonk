@@ -1961,6 +1961,10 @@ void C4Player::InitControl(C4Section &initialSection)
 	}
 	// Set control
 	Control = iControl;
+	// T2 (cycle 245, spec input-path-truth): control-resolution audit at join.
+	if (Game.InputTraceEnabled)
+		LogNTr("[T2] join plr={} name='{}' pref={} ctrl={} local={}",
+			Number, Name.getData(), PrefControl, Control, static_cast<int>(LocalControl));
 	ApplyForcedControl(initialSection);
 	// init gamepad
 	delete pGamepad; pGamepad = nullptr;

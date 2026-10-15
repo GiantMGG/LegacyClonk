@@ -23,6 +23,7 @@
 #include <C4Viewport.h>
 #include <C4Network2Dialogs.h>
 #include <C4Game.h>
+#include <C4Log.h>
 #include <C4Player.h>
 
 bool C4AbortGameDialog::is_shown = false;
@@ -88,12 +89,17 @@ void C4AbortGameDialog::OnShown()
 		fGameHalted = true;
 		Game.HaltCount++;
 	}
+	// T5 (cycle 245, spec input-path-truth): halt-poisoning namer.
+	if (Game.InputTraceEnabled)
+		LogNTr("[T5] ABORTDLG shown halt={}", Game.HaltCount);
 }
 
 void C4AbortGameDialog::OnClosed(bool fOK)
 {
 	if (fGameHalted)
 		Game.HaltCount--;
+	if (Game.InputTraceEnabled)
+		LogNTr("[T5] ABORTDLG closed halt={}", Game.HaltCount);
 	bool restart = fRestart;
 	// inherited
 	typedef C4GUI::Dialog Base;

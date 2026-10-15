@@ -1178,6 +1178,11 @@ bool C4Game::Execute() // Returns true if the game is over
 	// Ticks
 	EXEC_DR(Ticks();, "Ticks")
 
+	// T4 (cycle 245, spec input-path-truth): sim-liveness heartbeat, past
+	// the HaltCount gate — silent here means halted or frozen.
+	if (InputTraceEnabled && (FrameCounter % 35 == 0))
+		LogNTr("[T4] HB frame={} halt={}", FrameCounter, HaltCount);
+
 #ifdef DEBUGREC
 	// debugrec
 	AddDbgRec(RCT_DbgFrame, &FrameCounter, sizeof(int32_t));
@@ -2121,6 +2126,10 @@ bool C4Game::DoKeyboardInput(C4KeyCode vk_code, C4KeyEventType eEventType, bool 
 		PressedKeys[vk_code] = false;
 	}
 #endif
+	// T1 (cycle 245, spec input-path-truth): key arrival ground truth.
+	if (InputTraceEnabled)
+		LogNTr("[T1] key vk={:#x} ev={} rep={}",
+			static_cast<unsigned>(vk_code), static_cast<int>(eEventType), static_cast<int>(fRepeated));
 	// compose key
 	C4KeyCodeEx Key(vk_code, C4KeyShiftState(fAlt * KEYS_Alt + fCtrl * KEYS_Control + fShift * KEYS_Shift), fRepeated);
 	// compose keyboard scope
@@ -2982,6 +2991,12 @@ void C4Game::ParseCommandLine(const char *szCmdLine)
 				++iPar;  // consume the value token
 			}
 		}
+		// Input-path trace gate (cycle 245, spec input-path-truth): log-only.
+		if (SEqualNoCase(szParameter, "/input-trace")
+		 || SEqualNoCase(szParameter, "--input-trace"))
+		{
+			InputTraceEnabled = true;
+		}
 		// Smoke save-at probe (spec save-continue §4.3): one QuickSave at
 		// the given tick into the given slot name. Colon form only:
 		// "--smoke-save-at:700:ProbeSlot" / "/smoke-save-at:...". The tick
@@ -3802,6 +3817,22 @@ bool C4Game::InitKeyboard()
 	// load any custom keysboard overloads
 	KeyboardInput.LoadCustomConfig();
 
+	// T2 (cycle 245, spec input-path-truth): one-time dump of the effective
+	// keyset tables (custom key overrides included), one line per keyset.
+	if (InputTraceEnabled)
+	{
+		for (int32_t iSet = 0; iSet < C4MaxKeyboardSet; ++iSet)
+		{
+			std::string keys;
+			for (int32_t iKey = 0; iKey < C4MaxKey; ++iKey)
+			{
+				if (iKey) keys += ',';
+				keys += std::format("{:#x}", static_cast<unsigned>(Config.Controls.Keyboard[iSet][iKey]));
+			}
+			LogNTr("[T2] kbdset={} keys={}", iSet + 1, keys);
+		}
+	}
+
 	// done, success
 	return true;
 }
@@ -4110,10 +4141,17 @@ bool C4Game::LocalControlKey(C4KeyCodeEx key, C4KeySetCtrl Ctrl)
 			if (key.IsRepeated())
 				return true;
 		}
-		LocalPlayerControl(pPlr->Number, Control2Com(Ctrl.iCtrl, false));
+		// T3 (cycle 245, spec input-path-truth): keyset->player->COM dispatch.
+		const int32_t iCom = Control2Com(Ctrl.iCtrl, false);
+		if (InputTraceEnabled)
+			LogNTr("[T3] down keyset={} ctrl={} plr={} com={}", Ctrl.iKeySet, Ctrl.iCtrl, pPlr->Number, iCom);
+		LocalPlayerControl(pPlr->Number, iCom);
 		return true;
 	}
 	// not processed - must return false here, so unused keyboard control sets do not block used ones
+	// T3 miss: no local player on this keyset.
+	if (InputTraceEnabled)
+		LogNTr("[T3] down MISS keyset={} ctrl={}", Ctrl.iKeySet, Ctrl.iCtrl);
 	return false;
 }
 
@@ -4126,10 +4164,16 @@ bool C4Game::LocalControlKeyUp(C4KeyCodeEx key, C4KeySetCtrl Ctrl)
 	if ((pPlr = Players.GetLocalByKbdSet(Ctrl.iKeySet)) && pPlr->ControlStyle)
 	{
 		int iCom = Control2Com(Ctrl.iCtrl, true);
+		// T3 (cycle 245, spec input-path-truth): key-release dispatch.
+		if (InputTraceEnabled)
+			LogNTr("[T3] up keyset={} ctrl={} plr={} com={}", Ctrl.iKeySet, Ctrl.iCtrl, pPlr->Number, iCom);
 		if (iCom != COM_None) LocalPlayerControl(pPlr->Number, iCom);
 		return true;
 	}
 	// not processed - must return false here, so unused keyboard control sets do not block used ones
+	// T3 miss: no local player on this keyset (or no AutoStopControl style).
+	if (InputTraceEnabled)
+		LogNTr("[T3] up MISS keyset={} ctrl={}", Ctrl.iKeySet, Ctrl.iCtrl);
 	return false;
 }
 
