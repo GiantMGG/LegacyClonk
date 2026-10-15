@@ -2040,4 +2040,78 @@ This reverts commit f4d4b3dde9d7d42579b772e77be1354af25b6496. (51ab431)
 
 - Restore alias as judge default — no concrete model pins (91ea5e3)
 
+## [380] - 2026-10-14
+
+### Added
+
+- **tools**: Import ledger — rank/verification fields, ledger subcommand, waiver path (cycle 224) (5eead65)
+
+- **tools**: Ccan_curated.toml — private-stash top-40 manifest blocks (cycle 224) (4744e88)
+
+- **tools**: Ledger import-failures section (cycle 224 review) (311e929)
+
+- **script**: EMDrawTool Aul seam — script-reachable EM paint control (cycle 229) (9e30394)
+
+- **game**: Worldeditor save roundtrip gate (cycle 230) (4a68f63)
+
+
+### Changed
+
+- **tools**: Auto_format pass — condense empty lines in admirals_crown_coop_gate (cycle 222) (3af6f62)
+
+- **tools**: Auto_format saltroad04_boot_gate.py — Format Lint red on 2d8f89c0 (cycle 226 followup) (2d6ac4f)
+
+
+### Fixed
+
+- **tools**: Smoke emitter — global effect callbacks + Objects.c4d definitions; Hazard3D smoke waiver (cycle 224) (53e53fa)
+
+- **tools**: Capture blob sha256 before c4group -u consumes packed blobs (cycle 224) (cca4edd)
+
+- **tools**: Is_already_imported tolerates empty Uploaded dates (cycle 224) (e6a39af)
+
+- **tools**: Bulk-import survives unexpected per-entry errors; Uploaded line parse no longer spans lines (cycle 224) (2d5fb73)
+
+- **tools**: Ccan_curated.toml — real local download filenames for 4 dual-anchor entries (cycle 224) (b49bb9f)
+
+- **c4group**: Honest exit codes — fError contract + permanent gate (cycle 228) (e9fe6f1)
+
+- **group**: UBSan-safe Head prints — hoist packed members to aligned locals (cycle 229 hotfix) (a667080)
+
+- **gamesave**: Pack directory-source quicksave target - SaveCreateGroup Layer 1 + Close folder guard Layer 2 (cycle 231) (3ccbc65)
+
+
+### Internal
+
+- Gen_beaconflame_gfx.py — deterministic BFLM flame sprite (cycle 221) (34f6c96)
+
+- **tools**: Admirals_crown_coop_gate — 2-clonk crew mirror drives the shipped co-op loop to 3 deliveries + WIN (cycle 222) (0ee9aa5)
+
+- **tools**: Regenerate ccan_thresholds.toml from 2026-10-13 crawl (cycle 224) (bc9a865)
+
+- **tools**: Smoke waivers for legacy stash packs with ledger reasons (cycle 224) (7d083ba)
+
+- **tools**: Saltroad04 boot gate (cycle 226) (23e5397)
+
+- **tools**: Saltroad04 boot gate placement-defect assert (cycle 226) (2d8f89c)
+
+- **tools**: Devmode_boot_drive — GTK dev console boots ColonyBay + enters Edit mode (cycle 227) (1554f59)
+
+- **quicksave**: Quicksave_directory_roundtrip permanent gate (cycle 231) (8288479)
+
+- **landscape**: Landscape_walkprobe tool + permanent green-pin gate (8bb364e)
+
+- **version**: Bump content version to 4.9.11.17 for v380 (61fc2d5)
+
+- **version**: Bump content version to 4.9.11.17 for v380 (ba23ff9)
+
+- **changelog**: V380 highlights audit citation fixes (cycle 233) (a8b17ee)
+
+- **changelog**: Update for v379 [skip ci] (6522d0e)
+
+
+### Other
+
+- Absorb v379 changelog splice (origin/master) into development for the v380 cut (364df40)
+
 <!-- git-cliff prepends new release sections above this line. -->
