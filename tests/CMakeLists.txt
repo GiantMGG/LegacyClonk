@@ -1235,6 +1235,39 @@ if(EXISTS "${LEGACYCLONK_CONTENT_DIR}/WeatherEvents.c4d/Tests.c4f/GrabsteinRally
 		FAIL_REGULAR_EXPRESSION "FatalError|\\[error\\]|\\[fatal\\]")
 endif()
 
+# --- Dustrunner Crossing bot-round smoke (cycle 236, roadmap --------------
+# dustrunner-crossing-ship). Permanent gate on the SHIPPED
+# DustrunnerCrossing.c4s round: four TestPlayer fixtures play the arena
+# round end-to-end at pinned Seed=199 (cycle-235 admission: 6/6 seeds WIN,
+# decider median 618; the seed-199 round self-decides at tick 5432 --
+# scratch/235/task4/round_seed199.log). PASS fires ONLY on the round's own
+# "DUSTRUNNER WIN team=" line (the Log behind the DRC_WinGold=5 bank
+# check), so the round's own goal decides the smoke, never the harness;
+# GameOver() ends the process per the smoke contract. Budget: --smoke-run
+# 9000 = ~1.66x the observed 5432-tick WIN, far under the round's own
+# 21000-tick cap (DRCCheckCap) -- a regressed round exits at 9000 with no
+# WIN line (or logs DUSTRUNNER TIMEOUT at the cap) instead of riding
+# green. NO glob collision: the scenario is not under a Tests.c4f and
+# carries no "Smoke" suffix, so the discovery glob cannot double-register
+# it (arena_bot_round_smoke precedent).
+if(EXISTS "${LEGACYCLONK_CONTENT_DIR}/ArenaChampions.c4f/DustrunnerCrossing.c4s/Script.c")
+	add_test(NAME dustrunner_crossing_round_smoke
+		COMMAND "${PYTHON3}" "${CMAKE_SOURCE_DIR}/tools/run_engine_headless.py"
+			"$<TARGET_FILE:clonk>" --console --smoke-run 9000 --frame-rate-cap 1000
+			--parameter "Seed=199"
+			--smoke-player-fixture "${CMAKE_SOURCE_DIR}/tests/fixtures/TestPlayer.c4p"
+			--smoke-player-fixture "${CMAKE_SOURCE_DIR}/tests/fixtures/TestPlayer.c4p"
+			--smoke-player-fixture "${CMAKE_SOURCE_DIR}/tests/fixtures/TestPlayer.c4p"
+			--smoke-player-fixture "${CMAKE_SOURCE_DIR}/tests/fixtures/TestPlayer.c4p"
+			-s "${LEGACYCLONK_CONTENT_DIR}/ArenaChampions.c4f/DustrunnerCrossing.c4s"
+		WORKING_DIRECTORY "${CMAKE_BINARY_DIR}")
+	set_tests_properties(dustrunner_crossing_round_smoke PROPERTIES
+		TIMEOUT 240
+		LABELS "smoke"
+		PASS_REGULAR_EXPRESSION "DUSTRUNNER WIN team="
+		FAIL_REGULAR_EXPRESSION "FatalError|\\[error\\]|\\[fatal\\]")
+endif()
+
 # --- AdmiralsCrown co-op gate (cycle 222, flooded-crown-coop-paths) -------
 # Permanent gate on the REAL AdmiralsCrown.c4s co-op seam: two TestPlayer
 # fixtures join as P1 (helm) + P2 (boatswain); tools/admirals_crown_coop_gate.py
