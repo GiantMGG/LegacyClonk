@@ -2114,4 +2114,33 @@ This reverts commit f4d4b3dde9d7d42579b772e77be1354af25b6496. (51ab431)
 
 - Absorb v379 changelog splice (origin/master) into development for the v380 cut (364df40)
 
+## [381] - 2026-10-15
+
+### Internal
+
+- **landscape**: Walkprobe --y-start window anchor (cycle 234) (7b58ba5)
+
+- **smoke**: Dustrunner_crossing_round_smoke gates the shipped DustrunnerCrossing round (cycle 236) (e5d6c24)
+
+- **version**: Bump content version to 4.9.11.18 for v381 (9bdd1bd)
+
+- **changelog**: Update for v380 [skip ci] (7ca7131)
+
+- **changelog**: Update for v381 [skip ci] (93c291a)
+
+- **mac**: Pin Xcode 26.6 SDK when CLT tbds break LLVM-22 tapi (8d4882a)
+
+
+### Other
+
+- Absorb v380 changelog splice (origin/master) into development for the v381 cut (f9c67f0)
+
+- Revert the v381 changelog splice (restore pre-splice state)
+
+The failed v381 Release run's changelog job spliced the [381] section into
+CHANGELOG.md and mirrored it to docs/changelog.md. Left in place, the next
+release run's duplicate-splice guard refuses to re-splice and the changelog
+job goes red (rules/release-recut.md rule 2). This restores the pre-splice
+state byte-identically so the re-cut can splice from scratch. (c6f414f)
+
 <!-- git-cliff prepends new release sections above this line. -->
