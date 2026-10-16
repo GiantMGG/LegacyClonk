@@ -1250,7 +1250,11 @@ bool C4Object::ChangeDef(C4ID idNew)
 
 	for (C4Object *const obj : Game.GetAllObjects())
 	{
-		obj->pEffects->OnObjectChangedDef(this);
+		// cycle-246 (engine-ub-hardening): match the sibling pEffects guards
+		// (:282, :1102, :1177) — effect-less objects carry pEffects == nullptr
+		// and the unguarded member call is -fsanitize=null UB.
+		if (obj->pEffects)
+			obj->pEffects->OnObjectChangedDef(this);
 	}
 	// Containment (no Entrance)
 	if (pContainer) Enter(pContainer, false);
