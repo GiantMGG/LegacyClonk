@@ -1900,8 +1900,11 @@ void C4Network2::OnClientConnect(C4Network2Client *pClient, C4Network2IOConnecti
 			SendJoinData(pClient);
 
 		// notice lobby (doesn't do anything atm?)
+		// cycle-246 (engine-ub-hardening): the lobby dialog is null whenever
+		// the lobby state is active without a dialog (headless/console net
+		// play); the unguarded member call is -fsanitize=null UB.
 		C4GameLobby::MainDlg *pDlg = GetLobby();
-		if (isLobbyActive()) pDlg->OnClientConnect(pClient->getClient(), pConn);
+		if (pDlg && isLobbyActive()) pDlg->OnClientConnect(pClient->getClient(), pConn);
 	}
 
 	// discover resources
