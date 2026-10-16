@@ -272,3 +272,43 @@ TEST_CASE("Rejected coercions leave source type unchanged", "[C4Value][Coercion]
 	REQUIRE(val.GetType() == C4V_Int);
 	REQUIRE(val._getInt() == 42);
 }
+
+// ---------------------------------------------------------------------------
+// Test (cycle 246, engine-ub-hardening): negative-int canonicalization across
+// construction paths. SetInt/SetBool must sign-extend into Raw exactly like
+// the constexpr constructors, so C4V_Data::operator=='s full-width Ref
+// compare cannot split one logical value into two representations.
+// ---------------------------------------------------------------------------
+
+TEST_CASE("SetInt/SetBool produce the constructor bit pattern", "[C4Value][Canonicalization]")
+{
+	SECTION("SetInt(-1) bit-identical to C4Value(C4ValueInt{-1})")
+	{
+		C4Value viaSetter;
+		viaSetter.SetInt(C4ValueInt{-1});
+		C4Value viaCtor{C4ValueInt{-1}};
+		REQUIRE(viaSetter._getRaw() == viaCtor._getRaw());
+		REQUIRE(viaSetter == viaCtor);
+	}
+
+	SECTION("small negatives across the int range")
+	{
+		for (C4ValueInt i : {C4ValueInt{-1}, C4ValueInt{-2}, C4ValueInt{-12345}})
+		{
+			C4Value viaSetter;
+			viaSetter.SetInt(i);
+			C4Value viaCtor{i};
+			INFO("int=" << i);
+			REQUIRE(viaSetter._getRaw() == viaCtor._getRaw());
+		}
+	}
+
+	SECTION("SetBool(true) bit-identical to C4Value(true)")
+	{
+		C4Value viaSetter;
+		viaSetter.SetBool(true);
+		C4Value viaCtor{true};
+		REQUIRE(viaSetter._getRaw() == viaCtor._getRaw());
+		REQUIRE(viaSetter == viaCtor);
+	}
+}

@@ -193,9 +193,9 @@ public:
 
 	void Set(const C4Value &nValue) { if (this != &nValue) Set(nValue.Data, nValue.Type); }
 
-	void SetInt(C4ValueInt i) { C4V_Data d; d.Raw = 0; d.Int = i; Set(d, C4V_Int); }
+	void SetInt(C4ValueInt i) { C4V_Data d; d.Raw = static_cast<std::intptr_t>(i); Set(d, C4V_Int); }
 
-	void SetBool(bool b) { C4V_Data d; d.Raw = 0; d.Int = b; Set(d, C4V_Bool); }
+	void SetBool(bool b) { C4V_Data d; d.Raw = static_cast<std::intptr_t>(b); Set(d, C4V_Bool); }
 
 	void SetC4ID(C4ID id) { C4V_Data d; d.Raw = 0; d.ID = id; Set(d, C4V_C4ID); }
 
