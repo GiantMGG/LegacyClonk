@@ -2848,8 +2848,12 @@ void C4NetIOUDP::Peer::OnRecv(const C4NetIOPacket &rPacket) // (mt-safe)
 	std::memcpy(&Hdr, rPacket.getData(), sizeof(Hdr));
 	const PacketHdr *pHdr = &Hdr;
 	bool fBroadcasted = !!(pHdr->StatusByte & 0x80);
-	// save packet nr
-	(fBroadcasted ? iRIMCPacketCounter : iRIPacketCounter) = std::max<unsigned int>((fBroadcasted ? iRIMCPacketCounter : iRIPacketCounter), pHdr->Nr);
+	// save packet nr (cycle 246, engine-ub-hardening): hoist the packed Nr
+	// member into an aligned local — std::max's const unsigned int& parameter
+	// bound to the #pragma pack(1) member (offset 1) is misaligned-reference
+	// UB that UBSan flags; the local load itself is a safe packed-member read.
+	const unsigned int iNr = pHdr->Nr;
+	(fBroadcasted ? iRIMCPacketCounter : iRIPacketCounter) = std::max<unsigned int>((fBroadcasted ? iRIMCPacketCounter : iRIPacketCounter), iNr);
 #ifdef C4NETIOUDP_OPT_RECV_CHECK_IMMEDIATE
 	// do check
 	if (eStatus == CS_Works)
