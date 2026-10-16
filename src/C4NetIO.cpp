@@ -2839,9 +2839,14 @@ void C4NetIOUDP::Peer::OnRecv(const C4NetIOPacket &rPacket) // (mt-safe)
 {
 	// statistics
 	{ CStdLock StatLock(&StatCSec); iIRate += rPacket.getSize() + iUDPHeaderSize; }
-	// get packet header
+	// get packet header (cycle 246, engine-ub-hardening): copy the on-wire
+	// header out of the datagram buffer before dereferencing it — the buffer
+	// backs this packet at an arbitrary offset, so a PacketHdr* view of it
+	// dereferences potentially misaligned members (UB by construction).
 	if (rPacket.getSize() < sizeof(PacketHdr)) return;
-	const PacketHdr *pHdr = rPacket.getPtr<PacketHdr>();
+	PacketHdr Hdr;
+	std::memcpy(&Hdr, rPacket.getData(), sizeof(Hdr));
+	const PacketHdr *pHdr = &Hdr;
 	bool fBroadcasted = !!(pHdr->StatusByte & 0x80);
 	// save packet nr
 	(fBroadcasted ? iRIMCPacketCounter : iRIPacketCounter) = std::max<unsigned int>((fBroadcasted ? iRIMCPacketCounter : iRIPacketCounter), pHdr->Nr);
