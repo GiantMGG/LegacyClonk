@@ -42,11 +42,13 @@
 #include <catch2/catch_all.hpp>
 
 #include <atomic>
+#include <cstring>
 #include <filesystem>
 #include <string>
 #include <thread>
 
 #include "C4Group.h"
+#include "C4GroupSet.h"
 
 namespace fs = std::filesystem;
 
@@ -122,4 +124,50 @@ TEST_CASE("C4Group real subfolder child still opens as folder", "[c4group]")
 	C4Group h;
 	REQUIRE(h.Open(realsub.string().c_str()));
 	REQUIRE(h.GetStatus() == GRPF_Folder);
+}
+
+// ---------------------------------------------------------------------------
+// Pin (cycle 246, engine-ub-hardening): RegisterParentFolders opens a nested
+// .c4f/.c4f parent chain. Characterizes the index-based rewrite of the former
+// in-place slash->NUL->slash surgery (C4GroupSet.cpp): the scenario filename
+// inside two nested .c4f folders registers both folder groups and returns the
+// innermost one. Regression pin for the segment-boundary walk.
+// ---------------------------------------------------------------------------
+
+TEST_CASE("RegisterParentFolders opens a nested .c4f/.c4f parent chain", "[c4groupset][parentfolders]")
+{
+	TempGroupDir tmp("parentfolders");
+	const fs::path outer = tmp.root / "Outer.c4f";
+	const fs::path mid = outer / "Mid.c4f";
+	REQUIRE(fs::create_directories(mid));
+
+	C4GroupSet set;
+
+	SECTION("scenario filename inside two nested .c4f folders")
+	{
+		C4Group *pInnermost = set.RegisterParentFolders((mid / "Scen.c4s").string().c_str());
+		REQUIRE(pInnermost != nullptr);
+		// GetName() is the full folder path for folder-form groups
+		// (C4Group.cpp:1846 SCopy(path, FileName, _MAX_FNAME)).
+		REQUIRE(std::strstr(pInnermost->GetName(), "Mid.c4f") != nullptr);
+		// Both folder groups registered: the joined prefix group (path up to
+		// the first .c4f ancestor of the breaking segment) and Mid.c4f as its
+		// child, in ascending folder priority. Asserted by registration order
+		// (GetGroup) rather than FindGroup(C4GSCnt_Folder): RegisterGroup
+		// defaults fCheckContent=true and CheckGroupContents reduces the
+		// content mask to 0 for these empty fixture folders, so no content
+		// mask can ever match them — that is CheckGroupContents behavior,
+		// orthogonal to the segment walk this pin characterizes.
+		C4Group *pFirst = set.GetGroup(0);
+		REQUIRE(pFirst != nullptr);
+		REQUIRE(std::strstr(pFirst->GetName(), "Outer.c4f") != nullptr);
+		REQUIRE(set.GetLastID() == 2);
+	}
+
+	SECTION("filename directly a .c4f folder")
+	{
+		C4Group *pInnermost = set.RegisterParentFolders(mid.string().c_str());
+		REQUIRE(pInnermost != nullptr);
+		REQUIRE(std::strstr(pInnermost->GetName(), "Mid.c4f") != nullptr);
+	}
 }

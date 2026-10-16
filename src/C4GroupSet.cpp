@@ -30,6 +30,8 @@
 #include <C4Log.h>
 #include "C4ResStrTable.h"
 
+#include <cstring>
+
 C4GroupSetNode::C4GroupSetNode(C4GroupSet &rParent, C4GroupSetNode *pPrev, C4Group &rGroup, bool fGrpOwned, int32_t id)
 {
 	// set parent
@@ -275,56 +277,118 @@ C4Group *C4GroupSet::RegisterParentFolders(const char *szScenFilename)
 	}
 	if (fParentC4F)
 	{
-		// replace all (back)slashes with zero-fields
-		const auto iOriginalLen = SLen(szParentfolder);
-		for (size_t i = 0; i < iOriginalLen; ++i) if (szParentfolder[i] == DirectorySeparator || szParentfolder[i] == '/') szParentfolder[i] = 0;
-		// trace back until the file extension is no more .c4f
-		auto iPos = iOriginalLen - 1;
-		while (iPos)
+		// Cycle-246 UB hardening (engine-ub-hardening): the previous code
+		// NUL-patched the path separators of this stack buffer in place and
+		// then ran SLen()/GetExtension() across the patched bytes, so a read
+		// could pass the terminator the patch itself had clobbered
+		// (build-divergent stack-UB; cycle-172/173 note). The walk below
+		// derives the same segment layout from indices and never mutates the
+		// buffer: a separator is any of '/' and DirectorySeparator, a segment
+		// is a maximal separator-free run, and extension checks run on
+		// bounded per-segment copies.
+		const size_t iLen = SLen(szParentfolder);
+		const auto fIsSep = [](char c) { return c == DirectorySeparator || c == '/'; };
+		char szSeg[_MAX_PATH + 1];
+
+		// Pass 1 — walk segments from the last one upward while their
+		// extension is .c4f (the old back-trace). iSegEnd is the exclusive
+		// end of the segment under examination. iAboveEnd remembers the end
+		// of the most recent .c4f segment seen; the joined prefix (old
+		// restore mode) runs from the buffer start to the end of the first
+		// .c4f ancestor of the first non-.c4f segment.
+		size_t iSegEnd = iLen;
+		while (iSegEnd > 0 && fIsSep(szParentfolder[iSegEnd - 1])) --iSegEnd; // trailing separators
+		size_t iAboveEnd = iLen;
+		bool fPerSegment = true; // per-segment opening unless an interior non-.c4f segment breaks the walk
+		for (;;)
 		{
-			// ignore additional zero fields (double-backslashes)
-			while (iPos && !szParentfolder[iPos]) --iPos;
-			// break if end has been reached
-			if (!iPos) break;
-			// trace back until next zero field
-			while (iPos && szParentfolder[iPos]) --iPos;
-			// check extension of this folder
-			if (!SEqualNoCase(GetExtension(szParentfolder + iPos + 1), "c4f", 3)) break;
-			// continue
-		}
-		// trace backwards, putting the (back)slashes in place again
-		if (iPos)
-		{
-			szParentfolder[iPos + 1 + SLen(szParentfolder + iPos + 1)] = szParentfolder[iPos] = DirectorySeparator;
-			while (iPos--) if (!szParentfolder[iPos]) szParentfolder[iPos] = DirectorySeparator;
-			++iPos;
-		}
-		// trace forward again, opening all folders (iPos is 0 again)
-		int32_t iGroupIndex = 0;
-		while (iPos < iOriginalLen)
-		{
-			// ignore additional zero-fields
-			while (iPos < iOriginalLen && !szParentfolder[iPos]) ++iPos;
-			// break if end has been reached
-			if (iPos >= iOriginalLen) break;
-			// open this folder
-			C4Group *pGroup = new C4Group();
-			if (pParentGroup)
+			if (iSegEnd == 0) break; // every segment was .c4f
+			size_t iSegStart = iSegEnd;
+			while (iSegStart > 0 && !fIsSep(szParentfolder[iSegStart - 1]))
+				--iSegStart;
+			const size_t iSegLen = iSegEnd - iSegStart;
+			std::memcpy(szSeg, szParentfolder + iSegStart, iSegLen);
+			szSeg[iSegLen] = '\0';
+			if (!SEqualNoCase(GetExtension(szSeg), "c4f", 3))
 			{
-				if (!pGroup->OpenAsChild(pParentGroup, szParentfolder + iPos))
+				// Non-.c4f segment breaks the walk. Old behavior: if only
+				// separators precede it, the back-trace had reached the string
+				// start and every segment opened individually; otherwise the
+				// path up to the first .c4f ancestor joined into one prefix
+				// group with the remaining .c4f ancestors as its children.
+				size_t iPrev = iSegStart;
+				while (iPrev > 0 && fIsSep(szParentfolder[iPrev - 1]))
+					--iPrev;
+				fPerSegment = (iPrev == 0);
+				break;
+			}
+			// .c4f segment: remember its end, continue with the previous segment
+			iAboveEnd = iSegEnd;
+			iSegEnd = iSegStart;
+			while (iSegEnd > 0 && fIsSep(szParentfolder[iSegEnd - 1]))
+				--iSegEnd;
+		}
+
+		int32_t iGroupIndex = 0;
+		if (fPerSegment)
+		{
+			// Old forward walk: every segment opens, the first via Open, the
+			// rest as children of the previous one.
+			size_t iPos = 0;
+			while (iPos < iLen)
+			{
+				while (iPos < iLen && fIsSep(szParentfolder[iPos])) ++iPos; // skip separators
+				if (iPos >= iLen) break;
+				size_t iTo = iPos;
+				while (iTo < iLen && !fIsSep(szParentfolder[iTo])) ++iTo;
+				const size_t iSegLen = iTo - iPos;
+				std::memcpy(szSeg, szParentfolder + iPos, iSegLen);
+				szSeg[iSegLen] = '\0';
+				// open this folder
+				C4Group *pGroup = new C4Group();
+				if (pParentGroup)
 				{
-					LogFatalNTr("{}: {}", LoadResStr(C4ResStrTableKey::IDS_PRC_FILENOTFOUND), szParentfolder + iPos);
+					if (!pGroup->OpenAsChild(pParentGroup, szSeg))
+					{
+						LogFatalNTr("{}: {}", LoadResStr(C4ResStrTableKey::IDS_PRC_FILENOTFOUND), szSeg);
+						delete pGroup; return nullptr;
+					}
+				}
+				else if (!pGroup->Open(szSeg))
+				{
+					LogFatalNTr("{}: {}", LoadResStr(C4ResStrTableKey::IDS_PRC_FILENOTFOUND), szSeg);
 					delete pGroup; return nullptr;
 				}
+				// set this group as new parent
+				pParentGroup = pGroup;
+				// add to group set, if this is a true scenario folder
+				int32_t iContentsMask;
+				if (WildcardMatch(C4CFN_FolderFiles, pParentGroup->GetName()))
+					iContentsMask = C4GSCnt_Folder;
+				else
+					iContentsMask = C4GSCnt_Directory;
+				if (!RegisterGroup(*pParentGroup, true, C4GSPrio_Folder + iGroupIndex++, iContentsMask))
+				{
+					delete pParentGroup; LogFatalNTr("RegGrp: internal error"); return nullptr;
+				}
+				iPos = iTo;
 			}
-			else if (!pGroup->Open(szParentfolder + iPos))
+		}
+		else
+		{
+			// Old restore mode: the joined prefix (buffer start up to the
+			// first .c4f ancestor of the breaking segment) opens as one
+			// group, then each remaining .c4f ancestor opens as its child.
+			const size_t iPrefixEnd = iAboveEnd;
+			std::memcpy(szSeg, szParentfolder, iPrefixEnd);
+			szSeg[iPrefixEnd] = '\0';
+			C4Group *pGroup = new C4Group();
+			if (!pGroup->Open(szSeg))
 			{
-				LogFatalNTr("{}: {}", LoadResStr(C4ResStrTableKey::IDS_PRC_FILENOTFOUND), szParentfolder + iPos);
+				LogFatalNTr("{}: {}", LoadResStr(C4ResStrTableKey::IDS_PRC_FILENOTFOUND), szSeg);
 				delete pGroup; return nullptr;
 			}
-			// set this group as new parent
 			pParentGroup = pGroup;
-			// add to group set, if this is a true scenario folder
 			int32_t iContentsMask;
 			if (WildcardMatch(C4CFN_FolderFiles, pParentGroup->GetName()))
 				iContentsMask = C4GSCnt_Folder;
@@ -334,8 +398,34 @@ C4Group *C4GroupSet::RegisterParentFolders(const char *szScenFilename)
 			{
 				delete pParentGroup; LogFatalNTr("RegGrp: internal error"); return nullptr;
 			}
-			// advance by file name length
-			iPos += SLen(szParentfolder + iPos);
+			size_t iPos = iPrefixEnd;
+			while (iPos < iLen)
+			{
+				while (iPos < iLen && fIsSep(szParentfolder[iPos])) ++iPos;
+				if (iPos >= iLen) break;
+				size_t iTo = iPos;
+				while (iTo < iLen && !fIsSep(szParentfolder[iTo])) ++iTo;
+				const size_t iSegLen = iTo - iPos;
+				std::memcpy(szSeg, szParentfolder + iPos, iSegLen);
+				szSeg[iSegLen] = '\0';
+				C4Group *pGroup = new C4Group();
+				if (!pGroup->OpenAsChild(pParentGroup, szSeg))
+				{
+					LogFatalNTr("{}: {}", LoadResStr(C4ResStrTableKey::IDS_PRC_FILENOTFOUND), szSeg);
+					delete pGroup; return nullptr;
+				}
+				pParentGroup = pGroup;
+				int32_t iContentsMask;
+				if (WildcardMatch(C4CFN_FolderFiles, pParentGroup->GetName()))
+					iContentsMask = C4GSCnt_Folder;
+				else
+					iContentsMask = C4GSCnt_Directory;
+				if (!RegisterGroup(*pParentGroup, true, C4GSPrio_Folder + iGroupIndex++, iContentsMask))
+				{
+					delete pParentGroup; LogFatalNTr("RegGrp: internal error"); return nullptr;
+				}
+				iPos = iTo;
+			}
 		}
 	}
 	return pParentGroup;
